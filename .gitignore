@@ -1,0 +1,59 @@
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Entornos virtuales
+backend/.venv/
+.venv/
+venv/
+
+# Django
+backend/staticfiles/
+*.sqlite3
+*.log
+
+# React y Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Archivos generados por la plataforma
+runtime/
+media/
+documents/
+backups/
+
+# Bases de datos y respaldos
+*.sql
+*.dump
+*.bak
+
+# Credenciales, certificados y claves
+*.pem
+*.key
+*.crt
+*.p12
+
+# Sistemas operativos
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos temporales
+*.tmp
+*.temp
+*.swp
+*~
+.~lock.*
