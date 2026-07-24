@@ -582,3 +582,79 @@ tr:hover td { background: #f8faff; }
     width: 100%;
   }
 }
+
+.detail-link {
+  color: #245f9e;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.detail-link:hover {
+  text-decoration: underline;
+}
+
+.work-order-progress {
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.work-order-progress-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.work-order-progress-heading div {
+  display: grid;
+  gap: 4px;
+}
+
+.work-order-progress-heading span {
+  color: #667085;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.work-order-progress-heading strong {
+  color: #10233f;
+  font-size: 1.6rem;
+}
+
+.work-order-progress-heading small {
+  color: #667085;
+}
+
+.progress-track {
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e4eaf2;
+}
+
+.progress-value {
+  height: 100%;
+  border-radius: inherit;
+  background: #176b87;
+  transition: width 200ms ease;
+}
+
+.work-order-notes,
+.work-order-actions-card {
+  margin-bottom: 20px;
+}
+
+.work-order-notes p {
+  margin: 0;
+  color: #344054;
+  line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+  .work-order-progress-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
