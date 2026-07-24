@@ -5,6 +5,7 @@ import { AssetEntryWizardPage } from "@/modules/assets/pages/AssetEntryWizardPag
 import { PublicAssetPage } from "@/modules/assets/pages/PublicAssetPage";
 import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 import { IncidentListPage } from "@/modules/incidents/pages/IncidentListPage";
+import { IncidentCreatePage } from "@/modules/incidents/pages/IncidentCreatePage";
 
 
 const modules = [
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: "bienes/entradas/nueva", element: <AssetEntryWizardPage /> },
 
       { path: "incidencias", element: <IncidentListPage /> },
+      { path: "incidencias/nueva", element: <IncidentCreatePage /> },
 
       ...modules.map(([path, title]) => ({
         path,
