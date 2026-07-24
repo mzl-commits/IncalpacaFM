@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'apps.assets',
+    'apps.assignments',
 ]
 
 MIDDLEWARE = [
@@ -127,4 +128,4 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']
-CORS_ALLOW_HEADERS = (*default_headers, 'x-frontend-origin')
+CORS_ALLOW_HEADERS = (*default_headers, 'x-frontend-origin', 'idempotency-key')

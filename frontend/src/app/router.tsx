@@ -6,9 +6,11 @@ import { AssetQrInventoryPage } from "@/modules/assets/pages/AssetQrInventoryPag
 import { AssetDetailPage } from "@/modules/assets/pages/AssetDetailPage";
 import { PublicAssetPage } from "@/modules/assets/pages/PublicAssetPage";
 import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
+import { AssignmentListPage } from "@/modules/assignments/pages/AssignmentListPage";
+import { AssignmentWizardPage } from "@/modules/assignments/pages/AssignmentWizardPage";
+import { AssignmentDetailPage } from "@/modules/assignments/pages/AssignmentDetailPage";
 
 const modules = [
-  ["asignaciones", "Asignaciones"],
   ["mantenimiento", "Mantenimiento"],
   ["incidencias", "Incidencias"],
   ["ordenes-trabajo", "Órdenes de trabajo"],
@@ -29,6 +31,9 @@ export const router = createBrowserRouter([
       { path: "bienes/entradas/nueva", element: <AssetEntryWizardPage /> },
       { path: "bienes/qr", element: <AssetQrInventoryPage /> },
       { path: "bienes/:id", element: <AssetDetailPage /> },
+      { path: "asignaciones", element: <AssignmentListPage /> },
+      { path: "asignaciones/nueva", element: <AssignmentWizardPage /> },
+      { path: "asignaciones/:id", element: <AssignmentDetailPage /> },
       ...modules.map(([path, title]) => ({
         path,
         element: <ModulePlaceholderPage title={title} />,

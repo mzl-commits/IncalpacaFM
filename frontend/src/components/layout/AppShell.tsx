@@ -46,11 +46,11 @@ export function AppShell() {
             <House size={20} weight="duotone" />
             Inicio
           </NavLink>
-          {navigation.map(({ to, label, icon: Icon, secondary }) => (
+          {navigation.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={`${to}-${label}`}
               to={to}
-              className={({ isActive }) => `nav-item ${secondary ? "is-subitem" : ""} ${isActive && secondary ? "is-active" : ""}`}
+              className={({ isActive }) => `nav-item ${isActive ? "is-active" : ""}`}
             >
               <Icon size={20} weight="duotone" />
               {label}
