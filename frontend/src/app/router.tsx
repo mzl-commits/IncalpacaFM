@@ -10,6 +10,7 @@ import { IncidentDetailPage } from "@/modules/incidents/pages/IncidentDetailPage
 import { WorkOrderCreatePage } from "@/modules/workorders/pages/WorkOrderCreatePage";
 import { WorkOrderListPage } from "@/modules/workorders/pages/WorkOrderListPage";
 import { WorkOrderDetailPage } from "@/modules/workorders/pages/WorkOrderDetailPage";
+import { WorkOrderExecutionPage } from "@/modules/workorders/pages/WorkOrderExecutionPage";
 
 
 const modules = [
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
       { path: "ordenes-trabajo", element: <WorkOrderListPage /> },
       { path: "ordenes-trabajo/nueva/:requestId", element: <WorkOrderCreatePage /> },
       { path: "ordenes-trabajo/:id", element: <WorkOrderDetailPage /> },
+      { path: "ordenes-trabajo/:id/ejecutar", element: <WorkOrderExecutionPage /> },
 
       ...modules.map(([path, title]) => ({
         path,

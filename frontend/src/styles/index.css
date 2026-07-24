@@ -658,3 +658,49 @@ tr:hover td { background: #f8faff; }
     flex-direction: column;
   }
 }
+
+.execution-start-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.execution-start-card h2 {
+  margin: 0 0 6px;
+  color: #10233f;
+}
+
+.execution-start-card p {
+  margin: 0;
+  color: #667085;
+}
+
+.selected-files-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+  margin: 16px 0 0;
+  color: #344054;
+}
+
+.work-order-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+@media (max-width: 700px) {
+  .execution-start-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .execution-start-card .button,
+  .work-order-detail-actions .button {
+    justify-content: center;
+    width: 100%;
+  }
+}

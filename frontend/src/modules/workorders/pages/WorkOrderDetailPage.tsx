@@ -302,16 +302,30 @@ export function WorkOrderDetailPage() {
       </article>
 
       <article className="data-panel detail-card work-order-actions-card">
-        <div className="detail-card-heading">
-          <Wrench size={22} />
-          <h2>Ejecución de la orden</h2>
-        </div>
+      <div className="detail-card-heading">
+        <Wrench size={22} />
+        <h2>Ejecución de la orden</h2>
+      </div>
 
-        <p className="detail-empty">
-          Los avances, materiales, herramientas y evidencias del operario
-          aparecerán en esta sección.
-        </p>
-      </article>
+      <p className="detail-empty">
+        Los avances, materiales, herramientas y evidencias del operario
+        aparecerán en esta sección.
+      </p>
+
+      {workOrder.status !== "CERRADA" &&
+        workOrder.status !== "CANCELADA" &&
+        workOrder.status !== "PENDIENTE_DE_SUPERVISION" &&
+        workOrder.status !== "APROBADA_POR_SUPERVISOR" && (
+          <div className="work-order-detail-actions">
+            <Link
+              className="button button-primary"
+              to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}
+            >
+              Registrar avance
+            </Link>
+          </div>
+        )}
+    </article>
     </section>
   );
 }

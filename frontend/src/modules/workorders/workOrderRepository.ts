@@ -1,5 +1,8 @@
 import { mockWorkOrders } from "./data/mockWorkOrders";
-import type { WorkOrder } from "./types";
+import type {
+  WorkOrder,
+  WorkOrderProgress,
+} from "./types";
 
 const STORAGE_KEY = "sgtb_work_orders";
 
@@ -37,7 +40,9 @@ export function listWorkOrders(): WorkOrder[] {
   }
 }
 
-function generateWorkOrderCode(workOrders: WorkOrder[]) {
+function generateWorkOrderCode(
+  workOrders: WorkOrder[],
+) {
   const year = new Date().getFullYear();
 
   const lastNumber = workOrders.reduce(
@@ -77,6 +82,7 @@ export function createWorkOrder(
     ...workOrder,
     id: crypto.randomUUID(),
     code: generateWorkOrderCode(workOrders),
+    advances: workOrder.advances ?? [],
     createdAt: now,
     updatedAt: now,
   };
@@ -95,4 +101,114 @@ export function getWorkOrderById(
   return listWorkOrders().find(
     (workOrder) => workOrder.id === id,
   );
+}
+
+export function updateWorkOrder(
+  id: string,
+  changes: Partial<WorkOrder>,
+): WorkOrder | undefined {
+  const workOrders = listWorkOrders();
+
+  const index = workOrders.findIndex(
+    (workOrder) => workOrder.id === id,
+  );
+
+  if (index === -1) {
+    return undefined;
+  }
+
+  const updatedWorkOrder: WorkOrder = {
+    ...workOrders[index],
+    ...changes,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const updatedWorkOrders = [...workOrders];
+  updatedWorkOrders[index] = updatedWorkOrder;
+
+  saveWorkOrders(updatedWorkOrders);
+
+  return updatedWorkOrder;
+}
+
+export function startWorkOrder(
+  id: string,
+): WorkOrder | undefined {
+  const workOrder = getWorkOrderById(id);
+
+  if (!workOrder) {
+    return undefined;
+  }
+
+  if (workOrder.status === "EN_PROCESO") {
+    return workOrder;
+  }
+
+  return updateWorkOrder(id, {
+    status: "EN_PROCESO",
+    startedAt:
+      workOrder.startedAt ??
+      new Date().toISOString(),
+  });
+}
+
+export interface RegisterProgressInput {
+  operatorId: string;
+  operatorName: string;
+  percentage: number;
+  observation: string;
+  evidenceNames: string[];
+}
+
+export function registerWorkOrderProgress(
+  id: string,
+  input: RegisterProgressInput,
+): WorkOrder | undefined {
+  const workOrder = getWorkOrderById(id);
+
+  if (!workOrder) {
+    return undefined;
+  }
+
+  const now = new Date().toISOString();
+
+  const progress: WorkOrderProgress = {
+    id: crypto.randomUUID(),
+    workOrderId: workOrder.id,
+    operatorId: input.operatorId,
+    operatorName: input.operatorName,
+    percentage: input.percentage,
+    observation: input.observation.trim(),
+
+    evidence: input.evidenceNames.map(
+      (name) => ({
+        id: crypto.randomUUID(),
+        name,
+        mimeType: "image/*",
+        size: 0,
+        createdAt: now,
+      }),
+    ),
+
+    createdAt: now,
+  };
+
+  const advances = [
+    ...(workOrder.advances ?? []),
+    progress,
+  ];
+
+  const finished =
+    input.percentage === 100;
+
+  return updateWorkOrder(id, {
+    advances,
+    progressPercentage: input.percentage,
+    status: finished
+      ? "PENDIENTE_DE_SUPERVISION"
+      : "EN_PROCESO",
+    startedAt:
+      workOrder.startedAt ?? now,
+    finishedAt: finished ? now : undefined,
+  });
 }
