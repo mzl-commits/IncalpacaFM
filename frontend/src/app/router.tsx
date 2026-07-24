@@ -2,6 +2,8 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { AssetEntryListPage } from "@/modules/assets/pages/AssetEntryListPage";
 import { AssetEntryWizardPage } from "@/modules/assets/pages/AssetEntryWizardPage";
+import { AssetQrInventoryPage } from "@/modules/assets/pages/AssetQrInventoryPage";
+import { AssetDetailPage } from "@/modules/assets/pages/AssetDetailPage";
 import { PublicAssetPage } from "@/modules/assets/pages/PublicAssetPage";
 import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 
@@ -25,6 +27,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/bienes/entradas" replace /> },
       { path: "bienes/entradas", element: <AssetEntryListPage /> },
       { path: "bienes/entradas/nueva", element: <AssetEntryWizardPage /> },
+      { path: "bienes/qr", element: <AssetQrInventoryPage /> },
+      { path: "bienes/:id", element: <AssetDetailPage /> },
       ...modules.map(([path, title]) => ({
         path,
         element: <ModulePlaceholderPage title={title} />,
@@ -32,3 +36,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+

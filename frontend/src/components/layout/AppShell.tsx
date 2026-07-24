@@ -8,6 +8,7 @@ import {
   ListDashes,
   SquaresFour,
   Package,
+  QrCode,
   ShieldCheck,
   SignOut,
   Toolbox,
@@ -17,8 +18,8 @@ import {
 import { NavLink, Outlet } from "react-router-dom";
 
 const navigation = [
-  { to: "/bienes/entradas", label: "Bienes", icon: Package },
-  { to: "/bienes/entradas", label: "Entradas", icon: ListDashes, secondary: true },
+  { to: "/bienes/entradas", label: "Entrada de bienes", icon: Package },
+  { to: "/bienes/qr", label: "Gestión de QR", icon: QrCode },
   { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
   { to: "/mantenimiento", label: "Mantenimiento", icon: Wrench },
   { to: "/incidencias", label: "Incidencias", icon: ListChecks },
