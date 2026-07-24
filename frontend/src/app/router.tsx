@@ -4,11 +4,12 @@ import { AssetEntryListPage } from "@/modules/assets/pages/AssetEntryListPage";
 import { AssetEntryWizardPage } from "@/modules/assets/pages/AssetEntryWizardPage";
 import { PublicAssetPage } from "@/modules/assets/pages/PublicAssetPage";
 import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
+import { IncidentListPage } from "@/modules/incidents/pages/IncidentListPage";
+
 
 const modules = [
   ["asignaciones", "Asignaciones"],
   ["mantenimiento", "Mantenimiento"],
-  ["incidencias", "Incidencias"],
   ["ordenes-trabajo", "Órdenes de trabajo"],
   ["ciclo-vida", "Ciclo de vida"],
   ["documentos", "Documentos"],
@@ -23,8 +24,12 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Navigate to="/bienes/entradas" replace /> },
+
       { path: "bienes/entradas", element: <AssetEntryListPage /> },
       { path: "bienes/entradas/nueva", element: <AssetEntryWizardPage /> },
+
+      { path: "incidencias", element: <IncidentListPage /> },
+
       ...modules.map(([path, title]) => ({
         path,
         element: <ModulePlaceholderPage title={title} />,
