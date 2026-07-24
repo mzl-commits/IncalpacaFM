@@ -67,6 +67,7 @@ export function AssetEntryWizardPage() {
   const [online, setOnline] = useState(navigator.onLine);
   const [registered, setRegistered] = useState<RegisteredAsset | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     loadAssetEntryDraft().then((saved) => {
@@ -117,10 +118,13 @@ export function AssetEntryWizardPage() {
     setErrors({});
     if (draft.currentStep === 5) {
       setSubmitting(true);
+      setSubmitError("");
       try {
         const result = await registerAsset({ ...draft, currentStep: 6 });
         setRegistered(result);
         setDraft((current) => ({ ...current, currentStep: 6 }));
+      } catch {
+        setSubmitError("No se pudo registrar el bien. Verifica que el backend esté disponible e inténtalo nuevamente.");
       } finally { setSubmitting(false); }
       return;
     }
@@ -307,6 +311,7 @@ export function AssetEntryWizardPage() {
       <form className="form-panel" onSubmit={(e) => { e.preventDefault(); next(); }}>
         <div className="form-section-heading"><span>Paso {draft.currentStep + 1} de 7</span><h2>{stepCopy[draft.currentStep][0]}</h2><p>{stepCopy[draft.currentStep][1]}</p></div>
         {stepContent()}
+        {submitError && <div className="confirmation-box" role="alert"><p className="field-error"><WarningCircle size={18} />{submitError}</p></div>}
         {draft.currentStep < 6 && <div className="form-actions">
           {draft.currentStep > 0 ? <button className="button button-secondary" type="button" onClick={back}><ArrowLeft /> Anterior</button> : <button className="button button-secondary" type="button" onClick={() => navigate("/bienes/entradas")}><FloppyDisk /> Guardar y salir</button>}
           <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? "Registrando…" : draft.currentStep === 5 ? <><QrCode /> Registrar y generar QR</> : <>Continuar <ArrowRight /></>}</button>

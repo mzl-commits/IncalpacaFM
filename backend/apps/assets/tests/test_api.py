@@ -45,3 +45,13 @@ class AssetEntryApiTests(TestCase):
         self.assertNotIn('serial_number', response.json())
         self.assertNotIn('entry_payload', response.json())
         self.assertNotIn('registered_by_name', response.json())
+
+    def test_frontend_origin_header_is_allowed_by_cors(self):
+        response = self.client.options(
+            '/api/v1/assets/',
+            HTTP_ORIGIN='http://127.0.0.1:5173',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='POST',
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS='content-type,x-frontend-origin',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('x-frontend-origin', response['access-control-allow-headers'])
