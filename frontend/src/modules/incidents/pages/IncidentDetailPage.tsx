@@ -172,39 +172,48 @@ export function IncidentDetailPage() {
           </div>
 
           <div className="admin-evaluation-actions">
+            {request.status === "APROBADA" && (
+                <Link
+                className="button button-primary"
+                to={`/ordenes-trabajo/nueva/${request.id}`}
+                >
+                Generar orden de trabajo
+                </Link>
+            )}
+
             {request.status === "PENDIENTE" && (
-              <button
+                <button
                 className="button button-secondary"
                 type="button"
                 onClick={() => changeRequestStatus("EN_EVALUACION")}
-              >
+                >
                 Marcar en evaluación
-              </button>
+                </button>
             )}
 
             {request.status !== "APROBADA" && (
-              <button
+                <button
                 className="button button-primary"
                 type="button"
                 onClick={() => changeRequestStatus("APROBADA")}
-              >
+                >
                 Aprobar solicitud
-              </button>
+                </button>
             )}
 
             {request.status !== "RECHAZADA" && (
-              <button
+                <button
                 className="button button-danger"
                 type="button"
                 onClick={() => {
-                  setShowRejectForm(true);
-                  setEvaluationError("");
+                    setShowRejectForm(true);
+                    setEvaluationError("");
                 }}
-              >
+                >
                 Rechazar solicitud
-              </button>
+                </button>
             )}
-          </div>
+            </div>
 
           {showRejectForm && (
             <div className="rejection-form">

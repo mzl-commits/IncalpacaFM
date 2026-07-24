@@ -7,6 +7,7 @@ import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPa
 import { IncidentListPage } from "@/modules/incidents/pages/IncidentListPage";
 import { IncidentCreatePage } from "@/modules/incidents/pages/IncidentCreatePage";
 import { IncidentDetailPage } from "@/modules/incidents/pages/IncidentDetailPage";
+import { WorkOrderCreatePage } from "@/modules/workorders/pages/WorkOrderCreatePage";
 
 
 const modules = [
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       { path: "incidencias", element: <IncidentListPage /> },
       { path: "incidencias/nueva", element: <IncidentCreatePage /> },
       { path: "incidencias/:id", element: <IncidentDetailPage /> },
+      {path: "ordenes-trabajo/nueva/:requestId", element: <WorkOrderCreatePage /> },
 
       ...modules.map(([path, title]) => ({
         path,
