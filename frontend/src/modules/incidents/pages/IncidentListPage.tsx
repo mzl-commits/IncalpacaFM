@@ -3,16 +3,20 @@ import {
   MagnifyingGlass,
   Plus,
 } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { mockWorkRequests } from "@/modules/incidents/data/mockIncidents";
 import {
   requestPriorityLabels,
   requestStatusLabels,
   requestTypeLabels,
   type RequestStatus,
 } from "@/modules/incidents/incidentModel";
+
+import {
+  listWorkRequests,
+  WORK_REQUESTS_UPDATED_EVENT,
+} from "@/modules/incidents/incidentRepository";
 
 const statusClass: Record<RequestStatus, string> = {
   PENDIENTE: "status-warning",
@@ -24,15 +28,34 @@ const statusClass: Record<RequestStatus, string> = {
 
 export function IncidentListPage() {
   const [search, setSearch] = useState("");
+  const [allRequests, setAllRequests] = useState(listWorkRequests);
+
+  useEffect(() => {
+    function refreshRequests() {
+      setAllRequests(listWorkRequests());
+    }
+
+    window.addEventListener(
+      WORK_REQUESTS_UPDATED_EVENT,
+      refreshRequests,
+    );
+
+    return () => {
+      window.removeEventListener(
+        WORK_REQUESTS_UPDATED_EVENT,
+        refreshRequests,
+      );
+    };
+  }, []);
 
   const requests = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
     if (!normalizedSearch) {
-      return mockWorkRequests;
+      return allRequests;
     }
 
-    return mockWorkRequests.filter((request) => {
+    return allRequests.filter((request) => {
       const searchableText = [
         request.code,
         request.requesterName,
@@ -50,23 +73,23 @@ export function IncidentListPage() {
 
       return searchableText.includes(normalizedSearch);
     });
-  }, [search]);
+  }, [search, allRequests]);
 
-  const pendingCount = mockWorkRequests.filter(
+  const pendingCount = allRequests.filter(
     (request) => request.status === "PENDIENTE",
   ).length;
 
-  const evaluatingCount = mockWorkRequests.filter(
+  const evaluatingCount = allRequests.filter(
     (request) => request.status === "EN_EVALUACION",
   ).length;
 
-  const urgentCount = mockWorkRequests.filter(
+  const urgentCount = allRequests.filter(
     (request) =>
       request.requesterPriority === "URGENTE" ||
       request.requesterPriority === "EMERGENCIA",
   ).length;
 
-  const approvedCount = mockWorkRequests.filter(
+  const approvedCount = allRequests.filter(
     (request) =>
       request.status === "APROBADA" ||
       request.status === "CONVERTIDA_EN_OT",
@@ -76,8 +99,12 @@ export function IncidentListPage() {
     <section>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Mantenimiento / Solicitudes</p>
+          <p className="breadcrumb">
+            Mantenimiento / Solicitudes
+          </p>
+
           <h1>Solicitudes de trabajo</h1>
+
           <p>
             Registra, consulta y realiza seguimiento a las solicitudes de
             mantenimiento.
@@ -115,7 +142,9 @@ export function IncidentListPage() {
         <article>
           <span>Aprobadas</span>
           <strong>{approvedCount}</strong>
-          <small>Listas o convertidas en orden de trabajo</small>
+          <small>
+            Listas o convertidas en orden de trabajo
+          </small>
         </article>
       </div>
 
@@ -127,7 +156,9 @@ export function IncidentListPage() {
             <input
               aria-label="Buscar solicitudes"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
               placeholder="Buscar por código, solicitante, ubicación o descripción"
             />
           </label>
@@ -153,7 +184,9 @@ export function IncidentListPage() {
                 <th>Fecha</th>
                 <th>Estado</th>
                 <th>
-                  <span className="sr-only">Acciones</span>
+                  <span className="sr-only">
+                    Acciones
+                  </span>
                 </th>
               </tr>
             </thead>
@@ -169,24 +202,34 @@ export function IncidentListPage() {
 
                   <td>
                     <strong>
-                      {requestTypeLabels[request.requestType]}
+                      {
+                        requestTypeLabels[
+                          request.requestType
+                        ]
+                      }
                     </strong>
+
                     <br />
+
                     <small>{request.description}</small>
                   </td>
 
                   <td>
                     {request.building}
+
                     <br />
+
                     <small>
                       {request.area} / {request.room}
                     </small>
                   </td>
 
                   <td>
-                    {requestPriorityLabels[
-                      request.requesterPriority
-                    ]}
+                    {
+                      requestPriorityLabels[
+                        request.requesterPriority
+                      ]
+                    }
                   </td>
 
                   <td>
@@ -199,19 +242,21 @@ export function IncidentListPage() {
 
                   <td>
                     <span
-                      className={`status ${statusClass[request.status]}`}
+                      className={`status ${
+                        statusClass[request.status]
+                      }`}
                     >
                       {requestStatusLabels[request.status]}
                     </span>
                   </td>
 
                   <td>
-                    <button
+                    <Link
                       className="table-action"
-                      type="button"
+                      to={`/incidencias/${request.id}`}
                     >
                       Ver detalle
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -222,7 +267,8 @@ export function IncidentListPage() {
                     colSpan={8}
                     className="empty-row"
                   >
-                    No encontramos solicitudes con esos criterios.
+                    No encontramos solicitudes con esos
+                    criterios.
                   </td>
                 </tr>
               )}

@@ -6,6 +6,7 @@ import { PublicAssetPage } from "@/modules/assets/pages/PublicAssetPage";
 import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 import { IncidentListPage } from "@/modules/incidents/pages/IncidentListPage";
 import { IncidentCreatePage } from "@/modules/incidents/pages/IncidentCreatePage";
+import { IncidentDetailPage } from "@/modules/incidents/pages/IncidentDetailPage";
 
 
 const modules = [
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
 
       { path: "incidencias", element: <IncidentListPage /> },
       { path: "incidencias/nueva", element: <IncidentCreatePage /> },
+      { path: "incidencias/:id", element: <IncidentDetailPage /> },
 
       ...modules.map(([path, title]) => ({
         path,

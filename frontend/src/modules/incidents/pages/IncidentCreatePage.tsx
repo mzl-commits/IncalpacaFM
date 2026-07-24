@@ -2,6 +2,7 @@ import { ArrowLeft, Camera, FloppyDisk } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { currentUser } from "@/modules/accounts/currentUser";
 import {
   REQUEST_PRIORITIES,
   REQUEST_TYPES,
@@ -10,6 +11,7 @@ import {
   type RequestPriority,
   type RequestType,
 } from "@/modules/incidents/incidentModel";
+import { createWorkRequest } from "@/modules/incidents/incidentRepository";
 
 interface RequestFormState {
   zone: string;
@@ -70,7 +72,41 @@ export function IncidentCreatePage() {
 
     setError("");
 
-    console.log("Solicitud registrada temporalmente:", form);
+    createWorkRequest({
+      requesterId: currentUser.id,
+      requesterName: currentUser.fullName,
+      requesterEmail: currentUser.email,
+
+      locationId: [
+        form.zone,
+        form.building,
+        form.area,
+        form.room,
+      ].join("-"),
+
+      zone: form.zone,
+      building: form.building,
+      area: form.area,
+      room: form.room,
+
+      requestType: form.requestType as RequestType,
+      description: form.description.trim(),
+      requesterPriority: form.requesterPriority,
+      project: form.project,
+
+      evidence: form.photoName
+        ? [
+            {
+              id: crypto.randomUUID(),
+              name: form.photoName,
+              mimeType: "image/*",
+              size: 0,
+            },
+          ]
+        : [],
+
+      status: "PENDIENTE",
+    });
 
     navigate("/incidencias");
   }
@@ -102,6 +138,7 @@ export function IncidentCreatePage() {
           <div className="section-heading">
             <div>
               <span className="section-number">1</span>
+
               <div>
                 <h2>Ubicación de la solicitud</h2>
                 <p>Indica exactamente dónde se requiere la atención.</p>
@@ -112,9 +149,12 @@ export function IncidentCreatePage() {
           <div className="form-grid">
             <label className="field">
               <span>Zona *</span>
+
               <select
                 value={form.zone}
-                onChange={(event) => updateField("zone", event.target.value)}
+                onChange={(event) =>
+                  updateField("zone", event.target.value)
+                }
               >
                 <option value="">Seleccionar zona</option>
                 <option value="Zona Industrial">Zona Industrial</option>
@@ -128,6 +168,7 @@ export function IncidentCreatePage() {
 
             <label className="field">
               <span>Edificio *</span>
+
               <input
                 value={form.building}
                 onChange={(event) =>
@@ -139,18 +180,24 @@ export function IncidentCreatePage() {
 
             <label className="field">
               <span>Área *</span>
+
               <input
                 value={form.area}
-                onChange={(event) => updateField("area", event.target.value)}
+                onChange={(event) =>
+                  updateField("area", event.target.value)
+                }
                 placeholder="Ej. Sistemas"
               />
             </label>
 
             <label className="field">
               <span>Ambiente *</span>
+
               <input
                 value={form.room}
-                onChange={(event) => updateField("room", event.target.value)}
+                onChange={(event) =>
+                  updateField("room", event.target.value)
+                }
                 placeholder="Ej. Oficina 204"
               />
             </label>
@@ -161,9 +208,12 @@ export function IncidentCreatePage() {
           <div className="section-heading">
             <div>
               <span className="section-number">2</span>
+
               <div>
                 <h2>Detalle del trabajo solicitado</h2>
-                <p>Describe claramente la necesidad o el problema reportado.</p>
+                <p>
+                  Describe claramente la necesidad o el problema reportado.
+                </p>
               </div>
             </div>
           </div>
@@ -171,6 +221,7 @@ export function IncidentCreatePage() {
           <div className="form-grid">
             <label className="field">
               <span>Tipo de solicitud *</span>
+
               <select
                 value={form.requestType}
                 onChange={(event) =>
@@ -192,6 +243,7 @@ export function IncidentCreatePage() {
 
             <label className="field">
               <span>Prioridad del solicitante *</span>
+
               <select
                 value={form.requesterPriority}
                 onChange={(event) =>
@@ -211,6 +263,7 @@ export function IncidentCreatePage() {
 
             <label className="field field-wide">
               <span>Descripción del problema *</span>
+
               <textarea
                 value={form.description}
                 onChange={(event) =>
@@ -242,9 +295,12 @@ export function IncidentCreatePage() {
           <div className="section-heading">
             <div>
               <span className="section-number">3</span>
+
               <div>
                 <h2>Evidencia</h2>
-                <p>Adjunta una fotografía que ayude a identificar el problema.</p>
+                <p>
+                  Adjunta una fotografía que ayude a identificar el problema.
+                </p>
               </div>
             </div>
           </div>
