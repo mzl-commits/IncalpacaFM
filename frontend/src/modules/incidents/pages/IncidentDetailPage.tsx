@@ -7,15 +7,20 @@ import {
   User,
   Warning,
 } from "@phosphor-icons/react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { currentUser } from "@/modules/accounts/currentUser";
 import {
   requestPriorityLabels,
   requestStatusLabels,
   requestTypeLabels,
   type RequestStatus,
 } from "@/modules/incidents/incidentModel";
-import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
+import {
+  getWorkRequestById,
+  updateWorkRequest,
+} from "@/modules/incidents/incidentRepository";
 
 const statusClass: Record<RequestStatus, string> = {
   PENDIENTE: "status-warning",
@@ -37,7 +42,63 @@ function formatDate(value: string) {
 
 export function IncidentDetailPage() {
   const { id } = useParams();
-  const request = id ? getWorkRequestById(id) : undefined;
+
+  const [request, setRequest] = useState(() =>
+    id ? getWorkRequestById(id) : undefined,
+  );
+
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [evaluationError, setEvaluationError] = useState("");
+
+  const isAdministrator = currentUser.role === "ADMINISTRADOR";
+
+  function changeRequestStatus(
+    status: "EN_EVALUACION" | "APROBADA",
+  ) {
+    if (!request) {
+      return;
+    }
+
+    const updatedRequest = updateWorkRequest(request.id, {
+      status,
+      rejectionReason: undefined,
+    });
+
+    if (updatedRequest) {
+      setRequest(updatedRequest);
+      setShowRejectForm(false);
+      setRejectionReason("");
+      setEvaluationError("");
+    }
+  }
+
+  function rejectRequest() {
+    if (!request) {
+      return;
+    }
+
+    const normalizedReason = rejectionReason.trim();
+
+    if (normalizedReason.length < 10) {
+      setEvaluationError(
+        "El motivo del rechazo debe tener al menos 10 caracteres.",
+      );
+      return;
+    }
+
+    const updatedRequest = updateWorkRequest(request.id, {
+      status: "RECHAZADA",
+      rejectionReason: normalizedReason,
+    });
+
+    if (updatedRequest) {
+      setRequest(updatedRequest);
+      setShowRejectForm(false);
+      setRejectionReason("");
+      setEvaluationError("");
+    }
+  }
 
   if (!request) {
     return (
@@ -98,6 +159,102 @@ export function IncidentDetailPage() {
           {requestStatusLabels[request.status]}
         </span>
       </div>
+
+      {isAdministrator && request.status !== "CONVERTIDA_EN_OT" && (
+        <article className="data-panel admin-evaluation-card">
+          <div>
+            <h2>Evaluación administrativa</h2>
+
+            <p>
+              Revisa los datos de la solicitud y determina si procede su
+              atención.
+            </p>
+          </div>
+
+          <div className="admin-evaluation-actions">
+            {request.status === "PENDIENTE" && (
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => changeRequestStatus("EN_EVALUACION")}
+              >
+                Marcar en evaluación
+              </button>
+            )}
+
+            {request.status !== "APROBADA" && (
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={() => changeRequestStatus("APROBADA")}
+              >
+                Aprobar solicitud
+              </button>
+            )}
+
+            {request.status !== "RECHAZADA" && (
+              <button
+                className="button button-danger"
+                type="button"
+                onClick={() => {
+                  setShowRejectForm(true);
+                  setEvaluationError("");
+                }}
+              >
+                Rechazar solicitud
+              </button>
+            )}
+          </div>
+
+          {showRejectForm && (
+            <div className="rejection-form">
+              <label className="field">
+                <span>Motivo del rechazo *</span>
+
+                <textarea
+                  value={rejectionReason}
+                  onChange={(event) =>
+                    setRejectionReason(event.target.value)
+                  }
+                  placeholder="Explica claramente por qué la solicitud no será atendida."
+                  rows={4}
+                  maxLength={500}
+                />
+
+                <small>{rejectionReason.length} / 500 caracteres</small>
+              </label>
+
+              {evaluationError && (
+                <div className="form-error">
+                  {evaluationError}
+                </div>
+              )}
+
+              <div className="rejection-form-actions">
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => {
+                    setShowRejectForm(false);
+                    setRejectionReason("");
+                    setEvaluationError("");
+                  }}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  className="button button-danger"
+                  type="button"
+                  onClick={rejectRequest}
+                >
+                  Confirmar rechazo
+                </button>
+              </div>
+            </div>
+          )}
+        </article>
+      )}
 
       <div className="detail-grid">
         <article className="data-panel detail-card">

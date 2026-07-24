@@ -502,3 +502,83 @@ tr:hover td { background: #f8faff; }
     flex-direction: column;
   }
 }
+
+.admin-evaluation-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.admin-evaluation-card h2 {
+  margin: 0 0 6px;
+  color: #10233f;
+  font-size: 1.08rem;
+}
+
+.admin-evaluation-card p {
+  margin: 0;
+  color: #667085;
+}
+
+.admin-evaluation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.button-danger {
+  border-color: #c63737;
+  background: #c63737;
+  color: white;
+}
+
+.button-danger:hover {
+  border-color: #a72626;
+  background: #a72626;
+}
+
+.rejection-form {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding-top: 22px;
+  border-top: 1px solid #dce4f0;
+}
+
+.rejection-form .form-error {
+  margin: 14px 0 0;
+}
+
+.rejection-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .admin-evaluation-card {
+    flex-direction: column;
+  }
+
+  .admin-evaluation-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-evaluation-actions,
+  .rejection-form-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .admin-evaluation-actions .button,
+  .rejection-form-actions .button {
+    justify-content: center;
+    width: 100%;
+  }
+}

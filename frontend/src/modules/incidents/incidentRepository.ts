@@ -68,3 +68,28 @@ export function createWorkRequest(
 export function getWorkRequestById(id: string): WorkRequest | undefined {
   return listWorkRequests().find((request) => request.id === id);
 }
+
+export function updateWorkRequest(
+  id: string,
+  changes: Partial<WorkRequest>,
+): WorkRequest | undefined {
+  const requests = listWorkRequests();
+  const requestIndex = requests.findIndex((request) => request.id === id);
+
+  if (requestIndex === -1) {
+    return undefined;
+  }
+
+  const updatedRequest: WorkRequest = {
+    ...requests[requestIndex],
+    ...changes,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const updatedRequests = [...requests];
+  updatedRequests[requestIndex] = updatedRequest;
+
+  saveWorkRequests(updatedRequests);
+
+  return updatedRequest;
+}
