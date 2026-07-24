@@ -83,7 +83,7 @@ class Asset(UUIDModel):
     criticality = models.CharField(max_length=20, default='Media')
     administrative_status = models.CharField(max_length=30, default='Registrado')
     operational_status = models.CharField(max_length=30, default='No evaluado')
-    assignment_status = models.CharField(max_length=30, default='Pendiente')
+    assignment_status = models.CharField(max_length=30, default='Sin asignar')
     taxonomy = models.ForeignKey(Taxonomy, null=True, blank=True, on_delete=models.PROTECT)
     location = models.ForeignKey(Location, null=True, blank=True, on_delete=models.PROTECT)
     entry_payload = models.JSONField(default=dict)

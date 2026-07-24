@@ -16,7 +16,7 @@ type AssetApiRecord = {
   registered_by_name: string;
   administrative_status: "Registrado";
   operational_status: "No evaluado";
-  assignment_status: "Asignado" | "Pendiente";
+  assignment_status: RegisteredAsset["assignmentStatus"];
   entry_payload: AssetEntryDraft;
 };
 

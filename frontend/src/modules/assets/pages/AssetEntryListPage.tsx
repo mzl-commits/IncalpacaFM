@@ -27,14 +27,14 @@ export function AssetEntryListPage() {
     return textMatch && (!typeFilter || entry.entryType === typeFilter);
   }), [registered, search, typeFilter]);
 
-  const assigned = registered.filter((item) => item.assignmentStatus === "Asignado").length;
+  const assigned = registered.filter((item) => item.assignmentStatus !== "Sin asignar").length;
   return <section className="entries-page">
     <div className="page-heading"><div><p className="breadcrumb">Inicio / Entradas</p><h1>Entrada de bienes</h1><p>Registra y valida los bienes que ingresan a la organización.</p></div><Link className="button button-primary desktop-new-entry" to="/bienes/entradas/nueva"><Plus size={18} weight="bold" />Registrar nuevo bien</Link></div>
     <div className="metrics-grid">
-      <article className="metric-pending"><span>Pendientes de asignación</span><strong>{registered.length - assigned}</strong><small>Datos reales de la API</small></article>
+      <article className="metric-pending"><span>Sin asignar</span><strong>{registered.length - assigned}</strong><small>Disponibles para asignación</small></article>
       <article><span>Registrados</span><strong>{registered.length}</strong><small>En la base de datos</small></article>
       <article className="metric-error"><span>Observados</span><strong>0</strong><small>Sin observaciones vigentes</small></article>
-      <article className="metric-success"><span>Asignados</span><strong>{assigned}</strong><small>Con responsable vigente</small></article>
+      <article className="metric-success"><span>Con asignación</span><strong>{assigned}</strong><small>Gestionados en Asignaciones</small></article>
     </div>
     <div className="data-panel">
       <div className="table-toolbar"><label className="search-field"><MagnifyingGlass size={18} /><input aria-label="Buscar entradas" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por código, descripción o responsable" /></label><button className="button button-secondary filter-toggle" type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((value) => !value)}><Funnel size={18} />Filtros</button></div>

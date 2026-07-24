@@ -3,7 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Asset, AssetAssignment, AssignableResponsible, Location, Taxonomy
+from .models import Asset, Location, Taxonomy
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -52,17 +52,6 @@ class AssetSerializer(serializers.ModelSerializer):
             code=f'INC-BIEN-{timezone.localdate().year}-{sequence:06d}', registered_by=user,
             taxonomy=taxonomy, location=location, entry_payload=payload, **validated_data,
         )
-        assignee = payload.get('assigneeId')
-        if assignee:
-            responsible = AssignableResponsible.objects.filter(external_reference=assignee, active=True).first()
-            if not responsible:
-                raise serializers.ValidationError({'entry_payload': 'El responsable no existe en el catálogo activo.'})
-            AssetAssignment.objects.create(
-                asset=asset, responsible=responsible, location=location, start_date=timezone.now(),
-                change_reason=payload.get('assignmentReason') or 'Asignación inicial', registered_by=user,
-            )
-            asset.assignment_status = 'Asignado'
-            asset.save(update_fields=['assignment_status'])
         return asset
 
 

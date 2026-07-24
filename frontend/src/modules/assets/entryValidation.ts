@@ -81,9 +81,6 @@ export function validateEntryStep(step: number, draft: AssetEntryDraft): EntryEr
     } else {
       required(draft.locationPendingReason, "Justifica la ubicación pendiente.", errors, "locationPendingReason");
     }
-    required(draft.assigneeId, "Selecciona un responsable asignable.", errors, "assigneeId");
-    required(draft.assignmentDate, "Selecciona la fecha de asignación.", errors, "assignmentDate");
-    required(draft.assignmentReason, "Ingresa el motivo de la asignación.", errors, "assignmentReason");
   }
 
   if (step === 4) {
@@ -93,7 +90,7 @@ export function validateEntryStep(step: number, draft: AssetEntryDraft): EntryEr
 
   if (step === 5) {
     if (!draft.confirmInspected) errors.confirmInspected = "Debes confirmar que verificaste el bien.";
-    if (!draft.confirmAssignment) errors.confirmAssignment = "Debes confirmar la ubicación y asignación.";
+    if (!draft.confirmAssignment) errors.confirmAssignment = "Debes confirmar la ubicación inicial o almacenamiento.";
   }
 
   return errors;

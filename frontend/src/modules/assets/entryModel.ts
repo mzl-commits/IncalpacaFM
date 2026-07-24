@@ -82,7 +82,7 @@ export interface RegisteredAsset {
   createdBy: string;
   administrativeStatus: "Registrado";
   operationalStatus: "No evaluado";
-  assignmentStatus: "Asignado" | "Pendiente";
+  assignmentStatus: "Asignado" | "Sin asignar" | "En traslado" | "Devuelto";
   draft: AssetEntryDraft;
 }
 

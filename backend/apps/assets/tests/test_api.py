@@ -17,7 +17,7 @@ class AssetEntryApiTests(TestCase):
         self.assertEqual(len(response.json()), 4)
         self.assertEqual(Asset.objects.count(), 4)
 
-    def test_create_asset_generates_code_and_active_assignment(self):
+    def test_create_asset_does_not_create_assignment_even_with_legacy_payload(self):
         responsible = AssignableResponsible.objects.get(external_reference='P-0142')
         response = self.client.post('/api/v1/assets/', {
             'entry_type': 'purchase',
@@ -35,8 +35,8 @@ class AssetEntryApiTests(TestCase):
         }, format='json')
         self.assertEqual(response.status_code, 201, response.json())
         self.assertTrue(response.json()['code'].startswith('INC-BIEN-'))
-        self.assertEqual(response.json()['assignment_status'], 'Asignado')
-        self.assertEqual(AssetAssignment.objects.filter(asset_id=response.json()['id'], status='ACTIVA').count(), 1)
+        self.assertEqual(response.json()['assignment_status'], 'Sin asignar')
+        self.assertEqual(AssetAssignment.objects.filter(asset_id=response.json()['id']).count(), 0)
 
     def test_public_endpoint_excludes_sensitive_fields(self):
         asset = Asset.objects.first()

@@ -6,7 +6,7 @@ import {
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  assignableOptions, assigneeTypeLabels, CONDITIONS, CRITICALITIES, emptyAssetEntryDraft,
+  CONDITIONS, CRITICALITIES, emptyAssetEntryDraft,
   entryTypeLabels, locationTaxonomy, taxonomy, type AssetEntryDraft, type EntryType,
   type EvidenceItem, type RegisteredAsset,
 } from "@/modules/assets/entryModel";
@@ -15,7 +15,7 @@ import {
 } from "@/modules/assets/assetEntryRepository";
 import { type EntryErrors, validateEntryStep } from "@/modules/assets/entryValidation";
 
-const steps = ["Tipo de ingreso", "Datos del bien", "Clasificación", "Asignación", "Evidencias", "Revisión", "Código y QR"];
+const steps = ["Tipo de ingreso", "Datos del bien", "Clasificación", "Ubicación inicial", "Evidencias", "Revisión", "Código y QR"];
 const entryTypes: Array<{ value: EntryType; title: string; description: string; icon: typeof Package }> = [
   { value: "purchase", title: "Compra", description: "Adquirido a un proveedor.", icon: Package },
   { value: "own_creation", title: "Creación propia", description: "Fabricado o ensamblado internamente.", icon: Wrench },
@@ -27,7 +27,7 @@ const stepCopy = [
   ["¿Cómo ingresó el bien?", "El origen determina los datos y documentos obligatorios."],
   ["Identifica el bien", "Registra sus características y una fotografía verificable."],
   ["Clasifica el bien", "Define su taxonomía y necesidades de mantenimiento."],
-  ["Ubica y asigna", "Un bien solo puede tener un responsable vigente."],
+  ["Define su ubicación inicial", "Indica dónde quedará almacenado o marca la ubicación como pendiente."],
   ["Verifica las evidencias", "Completa el expediente que sustenta el registro."],
   ["Revisa antes de registrar", "Confirma que la información coincide con el bien físico."],
   ["Registro completado", "El código y el acceso público ya están disponibles."],
@@ -248,6 +248,7 @@ export function AssetEntryWizardPage() {
       </div></div>
     </div>;
     if (draft.currentStep === 3) return <div className="section-gap">
+      <aside className="privacy-notice"><Package size={22} /><p><strong>El bien quedará sin asignar</strong><span>Esta ubicación solo indica dónde se almacena inicialmente. El responsable y el acta de entrega se gestionan después desde el módulo Asignaciones.</span></p></aside>
       <label className="switch-row"><input type="checkbox" checked={draft.locationPending} onChange={(e) => setField("locationPending", e.target.checked)} /><span><strong>Ubicación por confirmar</strong><small>El bien quedará marcado como pendiente de ubicación.</small></span></label>
       {draft.locationPending ? <div className="form-grid"><Field label="Justificación" error={errors.locationPendingReason} required wide><textarea rows={3} value={draft.locationPendingReason} onChange={(e) => setField("locationPendingReason", e.target.value)} /></Field></div>
       : <div className="form-grid">
@@ -257,16 +258,6 @@ export function AssetEntryWizardPage() {
         <Field label="Ambiente" error={errors.room} required><select value={draft.room} disabled={!draft.locationArea} onChange={(e) => setField("room", e.target.value)}><option value="">Seleccionar</option>{rooms.map((x) => <option key={x}>{x}</option>)}</select></Field>
         <Field label="Ubicación específica" wide><input value={draft.specificLocation} onChange={(e) => setField("specificLocation", e.target.value)} placeholder="Ej. Estante B, nivel 2" /></Field>
       </div>}
-      <div className="conditional-fields"><h3>Responsable inicial</h3>
-        <div className="segmented-control">{(Object.keys(assignableOptions) as Array<keyof typeof assignableOptions>).map((type) => <button type="button" className={draft.assigneeType === type ? "is-active" : ""} onClick={() => { setField("assigneeType", type); setField("assigneeId", ""); setField("assigneeName", ""); }} key={type}>{assigneeTypeLabels[type]}</button>)}</div>
-        <div className="form-grid">
-          <Field label="Responsable asignable" error={errors.assigneeId} required wide><select value={draft.assigneeId} onChange={(e) => { const option = assignableOptions[draft.assigneeType].find((x) => x.id === e.target.value); setField("assigneeId", e.target.value); setField("assigneeName", option?.name ?? ""); }}><option value="">Seleccionar</option>{assignableOptions[draft.assigneeType].map((x) => <option value={x.id} key={x.id}>{x.name} — {x.detail}</option>)}</select></Field>
-          <Field label="Fecha de asignación" error={errors.assignmentDate} required><input type="date" value={draft.assignmentDate} onChange={(e) => setField("assignmentDate", e.target.value)} /></Field>
-          <Field label="Centro de costo"><input value={draft.costCenter} onChange={(e) => setField("costCenter", e.target.value)} /></Field>
-          <Field label="Motivo" error={errors.assignmentReason} required wide><input value={draft.assignmentReason} onChange={(e) => setField("assignmentReason", e.target.value)} placeholder="Ej. Asignación inicial por ingreso" /></Field>
-          <Field label="Observaciones de asignación" wide><textarea rows={3} value={draft.assignmentObservations} onChange={(e) => setField("assignmentObservations", e.target.value)} /></Field>
-        </div>
-      </div>
     </div>;
     if (draft.currentStep === 4) return <div className="evidence-grid section-gap">
       {upload("origin", "Documento de origen", errors.originDocument)}
@@ -280,11 +271,11 @@ export function AssetEntryWizardPage() {
       <Review title="Origen" onEdit={() => setField("currentStep", 0)} rows={[["Tipo", entryTypeLabels[draft.entryType]], ["Documento", evidenceByCategory.origin[0]?.name ?? "—"], ["Fecha", draft.acquisitionDate || draft.completionDate || draft.receptionDate || draft.rentalStartDate]]} />
       <Review title="Bien" onEdit={() => setField("currentStep", 1)} rows={[["Nombre", draft.name], ["Marca / modelo", `${draft.brand || "—"} / ${draft.model || "—"}`], ["Serie", draft.serialNumber || "No consignada"], ["Condición", draft.condition]]} />
       <Review title="Clasificación" onEdit={() => setField("currentStep", 2)} rows={[["Taxonomía", draft.classificationPending ? "Por confirmar" : `${draft.assetType} / ${draft.category} / ${draft.subcategory}`], ["Criticidad", draft.criticality], ["Mantenimiento", draft.requiresMaintenance ? `Cada ${draft.preventiveFrequencyMonths} meses` : "No requerido"]]} />
-      <Review title="Ubicación y responsable" onEdit={() => setField("currentStep", 3)} rows={[["Ubicación", draft.locationPending ? "Por confirmar" : `${draft.zone} / ${draft.building} / ${draft.locationArea} / ${draft.room}`], ["Responsable", draft.assigneeName], ["Fecha", draft.assignmentDate]]} />
+      <Review title="Ubicación inicial" onEdit={() => setField("currentStep", 3)} rows={[["Almacenamiento", draft.locationPending ? "Por confirmar" : `${draft.zone} / ${draft.building} / ${draft.locationArea} / ${draft.room}`], ["Estado de asignación", "Sin asignar"], ["Siguiente acción", "Gestionar desde Asignaciones"]]}/>
       <Review title="Evidencias" onEdit={() => setField("currentStep", 4)} rows={[["Archivos", `${draft.evidence.length} adjunto(s)`], ["Fotografías", `${evidenceByCategory.photo.length}`]]} />
       <div className="confirmation-box">
         <label className={errors.confirmInspected ? "has-error" : ""}><input type="checkbox" checked={draft.confirmInspected} onChange={(e) => setField("confirmInspected", e.target.checked)} /><span>Confirmo que verifiqué el bien físico y que sus datos son correctos.{errors.confirmInspected && <small className="field-error">{errors.confirmInspected}</small>}</span></label>
-        <label className={errors.confirmAssignment ? "has-error" : ""}><input type="checkbox" checked={draft.confirmAssignment} onChange={(e) => setField("confirmAssignment", e.target.checked)} /><span>Confirmo que la ubicación y el responsable corresponden a la asignación inicial.{errors.confirmAssignment && <small className="field-error">{errors.confirmAssignment}</small>}</span></label>
+        <label className={errors.confirmAssignment ? "has-error" : ""}><input type="checkbox" checked={draft.confirmAssignment} onChange={(e) => setField("confirmAssignment", e.target.checked)} /><span>Confirmo que la ubicación indicada corresponde al almacenamiento inicial del bien y que aún no tiene responsable asignado.{errors.confirmAssignment && <small className="field-error">{errors.confirmAssignment}</small>}</span></label>
       </div>
     </div>;
     if (!registered) return <div className="loading-panel">Generando código seguro y QR…</div>;
@@ -317,7 +308,7 @@ export function AssetEntryWizardPage() {
           <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? "Registrando…" : draft.currentStep === 5 ? <><QrCode /> Registrar y generar QR</> : <>Continuar <ArrowRight /></>}</button>
         </div>}
       </form>
-      {draft.currentStep < 6 && <aside className="help-panel"><h2>Control del registro</h2><p>Los campos marcados con * son obligatorios. El borrador se conserva incluso sin conexión.</p><ul><li><Check size={16} /> Validación por cada etapa</li><li><Check size={16} /> Un responsable vigente</li><li><Check size={16} /> Evidencia mínima obligatoria</li></ul><p className="help-note">El código único y el QR solo se generan después de confirmar el registro en el paso 6.</p></aside>}
+      {draft.currentStep < 6 && <aside className="help-panel"><h2>Control del registro</h2><p>Los campos marcados con * son obligatorios. El borrador se conserva incluso sin conexión.</p><ul><li><Check size={16} /> Validación por cada etapa</li><li><Check size={16} /> Ubicación inicial de almacenamiento</li><li><Check size={16} /> Evidencia mínima obligatoria</li></ul><p className="help-note">El alta no asigna responsables. El código único y el QR se generan al confirmar el registro; la entrega se realiza después desde Asignaciones.</p></aside>}
     </div>
   </section>;
 }
