@@ -70,7 +70,7 @@ export function AssetEntryWizardPage() {
 
   useEffect(() => {
     loadAssetEntryDraft().then((saved) => {
-      if (saved) setDraft({ ...emptyAssetEntryDraft, ...saved, evidence: saved.evidence ?? [] });
+      if (saved) setDraft({ ...emptyAssetEntryDraft, ...saved, currentStep: Math.min(saved.currentStep, 5), evidence: saved.evidence ?? [] });
       setLoaded(true);
     });
   }, []);
@@ -285,10 +285,9 @@ export function AssetEntryWizardPage() {
     </div>;
     if (!registered) return <div className="loading-panel">Generando código seguro y QR…</div>;
     return <div className="success-panel">
-      <CheckCircle size={56} weight="fill" /><p className="breadcrumb">REGISTRO COMPLETADO</p><h2>{registered.code}</h2>
-      <p>El bien quedó registrado, asignado y listo para su evaluación operativa.</p>
-      <div className="status-cluster"><span className="status status-success">Registrado</span><span className="status status-neutral">No evaluado</span><span className={`status ${registered.assignmentStatus === "Asignado" ? "status-success" : "status-warning"}`}>{registered.assignmentStatus}</span></div>
-      <div className="qr-card"><img src={registered.qrDataUrl} alt={`QR público del bien ${registered.code}`} /><div><h3>Etiqueta del bien</h3><strong>{draft.name}</strong><small>{registered.code}</small><p>El QR contiene una URL pública con token aleatorio. No expone identificadores internos ni datos personales.</p></div></div>
+      <div className="success-hero"><CheckCircle size={46} weight="fill" /><h2>Bien registrado correctamente</h2><p>El activo ingresó al sistema de gestión y se generó su identificador único.</p></div>
+      <div className="asset-result-stats"><div><small>Código generado</small><strong>{registered.code}</strong></div><div><small>Estado administrativo</small><span className="status status-success">Registrado</span></div><div><small>Estado operativo</small><strong>No evaluado</strong></div><div><small>Asignación</small><strong>{registered.assignmentStatus}</strong></div></div>
+      <section className="asset-credentials"><h3>Credenciales del activo</h3><div className="qr-card"><div className="qr-visual"><img src={registered.qrDataUrl} alt={`QR público del bien ${registered.code}`} /><small>El QR no contiene información personal ni identificadores internos sensibles.</small></div><div className="label-preview"><small>Vista previa de etiqueta</small><div><span>SGTB INCALPACA</span><strong>{registered.code}</strong><p>{draft.name}</p></div><p>El enlace público usa un token aleatorio y muestra únicamente información autorizada.</p></div></div></section>
       <div className="success-actions">
         <button className="button button-secondary" type="button" onClick={downloadQr}><DownloadSimple /> Descargar PNG</button>
         <button className="button button-secondary" type="button" onClick={() => navigator.clipboard.writeText(registered.publicUrl)}><LinkSimple /> Copiar enlace</button>
@@ -298,7 +297,7 @@ export function AssetEntryWizardPage() {
     </div>;
   };
 
-  return <section>
+  return <section className={`asset-wizard ${registered ? "is-registered" : ""}`}>
     <div className="wizard-heading"><Link to="/bienes/entradas" className="back-link"><ArrowLeft size={18} /> Volver a entradas</Link><div>
       <div><p className="breadcrumb">Registro de bien</p><h1>Nuevo ingreso</h1></div>
       <span className={`save-state ${!online ? "is-offline" : ""}`}>{online ? <CloudCheck size={17} /> : <CloudSlash size={17} />}{saving ? "Guardando…" : online ? "Borrador guardado" : "Guardado en este dispositivo"}</span>

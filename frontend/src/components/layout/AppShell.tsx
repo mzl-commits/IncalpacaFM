@@ -5,6 +5,8 @@ import {
   FileText,
   House,
   ListChecks,
+  ListDashes,
+  SquaresFour,
   Package,
   ShieldCheck,
   SignOut,
@@ -15,7 +17,8 @@ import {
 import { NavLink, Outlet } from "react-router-dom";
 
 const navigation = [
-  { to: "/bienes/entradas", label: "Entrada de bienes", icon: Package },
+  { to: "/bienes/entradas", label: "Bienes", icon: Package },
+  { to: "/bienes/entradas", label: "Entradas", icon: ListDashes, secondary: true },
   { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
   { to: "/mantenimiento", label: "Mantenimiento", icon: Wrench },
   { to: "/incidencias", label: "Incidencias", icon: ListChecks },
@@ -42,11 +45,11 @@ export function AppShell() {
             <House size={20} weight="duotone" />
             Inicio
           </NavLink>
-          {navigation.map(({ to, label, icon: Icon }) => (
+          {navigation.map(({ to, label, icon: Icon, secondary }) => (
             <NavLink
-              key={to}
+              key={`${to}-${label}`}
               to={to}
-              className={({ isActive }) => `nav-item ${isActive ? "is-active" : ""}`}
+              className={({ isActive }) => `nav-item ${secondary ? "is-subitem" : ""} ${isActive && secondary ? "is-active" : ""}`}
             >
               <Icon size={20} weight="duotone" />
               {label}
@@ -66,13 +69,8 @@ export function AppShell() {
 
       <div className="content-frame">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">Sistema de Gestión y Trazabilidad de Bienes</p>
-          </div>
-          <button className="icon-button" type="button" aria-label="Notificaciones">
-            <Bell size={22} />
-            <span className="notification-dot" aria-label="3 notificaciones" />
-          </button>
+          <div className="mobile-topbar-title"><SquaresFour size={22} /><p className="eyebrow">SGTB Incalpaca</p></div>
+          <div className="topbar-actions"><button className="icon-button" type="button" aria-label="Notificaciones"><Bell size={20} /><span className="notification-dot" aria-label="3 notificaciones" /></button><UserCircle size={26} weight="duotone" /></div>
         </header>
 
         <main className="main-content">
