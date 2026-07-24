@@ -8,15 +8,15 @@ import {
   DownloadSimple,
   MapPin,
   User,
-  Calendar,
   CheckCircle,
   FileText,
-  Tag,
   ShareNetwork,
   ClockCounterClockwise,
   ArrowLeft,
-  ShieldCheck,
   Package,
+  X,
+  Check,
+  FloppyDisk,
 } from "@phosphor-icons/react";
 import QRCode from "qrcode";
 
@@ -119,8 +119,26 @@ const mockAssetDetail: AssetDetail = {
 
 export function AssetDetailPage() {
   const { id } = useParams();
-  const [asset] = useState<AssetDetail>(mockAssetDetail);
+  const [asset, setAsset] = useState<AssetDetail>(mockAssetDetail);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [showToast, setShowToast] = useState<boolean>(false);
+
+  // Form State for Editing
+  const [formData, setFormData] = useState({
+    description: asset.description,
+    category: asset.category,
+    brand: asset.brand,
+    model: asset.model,
+    serialNumber: asset.serialNumber,
+    conservationStatus: asset.conservationStatus,
+    lifecycleStatus: asset.lifecycleStatus,
+    site: asset.location.site,
+    building: asset.location.building,
+    room: asset.location.room,
+    custodianName: asset.custodian.name,
+    custodianRole: asset.custodian.role,
+  });
 
   useEffect(() => {
     QRCode.toDataURL(`https://incalpaca.fm/q/${asset.code}`, { width: 220, margin: 1 })
@@ -128,8 +146,85 @@ export function AssetDetailPage() {
       .catch((err) => console.error("Error generating QR:", err));
   }, [asset.code]);
 
+  const handleOpenEdit = () => {
+    setFormData({
+      description: asset.description,
+      category: asset.category,
+      brand: asset.brand,
+      model: asset.model,
+      serialNumber: asset.serialNumber,
+      conservationStatus: asset.conservationStatus,
+      lifecycleStatus: asset.lifecycleStatus,
+      site: asset.location.site,
+      building: asset.location.building,
+      room: asset.location.room,
+      custodianName: asset.custodian.name,
+      custodianRole: asset.custodian.role,
+    });
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const nowStr = new Date().toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const updatedAsset: AssetDetail = {
+      ...asset,
+      description: formData.description,
+      category: formData.category,
+      brand: formData.brand,
+      model: formData.model,
+      serialNumber: formData.serialNumber,
+      conservationStatus: formData.conservationStatus as any,
+      lifecycleStatus: formData.lifecycleStatus as any,
+      location: {
+        site: formData.site,
+        building: formData.building,
+        room: formData.room,
+      },
+      custodian: {
+        ...asset.custodian,
+        name: formData.custodianName,
+        role: formData.custodianRole,
+      },
+      history: [
+        {
+          date: nowStr,
+          type: "Edición",
+          title: "Actualización de Ficha de Activo",
+          actor: "Facility Management (Administrador)",
+          description: "Se modificaron los datos generales, estado o asignación del activo en el sistema.",
+        },
+        ...asset.history,
+      ],
+    };
+
+    setAsset(updatedAsset);
+    setIsEditing(false);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 4000);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-20 right-6 z-50 bg-emerald-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-700 animate-bounce">
+          <CheckCircle size={22} className="text-emerald-400" />
+          <div>
+            <p className="font-bold text-sm">¡Activo actualizado!</p>
+            <p className="text-xs text-emerald-200">Los cambios han sido guardados correctamente.</p>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Breadcrumb */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
@@ -144,7 +239,15 @@ export function AssetDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{asset.code}</h1>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <span
+              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+                asset.lifecycleStatus === "Activo en Uso"
+                  ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                  : asset.lifecycleStatus === "En Mantenimiento"
+                  ? "bg-amber-100 text-amber-800 border-amber-200"
+                  : "bg-slate-100 text-slate-800 border-slate-200"
+              }`}
+            >
               <CheckCircle size={14} className="mr-1" />
               {asset.lifecycleStatus}
             </span>
@@ -162,9 +265,10 @@ export function AssetDetailPage() {
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-all"
+            onClick={handleOpenEdit}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-900 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 shadow-sm transition-all"
           >
-            <PencilSimple size={18} />
+            <PencilSimple size={18} className="text-blue-700" />
             Editar Activo
           </button>
           <Link
@@ -183,10 +287,19 @@ export function AssetDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* General Information Card */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-              <Package size={20} className="text-blue-700" />
-              Información General del Activo
-            </h2>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Package size={20} className="text-blue-700" />
+                Información General del Activo
+              </h2>
+              <button
+                type="button"
+                onClick={handleOpenEdit}
+                className="text-xs text-blue-700 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <PencilSimple size={14} /> Modificar
+              </button>
+            </div>
 
             <p className="text-base font-semibold text-slate-800 leading-snug">
               {asset.description}
@@ -229,10 +342,19 @@ export function AssetDetailPage() {
 
           {/* Location and Custodian Card */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-              <MapPin size={20} className="text-blue-700" />
-              Ubicación y Asignación Actual
-            </h2>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <MapPin size={20} className="text-blue-700" />
+                Ubicación y Asignación Actual
+              </h2>
+              <button
+                type="button"
+                onClick={handleOpenEdit}
+                className="text-xs text-blue-700 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <PencilSimple size={14} /> Cambiar Asignación
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
@@ -366,6 +488,200 @@ export function AssetDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* EDIT ASSET MODAL */}
+      {isEditing && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PencilSimple size={22} className="text-blue-400" />
+                <h3 className="font-bold text-lg">Editar Activo {asset.code}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Descripción / Nombre del Activo
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Categoría</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  >
+                    <option value="Equipos de Cómputo">Equipos de Cómputo</option>
+                    <option value="Maquinaria Industrial">Maquinaria Industrial</option>
+                    <option value="Mobiliario de Oficina">Mobiliario de Oficina</option>
+                    <option value="Herramientas">Herramientas</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Marca</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.brand}
+                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Modelo</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.model}
+                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Número de Serie</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.serialNumber}
+                    onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Estado de Conservación
+                  </label>
+                  <select
+                    value={formData.conservationStatus}
+                    onChange={(e) => setFormData({ ...formData, conservationStatus: e.target.value as any })}
+                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  >
+                    <option value="Excelente">Excelente</option>
+                    <option value="Bueno">Bueno</option>
+                    <option value="Regular">Regular</option>
+                    <option value="Malo">Malo</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Estado del Ciclo de Vida
+                  </label>
+                  <select
+                    value={formData.lifecycleStatus}
+                    onChange={(e) => setFormData({ ...formData, lifecycleStatus: e.target.value as any })}
+                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  >
+                    <option value="Activo en Uso">Activo en Uso</option>
+                    <option value="En Almacén">En Almacén</option>
+                    <option value="En Mantenimiento">En Mantenimiento</option>
+                    <option value="Dado de Baja">Dado de Baja</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Location & Custodian Section */}
+              <div className="border-t border-slate-200 pt-4 space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ubicación y Responsable</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Sede</label>
+                    <input
+                      type="text"
+                      value={formData.site}
+                      onChange={(e) => setFormData({ ...formData, site: e.target.value })}
+                      className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Edificio / Piso</label>
+                    <input
+                      type="text"
+                      value={formData.building}
+                      onChange={(e) => setFormData({ ...formData, building: e.target.value })}
+                      className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Área / Oficina</label>
+                    <input
+                      type="text"
+                      value={formData.room}
+                      onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                      className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Nombre Custodio</label>
+                    <input
+                      type="text"
+                      value={formData.custodianName}
+                      onChange={(e) => setFormData({ ...formData, custodianName: e.target.value })}
+                      className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Cargo Custodio</label>
+                    <input
+                      type="text"
+                      value={formData.custodianRole}
+                      onChange={(e) => setFormData({ ...formData, custodianRole: e.target.value })}
+                      className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="border-t border-slate-200 pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 rounded-lg shadow-md flex items-center gap-1.5 transition-all"
+                >
+                  <FloppyDisk size={16} />
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
