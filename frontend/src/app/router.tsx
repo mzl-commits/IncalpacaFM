@@ -8,12 +8,12 @@ import { IncidentListPage } from "@/modules/incidents/pages/IncidentListPage";
 import { IncidentCreatePage } from "@/modules/incidents/pages/IncidentCreatePage";
 import { IncidentDetailPage } from "@/modules/incidents/pages/IncidentDetailPage";
 import { WorkOrderCreatePage } from "@/modules/workorders/pages/WorkOrderCreatePage";
+import { WorkOrderListPage } from "@/modules/workorders/pages/WorkOrderListPage";
 
 
 const modules = [
   ["asignaciones", "Asignaciones"],
   ["mantenimiento", "Mantenimiento"],
-  ["ordenes-trabajo", "Órdenes de trabajo"],
   ["ciclo-vida", "Ciclo de vida"],
   ["documentos", "Documentos"],
   ["notificaciones", "Notificaciones"],
@@ -34,7 +34,9 @@ export const router = createBrowserRouter([
       { path: "incidencias", element: <IncidentListPage /> },
       { path: "incidencias/nueva", element: <IncidentCreatePage /> },
       { path: "incidencias/:id", element: <IncidentDetailPage /> },
-      {path: "ordenes-trabajo/nueva/:requestId", element: <WorkOrderCreatePage /> },
+
+      { path: "ordenes-trabajo", element: <WorkOrderListPage /> },
+      { path: "ordenes-trabajo/nueva/:requestId", element: <WorkOrderCreatePage /> },
 
       ...modules.map(([path, title]) => ({
         path,
