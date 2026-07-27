@@ -3,6 +3,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.audit.services import record_audit
+
 from .models import Asset, Location, Taxonomy
 
 
@@ -56,6 +58,35 @@ class AssetSerializer(serializers.ModelSerializer):
         asset = Asset.objects.create(
             code=f'INC-BIEN-{timezone.localdate().year}-{sequence:06d}', registered_by=user,
             taxonomy=taxonomy, location=location, entry_payload=payload, **validated_data,
+        )
+        return asset
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        request = self.context["request"]
+        before = {
+            field: getattr(instance, field)
+            for field in (
+                "name",
+                "description",
+                "brand",
+                "model",
+                "serial_number",
+                "condition",
+                "criticality",
+            )
+        }
+        asset = super().update(instance, validated_data)
+        record_audit(
+            request=request,
+            action="ASSET_UPDATED",
+            entity="Asset",
+            entity_id=asset.id,
+            before=before,
+            after={
+                field: getattr(asset, field)
+                for field in before
+            },
         )
         return asset
 

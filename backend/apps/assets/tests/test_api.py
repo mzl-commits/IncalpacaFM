@@ -48,6 +48,24 @@ class AssetEntryApiTests(TestCase):
         self.assertNotIn('entry_payload', response.json())
         self.assertNotIn('registered_by_name', response.json())
 
+    def test_administrator_can_edit_asset_without_changing_assignment(self):
+        asset = Asset.objects.filter(assignments__status='ACTIVA').first()
+        assignment_id = asset.assignments.get(status='ACTIVA').id
+        response = self.client.patch(
+            f'/api/v1/assets/{asset.id}/',
+            {
+                'name': 'Bien actualizado desde ficha',
+                'condition': 'Bueno',
+                'criticality': 'Alta',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()['name'], 'Bien actualizado desde ficha')
+        self.assertEqual(response.json()['condition'], 'Bueno')
+        self.assertEqual(response.json()['criticality'], 'Alta')
+        self.assertTrue(asset.assignments.filter(id=assignment_id, status='ACTIVA').exists())
+
     def test_frontend_origin_header_is_allowed_by_cors(self):
         response = self.client.options(
             '/api/v1/assets/',

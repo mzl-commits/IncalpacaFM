@@ -22,3 +22,15 @@ export async function getAssetDetail(id: string) {
   const { data } = await api.get<AssetDetailRecord>(`/assets/${id}/`);
   return data;
 }
+
+export type AssetDetailUpdate = Pick<
+  AssetDetailRecord,
+  "name" | "description" | "brand" | "model" | "condition" | "criticality"
+> & {
+  serial_number: string;
+};
+
+export async function updateAssetDetail(id: string, input: AssetDetailUpdate) {
+  const { data } = await api.patch<AssetDetailRecord>(`/assets/${id}/`, input);
+  return data;
+}

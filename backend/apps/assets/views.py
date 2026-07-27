@@ -22,7 +22,7 @@ class PublicAssetView(generics.RetrieveAPIView):
     queryset = Asset.objects.select_related('taxonomy', 'location')
 
 
-class AssetDetailView(generics.RetrieveAPIView):
+class AssetDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
     serializer_class = AssetDetailSerializer
     queryset = Asset.objects.select_related(
