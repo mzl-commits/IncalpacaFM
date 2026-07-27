@@ -4,7 +4,7 @@ import {
   FloppyDisk,
   Play,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -23,9 +23,16 @@ export function WorkOrderExecutionPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [workOrder, setWorkOrder] = useState(() =>
-    id ? getWorkOrderById(id) : undefined,
-  );
+  const [workOrder, setWorkOrder] = useState<Awaited<ReturnType<typeof getWorkOrderById>>>();
+  const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
+  useEffect(() => {
+    if (!id) return;
+    void getWorkOrderById(id).then(async (order) => {
+      setWorkOrder(order);
+      setPercentage(order.progressPercentage);
+      setRequest(await getWorkRequestById(order.requestId));
+    });
+  }, [id]);
 
   const [percentage, setPercentage] = useState(
     workOrder?.progressPercentage ?? 0,
@@ -39,23 +46,19 @@ export function WorkOrderExecutionPage() {
 
   const [error, setError] = useState("");
 
-  const request = workOrder
-    ? getWorkRequestById(workOrder.requestId)
-    : undefined;
-
-  function handleStart() {
+  async function handleStart() {
     if (!workOrder) {
       return;
     }
 
-    const updated = startWorkOrder(workOrder.id);
+    const updated = await startWorkOrder(workOrder.id);
 
     if (updated) {
       setWorkOrder(updated);
     }
   }
 
-  function handleSubmit(
+  async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
@@ -96,7 +99,7 @@ export function WorkOrderExecutionPage() {
     }
 
     const updated =
-      registerWorkOrderProgress(
+      await registerWorkOrderProgress(
         workOrder.id,
         {
           operatorId: currentUser.id,

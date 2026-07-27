@@ -14,11 +14,19 @@ export default defineConfig({
         name: "SGTB Incalpaca",
         short_name: "SGTB",
         description: "Sistema de Gestión y Trazabilidad de Bienes",
-        theme_color: "#003366",
-        background_color: "#f8f9ff",
+        theme_color: "#071f38",
+        background_color: "#f3f6fa",
         display: "standalone",
         start_url: "/",
         lang: "es",
+        icons: [
+          {
+            src: "/favicon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any maskable",
+          },
+        ],
       },
       workbox: {
         navigateFallback: "/index.html",

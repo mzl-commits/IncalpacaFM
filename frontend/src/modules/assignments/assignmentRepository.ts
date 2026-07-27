@@ -11,6 +11,17 @@ export type AssignmentRecord = {
   change_reason: string;
   delivery_status: "ASIGNADO" | "ENTREGADO" | "EN_TRASLADO" | "DEVUELTO";
   act: { id: string; code: string; status: string; hash_sha256: string; issued_at: string } | null;
+  responsible_history: Array<{
+    id: string; responsible: string; responsible_type: "PERSONA" | "AREA" | "ESPACIO_COMUN";
+    area: string; location: string; start_date: string; end_date: string | null;
+    status: "ACTIVA" | "FINALIZADA" | "ANULADA"; reason: string;
+  }>;
+  repair_history: Array<{
+    id: string; work_order: string; type: "CORRECTIVO" | "PREVENTIVO" | "INSPECCION";
+    status: "COMPLETADO" | "EN_PROCESO" | "CANCELADO"; reported_at: string;
+    completed_at: string | null; issue: string; work_performed: string;
+    technician_name: string; provider: string; cost: string; resulting_condition: string;
+  }>;
 };
 
 export type AssignmentCatalog = {

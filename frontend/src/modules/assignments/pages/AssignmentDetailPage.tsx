@@ -7,7 +7,7 @@ import {
   UserCircle,
   X,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getAssignment,
@@ -27,6 +27,8 @@ export function AssignmentDetailPage() {
   const [responsibleId, setResponsibleId] = useState("");
   const [locationId, setLocationId] = useState("");
   const [saving, setSaving] = useState(false);
+  const operationDialogRef = useRef<HTMLDialogElement>(null);
+  const operationTriggerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     getAssignment(id)
       .then(setItem)
@@ -35,6 +37,23 @@ export function AssignmentDetailPage() {
   useEffect(() => {
     getAssignmentCatalog().then(setCatalog);
   }, []);
+  useEffect(() => {
+    const dialog = operationDialogRef.current;
+    if (!dialog) return;
+
+    if (operation && !dialog.open) {
+      operationTriggerRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      dialog.showModal();
+    } else if (!operation && dialog.open) {
+      dialog.close();
+    }
+  }, [operation]);
+  const openOperation = (nextOperation: "REASIGNAR" | "TRASLADAR" | "DEVOLVER") => {
+    setError("");
+    setOperation(nextOperation);
+  };
+  const closeOperation = () => setOperation("");
   const submitOperation = async () => {
     if (!operation || !reason.trim()) return setError("Ingresa el motivo de la operación.");
     setSaving(true);
@@ -81,13 +100,19 @@ export function AssignmentDetailPage() {
           </span>
           {item.status === "ACTIVA" && (
             <>
-              <button className="button button-secondary" onClick={() => setOperation("TRASLADAR")}>
+              <button
+                className="button button-secondary"
+                onClick={() => openOperation("TRASLADAR")}
+              >
                 Trasladar
               </button>
-              <button className="button button-secondary" onClick={() => setOperation("REASIGNAR")}>
+              <button
+                className="button button-secondary"
+                onClick={() => openOperation("REASIGNAR")}
+              >
                 Reasignar
               </button>
-              <button className="button button-primary" onClick={() => setOperation("DEVOLVER")}>
+              <button className="button button-primary" onClick={() => openOperation("DEVOLVER")}>
                 Registrar devolución
               </button>
             </>
@@ -95,7 +120,7 @@ export function AssignmentDetailPage() {
         </div>
       </div>
       <div className="detail-grid">
-        <main>
+        <div className="assignment-detail-main">
           <section className="detail-section">
             <h2>Asignación vigente</h2>
             <dl className="detail-facts">
@@ -124,39 +149,51 @@ export function AssignmentDetailPage() {
             </dl>
           </section>
           <section className="detail-section">
-            <h2>Historial</h2>
-            <ol className="assignment-timeline">
-              <li>
-                <span />
-                <div>
-                  <strong>Asignación creada</strong>
-                  <p>
-                    {new Intl.DateTimeFormat("es-PE", {
-                      dateStyle: "long",
-                      timeStyle: "short",
-                    }).format(new Date(item.start_date))}
-                  </p>
-                  <small>Responsable: {item.responsible.name}</small>
-                </div>
-              </li>
-              {item.act && (
-                <li>
-                  <span />
-                  <div>
-                    <strong>Acta emitida y bien entregado</strong>
-                    <p>
-                      {new Intl.DateTimeFormat("es-PE", {
-                        dateStyle: "long",
-                        timeStyle: "short",
-                      }).format(new Date(item.act.issued_at))}
-                    </p>
-                    <small>{item.act.code}</small>
+            <div className="section-heading">
+              <div>
+                <h2>Mapa de ubicación</h2>
+                <p>Referencia operativa del lugar donde se encuentra el bien dentro de la sede.</p>
+              </div>
+              <Link className="map-asset-link" to={`/bienes/${item.asset.id}`}>
+                Ver ficha e historial
+              </Link>
+            </div>
+            {item.location ? (
+              <div
+                className="facility-map"
+                aria-label={`Ubicación: ${item.location.zone}, ${item.location.building}, ${item.location.area}, ${item.location.room}`}
+              >
+                <div className="map-building">
+                  <span className="map-caption">{item.location.zone}</span>
+                  <strong>{item.location.building}</strong>
+                  <div className="map-floor">
+                    <span>{item.location.area}</span>
+                    <div className="map-room">
+                      <MapPin weight="fill" />
+                      <strong>{item.location.room}</strong>
+                      <small>{item.location.specific_location || "Ubicación confirmada"}</small>
+                    </div>
                   </div>
-                </li>
-              )}
-            </ol>
+                </div>
+                <div className="map-legend">
+                  <span>
+                    <i />
+                    Ubicación actual
+                  </span>
+                  <small>
+                    Ruta: {item.location.zone} → {item.location.building} → {item.location.area} →{" "}
+                    {item.location.room}
+                  </small>
+                </div>
+              </div>
+            ) : (
+              <p className="map-empty">
+                <MapPin />
+                La ubicación todavía no ha sido confirmada.
+              </p>
+            )}
           </section>
-        </main>
+        </div>
         <aside className="act-panel">
           <h2>Acta de entrega</h2>
           {item.act ? (
@@ -185,14 +222,21 @@ export function AssignmentDetailPage() {
           )}
         </aside>
       </div>
-      {operation && (
-        <div className="operation-backdrop" role="presentation">
-          <section
-            className="operation-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="operation-title"
-          >
+      <dialog
+        ref={operationDialogRef}
+        className="operation-native-dialog"
+        aria-labelledby="operation-title"
+        onCancel={(event) => {
+          event.preventDefault();
+          closeOperation();
+        }}
+        onClose={() => {
+          setOperation("");
+          operationTriggerRef.current?.focus();
+        }}
+      >
+        {operation && (
+          <section className="operation-dialog">
             <header>
               <div>
                 <p className="breadcrumb">Gestión de operación</p>
@@ -204,7 +248,7 @@ export function AssignmentDetailPage() {
                       : "Registrar devolución"}
                 </h2>
               </div>
-              <button className="icon-button" onClick={() => setOperation("")} aria-label="Cerrar">
+              <button className="icon-button" onClick={closeOperation} aria-label="Cerrar">
                 <X />
               </button>
             </header>
@@ -247,7 +291,7 @@ export function AssignmentDetailPage() {
               </p>
             )}
             <footer>
-              <button className="button button-secondary" onClick={() => setOperation("")}>
+              <button className="button button-secondary" onClick={closeOperation}>
                 Cancelar
               </button>
               <button className="button button-primary" disabled={saving} onClick={submitOperation}>
@@ -261,8 +305,8 @@ export function AssignmentDetailPage() {
               </button>
             </footer>
           </section>
-        </div>
-      )}
+        )}
+      </dialog>
     </section>
   );
 }

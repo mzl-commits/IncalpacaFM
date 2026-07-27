@@ -2,7 +2,7 @@ import {
   ArrowLeft,
   FloppyDisk,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -81,9 +81,10 @@ export function WorkOrderCreatePage() {
   const { requestId } = useParams();
   const navigate = useNavigate();
 
-  const request = requestId
-    ? getWorkRequestById(requestId)
-    : undefined;
+  const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
+  useEffect(() => {
+    if (requestId) void getWorkRequestById(requestId).then(setRequest);
+  }, [requestId]);
 
   const [form, setForm] =
     useState<WorkOrderFormState>(initialForm);
@@ -102,7 +103,7 @@ export function WorkOrderCreatePage() {
     }));
   }
 
-  function handleSubmit(
+  async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
@@ -120,7 +121,7 @@ export function WorkOrderCreatePage() {
       return;
     }
 
-    const workOrder = createWorkOrder({
+    const workOrder = await createWorkOrder({
       requestId: request.id,
       requestCode: request.code,
 
@@ -141,7 +142,7 @@ export function WorkOrderCreatePage() {
       progressPercentage: 0,
     });
 
-    updateWorkRequest(request.id, {
+    await updateWorkRequest(request.id, {
       status: "CONVERTIDA_EN_OT",
       workOrderId: workOrder.id,
     });

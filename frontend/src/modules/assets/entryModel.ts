@@ -82,7 +82,7 @@ export interface RegisteredAsset {
   createdBy: string;
   administrativeStatus: "Registrado";
   operationalStatus: "No evaluado";
-  assignmentStatus: "Asignado" | "Sin asignar" | "En traslado" | "Devuelto";
+  assignmentStatus: "Asignado" | "Entregado" | "Sin asignar" | "En traslado" | "Devuelto";
   draft: AssetEntryDraft;
 }
 
@@ -192,7 +192,10 @@ export const locationTaxonomy = {
   },
 } as const;
 
-export const assignableOptions: Record<AssigneeType, Array<{ id: string; name: string; detail: string }>> = {
+export const assignableOptions: Record<
+  AssigneeType,
+  Array<{ id: string; name: string; detail: string }>
+> = {
   person: [
     { id: "P-0142", name: "Ana Torres", detail: "Sistemas · Analista de infraestructura" },
     { id: "P-0277", name: "Marco Quispe", detail: "Mantenimiento · Técnico mecánico" },

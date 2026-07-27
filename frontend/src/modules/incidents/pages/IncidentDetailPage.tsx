@@ -7,7 +7,7 @@ import {
   User,
   Warning,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { currentUser } from "@/modules/accounts/currentUser";
@@ -43,9 +43,10 @@ function formatDate(value: string) {
 export function IncidentDetailPage() {
   const { id } = useParams();
 
-  const [request, setRequest] = useState(() =>
-    id ? getWorkRequestById(id) : undefined,
-  );
+  const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
+  useEffect(() => {
+    if (id) void getWorkRequestById(id).then(setRequest);
+  }, [id]);
 
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -53,14 +54,14 @@ export function IncidentDetailPage() {
 
   const isAdministrator = currentUser.role === "ADMINISTRADOR";
 
-  function changeRequestStatus(
+  async function changeRequestStatus(
     status: "EN_EVALUACION" | "APROBADA",
   ) {
     if (!request) {
       return;
     }
 
-    const updatedRequest = updateWorkRequest(request.id, {
+    const updatedRequest = await updateWorkRequest(request.id, {
       status,
       rejectionReason: undefined,
     });
@@ -73,7 +74,7 @@ export function IncidentDetailPage() {
     }
   }
 
-  function rejectRequest() {
+  async function rejectRequest() {
     if (!request) {
       return;
     }
@@ -87,7 +88,7 @@ export function IncidentDetailPage() {
       return;
     }
 
-    const updatedRequest = updateWorkRequest(request.id, {
+    const updatedRequest = await updateWorkRequest(request.id, {
       status: "RECHAZADA",
       rejectionReason: normalizedReason,
     });
@@ -210,7 +211,7 @@ export function IncidentDetailPage() {
                     setEvaluationError("");
                 }}
                 >
-                Rechazar solicitud
+                No aprobar solicitud
                 </button>
             )}
             </div>
@@ -218,7 +219,7 @@ export function IncidentDetailPage() {
           {showRejectForm && (
             <div className="rejection-form">
               <label className="field">
-                <span>Motivo del rechazo *</span>
+                <span>Motivo de no aprobación *</span>
 
                 <textarea
                   value={rejectionReason}
@@ -239,6 +240,10 @@ export function IncidentDetailPage() {
                 </div>
               )}
 
+              <p className="rejection-scope-note">
+                Esta acción cierra la solicitud de atención, pero no da de baja el bien.
+              </p>
+
               <div className="rejection-form-actions">
                 <button
                   className="button button-secondary"
@@ -257,7 +262,7 @@ export function IncidentDetailPage() {
                   type="button"
                   onClick={rejectRequest}
                 >
-                  Confirmar rechazo
+                  Confirmar no aprobación
                 </button>
               </div>
             </div>
@@ -393,7 +398,7 @@ export function IncidentDetailPage() {
 
       {request.rejectionReason && (
         <article className="data-panel rejection-card">
-          <h2>Motivo del rechazo</h2>
+          <h2>Motivo de no aprobación</h2>
           <p>{request.rejectionReason}</p>
         </article>
       )}

@@ -1,95 +1,35 @@
-import { mockWorkRequests } from "./data/mockIncidents";
+import { api } from "@/services/api";
 import type { WorkRequest } from "./types";
 
-const STORAGE_KEY = "sgtb_work_requests";
 export const WORK_REQUESTS_UPDATED_EVENT = "sgtb:work-requests-updated";
 
 function notifyChanges() {
   window.dispatchEvent(new Event(WORK_REQUESTS_UPDATED_EVENT));
 }
 
-function saveWorkRequests(requests: WorkRequest[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
-  notifyChanges();
+export async function listWorkRequests(): Promise<WorkRequest[]> {
+  const { data } = await api.get<WorkRequest[]>("/incidents/");
+  return data;
 }
 
-export function listWorkRequests(): WorkRequest[] {
-  const stored = localStorage.getItem(STORAGE_KEY);
-
-  if (!stored) {
-    saveWorkRequests(mockWorkRequests);
-    return mockWorkRequests;
-  }
-
-  try {
-    return JSON.parse(stored) as WorkRequest[];
-  } catch {
-    saveWorkRequests(mockWorkRequests);
-    return mockWorkRequests;
-  }
-}
-
-function generateRequestCode(requests: WorkRequest[]) {
-  const year = new Date().getFullYear();
-
-  const lastNumber = requests.reduce((maximum, request) => {
-    const match = request.code.match(/SOL-\d{4}-(\d+)/);
-
-    if (!match) {
-      return maximum;
-    }
-
-    return Math.max(maximum, Number(match[1]));
-  }, 0);
-
-  return `SOL-${year}-${String(lastNumber + 1).padStart(4, "0")}`;
-}
-
-export function createWorkRequest(
+export async function createWorkRequest(
   request: Omit<WorkRequest, "id" | "code" | "reportedAt" | "updatedAt">,
-): WorkRequest {
-  const requests = listWorkRequests();
-  const now = new Date().toISOString();
-  const code = generateRequestCode(requests);
-
-  const newRequest: WorkRequest = {
-    ...request,
-    id: crypto.randomUUID(),
-    code,
-    reportedAt: now,
-    updatedAt: now,
-  };
-
-  saveWorkRequests([newRequest, ...requests]);
-
-  return newRequest;
+): Promise<WorkRequest> {
+  const { data } = await api.post<WorkRequest>("/incidents/", request);
+  notifyChanges();
+  return data;
 }
 
-export function getWorkRequestById(id: string): WorkRequest | undefined {
-  return listWorkRequests().find((request) => request.id === id);
+export async function getWorkRequestById(id: string): Promise<WorkRequest> {
+  const { data } = await api.get<WorkRequest>(`/incidents/${id}/`);
+  return data;
 }
 
-export function updateWorkRequest(
+export async function updateWorkRequest(
   id: string,
   changes: Partial<WorkRequest>,
-): WorkRequest | undefined {
-  const requests = listWorkRequests();
-  const requestIndex = requests.findIndex((request) => request.id === id);
-
-  if (requestIndex === -1) {
-    return undefined;
-  }
-
-  const updatedRequest: WorkRequest = {
-    ...requests[requestIndex],
-    ...changes,
-    updatedAt: new Date().toISOString(),
-  };
-
-  const updatedRequests = [...requests];
-  updatedRequests[requestIndex] = updatedRequest;
-
-  saveWorkRequests(updatedRequests);
-
-  return updatedRequest;
+): Promise<WorkRequest> {
+  const { data } = await api.patch<WorkRequest>(`/incidents/${id}/`, changes);
+  notifyChanges();
+  return data;
 }

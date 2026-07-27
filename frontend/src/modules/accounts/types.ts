@@ -1,9 +1,8 @@
 export const USER_ROLES = [
   "SOLICITANTE",
   "ADMINISTRADOR",
-  "OPERARIO",
+  "TECNICO",
   "SUPERVISOR",
-  "INSPECTOR",
 ] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
@@ -13,6 +12,8 @@ export interface SystemUser {
   fullName: string;
   email: string;
   role: UserRole;
+  workerCode?: string;
   specialtyId?: string;
+  mustChangePassword?: boolean;
   active: boolean;
 }

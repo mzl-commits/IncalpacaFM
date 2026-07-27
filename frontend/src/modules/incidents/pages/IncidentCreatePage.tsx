@@ -1,5 +1,5 @@
 import { ArrowLeft, Camera, FloppyDisk } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { currentUser } from "@/modules/accounts/currentUser";
@@ -39,21 +39,19 @@ const initialForm: RequestFormState = {
 
 export function IncidentCreatePage() {
   const navigate = useNavigate();
+  const errorId = useId();
 
   const [form, setForm] = useState<RequestFormState>(initialForm);
   const [error, setError] = useState("");
 
-  function updateField<K extends keyof RequestFormState>(
-    field: K,
-    value: RequestFormState[K],
-  ) {
+  function updateField<K extends keyof RequestFormState>(field: K, value: RequestFormState[K]) {
     setForm((current) => ({
       ...current,
       [field]: value,
     }));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (
@@ -72,17 +70,12 @@ export function IncidentCreatePage() {
 
     setError("");
 
-    createWorkRequest({
+    await createWorkRequest({
       requesterId: currentUser.id,
       requesterName: currentUser.fullName,
       requesterEmail: currentUser.email,
 
-      locationId: [
-        form.zone,
-        form.building,
-        form.area,
-        form.room,
-      ].join("-"),
+      locationId: [form.zone, form.building, form.area, form.room].join("-"),
 
       zone: form.zone,
       building: form.building,
@@ -115,15 +108,13 @@ export function IncidentCreatePage() {
     <section>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">
-            Mantenimiento / Solicitudes / Nueva solicitud
-          </p>
+          <p className="breadcrumb">Mantenimiento / Solicitudes / Nueva solicitud</p>
 
           <h1>Nueva solicitud de trabajo</h1>
 
           <p>
-            Registra el problema, indica su ubicación y adjunta una evidencia
-            para facilitar su evaluación.
+            Registra el problema, indica su ubicación y adjunta una evidencia para facilitar su
+            evaluación.
           </p>
         </div>
 
@@ -151,18 +142,17 @@ export function IncidentCreatePage() {
               <span>Zona *</span>
 
               <select
+                required
                 value={form.zone}
-                onChange={(event) =>
-                  updateField("zone", event.target.value)
-                }
+                aria-invalid={Boolean(error && !form.zone)}
+                aria-describedby={error && !form.zone ? errorId : undefined}
+                onChange={(event) => updateField("zone", event.target.value)}
               >
                 <option value="">Seleccionar zona</option>
                 <option value="Zona Industrial">Zona Industrial</option>
                 <option value="Casona">Casona</option>
                 <option value="Planta Principal">Planta Principal</option>
-                <option value="Oficinas Administrativas">
-                  Oficinas Administrativas
-                </option>
+                <option value="Oficinas Administrativas">Oficinas Administrativas</option>
               </select>
             </label>
 
@@ -170,10 +160,11 @@ export function IncidentCreatePage() {
               <span>Edificio *</span>
 
               <input
+                required
                 value={form.building}
-                onChange={(event) =>
-                  updateField("building", event.target.value)
-                }
+                aria-invalid={Boolean(error && !form.building)}
+                aria-describedby={error && !form.building ? errorId : undefined}
+                onChange={(event) => updateField("building", event.target.value)}
                 placeholder="Ej. Edificio Administrativo"
               />
             </label>
@@ -182,10 +173,11 @@ export function IncidentCreatePage() {
               <span>Área *</span>
 
               <input
+                required
                 value={form.area}
-                onChange={(event) =>
-                  updateField("area", event.target.value)
-                }
+                aria-invalid={Boolean(error && !form.area)}
+                aria-describedby={error && !form.area ? errorId : undefined}
+                onChange={(event) => updateField("area", event.target.value)}
                 placeholder="Ej. Sistemas"
               />
             </label>
@@ -194,10 +186,11 @@ export function IncidentCreatePage() {
               <span>Ambiente *</span>
 
               <input
+                required
                 value={form.room}
-                onChange={(event) =>
-                  updateField("room", event.target.value)
-                }
+                aria-invalid={Boolean(error && !form.room)}
+                aria-describedby={error && !form.room ? errorId : undefined}
+                onChange={(event) => updateField("room", event.target.value)}
                 placeholder="Ej. Oficina 204"
               />
             </label>
@@ -211,9 +204,7 @@ export function IncidentCreatePage() {
 
               <div>
                 <h2>Detalle del trabajo solicitado</h2>
-                <p>
-                  Describe claramente la necesidad o el problema reportado.
-                </p>
+                <p>Describe claramente la necesidad o el problema reportado.</p>
               </div>
             </div>
           </div>
@@ -223,13 +214,11 @@ export function IncidentCreatePage() {
               <span>Tipo de solicitud *</span>
 
               <select
+                required
                 value={form.requestType}
-                onChange={(event) =>
-                  updateField(
-                    "requestType",
-                    event.target.value as RequestType,
-                  )
-                }
+                aria-invalid={Boolean(error && !form.requestType)}
+                aria-describedby={error && !form.requestType ? errorId : undefined}
+                onChange={(event) => updateField("requestType", event.target.value as RequestType)}
               >
                 <option value="">Seleccionar tipo</option>
 
@@ -245,12 +234,10 @@ export function IncidentCreatePage() {
               <span>Prioridad del solicitante *</span>
 
               <select
+                required
                 value={form.requesterPriority}
                 onChange={(event) =>
-                  updateField(
-                    "requesterPriority",
-                    event.target.value as RequestPriority,
-                  )
+                  updateField("requesterPriority", event.target.value as RequestPriority)
                 }
               >
                 {REQUEST_PRIORITIES.map((priority) => (
@@ -265,10 +252,14 @@ export function IncidentCreatePage() {
               <span>Descripción del problema *</span>
 
               <textarea
+                required
                 value={form.description}
-                onChange={(event) =>
-                  updateField("description", event.target.value)
+                minLength={10}
+                aria-invalid={Boolean(error && form.description.trim().length < 10)}
+                aria-describedby={
+                  error && form.description.trim().length < 10 ? errorId : undefined
                 }
+                onChange={(event) => updateField("description", event.target.value)}
                 placeholder="Describe qué ocurre, desde cuándo y cualquier detalle importante."
                 rows={5}
                 maxLength={1000}
@@ -281,9 +272,7 @@ export function IncidentCreatePage() {
               <input
                 type="checkbox"
                 checked={form.project}
-                onChange={(event) =>
-                  updateField("project", event.target.checked)
-                }
+                onChange={(event) => updateField("project", event.target.checked)}
               />
 
               <span>La solicitud corresponde a un proyecto</span>
@@ -298,9 +287,7 @@ export function IncidentCreatePage() {
 
               <div>
                 <h2>Evidencia</h2>
-                <p>
-                  Adjunta una fotografía que ayude a identificar el problema.
-                </p>
+                <p>Adjunta una fotografía que ayude a identificar el problema.</p>
               </div>
             </div>
           </div>
@@ -315,7 +302,6 @@ export function IncidentCreatePage() {
 
             <label className="button button-secondary">
               Seleccionar archivo
-
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -336,7 +322,11 @@ export function IncidentCreatePage() {
           )}
         </div>
 
-        {error && <div className="form-error">{error}</div>}
+        {error && (
+          <div className="form-error" id={errorId} role="alert" aria-live="assertive">
+            {error}
+          </div>
+        )}
 
         <div className="form-actions">
           <Link className="button button-secondary" to="/incidencias">

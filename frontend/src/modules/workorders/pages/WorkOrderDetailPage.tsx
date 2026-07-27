@@ -6,7 +6,9 @@ import {
   MapPin,
   User,
   Wrench,
+  Stethoscope,
 } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
@@ -54,11 +56,15 @@ function formatDateTime(value?: string) {
 export function WorkOrderDetailPage() {
   const { id } = useParams();
 
-  const workOrder = id ? getWorkOrderById(id) : undefined;
-
-  const request = workOrder
-    ? getWorkRequestById(workOrder.requestId)
-    : undefined;
+  const [workOrder, setWorkOrder] = useState<Awaited<ReturnType<typeof getWorkOrderById>>>();
+  const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
+  useEffect(() => {
+    if (!id) return;
+    void getWorkOrderById(id).then(async (order) => {
+      setWorkOrder(order);
+      setRequest(await getWorkRequestById(order.requestId));
+    });
+  }, [id]);
 
   if (!workOrder) {
     return (
@@ -322,6 +328,13 @@ export function WorkOrderDetailPage() {
               to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}
             >
               Registrar avance
+            </Link>
+            <Link
+              className="button button-secondary"
+              to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}
+            >
+              <Stethoscope size={18} />
+              Diagnóstico técnico
             </Link>
           </div>
         )}
