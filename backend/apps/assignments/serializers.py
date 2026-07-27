@@ -41,11 +41,14 @@ class AssignmentSerializer(serializers.ModelSerializer):
     location = serializers.SerializerMethodField()
     delivery_status = serializers.SerializerMethodField()
     act = serializers.SerializerMethodField()
+    responsible_history = serializers.SerializerMethodField()
+    repair_history = serializers.SerializerMethodField()
 
     class Meta:
         model = AssetAssignment
         fields = ('id', 'asset', 'responsible', 'location', 'start_date', 'end_date',
-                  'status', 'change_reason', 'delivery_status', 'act')
+                  'status', 'change_reason', 'delivery_status', 'act',
+                  'responsible_history', 'repair_history')
 
     def get_asset(self, obj):
         return {'id': str(obj.asset_id), 'code': obj.asset.code, 'name': obj.asset.name,
@@ -79,6 +82,29 @@ class AssignmentSerializer(serializers.ModelSerializer):
         act = obj.delivery_act
         return {'id': str(act.id), 'code': act.code, 'status': act.status,
                 'hash_sha256': act.hash_sha256, 'issued_at': act.issued_at}
+
+    def get_responsible_history(self, obj):
+        assignments = obj.asset.assignments.select_related('responsible', 'location').order_by('-start_date')
+        return [{
+            'id': str(item.id), 'responsible': item.responsible.display_name,
+            'responsible_type': item.responsible.type, 'area': item.responsible.area_name,
+            'location': (
+                f'{item.location.zone} / {item.location.building} / {item.location.area} / {item.location.room}'
+                if item.location else ''
+            ),
+            'start_date': item.start_date, 'end_date': item.end_date,
+            'status': item.status, 'reason': item.change_reason,
+        } for item in assignments]
+
+    def get_repair_history(self, obj):
+        return [{
+            'id': str(item.id), 'work_order': item.work_order, 'type': item.type,
+            'status': item.status, 'reported_at': item.reported_at,
+            'completed_at': item.completed_at, 'issue': item.issue,
+            'work_performed': item.work_performed, 'technician_name': item.technician_name,
+            'provider': item.provider, 'cost': str(item.cost),
+            'resulting_condition': item.resulting_condition,
+        } for item in obj.asset.repair_records.all()]
 
 
 class CatalogSerializer(serializers.Serializer):
@@ -121,8 +147,8 @@ class DeliveryCreateSerializer(serializers.Serializer):
         asset = Asset.objects.select_for_update().get(id=validated_data.pop('asset_id'))
         responsible = AssignableResponsible.objects.get(id=validated_data.pop('responsible_id'), active=True)
         location = Location.objects.get(id=validated_data.pop('location_id'), active=True)
-        user, _ = get_user_model().objects.get_or_create(
-            username='facility.demo', defaults={'first_name': 'Facility', 'last_name': 'Management'})
+        request = self.context.get('request')
+        user = request.user if request and request.user.is_authenticated else get_user_model().objects.get(username='facility.demo')
 
         active = AssetAssignment.objects.filter(asset=asset, status='ACTIVA').first()
         if active and active.responsible_id == responsible.id and hasattr(active, 'delivery_act'):

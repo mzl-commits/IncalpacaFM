@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -9,13 +10,14 @@ class AssetEntryApiTests(TestCase):
     def setUp(self):
         call_command('seed_demo_data', verbosity=0)
         self.client = APIClient()
+        self.client.force_authenticate(get_user_model().objects.get(username='admin'))
 
     def test_seed_is_idempotent_and_list_uses_database(self):
         call_command('seed_demo_data', verbosity=0)
         response = self.client.get('/api/v1/assets/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 4)
-        self.assertEqual(Asset.objects.count(), 4)
+        self.assertEqual(len(response.json()), 30)
+        self.assertEqual(Asset.objects.count(), 30)
 
     def test_create_asset_does_not_create_assignment_even_with_legacy_payload(self):
         responsible = AssignableResponsible.objects.get(external_reference='P-0142')

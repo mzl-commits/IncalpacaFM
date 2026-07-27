@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -10,6 +11,7 @@ class DeliveryFlowTests(TestCase):
     def setUp(self):
         call_command('seed_demo_data', verbosity=0)
         self.client = APIClient()
+        self.client.force_authenticate(get_user_model().objects.get(username='admin'))
         self.asset = Asset.objects.get(code='INC-BIEN-2026-000188')
         self.responsible = AssignableResponsible.objects.get(external_reference='A-SIS')
         self.location = Location.objects.get(room='Oficina 204')

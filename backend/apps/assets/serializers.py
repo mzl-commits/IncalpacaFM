@@ -31,9 +31,14 @@ class AssetSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         payload = validated_data.pop('entry_payload', {})
-        last = Asset.objects.order_by('-created_at').first()
-        sequence = (int(last.code.rsplit('-', 1)[-1]) + 1) if last else 188
-        user, _ = get_user_model().objects.get_or_create(username='facility.demo', defaults={'first_name': 'Facility', 'last_name': 'Management'})
+        existing_sequences = (
+            int(code.rsplit('-', 1)[-1])
+            for code in Asset.objects.values_list('code', flat=True)
+            if code.rsplit('-', 1)[-1].isdigit()
+        )
+        sequence = max(existing_sequences, default=187) + 1
+        request = self.context.get('request')
+        user = request.user if request and request.user.is_authenticated else get_user_model().objects.get(username='facility.demo')
         taxonomy = None
         if not payload.get('classificationPending'):
             taxonomy, _ = Taxonomy.objects.get_or_create(
@@ -69,3 +74,50 @@ class PublicAssetSerializer(serializers.ModelSerializer):
 
     def get_general_location(self, obj):
         return 'Por confirmar' if not obj.location else f'{obj.location.building} · {obj.location.area}'
+
+
+class AssetDetailSerializer(AssetSerializer):
+    taxonomy_detail = serializers.SerializerMethodField()
+    location_detail = serializers.SerializerMethodField()
+    responsible_history = serializers.SerializerMethodField()
+    repair_history = serializers.SerializerMethodField()
+
+    class Meta(AssetSerializer.Meta):
+        fields = AssetSerializer.Meta.fields + (
+            'taxonomy_detail', 'location_detail', 'responsible_history', 'repair_history',
+        )
+
+    def get_taxonomy_detail(self, obj):
+        if not obj.taxonomy:
+            return None
+        return {
+            'asset_type': obj.taxonomy.asset_type, 'category': obj.taxonomy.category,
+            'subcategory': obj.taxonomy.subcategory, 'specialty': obj.taxonomy.specialty,
+        }
+
+    def get_location_detail(self, obj):
+        if not obj.location:
+            return None
+        return {
+            'zone': obj.location.zone, 'building': obj.location.building,
+            'area': obj.location.area, 'room': obj.location.room,
+            'specific_location': obj.location.specific_location,
+        }
+
+    def get_responsible_history(self, obj):
+        return [{
+            'id': str(item.id), 'responsible': item.responsible.display_name,
+            'type': item.responsible.type, 'area': item.responsible.area_name,
+            'start_date': item.start_date, 'end_date': item.end_date,
+            'status': item.status, 'reason': item.change_reason,
+        } for item in obj.assignments.select_related('responsible').order_by('-start_date')]
+
+    def get_repair_history(self, obj):
+        return [{
+            'id': str(item.id), 'work_order': item.work_order, 'type': item.type,
+            'status': item.status, 'reported_at': item.reported_at,
+            'completed_at': item.completed_at, 'issue': item.issue,
+            'work_performed': item.work_performed, 'technician_name': item.technician_name,
+            'provider': item.provider, 'cost': str(item.cost),
+            'resulting_condition': item.resulting_condition,
+        } for item in obj.repair_records.all()]
