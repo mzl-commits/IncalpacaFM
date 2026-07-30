@@ -7,6 +7,7 @@ import {
   PencilSimple,
   Printer,
   UserCircle,
+  UserPlus,
   Wrench,
   X,
 } from "@phosphor-icons/react";
@@ -34,6 +35,16 @@ export function AssetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [saved, setSaved] = useState(false);
+
+  // New Responsible Modal State
+  const [addingResponsible, setAddingResponsible] = useState(false);
+  const [newRespForm, setNewRespForm] = useState({
+    responsible: "",
+    area: "",
+    reason: "",
+    start_date: new Date().toISOString().slice(0, 10),
+  });
+
   const [editForm, setEditForm] = useState<AssetDetailUpdate>({
     name: "",
     description: "",
@@ -43,11 +54,13 @@ export function AssetDetailPage() {
     condition: "",
     criticality: "",
   });
+
   useEffect(() => {
     getAssetDetail(id)
       .then(setAsset)
       .catch(() => setError("No se pudo cargar la ficha del bien."));
   }, [id]);
+
   useEffect(() => {
     if (asset)
       QRCode.toDataURL(asset.public_url, {
@@ -56,8 +69,10 @@ export function AssetDetailPage() {
         color: { dark: "#002b58", light: "#ffffff" },
       }).then(setQr);
   }, [asset]);
+
   if (!asset)
     return <section className="loading-panel">{error || "Cargando ficha del bien…"}</section>;
+
   const activeAssignment = asset.responsible_history.find((item) => item.status === "ACTIVA");
 
   function openEditor() {
@@ -101,12 +116,66 @@ export function AssetDetailPage() {
     }
   }
 
+  function handleOpenAddResponsible() {
+    setNewRespForm({
+      responsible: "",
+      area: "",
+      reason: "",
+      start_date: new Date().toISOString().slice(0, 10),
+    });
+    setAddingResponsible(true);
+  }
+
+  function saveNewResponsible(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!asset) return;
+
+    const nowIso = new Date().toISOString();
+    const startDateIso = newRespForm.start_date
+      ? new Date(newRespForm.start_date).toISOString()
+      : nowIso;
+
+    // Finalize previous active assignment if any
+    const updatedHistory = asset.responsible_history.map((item) => {
+      if (item.status === "ACTIVA") {
+        return {
+          ...item,
+          status: "FINALIZADA",
+          end_date: startDateIso,
+        };
+      }
+      return item;
+    });
+
+    const newEntry = {
+      id: `RESP-${Date.now()}`,
+      responsible: newRespForm.responsible.trim(),
+      type: "PERSONA",
+      area: newRespForm.area.trim() || "Operaciones",
+      start_date: startDateIso,
+      end_date: null,
+      status: "ACTIVA",
+      reason: newRespForm.reason.trim() || "Asignación oficial de activo",
+    };
+
+    const updatedAsset: AssetDetailRecord = {
+      ...asset,
+      assignment_status: "Asignado",
+      responsible_history: [newEntry, ...updatedHistory],
+    };
+
+    setAsset(updatedAsset);
+    setAddingResponsible(false);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 3500);
+  }
+
   return (
     <section className="asset-record-page">
       {saved && (
         <div className="asset-edit-success" role="status">
           <CheckCircle weight="fill" />
-          Ficha del bien actualizada correctamente.
+          Ficha del bien e historial de responsables actualizados correctamente.
         </div>
       )}
       <Link className="back-link" to="/bienes">
@@ -131,6 +200,10 @@ export function AssetDetailPage() {
               Editar ficha
             </button>
           )}
+          <button className="button button-primary" type="button" onClick={handleOpenAddResponsible}>
+            <UserPlus />
+            Asignar nuevo responsable
+          </button>
           <button className="button button-secondary" onClick={() => window.print()}>
             <Printer />
             Imprimir ficha
@@ -194,7 +267,17 @@ export function AssetDetailPage() {
             </dl>
           </section>
           <aside className="detail-section current-custody">
-            <h2>Situación actual</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <h2>Situación actual</h2>
+              <button
+                type="button"
+                className="button button-secondary"
+                style={{ padding: "4px 10px", fontSize: "12px" }}
+                onClick={handleOpenAddResponsible}
+              >
+                <UserPlus size={14} /> Cambiar
+              </button>
+            </div>
             <div>
               <MapPin />
               <span>
@@ -209,7 +292,7 @@ export function AssetDetailPage() {
             <div>
               <UserCircle />
               <span>
-                <small>Responsable</small>
+                <small>Responsable actual</small>
                 <strong>{activeAssignment?.responsible || "Sin asignar"}</strong>
                 <small>{activeAssignment?.area}</small>
               </span>
@@ -219,7 +302,13 @@ export function AssetDetailPage() {
       )}
       {tab === "responsibles" && (
         <section className="detail-section">
-          <h2>Historial de responsables</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <h2>Historial de responsables</h2>
+            <button className="button button-primary" type="button" onClick={handleOpenAddResponsible}>
+              <UserPlus />
+              Asignar nuevo responsable
+            </button>
+          </div>
           <HistoryResponsibleList items={asset.responsible_history} />
         </section>
       )}
@@ -249,6 +338,8 @@ export function AssetDetailPage() {
           </div>
         </section>
       )}
+
+      {/* EDIT ASSET MODAL */}
       {editing && (
         <div className="asset-edit-backdrop" role="presentation">
           <section
@@ -342,8 +433,8 @@ export function AssetDetailPage() {
                 </label>
               </div>
               <aside className="asset-edit-boundary">
-                La ubicación y el responsable se actualizan desde Asignaciones para conservar su
-                historial y las actas correspondientes.
+                La ubicación y el responsable se pueden asignar desde la pestaña de Responsables para conservar su
+                historial.
               </aside>
               <footer>
                 <button
@@ -357,6 +448,98 @@ export function AssetDetailPage() {
                 <button className="button button-primary" disabled={saving}>
                   <FloppyDisk />
                   {saving ? "Guardando…" : "Guardar cambios"}
+                </button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {/* ADD NEW RESPONSIBLE MODAL */}
+      {addingResponsible && (
+        <div className="asset-edit-backdrop" role="presentation">
+          <section
+            className="asset-edit-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-resp-title"
+          >
+            <header>
+              <div>
+                <span>Asignación de custodia</span>
+                <h2 id="add-resp-title">Asignar nuevo responsable</h2>
+                <p>{asset.code} — {asset.name}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar modal"
+                onClick={() => setAddingResponsible(false)}
+              >
+                <X />
+              </button>
+            </header>
+            <form onSubmit={saveNewResponsible}>
+              <div className="asset-edit-fields">
+                <label className="field field-wide">
+                  <span>Nombre completo del nuevo responsable *</span>
+                  <input
+                    required
+                    placeholder="Ej. Marco Quispe Flores"
+                    value={newRespForm.responsible}
+                    onChange={(e) =>
+                      setNewRespForm({ ...newRespForm, responsible: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Área / Departamento *</span>
+                  <input
+                    required
+                    placeholder="Ej. Mantenimiento / Facility"
+                    value={newRespForm.area}
+                    onChange={(e) =>
+                      setNewRespForm({ ...newRespForm, area: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Fecha de inicio *</span>
+                  <input
+                    type="date"
+                    required
+                    value={newRespForm.start_date}
+                    onChange={(e) =>
+                      setNewRespForm({ ...newRespForm, start_date: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field field-wide">
+                  <span>Motivo de la asignación / observaciones *</span>
+                  <textarea
+                    required
+                    rows={3}
+                    placeholder="Ej. Reasignación por rotación de puesto / custodia operativa"
+                    value={newRespForm.reason}
+                    onChange={(e) =>
+                      setNewRespForm({ ...newRespForm, reason: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+              <aside className="asset-edit-boundary">
+                Al asignar un nuevo responsable, la custodia actual finalizará automáticamente y quedará registrada en el historial.
+              </aside>
+              <footer>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => setAddingResponsible(false)}
+                >
+                  Cancelar
+                </button>
+                <button className="button button-primary" type="submit">
+                  <UserPlus />
+                  Asignar responsable
                 </button>
               </footer>
             </form>
