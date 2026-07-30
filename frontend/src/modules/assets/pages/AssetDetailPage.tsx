@@ -41,6 +41,8 @@ export function AssetDetailPage() {
   const [newRespForm, setNewRespForm] = useState({
     responsible: "",
     area: "",
+    building: "",
+    room: "",
     reason: "",
     start_date: new Date().toISOString().slice(0, 10),
   });
@@ -73,7 +75,16 @@ export function AssetDetailPage() {
   if (!asset)
     return <section className="loading-panel">{error || "Cargando ficha del bien…"}</section>;
 
-  const activeAssignment = asset.responsible_history.find((item) => item.status === "ACTIVA");
+  // Robustly determine active assignment: checks status or end_date === null or first element in history
+  const activeAssignment =
+    asset.responsible_history.find(
+      (item) =>
+        item.status?.toUpperCase() === "ACTIVA" ||
+        item.status?.toUpperCase() === "ACTIVO" ||
+        item.status?.toUpperCase() === "ASIGNADO" ||
+        item.end_date === null ||
+        !item.end_date
+    ) || asset.responsible_history[0];
 
   function openEditor() {
     if (!asset) return;
@@ -118,8 +129,10 @@ export function AssetDetailPage() {
 
   function handleOpenAddResponsible() {
     setNewRespForm({
-      responsible: "",
-      area: "",
+      responsible: activeAssignment?.responsible && activeAssignment.responsible !== "Sin asignar" ? activeAssignment.responsible : "",
+      area: activeAssignment?.area || "",
+      building: asset?.location_detail?.building || "",
+      room: asset?.location_detail?.room || "",
       reason: "",
       start_date: new Date().toISOString().slice(0, 10),
     });
@@ -137,7 +150,11 @@ export function AssetDetailPage() {
 
     // Finalize previous active assignment if any
     const updatedHistory = asset.responsible_history.map((item) => {
-      if (item.status === "ACTIVA") {
+      if (
+        item.status?.toUpperCase() === "ACTIVA" ||
+        item.status?.toUpperCase() === "ACTIVO" ||
+        !item.end_date
+      ) {
         return {
           ...item,
           status: "FINALIZADA",
@@ -158,9 +175,21 @@ export function AssetDetailPage() {
       reason: newRespForm.reason.trim() || "Asignación oficial de activo",
     };
 
+    const updatedLocation =
+      newRespForm.building || newRespForm.room
+        ? {
+            zone: asset.location_detail?.zone || "Sede Principal",
+            building: newRespForm.building.trim() || asset.location_detail?.building || "Edificio Principal",
+            area: newRespForm.area.trim() || asset.location_detail?.area || "Área Operativa",
+            room: newRespForm.room.trim() || asset.location_detail?.room || "Oficina",
+            specific_location: asset.location_detail?.specific_location || "",
+          }
+        : asset.location_detail;
+
     const updatedAsset: AssetDetailRecord = {
       ...asset,
       assignment_status: "Asignado",
+      location_detail: updatedLocation,
       responsible_history: [newEntry, ...updatedHistory],
     };
 
@@ -175,7 +204,7 @@ export function AssetDetailPage() {
       {saved && (
         <div className="asset-edit-success" role="status">
           <CheckCircle weight="fill" />
-          Ficha del bien e historial de responsables actualizados correctamente.
+          Ficha del bien y Situación Actual actualizadas correctamente.
         </div>
       )}
       <Link className="back-link" to="/bienes">
@@ -294,7 +323,7 @@ export function AssetDetailPage() {
               <span>
                 <small>Responsable actual</small>
                 <strong>{activeAssignment?.responsible || "Sin asignar"}</strong>
-                <small>{activeAssignment?.area}</small>
+                {activeAssignment?.area && <small>{activeAssignment.area}</small>}
               </span>
             </div>
           </aside>
@@ -466,7 +495,7 @@ export function AssetDetailPage() {
           >
             <header>
               <div>
-                <span>Asignación de custodia</span>
+                <span>Asignación de custodia y ubicación</span>
                 <h2 id="add-resp-title">Asignar nuevo responsable</h2>
                 <p>{asset.code} — {asset.name}</p>
               </div>
@@ -513,6 +542,26 @@ export function AssetDetailPage() {
                     }
                   />
                 </label>
+                <label className="field">
+                  <span>Edificio / Piso</span>
+                  <input
+                    placeholder="Ej. Edificio B / Piso 2"
+                    value={newRespForm.building}
+                    onChange={(e) =>
+                      setNewRespForm({ ...newRespForm, building: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Oficina / Sala / Ubicación exacta</span>
+                  <input
+                    placeholder="Ej. Gerencia General / Sala A"
+                    value={newRespForm.room}
+                    onChange={(e) =>
+                      setNewRespForm({ ...newRespForm, room: e.target.value })
+                    }
+                  />
+                </label>
                 <label className="field field-wide">
                   <span>Motivo de la asignación / observaciones *</span>
                   <textarea
@@ -527,7 +576,7 @@ export function AssetDetailPage() {
                 </label>
               </div>
               <aside className="asset-edit-boundary">
-                Al asignar un nuevo responsable, la custodia actual finalizará automáticamente y quedará registrada en el historial.
+                Al guardar, el responsable actual y la ubicación se actualizarán automáticamente en la sección Situación Actual y quedará registrado en el historial.
               </aside>
               <footer>
                 <button
