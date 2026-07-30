@@ -23,6 +23,7 @@ import {
 } from "@/modules/assets/assetDetailRepository";
 
 type DetailTab = "overview" | "responsibles" | "repairs" | "qr";
+type ResponsibleItem = AssetDetailRecord["responsible_history"][number];
 
 export function AssetDetailPage() {
   const { id = "" } = useParams();
@@ -45,6 +46,17 @@ export function AssetDetailPage() {
     room: "",
     reason: "",
     start_date: new Date().toISOString().slice(0, 10),
+  });
+
+  // Edit Existing Responsible Item State
+  const [editingResponsibleItem, setEditingResponsibleItem] = useState<ResponsibleItem | null>(null);
+  const [editRespForm, setEditRespForm] = useState({
+    responsible: "",
+    area: "",
+    status: "FINALIZADA",
+    start_date: "",
+    end_date: "",
+    reason: "",
   });
 
   const [editForm, setEditForm] = useState<AssetDetailUpdate>({
@@ -199,12 +211,71 @@ export function AssetDetailPage() {
     window.setTimeout(() => setSaved(false), 3500);
   }
 
+  function handleOpenEditResponsible(item: ResponsibleItem) {
+    setEditingResponsibleItem(item);
+    setEditRespForm({
+      responsible: item.responsible,
+      area: item.area || "",
+      status: item.status?.toUpperCase() === "ACTIVA" ? "ACTIVA" : "FINALIZADA",
+      start_date: toInputDate(item.start_date),
+      end_date: toInputDate(item.end_date),
+      reason: item.reason || "",
+    });
+  }
+
+  function saveEditResponsible(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!asset || !editingResponsibleItem) return;
+
+    const startDateIso = editRespForm.start_date
+      ? new Date(editRespForm.start_date).toISOString()
+      : editingResponsibleItem.start_date;
+    const endDateIso = editRespForm.end_date
+      ? new Date(editRespForm.end_date).toISOString()
+      : null;
+
+    const isNewActive = editRespForm.status === "ACTIVA";
+
+    const updatedHistory = asset.responsible_history.map((item) => {
+      if (item.id === editingResponsibleItem.id) {
+        return {
+          ...item,
+          responsible: editRespForm.responsible.trim(),
+          area: editRespForm.area.trim(),
+          status: editRespForm.status,
+          start_date: startDateIso,
+          end_date: isNewActive ? null : endDateIso,
+          reason: editRespForm.reason.trim(),
+        };
+      }
+      if (isNewActive && (item.status?.toUpperCase() === "ACTIVA" || !item.end_date)) {
+        return {
+          ...item,
+          status: "FINALIZADA",
+          end_date: startDateIso,
+        };
+      }
+      return item;
+    });
+
+    const updatedAsset: AssetDetailRecord = {
+      ...asset,
+      assignment_status: updatedHistory.some((i) => i.status === "ACTIVA") ? "Asignado" : "Sin asignar",
+      responsible_history: updatedHistory,
+    };
+
+    setAsset(updatedAsset);
+    setEditingResponsibleItem(null);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 3500);
+  }
+
   return (
     <section className="asset-record-page">
       {saved && (
         <div className="asset-edit-success" role="status">
           <CheckCircle weight="fill" />
-          Ficha del bien y Situación Actual actualizadas correctamente.
+          Historial de responsables y Situación Actual registrados correctamente.
         </div>
       )}
       <Link className="back-link" to="/bienes">
@@ -338,7 +409,10 @@ export function AssetDetailPage() {
               Asignar nuevo responsable
             </button>
           </div>
-          <HistoryResponsibleList items={asset.responsible_history} />
+          <HistoryResponsibleList
+            items={asset.responsible_history}
+            onEdit={handleOpenEditResponsible}
+          />
         </section>
       )}
       {tab === "repairs" && (
@@ -595,11 +669,126 @@ export function AssetDetailPage() {
           </section>
         </div>
       )}
+
+      {/* EDIT EXISTING RESPONSIBLE MODAL */}
+      {editingResponsibleItem && (
+        <div className="asset-edit-backdrop" role="presentation">
+          <section
+            className="asset-edit-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-resp-title"
+          >
+            <header>
+              <div>
+                <span>Historial de responsable</span>
+                <h2 id="edit-resp-title">Editar registro de responsable</h2>
+                <p>{asset.code} — {editingResponsibleItem.responsible}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar modal"
+                onClick={() => setEditingResponsibleItem(null)}
+              >
+                <X />
+              </button>
+            </header>
+            <form onSubmit={saveEditResponsible}>
+              <div className="asset-edit-fields">
+                <label className="field field-wide">
+                  <span>Nombre completo del responsable *</span>
+                  <input
+                    required
+                    value={editRespForm.responsible}
+                    onChange={(e) =>
+                      setEditRespForm({ ...editRespForm, responsible: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Área / Departamento *</span>
+                  <input
+                    required
+                    value={editRespForm.area}
+                    onChange={(e) =>
+                      setEditRespForm({ ...editRespForm, area: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Estado de custodia *</span>
+                  <select
+                    value={editRespForm.status}
+                    onChange={(e) =>
+                      setEditRespForm({ ...editRespForm, status: e.target.value })
+                    }
+                  >
+                    <option value="ACTIVA">Actual (Activa)</option>
+                    <option value="FINALIZADA">Finalizada</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Fecha de inicio *</span>
+                  <input
+                    type="date"
+                    required
+                    value={editRespForm.start_date}
+                    onChange={(e) =>
+                      setEditRespForm({ ...editRespForm, start_date: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Fecha de término</span>
+                  <input
+                    type="date"
+                    disabled={editRespForm.status === "ACTIVA"}
+                    value={editRespForm.end_date}
+                    onChange={(e) =>
+                      setEditRespForm({ ...editRespForm, end_date: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="field field-wide">
+                  <span>Motivo / Observaciones *</span>
+                  <textarea
+                    required
+                    rows={3}
+                    value={editRespForm.reason}
+                    onChange={(e) =>
+                      setEditRespForm({ ...editRespForm, reason: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+              <footer>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => setEditingResponsibleItem(null)}
+                >
+                  Cancelar
+                </button>
+                <button className="button button-primary" type="submit">
+                  <FloppyDisk />
+                  Guardar cambios
+                </button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
 
-function HistoryResponsibleList({ items }: { items: AssetDetailRecord["responsible_history"] }) {
+function HistoryResponsibleList({
+  items,
+  onEdit,
+}: {
+  items: AssetDetailRecord["responsible_history"];
+  onEdit: (item: ResponsibleItem) => void;
+}) {
   return (
     <ol className="history-list">
       {items.map((item) => (
@@ -610,11 +799,21 @@ function HistoryResponsibleList({ items }: { items: AssetDetailRecord["responsib
           <div className="history-content">
             <div className="history-title">
               <strong>{item.responsible}</strong>
-              <span
-                className={`status ${item.status === "ACTIVA" ? "status-success" : "status-neutral"}`}
-              >
-                {item.status === "ACTIVA" ? "Actual" : "Finalizada"}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span
+                  className={`status ${item.status === "ACTIVA" ? "status-success" : "status-neutral"}`}
+                >
+                  {item.status === "ACTIVA" ? "Actual" : "Finalizada"}
+                </span>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  style={{ padding: "3px 8px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                  onClick={() => onEdit(item)}
+                >
+                  <PencilSimple size={13} /> Editar
+                </button>
+              </div>
             </div>
             <p>{item.area || item.type.toLowerCase()}</p>
             <dl className="history-metadata">
@@ -680,6 +879,15 @@ function RepairList({ items }: { items: AssetDetailRecord["repair_history"] }) {
       ))}
     </ol>
   );
+}
+
+function toInputDate(value: string | null) {
+  if (!value) return "";
+  try {
+    return new Date(value).toISOString().slice(0, 10);
+  } catch {
+    return "";
+  }
 }
 
 function formatDate(value: string) {
