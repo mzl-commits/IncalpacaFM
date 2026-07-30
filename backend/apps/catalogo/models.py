@@ -22,6 +22,15 @@ class Subcategoria(models.Model):
         Categoria, on_delete=models.PROTECT, related_name="subcategorias"
     )
     nombre = models.CharField(max_length=100)
+    plantilla_inspeccion = models.ForeignKey(
+        "inspeccion.PlantillaCriterio",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="subcategorias",
+        help_text="Plantilla de criterios a usar para inspeccionar materiales de esta "
+                   "subcategoría. Vacío si no aplica inspección (ej. consumibles)."
+    )
     activo = models.BooleanField(default=True)
 
     class Meta:

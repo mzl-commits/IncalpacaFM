@@ -1,0 +1,909 @@
+/*
+ * SGTB typography system
+ * One enterprise sans family, semantic type roles and a mono role for hashes.
+ * Product UI uses fixed rem values so browser zoom and dense layouts stay predictable.
+ */
+
+:root {
+  --font-ui:
+    Aptos, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --font-heading:
+    "Aptos Display", Aptos, "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI",
+    ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --type-caption: 0.75rem;
+  --type-meta: 0.8125rem;
+  --type-small: 0.875rem;
+  --type-body: 1rem;
+  --type-subheading: 1.125rem;
+  --type-heading: 1.25rem;
+  --type-title: 2rem;
+  --type-metric: 1.875rem;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.15;
+  --leading-heading: 1.25;
+  --leading-control: 1.3;
+  --leading-body: 1.55;
+  --leading-relaxed: 1.65;
+
+  font-family: var(--font-ui);
+  font-size: 100%;
+  font-kerning: normal;
+  font-optical-sizing: auto;
+}
+
+html {
+  font-size: 100%;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--type-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-body);
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+:where(button, input, select, textarea) {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.app-frame {
+  font-family: var(--font-ui);
+  font-size: var(--type-body);
+}
+
+.app-frame h1,
+.page-heading h1,
+.wizard-heading h1,
+.dashboard-heading h1,
+.qr-inventory-heading h1,
+.reports-heading h1,
+.public-asset-title h1,
+.delivery-success h1,
+.lifecycle-success h1 {
+  font-family: var(--font-heading);
+  font-size: var(--type-title);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+}
+
+.app-frame h2,
+.public-card h2,
+.form-section-heading h2,
+.assignment-form > header h2,
+.section-heading h2,
+.quick-actions-sheet h2,
+.success-panel h2,
+.success-hero h2 {
+  font-family: var(--font-heading);
+  font-size: var(--type-heading);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-heading);
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+.app-frame h3,
+.public-card h3 {
+  font-family: var(--font-heading);
+  font-size: var(--type-subheading);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+  letter-spacing: -0.006em;
+  text-wrap: balance;
+}
+
+.app-frame p,
+.app-frame li,
+.app-frame dd,
+.public-card p,
+.public-card dd {
+  text-wrap: pretty;
+}
+
+.app-frame p,
+.public-card p {
+  line-height: var(--leading-body);
+}
+
+.page-heading > div > p:not(.breadcrumb),
+.wizard-heading > div > p:not(.breadcrumb),
+.dashboard-heading > div > p:not(.breadcrumb),
+.qr-inventory-heading > div > p,
+.reports-heading > p:not(.reports-breadcrumb),
+.public-asset-title > p {
+  max-width: 70ch;
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.page-heading > div > p.breadcrumb,
+.wizard-heading p.breadcrumb,
+.breadcrumb,
+.reports-breadcrumb,
+.qr-inventory-breadcrumb {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.app-frame small,
+.public-card small {
+  font-size: var(--type-meta);
+  line-height: 1.4;
+}
+
+/* Shell and navigation */
+
+.brand-mark {
+  font-family: var(--font-heading);
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.brand-copy strong {
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+  line-height: 1.2;
+  letter-spacing: 0.015em;
+}
+
+.brand-copy small,
+.sidebar-account small,
+.session-label {
+  font-size: var(--type-caption);
+  line-height: 1.35;
+}
+
+.sidebar-account strong {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.nav-item,
+.nav-group-primary {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.nav-subitem {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-medium);
+  line-height: 1.35;
+}
+
+.topbar-context small {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+
+.topbar-context strong {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+}
+
+.topbar-user strong {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+}
+
+.topbar-user small {
+  font-size: var(--type-caption);
+  line-height: 1.3;
+}
+
+.topbar-user > span {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+}
+
+.mobile-nav-item {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-medium);
+  line-height: 1.2;
+}
+
+.mobile-nav-item.is-active {
+  font-weight: var(--weight-bold);
+}
+
+.mobile-more-menu header strong {
+  font-family: var(--font-heading);
+  font-size: var(--type-heading);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+
+.mobile-more-menu header span,
+.quick-actions-sheet header > div > span {
+  font-size: var(--type-meta);
+  line-height: 1.4;
+}
+
+.mobile-more-link,
+.quick-actions-sheet nav a {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.quick-actions-sheet h2 {
+  font-size: 1.5rem;
+}
+
+/* Controls and form language */
+
+.button,
+.qr-inventory-button,
+.topbar-quick-action,
+.table-action,
+.back-link,
+.record-tabs button,
+.history-tabs button,
+.decision-tabs button,
+.segmented-control button,
+.map-asset-link {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-control);
+  letter-spacing: 0;
+}
+
+.field {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+}
+
+.field > span,
+.form-grid label > span,
+.qr-inventory-search-field > label,
+.qr-inventory-filter-field > label,
+.reports-period > span,
+.signature-methods legend {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.field input,
+.field select,
+.field textarea,
+.search-field input,
+.table-toolbar select,
+.qr-inventory-search-field input,
+.qr-inventory-filter-field select,
+.reports-period select,
+.reports-control select {
+  font-size: var(--type-body);
+  font-weight: var(--weight-regular);
+  line-height: 1.4;
+}
+
+.field input::placeholder,
+.field textarea::placeholder,
+.search-field input::placeholder,
+.qr-inventory-search-field input::placeholder {
+  font-size: var(--type-small);
+}
+
+.field small,
+.selected-file,
+.form-alert,
+.form-error,
+.save-state,
+.signature-help {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.field-error {
+  font-size: var(--type-meta) !important;
+  line-height: 1.45 !important;
+}
+
+.form-section-heading > span,
+.assignment-form > header span {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  line-height: 1.3;
+  letter-spacing: 0.045em;
+}
+
+.form-section-heading h2,
+.assignment-form > header h2,
+.section-heading h2 {
+  font-size: var(--type-heading);
+}
+
+.lifecycle-section-heading h2,
+.eligibility-panel h2,
+.help-panel h2,
+.qr-inventory-empty h2 {
+  font-size: var(--type-subheading);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.section-heading p,
+.help-panel p,
+.privacy-notice span,
+.immutable-warning span,
+.operation-dialog > p,
+.record-description {
+  max-width: 70ch;
+  font-size: var(--type-small);
+  line-height: var(--leading-body);
+}
+
+.selection-card strong,
+.responsible-options strong,
+.review-card strong,
+.upload-block strong,
+.signature-methods strong {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.selection-card small,
+.responsible-options small,
+.upload-block small,
+.signature-methods small {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.delivery-checklist label,
+.consent-row,
+.confirmation-check,
+.closure-checklist label {
+  font-size: var(--type-small);
+  line-height: 1.45;
+}
+
+/* Data, metrics and status */
+
+table {
+  font-size: var(--type-small);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+th {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  line-height: 1.3;
+  letter-spacing: 0.045em;
+}
+
+td small,
+.table-footer,
+.reports-activity-list time,
+.reports-priority-item time {
+  font-size: var(--type-caption);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.status,
+.reports-source-status,
+.reports-scope-tag,
+.reports-local-badge,
+.qr-inventory-status {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.metrics-grid strong,
+.dashboard-stat-list dd,
+.reports-kpis dd,
+.reports-local-kpis dd,
+.qr-inventory-summary dd,
+.lifecycle-metrics strong,
+.work-order-progress-heading strong {
+  font-family: var(--font-heading);
+  font-size: var(--type-metric);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-grid span,
+.reports-kpis dt,
+.reports-local-kpis dt,
+.qr-inventory-summary dt,
+.lifecycle-metrics span,
+.dashboard-stat-list dt {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+}
+
+.metrics-grid small,
+.dashboard-stat-list small,
+.reports-kpis small {
+  font-size: var(--type-meta);
+  line-height: 1.4;
+}
+
+time,
+.date,
+.updated-at {
+  font-variant-numeric: tabular-nums;
+}
+
+code,
+kbd,
+samp,
+.act-panel code {
+  font-family: var(--font-mono);
+  font-size: var(--type-meta);
+  line-height: 1.55;
+  font-variant-ligatures: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dashboard */
+
+.dashboard-overview-intro h2,
+.reports-summary-lead h2,
+.detail-header h2 {
+  font-size: 1.5rem;
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+  letter-spacing: -0.016em;
+}
+
+.dashboard-overview-intro > span,
+.reports-summary-lead > span {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.dashboard-overview-intro p,
+.reports-summary-lead p {
+  font-size: var(--type-small);
+  line-height: 1.55;
+}
+
+.dashboard-section-heading h2,
+.reports-panel-heading h2 {
+  font-size: var(--type-subheading);
+}
+
+.dashboard-section-heading p,
+.reports-panel-heading p {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.dashboard-alert strong,
+.dashboard-quick-actions strong,
+.dashboard-activity-list strong {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.dashboard-alert small,
+.dashboard-quick-actions small,
+.dashboard-activity-list small {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+/* Reports */
+
+.reports-updated {
+  font-size: var(--type-meta);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.reports-period {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.reports-controls,
+.reports-icon-action {
+  font-size: var(--type-small);
+}
+
+.reports-source-health,
+.reports-partial-error {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.reports-distribution-list li > div:first-child,
+.reports-local-links,
+.reports-priority-content strong,
+.reports-activity-content strong {
+  font-size: var(--type-small);
+  line-height: 1.4;
+}
+
+.reports-local-heading h2 {
+  font-size: var(--type-heading);
+}
+
+.reports-local-heading p,
+.reports-priority-content small,
+.reports-activity-content small {
+  font-size: var(--type-meta);
+  line-height: 1.5;
+}
+
+.reports-count {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.reports-activity-meta {
+  font-size: var(--type-caption);
+  line-height: 1.35;
+}
+
+.reports-updated,
+.reports-source-status,
+.reports-summary .reports-summary-lead > span,
+.reports-panel-heading p,
+.reports-local-badge,
+.reports-local-links a,
+.reports-priority-item > time,
+.reports-priority-content > small,
+.reports-scope-tag,
+.reports-all-clear p,
+.reports-activity-list a > time,
+.reports-activity-content > small,
+.reports-activity-meta {
+  font-size: var(--type-caption);
+  line-height: 1.4;
+}
+
+.reports-all-clear p {
+  font-size: var(--type-small);
+  line-height: var(--leading-body);
+}
+
+.reports-priority-content > strong,
+.reports-activity-content > strong {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+}
+
+.reports-partial-error,
+.reports-summary-lead p,
+.reports-local-heading p,
+.reports-empty {
+  font-size: var(--type-small);
+  line-height: var(--leading-body);
+}
+
+/* QR inventory */
+
+.qr-inventory-message,
+.qr-inventory-action-message,
+.qr-inventory-select-all,
+.qr-inventory-clear-filters {
+  font-size: var(--type-small);
+  line-height: 1.45;
+}
+
+.qr-inventory-asset-link {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-bold);
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.qr-inventory-card-content h2 {
+  font-size: var(--type-subheading);
+  line-height: 1.35;
+}
+
+.qr-inventory-card-facts dt {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.qr-inventory-card-facts dd {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.qr-inventory-card-actions {
+  font-size: var(--type-small);
+}
+
+.qr-inventory-selection-bar > p,
+.qr-inventory-empty p {
+  font-size: var(--type-small);
+  line-height: 1.5;
+}
+
+.qr-inventory-search-field > label,
+.qr-inventory-filter-field > label,
+.qr-inventory-summary dt,
+.qr-inventory-status,
+.qr-inventory-preview-state,
+.qr-inventory-asset-link > span,
+.qr-inventory-card-facts dt,
+.qr-inventory-card-actions button,
+.qr-inventory-card-actions a {
+  font-size: var(--type-caption);
+  line-height: 1.4;
+}
+
+.qr-inventory-card-facts dd {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.qr-inventory-button,
+.qr-inventory-clear-filters,
+.qr-inventory-select-all {
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+}
+
+.qr-inventory-asset-link > strong {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+/* Operational mobile cards and detail language */
+
+.operational-mobile-list strong,
+.lifecycle-mobile-list h2,
+.assignment-cards h2,
+.history-title strong {
+  font-size: var(--type-body);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.operational-mobile-list p,
+.lifecycle-mobile-list p,
+.assignment-cards p,
+.history-content > p {
+  font-size: var(--type-small);
+  line-height: 1.5;
+}
+
+.operational-mobile-list dt,
+.assignment-cards dt,
+.detail-facts dt,
+.record-facts dt,
+.history-metadata dt,
+.disposition-summary dt {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+  letter-spacing: 0.035em;
+}
+
+.operational-mobile-list dd,
+.assignment-cards dd,
+.detail-facts dd,
+.record-facts dd,
+.history-metadata dd,
+.disposition-summary dd {
+  font-size: var(--type-small);
+  line-height: 1.5;
+}
+
+.detail-section h2,
+.act-panel h2,
+.detail-card-heading h2,
+.admin-evaluation-card h2,
+.disposition-summary h2 {
+  font-size: var(--type-subheading);
+}
+
+.act-panel label {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.035em;
+}
+
+.act-panel p,
+.map-caption,
+.map-floor,
+.map-legend,
+.asset-inventory-summary {
+  font-size: var(--type-meta);
+  line-height: 1.5;
+}
+
+.detail-list dt,
+.review-card dt,
+.lifecycle-summary-grid dt {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+  letter-spacing: 0.035em;
+}
+
+.detail-list dd,
+.review-card dd,
+.lifecycle-summary-grid dd {
+  font-size: var(--type-small);
+  font-weight: var(--weight-medium);
+  line-height: 1.5;
+}
+
+.map-building > strong {
+  font-size: var(--type-body);
+  font-weight: var(--weight-semibold);
+}
+
+/*
+ * Legacy modules contain a few selectors with greater specificity.
+ * These role-based rules keep their visible copy on the same readable scale.
+ */
+
+.sidebar-account .session-label {
+  font-size: var(--type-caption);
+  line-height: 1.35;
+}
+
+.dashboard-quick-actions nav small,
+.dashboard-activity-list time {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.reports-panel .reports-panel-heading p {
+  font-size: var(--type-meta);
+  line-height: 1.45;
+}
+
+.reports-local-heading > div > p {
+  font-size: var(--type-small);
+  line-height: var(--leading-body);
+}
+
+.wizard-heading .save-state {
+  font-size: var(--type-meta);
+  line-height: 1.4;
+}
+
+.stepper li > span {
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+@media (min-width: 721px) and (max-width: 1050px) {
+  .desktop-navigation .home-nav {
+    font-size: var(--type-small);
+  }
+}
+
+@media (max-width: 720px) {
+  .app-frame h1,
+  .entries-page .page-heading h1,
+  .page-heading h1,
+  .wizard-heading h1,
+  .dashboard-heading h1,
+  .qr-inventory-heading h1,
+  .reports-heading h1,
+  .public-asset-title h1,
+  .delivery-success h1,
+  .lifecycle-success h1 {
+    font-size: 1.75rem;
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+  }
+
+  .app-frame h2,
+  .public-card h2 {
+    font-size: var(--type-subheading);
+  }
+
+  .app-frame h3,
+  .public-card h3 {
+    font-size: var(--type-body);
+  }
+
+  .page-heading > div > p:not(.breadcrumb),
+  .wizard-heading > div > p:not(.breadcrumb),
+  .dashboard-heading > div > p:not(.breadcrumb),
+  .qr-inventory-heading > div > p,
+  .reports-heading > p:not(.reports-breadcrumb) {
+    font-size: var(--type-small);
+    line-height: 1.55;
+  }
+
+  .dashboard-overview-intro h2,
+  .reports-summary-lead h2 {
+    font-size: 1.375rem;
+  }
+
+  .metrics-grid strong,
+  .dashboard-stat-list dd,
+  .reports-kpis dd,
+  .reports-local-kpis dd,
+  .qr-inventory-summary dd,
+  .lifecycle-metrics strong {
+    font-size: 1.625rem;
+  }
+
+  .mobile-more-link {
+    font-size: var(--type-meta);
+  }
+
+  .field input,
+  .field select,
+  .field textarea,
+  .search-field input,
+  .table-toolbar select,
+  .qr-inventory-search-field input,
+  .qr-inventory-filter-field select,
+  .reports-period select {
+    font-size: var(--type-body);
+  }
+}
+
+@media print {
+  body {
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+
+  .app-frame h1,
+  .public-asset-title h1 {
+    font-size: 20pt;
+  }
+
+  .app-frame h2,
+  .public-card h2 {
+    font-size: 13pt;
+  }
+
+  table {
+    font-size: 9pt;
+  }
+
+  th,
+  .status,
+  .reports-scope-tag {
+    font-size: 8pt;
+  }
+}

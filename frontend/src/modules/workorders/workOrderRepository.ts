@@ -1,0 +1,66 @@
+import { api } from "@/services/api";
+import type { WorkOrder } from "./types";
+
+export const WORK_ORDERS_UPDATED_EVENT = "sgtb:work-orders-updated";
+
+function notifyChanges() {
+  window.dispatchEvent(new Event(WORK_ORDERS_UPDATED_EVENT));
+}
+
+export async function listWorkOrders(): Promise<WorkOrder[]> {
+  const { data } = await api.get<WorkOrder[]>("/work-orders/");
+  return data;
+}
+
+export async function createWorkOrder(
+  workOrder: Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">,
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>("/work-orders/", {
+    ...workOrder,
+    technicianWorkerCode: "tecnico",
+    supervisorWorkerCode: "admin",
+  });
+  notifyChanges();
+  return data;
+}
+
+export async function getWorkOrderById(id: string): Promise<WorkOrder> {
+  const { data } = await api.get<WorkOrder>(`/work-orders/${id}/`);
+  return data;
+}
+
+export async function startWorkOrder(id: string): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: "START",
+  });
+  notifyChanges();
+  return data;
+}
+
+export interface RegisterProgressInput {
+  operatorId: string;
+  operatorName: string;
+  percentage: number;
+  observation: string;
+  evidenceNames: string[];
+}
+
+export async function registerWorkOrderProgress(
+  id: string,
+  input: RegisterProgressInput,
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: "PROGRESS",
+    percentage: input.percentage,
+    observation: input.observation,
+    evidence: input.evidenceNames.map((name) => ({
+      id: crypto.randomUUID(),
+      name,
+      mimeType: "image/*",
+      size: 0,
+      createdAt: new Date().toISOString(),
+    })),
+  });
+  notifyChanges();
+  return data;
+}

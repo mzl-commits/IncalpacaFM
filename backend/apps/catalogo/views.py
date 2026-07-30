@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
@@ -16,10 +17,12 @@ from apps.catalogo.serializers import (
 class CategoriaViewSet(viewsets.ModelViewSet):
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
+    permission_classes = [AllowAny]
 
 class SubcategoriaViewSet(viewsets.ModelViewSet):
     queryset = Subcategoria.objects.select_related("categoria").all()
     serializer_class = SubcategoriaSerializer
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -31,6 +34,7 @@ class SubcategoriaViewSet(viewsets.ModelViewSet):
 class MaterialViewSet(viewsets.ModelViewSet):
     queryset = Material.objects.select_related("subcategoria__categoria").all()
     serializer_class = MaterialSerializer
+    permission_classes = [AllowAny]
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -78,6 +82,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
 class PiezaViewSet(viewsets.ModelViewSet):
     queryset = Pieza.objects.select_related("material", "padre").all()
     serializer_class = PiezaSerializer
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         qs = super().get_queryset()

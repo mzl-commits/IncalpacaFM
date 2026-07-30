@@ -1,0 +1,767 @@
+/*
+ * SGTB surface system
+ * Quiet hierarchy for executive product UI: shallow elevation, crisp dividers,
+ * restrained state color and motion only on interactive surfaces.
+ */
+
+:root {
+  --canvas: #eef3f8;
+  --surface-raised: #ffffff;
+  --surface-subtle: #f7f9fc;
+  --surface-inset: #f1f5f9;
+  --surface-hover: #f5f8fc;
+  --surface-selected: #edf5ff;
+  --surface-border: #c7d4e2;
+  --surface-border-strong: #9fb3c8;
+  --surface-divider: #dce5ee;
+  --surface-shadow: 0 1px 2px rgb(7 31 56 / 0.055), 0 3px 6px rgb(7 31 56 / 0.045);
+  --surface-shadow-hover: 0 2px 4px rgb(7 31 56 / 0.065), 0 6px 8px rgb(7 31 56 / 0.055);
+  --surface-shadow-quiet: 0 1px 2px rgb(7 31 56 / 0.045);
+  --surface-radius: 12px;
+  --surface-radius-inner: 8px;
+}
+
+body,
+.app-frame {
+  background-color: var(--canvas);
+}
+
+/* Primary work surfaces */
+
+.data-panel,
+.form-panel,
+.help-panel,
+.detail-card,
+.current-custody,
+.act-panel,
+.lifecycle-form,
+.lifecycle-detail-panel,
+.decision-panel,
+.disposition-summary,
+.lifecycle-wizard-panel,
+.admin-evaluation-card,
+.work-order-actions-card,
+.execution-start-card,
+.dashboard-overview,
+.reports-summary,
+.reports-panel,
+.qr-inventory-filters,
+.qr-inventory-selection-bar,
+.qr-inventory-card,
+.qr-inventory-empty,
+.public-card,
+.success-hero {
+  border-color: var(--surface-border);
+  border-radius: var(--surface-radius);
+  background-color: var(--surface-raised);
+  box-shadow: var(--surface-shadow);
+}
+
+.data-panel,
+.form-panel,
+.help-panel,
+.detail-card,
+.current-custody,
+.act-panel,
+.lifecycle-form,
+.lifecycle-detail-panel,
+.decision-panel,
+.disposition-summary,
+.lifecycle-wizard-panel,
+.admin-evaluation-card,
+.work-order-actions-card,
+.execution-start-card,
+.rejection-card {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.form-panel,
+.help-panel,
+.detail-card,
+.current-custody,
+.act-panel,
+.lifecycle-form,
+.lifecycle-detail-panel,
+.decision-panel,
+.disposition-summary,
+.lifecycle-wizard-panel,
+.admin-evaluation-card,
+.work-order-actions-card,
+.execution-start-card,
+.rejection-card {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.88),
+    var(--surface-shadow);
+}
+
+/* Structural headers and toolbars */
+
+.table-toolbar,
+.dashboard-section-heading,
+.reports-panel-heading,
+.review-card header,
+.asset-credentials > h3 {
+  border-bottom-color: var(--surface-divider);
+  background-color: var(--surface-subtle);
+}
+
+.table-toolbar {
+  box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.72);
+}
+
+.detail-card-heading,
+.lifecycle-section-heading {
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--surface-divider);
+}
+
+.dashboard-section-heading,
+.reports-panel-heading {
+  box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.74);
+}
+
+/* Grouped metrics are one surface, not a grid of floating cards */
+
+.metrics-grid,
+.lifecycle-metrics,
+.qr-inventory-summary {
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--surface-radius);
+  background: var(--surface-divider);
+  box-shadow: var(--surface-shadow);
+}
+
+.metrics-grid article,
+.lifecycle-metrics article,
+.qr-inventory-summary > div {
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-raised);
+}
+
+.metrics-grid article,
+.lifecycle-metrics article {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+.metrics-grid article:not(:last-child),
+.lifecycle-metrics article:not(:last-child),
+.qr-inventory-summary > div:not(:last-child) {
+  border-right: 0;
+}
+
+.dashboard-overview {
+  border-color: #b8c9da;
+  box-shadow:
+    0 1px 2px rgb(7 31 56 / 0.06),
+    0 4px 8px rgb(7 31 56 / 0.055);
+}
+
+.dashboard-overview-intro,
+.reports-summary-lead {
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.13);
+}
+
+.dashboard-stat-list > div,
+.reports-kpis > div {
+  background: var(--surface-raised);
+}
+
+.dashboard-stat-list > div {
+  border-right-color: var(--surface-divider);
+}
+
+/* Tables and record lists */
+
+.data-panel {
+  overflow: hidden;
+}
+
+th {
+  border-bottom: 1px solid var(--surface-divider);
+  background-color: #f3f6fa;
+}
+
+td {
+  border-top-color: var(--surface-divider);
+}
+
+tbody tr {
+  transition: background-color var(--motion-fast) ease;
+}
+
+tbody tr:hover td {
+  background-color: #f7faff;
+}
+
+.table-footer {
+  border-top-color: var(--surface-divider);
+  background-color: var(--surface-subtle);
+}
+
+.dashboard-alert,
+.dashboard-quick-actions nav > a,
+.dashboard-activity-list > a,
+.reports-priority-item,
+.reports-activity-list a {
+  border-color: var(--surface-divider);
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.dashboard-alert:hover,
+.dashboard-quick-actions nav > a:hover,
+.dashboard-activity-list > a:hover,
+.reports-priority-item:hover,
+.reports-activity-list a:hover {
+  background-color: var(--surface-hover);
+}
+
+.dashboard-alert > svg:first-child,
+.dashboard-activity-icon,
+.reports-priority-icon,
+.reports-activity-icon {
+  border-radius: var(--surface-radius-inner);
+  box-shadow: inset 0 0 0 1px rgb(7 31 56 / 0.045);
+}
+
+.dashboard-alert > svg:last-child,
+.dashboard-quick-actions nav > a > svg:last-child,
+.dashboard-activity-list > a > svg,
+.reports-priority-item > svg,
+.reports-activity-list a > svg {
+  transition: transform var(--motion-fast) var(--ease-executive);
+}
+
+.dashboard-alert:hover > svg:last-child,
+.dashboard-quick-actions nav > a:hover > svg:last-child,
+.dashboard-activity-list > a:hover > svg,
+.reports-priority-item:hover > svg,
+.reports-activity-list a:hover > svg {
+  transform: translateX(2px);
+}
+
+/* Forms: one raised workspace with quieter nested choices */
+
+.form-section-heading {
+  padding-bottom: 18px;
+  border-bottom-color: var(--surface-divider);
+}
+
+.field input,
+.field select,
+.field textarea,
+.search-field,
+.compact-filter,
+.lifecycle-toolbar select,
+.reports-control select,
+.reports-period select,
+.qr-inventory-search-field > div,
+.qr-inventory-filter-field select {
+  border-color: var(--surface-border-strong);
+  background-color: #fbfcfe;
+  box-shadow: inset 0 1px 1px rgb(8 31 55 / 0.035);
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
+}
+
+.field input:hover,
+.field select:hover,
+.field textarea:hover,
+.search-field:hover,
+.compact-filter:hover,
+.lifecycle-toolbar select:hover,
+.reports-control select:hover,
+.reports-period select:hover,
+.qr-inventory-search-field > div:hover,
+.qr-inventory-filter-field select:hover {
+  border-color: #7f9bb7;
+  background-color: var(--surface-raised);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.search-field:focus-within,
+.compact-filter:focus,
+.lifecycle-toolbar select:focus,
+.reports-control select:focus,
+.reports-period select:focus-visible,
+.qr-inventory-search-field > div:focus-within,
+.qr-inventory-filter-field select:focus {
+  border-color: var(--accent);
+  background-color: var(--surface-raised);
+  box-shadow: 0 0 0 3px rgb(36 104 197 / 0.16);
+}
+
+.selection-card,
+.responsible-options label,
+.signature-methods label,
+.disposal-options label,
+.switch-row {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.86);
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) var(--ease-executive);
+}
+
+.selection-card:hover,
+.responsible-options label:hover,
+.signature-methods label:hover,
+.disposal-options label:hover,
+.switch-row:hover {
+  border-color: var(--surface-border-strong);
+  background: var(--surface-raised);
+  transform: translateY(-1px);
+}
+
+.selection-card.is-selected,
+.responsible-options label.is-selected,
+.signature-methods label:has(input:checked),
+.disposal-options label.is-selected,
+.switch-row:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--surface-selected);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 0 1px 0 rgb(255 255 255 / 0.8);
+}
+
+.selection-card:focus-within,
+.responsible-options label:focus-within,
+.signature-methods label:focus-within,
+.disposal-options label:focus-within,
+.switch-row:focus-within {
+  border-color: var(--accent);
+  outline: 3px solid rgb(36 104 197 / 0.18);
+  outline-offset: 2px;
+}
+
+.switch-row,
+.upload-block,
+.upload-box,
+.confirmation-box,
+.review-card,
+.selected-record,
+.closure-checklist,
+.signature-box,
+.technical-summary,
+.integrity-panel,
+.delivery-summary,
+.evidence-check,
+.privacy-notice,
+.immutable-warning,
+.facility-map {
+  border-color: var(--surface-border);
+  border-radius: var(--surface-radius-inner);
+  background-color: var(--surface-subtle);
+  box-shadow: none;
+}
+
+.upload-block,
+.upload-box {
+  background-color: #f8fafc;
+}
+
+.upload-block:focus-within,
+.upload-box:focus-within {
+  border-color: var(--accent);
+  background-color: #f4f8fd;
+}
+
+.review-card {
+  overflow: hidden;
+}
+
+.review-card dl {
+  background: var(--surface-raised);
+}
+
+.file-row,
+.selected-files-list li,
+.evidence-list li,
+.evidence-chips span,
+.label-preview > div {
+  border-color: var(--surface-divider);
+  border-radius: var(--surface-radius-inner);
+  background: var(--surface-raised);
+  box-shadow: var(--surface-shadow-quiet);
+}
+
+.form-actions {
+  border-top-color: var(--surface-divider);
+}
+
+/* Maps remain inset within the assignment detail surface */
+
+.facility-map {
+  border-color: var(--surface-border);
+  background-color: var(--surface-subtle);
+}
+
+.map-building {
+  border-color: var(--surface-border);
+  border-radius: var(--surface-radius);
+  background-color: var(--surface-inset);
+}
+
+.map-floor {
+  border-color: var(--surface-border-strong);
+  border-radius: var(--surface-radius-inner);
+  background-color: var(--surface-raised);
+  box-shadow: var(--surface-shadow-quiet);
+}
+
+.map-room {
+  border-color: #6e9ac5;
+  border-radius: var(--surface-radius-inner);
+  background-color: var(--surface-selected);
+  box-shadow: var(--surface-shadow-quiet);
+}
+
+.map-empty {
+  border-color: var(--surface-border-strong);
+  border-radius: var(--surface-radius-inner);
+  background-color: var(--surface-subtle);
+  box-shadow: none;
+}
+
+/* Independent record cards */
+
+.qr-inventory-card,
+.assignment-cards article,
+.mobile-entry-card,
+.lifecycle-mobile-list > a,
+.operational-mobile-list > a {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--surface-radius);
+  background-color: var(--surface-raised);
+  box-shadow: var(--surface-shadow);
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-base) var(--ease-executive),
+    transform var(--motion-base) var(--ease-executive);
+}
+
+.qr-inventory-card:hover,
+.qr-inventory-card:focus-within,
+.assignment-cards article:hover,
+.assignment-cards article:focus-within,
+.mobile-entry-card:hover,
+.mobile-entry-card:focus-within,
+.lifecycle-mobile-list > a:hover,
+.lifecycle-mobile-list > a:focus-visible,
+.operational-mobile-list > a:hover,
+.operational-mobile-list > a:focus-visible {
+  border-color: var(--surface-border-strong);
+  box-shadow: var(--surface-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.qr-inventory-card.is-selected {
+  border-color: var(--accent);
+  background: var(--surface-selected);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    var(--surface-shadow);
+}
+
+.qr-inventory-preview {
+  border-color: var(--surface-divider);
+  background-color: var(--surface-subtle);
+  box-shadow: inset 0 1px 2px rgb(7 31 56 / 0.035);
+}
+
+.qr-inventory-card-actions {
+  border-top-color: var(--surface-divider);
+}
+
+.qr-inventory-card-actions button,
+.qr-inventory-card-actions a {
+  border: 1px solid transparent;
+  background-color: var(--surface-inset);
+}
+
+.qr-inventory-card-actions button:hover,
+.qr-inventory-card-actions a:hover {
+  border-color: #c4d5e8;
+  background-color: var(--accent-soft);
+}
+
+.qr-inventory-filters,
+.qr-inventory-selection-bar {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.88),
+    var(--surface-shadow);
+}
+
+/* Reports: elevated analysis, inset provisional source */
+
+.reports-summary {
+  border-color: #b7c9db;
+  box-shadow:
+    0 1px 2px rgb(7 31 56 / 0.06),
+    0 4px 8px rgb(7 31 56 / 0.055);
+}
+
+.reports-panel {
+  overflow: hidden;
+}
+
+.reports-local-scope {
+  border-color: #c7d7e7;
+  border-radius: var(--surface-radius);
+  background-color: #f3f7fb;
+  box-shadow: inset 0 1px 2px rgb(7 31 56 / 0.035);
+}
+
+.reports-local-kpis {
+  overflow: hidden;
+  border-color: var(--surface-divider);
+  border-radius: var(--surface-radius-inner);
+  background: var(--surface-divider);
+}
+
+.reports-local-kpis > div {
+  background: var(--surface-raised);
+}
+
+.reports-distribution-track,
+.reports-coverage {
+  box-shadow: inset 0 1px 2px rgb(7 31 56 / 0.12);
+}
+
+/* Semantic callouts stay restrained and use complete borders */
+
+.dashboard-partial-error,
+.reports-partial-error,
+.qr-inventory-message,
+.lifecycle-notice,
+.criticality-banner,
+.consequence-note,
+.operation-dialog > p,
+.form-alert {
+  border-radius: var(--surface-radius-inner);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.48);
+}
+
+.data-panel.rejection-card {
+  border-color: #dfaaa6;
+  background-color: var(--error-soft);
+  box-shadow: none;
+}
+
+.help-note,
+.signature-confirmation,
+.rejection-scope-note {
+  border-radius: var(--surface-radius-inner);
+  box-shadow: none;
+}
+
+/* Public QR and completion surfaces */
+
+.public-card {
+  border-color: #b8c9da;
+  box-shadow:
+    0 2px 4px rgb(7 31 56 / 0.07),
+    0 6px 8px rgb(7 31 56 / 0.06);
+}
+
+.public-facts p {
+  border: 1px solid var(--surface-divider);
+  border-radius: var(--surface-radius-inner);
+  background-color: var(--surface-subtle);
+}
+
+.qr-card,
+.asset-credentials {
+  border-color: var(--surface-border);
+  border-radius: var(--surface-radius-inner);
+  background-color: var(--surface-subtle);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.84);
+}
+
+/* Dialogs are the only strongly elevated surfaces */
+
+.quick-actions-sheet,
+.operation-dialog {
+  border: 0;
+  background: var(--surface-raised);
+  box-shadow: 0 12px 36px rgb(5 28 52 / 0.22);
+}
+
+.quick-actions-sheet nav a {
+  border-color: var(--surface-border);
+  background-color: var(--surface-subtle);
+  box-shadow: var(--surface-shadow-quiet);
+}
+
+.quick-actions-sheet nav a:hover {
+  border-color: var(--surface-border-strong);
+  background-color: var(--surface-raised);
+  box-shadow: var(--surface-shadow);
+}
+
+@media (max-width: 720px) {
+  .data-panel,
+  .form-panel,
+  .help-panel,
+  .detail-card,
+  .current-custody,
+  .act-panel,
+  .lifecycle-form,
+  .lifecycle-detail-panel,
+  .decision-panel,
+  .disposition-summary,
+  .lifecycle-wizard-panel,
+  .admin-evaluation-card,
+  .work-order-actions-card,
+  .execution-start-card,
+  .rejection-card,
+  .dashboard-overview,
+  .reports-summary,
+  .reports-panel,
+  .qr-inventory-filters,
+  .qr-inventory-selection-bar,
+  .qr-inventory-card,
+  .qr-inventory-empty,
+  .public-card,
+  .success-hero {
+    border-radius: 10px;
+    box-shadow: var(--surface-shadow-quiet);
+  }
+
+  .selection-card:hover,
+  .responsible-options label:hover,
+  .signature-methods label:hover,
+  .disposal-options label:hover,
+  .switch-row:hover,
+  .qr-inventory-card:hover,
+  .qr-inventory-card:focus-within,
+  .assignment-cards article:hover,
+  .assignment-cards article:focus-within,
+  .mobile-entry-card:hover,
+  .mobile-entry-card:focus-within,
+  .lifecycle-mobile-list > a:hover,
+  .lifecycle-mobile-list > a:focus-visible,
+  .operational-mobile-list > a:hover,
+  .operational-mobile-list > a:focus-visible {
+    transform: none;
+  }
+
+  .facility-map,
+  .data-panel .mobile-entry-card,
+  .data-panel .assignment-cards article,
+  .data-panel .lifecycle-mobile-list > a,
+  .data-panel .operational-mobile-list > a {
+    box-shadow: none;
+  }
+
+  .public-page .public-card {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .metrics-grid,
+  .lifecycle-metrics,
+  .qr-inventory-summary {
+    border-radius: 10px;
+    box-shadow: var(--surface-shadow-quiet);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-card,
+  .responsible-options label,
+  .signature-methods label,
+  .disposal-options label,
+  .switch-row,
+  .qr-inventory-card,
+  .assignment-cards article,
+  .mobile-entry-card,
+  .lifecycle-mobile-list > a,
+  .operational-mobile-list > a,
+  .dashboard-alert > svg:last-child,
+  .dashboard-quick-actions nav > a > svg:last-child,
+  .dashboard-activity-list > a > svg,
+  .reports-priority-item > svg,
+  .reports-activity-list a > svg {
+    transition-duration: 0.01ms;
+    transform: none;
+  }
+
+  .selection-card:hover,
+  .responsible-options label:hover,
+  .signature-methods label:hover,
+  .disposal-options label:hover,
+  .switch-row:hover,
+  .qr-inventory-card:hover,
+  .qr-inventory-card:focus-within,
+  .assignment-cards article:hover,
+  .assignment-cards article:focus-within,
+  .mobile-entry-card:hover,
+  .mobile-entry-card:focus-within,
+  .lifecycle-mobile-list > a:hover,
+  .lifecycle-mobile-list > a:focus-visible,
+  .operational-mobile-list > a:hover,
+  .operational-mobile-list > a:focus-visible {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .data-panel,
+  .form-panel,
+  .help-panel,
+  .detail-card,
+  .dashboard-overview,
+  .reports-summary,
+  .reports-panel,
+  .qr-inventory-card,
+  .metrics-grid,
+  .lifecycle-metrics,
+  .qr-inventory-summary {
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+
+  .selection-card.is-selected,
+  .responsible-options label.is-selected,
+  .signature-methods label:has(input:checked),
+  .disposal-options label.is-selected,
+  .switch-row:has(input:checked),
+  .qr-inventory-card.is-selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
+@media print {
+  .data-panel,
+  .form-panel,
+  .help-panel,
+  .detail-card,
+  .dashboard-overview,
+  .reports-summary,
+  .reports-panel,
+  .qr-inventory-card,
+  .public-card,
+  .metrics-grid,
+  .lifecycle-metrics,
+  .qr-inventory-summary {
+    box-shadow: none;
+  }
+}

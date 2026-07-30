@@ -11,11 +11,17 @@ class CategoriaSerializer(serializers.ModelSerializer):
 
 class SubcategoriaSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="categoria.nombre", read_only=True)
+    plantilla_inspeccion_nombre = serializers.CharField(
+        source="plantilla_inspeccion.nombre", read_only=True, default=None
+    )
 
     class Meta:
         model = Subcategoria
-        fields = ["id", "categoria", "categoria_nombre", "nombre", "activo"]
-
+        fields = [
+            "id", "categoria", "categoria_nombre", "nombre",
+            "plantilla_inspeccion", "plantilla_inspeccion_nombre", "activo",
+        ]
+        
 class PiezaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pieza
@@ -25,14 +31,22 @@ class PiezaSerializer(serializers.ModelSerializer):
 class PiezaAnidadaSerializer(serializers.ModelSerializer):
     """Versión resumida para mostrar piezas dentro del detalle de un Material."""
     piezas_hijas = serializers.SerializerMethodField()
+    total_hijas = serializers.SerializerMethodField()
+    hijas_disponibles = serializers.SerializerMethodField()
 
     class Meta:
         model = Pieza
-        fields = ["id", "codigo", "estado", "foto", "piezas_hijas"]
+        fields = ["id", "codigo", "estado", "foto", "total_hijas", "hijas_disponibles", "piezas_hijas"]
 
     def get_piezas_hijas(self, obj):
         hijas = obj.piezas_hijas.all()
         return PiezaSerializer(hijas, many=True).data
+
+    def get_total_hijas(self, obj):
+        return obj.piezas_hijas.count()
+
+    def get_hijas_disponibles(self, obj):
+        return obj.piezas_hijas.filter(estado="Disponible").count()
 
 class MaterialSerializer(serializers.ModelSerializer):
     subcategoria_nombre = serializers.CharField(source="subcategoria.nombre", read_only=True)

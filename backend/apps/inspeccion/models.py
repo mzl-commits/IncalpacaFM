@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.conf import settings
 
 class PlantillaCriterio(models.Model):
     """Ej. 'Manuales', 'Eléctricas Inalámbricas', 'Eléctricas con cable'."""
@@ -40,6 +40,12 @@ class Inspeccion(models.Model):
         ("reemplazar", "Reemplazar"),
     ]
 
+    inspector = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="inspecciones_realizadas",
+    )
+
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     material = models.ForeignKey(
         "catalogo.Material", on_delete=models.PROTECT, related_name="inspecciones"
@@ -55,9 +61,6 @@ class Inspeccion(models.Model):
     plantilla = models.ForeignKey("PlantillaCriterio", on_delete=models.PROTECT)
     fecha = models.DateTimeField(auto_now_add=True)
     proxima_inspeccion = models.DateField(null=True, blank=True)
-    inspector = models.ForeignKey(
-        "cuentas.Usuario", on_delete=models.PROTECT, related_name="inspecciones_realizadas"
-    )
 
     # Solo para inspección grupal (según la hoja "Manuales")
     cantidad_inspeccionada = models.PositiveIntegerField(null=True, blank=True)
