@@ -43,8 +43,6 @@ export function AssetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [saved, setSaved] = useState(false);
-<<<<<<< HEAD
-
   // New Responsible Modal State
   const [addingResponsible, setAddingResponsible] = useState(false);
   const [newRespForm, setNewRespForm] = useState({
@@ -67,12 +65,10 @@ export function AssetDetailPage() {
     reason: "",
   });
 
-=======
   const [classifying, setClassifying] = useState(false);
   const [classificationOpen, setClassificationOpen] = useState(false);
   const [classificationTaxonomyId, setClassificationTaxonomyId] = useState("");
   const [classificationError, setClassificationError] = useState("");
->>>>>>> origin/codex/taxonomy-catalog
   const [editForm, setEditForm] = useState<AssetDetailUpdate>({
     name: "",
     description: "",
