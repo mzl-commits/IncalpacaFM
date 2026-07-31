@@ -11,6 +11,7 @@ import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";
 import { FacilityMapPage } from "@/modules/taxonomy/pages/FacilityMapPage";
 import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPage";
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
+import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
 
 function lazyRoute<TModule, TKey extends keyof TModule>(
@@ -26,7 +27,6 @@ function lazyRoute<TModule, TKey extends keyof TModule>(
 const modules = [
   ["mantenimiento", "Mantenimiento"],
   ["notificaciones", "Notificaciones"],
-  ["auditoria", "Auditoría"],
 ] as const;
 
 export const router = createBrowserRouter([
@@ -205,6 +205,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
             <DocumentRegistryPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "auditoria",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <AuditLogPage />
           </RoleRoute>
         ),
       },
