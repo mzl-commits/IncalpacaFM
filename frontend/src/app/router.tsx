@@ -10,6 +10,7 @@ import { FmCodeCatalogPage } from "@/modules/taxonomy/pages/FmCodeCatalogPage";
 import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";
 import { FacilityMapPage } from "@/modules/taxonomy/pages/FacilityMapPage";
 import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPage";
+import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
 
 function lazyRoute<TModule, TKey extends keyof TModule>(
@@ -25,7 +26,6 @@ function lazyRoute<TModule, TKey extends keyof TModule>(
 const modules = [
   ["mantenimiento", "Mantenimiento"],
   ["notificaciones", "Notificaciones"],
-  ["documentos", "Documentos"],
   ["auditoria", "Auditoría"],
 ] as const;
 
@@ -199,6 +199,14 @@ export const router = createBrowserRouter([
       {
         path: "informes",
         lazy: lazyRoute(() => import("@/modules/reports/pages/ReportsPage"), "ReportsPage"),
+      },
+      {
+        path: "documentos",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <DocumentRegistryPage />
+          </RoleRoute>
+        ),
       },
       { path: "ciclo-vida/*", element: <LegacyLifecycleRedirect /> },
       { path: "administracion", element: <Navigate to="/administracion/taxonomia" replace /> },
