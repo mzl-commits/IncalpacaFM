@@ -11,7 +11,9 @@ import "@/styles/surfaces.css";
 import "@/styles/filters.css";
 import "@/styles/auth.css";
 
-registerSW({ immediate: true });
+if (import.meta.env.PROD) {
+  registerSW({ immediate: true });
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
