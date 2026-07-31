@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.assets.models import Asset, AssetAssignment, AssignableResponsible, Location
+
 from .models import AssignmentOperation, DeliveryAct, DeliveryEvidence, DeliverySignature
 
 
@@ -50,24 +51,25 @@ class AssignmentSerializer(serializers.ModelSerializer):
                   'status', 'change_reason', 'delivery_status', 'act',
                   'responsible_history', 'repair_history')
 
-    def get_asset(self, obj):
-        return {'id': str(obj.asset_id), 'code': obj.asset.code, 'name': obj.asset.name,
+    def get_asset(self, obj) -> dict:
+        return {'id': str(obj.asset_id), 'code': obj.asset.code,
+                'display_code': obj.asset.fm_code or obj.asset.code, 'name': obj.asset.name,
                 'brand': obj.asset.brand, 'model': obj.asset.model, 'condition': obj.asset.condition,
                 'assignment_status': obj.asset.assignment_status}
 
-    def get_responsible(self, obj):
+    def get_responsible(self, obj) -> dict:
         return {'id': str(obj.responsible_id), 'reference': obj.responsible.external_reference,
                 'type': obj.responsible.type, 'name': obj.responsible.display_name,
                 'area': obj.responsible.area_name}
 
-    def get_location(self, obj):
+    def get_location(self, obj) -> dict | None:
         if not obj.location:
             return None
         return {'id': str(obj.location_id), 'zone': obj.location.zone, 'building': obj.location.building,
                 'area': obj.location.area, 'room': obj.location.room,
                 'specific_location': obj.location.specific_location}
 
-    def get_delivery_status(self, obj):
+    def get_delivery_status(self, obj) -> str:
         if obj.asset.assignment_status == 'En traslado':
             return 'EN_TRASLADO'
         if obj.asset.assignment_status == 'Devuelto':
@@ -76,14 +78,14 @@ class AssignmentSerializer(serializers.ModelSerializer):
             return 'ENTREGADO' if obj.delivery_act.status == DeliveryAct.Status.ISSUED else 'ASIGNADO'
         return 'ASIGNADO'
 
-    def get_act(self, obj):
+    def get_act(self, obj) -> dict | None:
         if not hasattr(obj, 'delivery_act'):
             return None
         act = obj.delivery_act
         return {'id': str(act.id), 'code': act.code, 'status': act.status,
                 'hash_sha256': act.hash_sha256, 'issued_at': act.issued_at}
 
-    def get_responsible_history(self, obj):
+    def get_responsible_history(self, obj) -> list[dict]:
         assignments = obj.asset.assignments.select_related('responsible', 'location').order_by('-start_date')
         return [{
             'id': str(item.id), 'responsible': item.responsible.display_name,
@@ -96,7 +98,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             'status': item.status, 'reason': item.change_reason,
         } for item in assignments]
 
-    def get_repair_history(self, obj):
+    def get_repair_history(self, obj) -> list[dict]:
         return [{
             'id': str(item.id), 'work_order': item.work_order, 'type': item.type,
             'status': item.status, 'reported_at': item.reported_at,

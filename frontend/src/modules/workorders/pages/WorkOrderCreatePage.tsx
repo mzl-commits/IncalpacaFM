@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 
 import {
+  getWorkRequestAssetDisplayCode,
   getWorkRequestById,
   updateWorkRequest,
 } from "@/modules/incidents/incidentRepository";
@@ -250,6 +251,9 @@ export function WorkOrderCreatePage() {
           <p>
             {request.building} — {request.area} /{" "}
             {request.room}
+            {getWorkRequestAssetDisplayCode(request) && (
+              <> · Bien {getWorkRequestAssetDisplayCode(request)}</>
+            )}
           </p>
         </div>
       </div>

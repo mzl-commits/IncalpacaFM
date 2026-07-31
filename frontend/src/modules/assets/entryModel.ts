@@ -14,6 +14,14 @@ export interface EvidenceItem {
   dataUrl?: string;
 }
 
+export interface AssetTaxonomySnapshot {
+  name: string;
+  assetType: string;
+  category: string;
+  subcategory: string;
+  specialty: string;
+}
+
 export interface AssetEntryDraft {
   currentStep: number;
   entryType: EntryType;
@@ -42,6 +50,10 @@ export interface AssetEntryDraft {
   condition: (typeof CONDITIONS)[number];
   effectiveEntryDate: string;
   observations: string;
+  taxonomyId: string;
+  taxonomyPrefix: string;
+  taxonomyVersion: string;
+  taxonomySnapshot: AssetTaxonomySnapshot | null;
   assetType: string;
   category: string;
   subcategory: string;
@@ -58,6 +70,10 @@ export interface AssetEntryDraft {
   locationArea: string;
   room: string;
   specificLocation: string;
+  locationId: string;
+  locationMapId: string;
+  locationMarkerX: number | null;
+  locationMarkerY: number | null;
   locationPending: boolean;
   locationPendingReason: string;
   assigneeType: AssigneeType;
@@ -75,6 +91,7 @@ export interface AssetEntryDraft {
 export interface RegisteredAsset {
   id: string;
   code: string;
+  fmCode: string | null;
   publicToken: string;
   publicUrl: string;
   qrDataUrl: string;
@@ -83,7 +100,20 @@ export interface RegisteredAsset {
   administrativeStatus: "Registrado";
   operationalStatus: "No evaluado";
   assignmentStatus: "Asignado" | "Entregado" | "Sin asignar" | "En traslado" | "Devuelto";
+  locationDetail: {
+    id: string;
+    zone: string;
+    building: string;
+    area: string;
+    room: string;
+    specificLocation: string;
+    marker: { mapId: string; mapVersion: number; x: number; y: number } | null;
+  } | null;
   draft: AssetEntryDraft;
+}
+
+export function getAssetDisplayCode(asset: Pick<RegisteredAsset, "code" | "fmCode">) {
+  return asset.fmCode || asset.code;
 }
 
 const today = new Date().toISOString().slice(0, 10);
@@ -116,6 +146,10 @@ export const emptyAssetEntryDraft: AssetEntryDraft = {
   condition: "Nuevo",
   effectiveEntryDate: today,
   observations: "",
+  taxonomyId: "",
+  taxonomyPrefix: "",
+  taxonomyVersion: "",
+  taxonomySnapshot: null,
   assetType: "",
   category: "",
   subcategory: "",
@@ -132,6 +166,10 @@ export const emptyAssetEntryDraft: AssetEntryDraft = {
   locationArea: "",
   room: "",
   specificLocation: "",
+  locationId: "",
+  locationMapId: "",
+  locationMarkerX: null,
+  locationMarkerY: null,
   locationPending: false,
   locationPendingReason: "",
   assigneeType: "person",
@@ -158,21 +196,6 @@ export const assigneeTypeLabels: Record<AssigneeType, string> = {
   area: "Área",
   common_space: "Espacio común",
 };
-
-export const taxonomy = {
-  Tecnología: {
-    "Equipos de cómputo": ["Laptop", "Computadora de escritorio", "Monitor", "Servidor"],
-    Periféricos: ["Impresora", "Escáner", "Teclado", "Proyector"],
-  },
-  "Herramientas y equipos": {
-    "Herramienta eléctrica": ["Taladro", "Esmeril", "Sierra", "Compresora"],
-    "Equipo industrial": ["Bomba", "Motor", "Generador", "Tablero eléctrico"],
-  },
-  Mobiliario: {
-    Oficina: ["Escritorio", "Silla", "Archivador", "Estante"],
-    Operativo: ["Mesa de trabajo", "Armario", "Carro de transporte"],
-  },
-} as const;
 
 export const locationTaxonomy = {
   "Zona Industrial": {

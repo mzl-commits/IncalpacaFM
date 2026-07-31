@@ -9,6 +9,11 @@ import "@/styles/reports-executive.css";
 import "@/styles/typography.css";
 import "@/styles/surfaces.css";
 import "@/styles/filters.css";
+import "@/styles/taxonomy.css";
+import "@/styles/facility-map.css";
+import "@/styles/location-maps.css";
+import "@/styles/asset-map-overview.css";
+import "@/styles/incident-create.css";
 import "@/styles/auth.css";
 
 if (import.meta.env.PROD) {

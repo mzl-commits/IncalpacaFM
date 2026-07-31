@@ -1,0 +1,46 @@
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from rest_framework.test import APIClient
+
+from apps.accounts.models import AccountProfile
+from apps.assets.models import Location
+
+
+class IncidentLocationReportingTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="reporter", first_name="Ana", last_name="Ríos")
+        AccountProfile.objects.create(user=self.user, worker_code="REPORTER-01", role=AccountProfile.Role.REQUESTER, must_change_password=False)
+        self.location = Location.objects.create(zone="Zona Industrial", building="Edificio Administrativo", area="Facility Management", room="Oficina FM", location_code="AMB-FM")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_incident_uses_canonical_location_instead_of_client_text(self):
+        response = self.client.post("/api/v1/incidents/", {
+            "locationId": str(self.location.id),
+            "zone": "Texto alterado",
+            "building": "Texto alterado",
+            "area": "Texto alterado",
+            "room": "Texto alterado",
+            "requestType": "INSPECCION",
+            "description": "Se detectó una filtración junto a la ventana principal.",
+            "requesterPriority": "NORMAL",
+            "project": False,
+            "evidence": [],
+            "status": "PENDIENTE",
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["locationId"], str(self.location.id))
+        self.assertEqual(response.json()["room"], "Oficina FM")
+        self.assertEqual(response.json()["status"], "PENDIENTE")
+
+    def test_rejects_unknown_location(self):
+        response = self.client.post("/api/v1/incidents/", {
+            "locationId": "00000000-0000-0000-0000-000000000000",
+            "requestType": "INSPECCION",
+            "description": "La ubicación no pertenece al catálogo oficial.",
+            "requesterPriority": "NORMAL",
+            "project": False,
+            "evidence": [],
+        }, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("locationId", response.json())

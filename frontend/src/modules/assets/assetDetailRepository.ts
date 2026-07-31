@@ -1,11 +1,11 @@
 import { api } from "@/services/api";
 
 export type AssetDetailRecord = {
-  id: string; code: string; public_token: string; public_url: string; entry_type_label: string;
+  id: string; code: string; fm_code: string | null; display_code?: string; public_token: string; public_url: string; entry_type_label: string;
   name: string; description: string; brand: string; model: string; serial_number: string | null;
   condition: string; criticality: string; administrative_status: string; operational_status: string;
   assignment_status: string; registered_by_name: string; created_at: string;
-  taxonomy_detail: { asset_type: string; category: string; subcategory: string; specialty: string } | null;
+  taxonomy_detail: { id?: string; prefix?: string; name?: string; asset_type: string; category: string; subcategory: string; specialty: string } | null;
   location_detail: { zone: string; building: string; area: string; room: string; specific_location: string } | null;
   responsible_history: Array<{
     id: string; responsible: string; type: string; area: string; start_date: string;
@@ -32,5 +32,12 @@ export type AssetDetailUpdate = Pick<
 
 export async function updateAssetDetail(id: string, input: AssetDetailUpdate) {
   const { data } = await api.patch<AssetDetailRecord>(`/assets/${id}/`, input);
+  return data;
+}
+
+export async function classifyAsset(id: string, taxonomyId: string) {
+  const { data } = await api.post<AssetDetailRecord>(`/assets/${id}/classify/`, {
+    taxonomy_id: taxonomyId,
+  });
   return data;
 }

@@ -1,8 +1,13 @@
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, response, views
 
 from apps.accounts.models import AccountProfile
-from apps.accounts.permissions import IsAdministrator, IsTechnicianOrAdministrator, user_role
+from apps.accounts.permissions import (
+    IsAdministrator,
+    IsTechnicianOrAdministrator,
+    user_role,
+)
 
 from .models import WorkOrder
 from .serializers import WorkOrderActionSerializer, WorkOrderSerializer
@@ -16,7 +21,7 @@ class WorkOrderListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = WorkOrder.objects.select_related(
-            "incident", "technician", "technician__account_profile", "supervisor",
+            "incident", "incident__asset", "technician", "technician__account_profile", "supervisor",
             "supervisor__account_profile",
         )
         if user_role(self.request.user) == AccountProfile.Role.TECHNICIAN:
@@ -28,7 +33,7 @@ class WorkOrderDetailView(generics.RetrieveAPIView):
     permission_classes = [IsTechnicianOrAdministrator]
     serializer_class = WorkOrderSerializer
     queryset = WorkOrder.objects.select_related(
-        "incident", "technician", "technician__account_profile", "supervisor",
+        "incident", "incident__asset", "technician", "technician__account_profile", "supervisor",
         "supervisor__account_profile",
     )
 
@@ -36,6 +41,10 @@ class WorkOrderDetailView(generics.RetrieveAPIView):
 class WorkOrderActionView(views.APIView):
     permission_classes = [IsTechnicianOrAdministrator]
 
+    @extend_schema(
+        request=WorkOrderActionSerializer,
+        responses={200: WorkOrderSerializer},
+    )
     def post(self, request, pk):
         serializer = WorkOrderActionSerializer(
             data=request.data, context={"request": request, "pk": pk}

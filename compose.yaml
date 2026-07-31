@@ -1,0 +1,25 @@
+name: incalpaca-fm
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-incalpaca_fm}
+      POSTGRES_USER: ${POSTGRES_USER:-incalpaca_fm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copie .env.example a .env y defina POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - incalpaca_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  incalpaca_postgres_data:

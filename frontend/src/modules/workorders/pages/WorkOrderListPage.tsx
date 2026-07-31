@@ -21,6 +21,7 @@ import {
   type WorkOrderStatus,
 } from "@/modules/workorders/workOrderModel";
 import {
+  getWorkOrderAssetDisplayCode,
   listWorkOrders,
   WORK_ORDERS_UPDATED_EVENT,
 } from "@/modules/workorders/workOrderRepository";
@@ -138,6 +139,7 @@ export function WorkOrderListPage() {
       const searchable = [
         workOrder.code,
         workOrder.requestCode,
+        getWorkOrderAssetDisplayCode(workOrder),
         workOrder.operatorName,
         workOrder.supervisorName,
         workOrder.administratorNotes,
@@ -437,7 +439,12 @@ export function WorkOrderListPage() {
                   <td>
                     <strong>{workOrder.code}</strong>
                   </td>
-                  <td>{workOrder.requestCode}</td>
+                  <td>
+                    {workOrder.requestCode}
+                    {getWorkOrderAssetDisplayCode(workOrder) && (
+                      <><br /><small>Bien: {getWorkOrderAssetDisplayCode(workOrder)}</small></>
+                    )}
+                  </td>
                   <td>{specialtyLabels[workOrder.specialty]}</td>
                   <td>{workOrder.operatorName}</td>
                   <td>{workOrder.supervisorName}</td>
@@ -491,6 +498,9 @@ export function WorkOrderListPage() {
                   {specialtyLabels[workOrder.specialty]}
                 </strong>
                 <span>Solicitud {workOrder.requestCode}</span>
+                {getWorkOrderAssetDisplayCode(workOrder) && (
+                  <span>Bien {getWorkOrderAssetDisplayCode(workOrder)}</span>
+                )}
               </span>
               <span className="grid grid-cols-2 gap-3 text-xs text-slate-600">
                 <span>

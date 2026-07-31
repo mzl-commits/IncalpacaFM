@@ -14,7 +14,11 @@ import {
   labelFor,
   useListFilterParams,
 } from "@/components/filters/filterUtils";
-import { listAssignments, type AssignmentRecord } from "@/modules/assignments/assignmentRepository";
+import {
+  getAssignmentAssetDisplayCode,
+  listAssignments,
+  type AssignmentRecord,
+} from "@/modules/assignments/assignmentRepository";
 
 const FILTER_KEYS = [
   "q",
@@ -108,7 +112,7 @@ export function AssignmentListPage() {
 
     return items.filter((item) => {
       const searchable = [
-        item.asset.code,
+        getAssignmentAssetDisplayCode(item.asset),
         item.asset.name,
         item.asset.brand,
         item.asset.model,
@@ -372,7 +376,7 @@ export function AssignmentListPage() {
               {filtered.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <strong>{item.asset.code}</strong>
+                    <strong>{getAssignmentAssetDisplayCode(item.asset)}</strong>
                     <small className="cell-subtitle">{item.asset.name}</small>
                   </td>
                   <td>{item.responsible.name}</td>
@@ -410,7 +414,7 @@ export function AssignmentListPage() {
           {filtered.map((item) => (
             <article key={item.id}>
               <header>
-                <strong>{item.asset.code}</strong>
+                <strong>{getAssignmentAssetDisplayCode(item.asset)}</strong>
                 <span className={`status ${stateClass(item.delivery_status)}`}>
                   {deliveryLabel[item.delivery_status]}
                 </span>

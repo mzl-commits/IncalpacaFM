@@ -4,6 +4,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.audit.models import AuditEvent
+from apps.assets.models import Location
 
 
 class AuthenticationAndRbacTests(TestCase):
@@ -36,6 +37,7 @@ class AuthenticationAndRbacTests(TestCase):
 
     def test_incident_creation_uses_session_actor_and_audits(self):
         administrator = get_user_model().objects.get(username="admin")
+        location = Location.objects.get(room="Taller eléctrico")
         self.client.force_authenticate(administrator)
         response = self.client.post(
             "/api/v1/incidents/",
@@ -44,6 +46,7 @@ class AuthenticationAndRbacTests(TestCase):
                 "description": "Incidencia creada para comprobar autoría y auditoría.",
                 "requesterPriority": "MEDIA",
                 "project": False,
+                "locationId": str(location.id),
                 "zone": "Zona Industrial",
                 "building": "Planta Principal",
                 "area": "Mantenimiento",
