@@ -185,7 +185,7 @@ export function DashboardPage() {
         date: request.updatedAt,
         title: `Baja: ${retirementStatusLabels[request.status]}`,
         detail: `${request.code} · ${request.assetName}`,
-        to: `/ciclo-vida/bajas/${request.id}`,
+        to: `/bienes/ciclo-vida/bajas/${request.id}`,
         type: "retirement",
       }));
 
@@ -329,7 +329,7 @@ export function DashboardPage() {
                 {summary.pendingDisposal > 0 && (
                   <Link
                     className="dashboard-alert is-critical"
-                    to="/ciclo-vida/bajas"
+                    to="/bienes/ciclo-vida/bajas"
                   >
                     <Warning weight="fill" />
                     <span>
@@ -351,7 +351,7 @@ export function DashboardPage() {
                 {summary.pendingReview > 0 && (
                   <Link
                     className="dashboard-alert is-warning"
-                    to="/ciclo-vida/bajas"
+                    to="/bienes/ciclo-vida/bajas"
                   >
                     <Archive />
                     <span>
@@ -441,7 +441,7 @@ export function DashboardPage() {
                   </span>
                   <ArrowRight />
                 </Link>
-                <Link to="/ciclo-vida/bajas">
+                <Link to="/bienes/ciclo-vida/bajas">
                   <Archive />
                   <span>
                     <strong>Evaluar bajas</strong>

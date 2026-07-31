@@ -14,6 +14,7 @@ import "@/styles/facility-map.css";
 import "@/styles/location-maps.css";
 import "@/styles/asset-map-overview.css";
 import "@/styles/incident-create.css";
+import "@/styles/registries.css";
 import "@/styles/auth.css";
 
 registerSW({ immediate: true });

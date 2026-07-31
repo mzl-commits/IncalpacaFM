@@ -10,6 +10,7 @@ import { FmCodeCatalogPage } from "@/modules/taxonomy/pages/FmCodeCatalogPage";
 import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";
 import { FacilityMapPage } from "@/modules/taxonomy/pages/FacilityMapPage";
 import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPage";
+import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
 
 function lazyRoute<TModule, TKey extends keyof TModule>(
   loader: () => Promise<TModule>,
@@ -23,8 +24,8 @@ function lazyRoute<TModule, TKey extends keyof TModule>(
 
 const modules = [
   ["mantenimiento", "Mantenimiento"],
-  ["documentos", "Documentos"],
   ["notificaciones", "Notificaciones"],
+  ["documentos", "Documentos"],
   ["auditoria", "Auditoría"],
 ] as const;
 
@@ -78,7 +79,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "bienes/mapa",
+        path: "mapa",
         lazy: lazyRoute(
           () => import("@/modules/assets/pages/AssetMapOverviewPage"),
           "AssetMapOverviewPage",
@@ -165,30 +166,31 @@ export const router = createBrowserRouter([
           "TechnicalDiagnosisPage",
         ),
       },
-      { path: "ciclo-vida", element: <Navigate to="/ciclo-vida/bajas" replace /> },
+      { path: "bienes/mapa", element: <Navigate to="/mapa" replace /> },
+      { path: "bienes/ciclo-vida", element: <Navigate to="/bienes/ciclo-vida/bajas" replace /> },
       {
-        path: "ciclo-vida/bajas",
+        path: "bienes/ciclo-vida/bajas",
         lazy: lazyRoute(
           () => import("@/modules/lifecycle/pages/RetirementRequestListPage"),
           "RetirementRequestListPage",
         ),
       },
       {
-        path: "ciclo-vida/bajas/nueva/:diagnosisId",
+        path: "bienes/ciclo-vida/bajas/nueva/:diagnosisId",
         lazy: lazyRoute(
           () => import("@/modules/lifecycle/pages/RetirementRequestCreatePage"),
           "RetirementRequestCreatePage",
         ),
       },
       {
-        path: "ciclo-vida/bajas/:id",
+        path: "bienes/ciclo-vida/bajas/:id",
         lazy: lazyRoute(
           () => import("@/modules/lifecycle/pages/RetirementRequestDetailPage"),
           "RetirementRequestDetailPage",
         ),
       },
       {
-        path: "ciclo-vida/bajas/:id/disposicion",
+        path: "bienes/ciclo-vida/bajas/:id/disposicion",
         lazy: lazyRoute(
           () => import("@/modules/lifecycle/pages/FinalDispositionPage"),
           "FinalDispositionPage",
@@ -198,6 +200,7 @@ export const router = createBrowserRouter([
         path: "informes",
         lazy: lazyRoute(() => import("@/modules/reports/pages/ReportsPage"), "ReportsPage"),
       },
+      { path: "ciclo-vida/*", element: <LegacyLifecycleRedirect /> },
       { path: "administracion", element: <Navigate to="/administracion/taxonomia" replace /> },
       {
         path: "administracion/taxonomia",

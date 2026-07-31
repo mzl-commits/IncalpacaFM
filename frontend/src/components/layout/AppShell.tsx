@@ -30,6 +30,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { UserRole } from "@/modules/accounts/types";
+import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
 
 type NavItem = {
   to: string;
@@ -55,8 +56,15 @@ const groups: Array<{
       { to: "/bienes", label: "Inventario", icon: ListDashes, end: true },
       { to: "/bienes/entradas", label: "Entradas", icon: Package },
       { to: "/bienes/qr", label: "Códigos QR", icon: QrCode },
-      { to: "/bienes/mapa", label: "Mapa de activos", icon: MapTrifold },
+      { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: Archive },
     ],
+  },
+  {
+    id: "map",
+    label: "Mapa",
+    icon: MapTrifold,
+    paths: ["/mapa"],
+    items: [{ to: "/mapa", label: "Mapa", icon: MapTrifold, end: true }],
   },
   {
     id: "operations",
@@ -70,19 +78,6 @@ const groups: Array<{
         to: "/ordenes-trabajo",
         label: "Órdenes de trabajo",
         icon: Toolbox,
-      },
-    ],
-  },
-  {
-    id: "lifecycle",
-    label: "Ciclo de vida",
-    icon: Archive,
-    paths: ["/ciclo-vida"],
-    items: [
-      {
-        to: "/ciclo-vida/bajas",
-        label: "Solicitudes de baja",
-        icon: Archive,
       },
     ],
   },
@@ -124,7 +119,7 @@ const groups: Array<{
 const mobilePrimary: NavItem[] = [
   { to: "/", label: "Inicio", icon: House, end: true },
   { to: "/bienes", label: "Bienes", icon: ListDashes, end: true },
-  { to: "/asignaciones", label: "Asignar", icon: ClipboardText },
+  { to: "/mapa", label: "Mapa", icon: MapTrifold, end: true },
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
 
@@ -158,13 +153,13 @@ function isGroupActive(pathname: string, paths: string[]) {
 function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Panel ejecutivo", "Inicio"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
-  if (pathname.startsWith("/bienes/mapa")) return ["Bienes", "Mapa de activos"];
+  if (pathname.startsWith("/mapa")) return ["Mapa", "Activos por ubicación"];
   if (pathname.startsWith("/bienes/entradas")) return ["Bienes", "Entradas"];
   if (pathname.startsWith("/bienes")) return ["Bienes", "Inventario"];
   if (pathname.startsWith("/asignaciones")) return ["Operación", "Asignaciones"];
   if (pathname.startsWith("/incidencias")) return ["Operación", "Incidencias"];
   if (pathname.startsWith("/ordenes-trabajo")) return ["Operación", "Órdenes de trabajo"];
-  if (pathname.startsWith("/ciclo-vida")) return ["Ciclo de vida", "Bajas"];
+  if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
   if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
@@ -468,6 +463,7 @@ export function AppShell() {
         </header>
 
         <main className="main-content">
+          <RouteBreadcrumbs />
           <div className="route-stage" key={location.pathname}>
             <Outlet />
           </div>

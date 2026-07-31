@@ -96,7 +96,7 @@ export function TechnicalDiagnosisPage() {
       estimatedCurrentValue: currentValue,
       evidence,
     }, existing?.id);
-    navigate(derive ? `/ciclo-vida/bajas/nueva/${diagnosis.id}` : `/ordenes-trabajo/${workOrder.id}`);
+    navigate(derive ? `/bienes/ciclo-vida/bajas/nueva/${diagnosis.id}` : `/ordenes-trabajo/${workOrder.id}`);
     } catch {
       setError("No se pudo guardar el diagnóstico. Revisa los campos obligatorios.");
     }
