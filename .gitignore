@@ -33,7 +33,7 @@ frontend/.vite/
 runtime/
 media/
 private_media/
-documents/
+/documents/
 backups/
 
 # Bases de datos y respaldos

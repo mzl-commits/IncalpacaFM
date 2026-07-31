@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -707,6 +708,32 @@ class Command(BaseCommand):
                 ),
                 "confirmInspected": True,
                 "confirmAssignment": bool(responsible),
+                "evidence": [
+                    {
+                        "id": f"DOC-ORIG-{index:03d}",
+                        "name": f"sustento-ingreso-{sample['code'][-6:]}.pdf",
+                        "category": "origin",
+                        "mimeType": "application/pdf",
+                        "size": 148000 + index * 1700,
+                    },
+                    {
+                        "id": f"DOC-FOTO-{index:03d}",
+                        "name": f"registro-fotografico-{sample['code'][-6:]}.jpg",
+                        "category": "photo",
+                        "mimeType": "image/jpeg",
+                        "size": 264000 + index * 2300,
+                    },
+                    *([{
+                        "id": f"DOC-COPIA-{index:03d}",
+                        "name": f"constancia-digital-{sample['code'][-6:]}.txt",
+                        "category": "other",
+                        "mimeType": "text/plain",
+                        "size": 96,
+                        "dataUrl": "data:text/plain;base64," + base64.b64encode(
+                            f"Constancia digital de prueba para {sample['code']}.".encode()
+                        ).decode("ascii"),
+                    }] if index <= 5 else []),
+                ],
             }
             asset, _ = Asset.objects.update_or_create(
                 code=sample["code"],
