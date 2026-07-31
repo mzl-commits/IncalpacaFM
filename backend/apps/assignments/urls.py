@@ -1,6 +1,12 @@
 from django.urls import path
 
-from .views import AssignmentCatalogView, AssignmentDetailView, AssignmentListView, AssignmentOperationView, DeliveryCreateView
+from .views import (
+    AssignmentCatalogView,
+    AssignmentDetailView,
+    AssignmentListView,
+    AssignmentOperationView,
+    DeliveryCreateView,
+)
 
 urlpatterns = [
     path('assignments/', AssignmentListView.as_view(), name='assignment-list'),

@@ -31,7 +31,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "must_change_password",
         )
 
-    def get_full_name(self, obj):
+    def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
 
 

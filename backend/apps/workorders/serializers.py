@@ -15,6 +15,8 @@ from .models import WorkOrder
 class WorkOrderSerializer(serializers.ModelSerializer):
     requestId = serializers.UUIDField(source="incident_id")
     requestCode = serializers.CharField(source="incident.code", read_only=True)
+    assetCode = serializers.SerializerMethodField()
+    assetDisplayCode = serializers.SerializerMethodField()
     operatorId = serializers.CharField(source="technician.account_profile.id", read_only=True)
     operatorName = serializers.SerializerMethodField()
     supervisorId = serializers.CharField(source="supervisor.account_profile.id", read_only=True)
@@ -40,6 +42,8 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "code",
             "requestId",
             "requestCode",
+            "assetCode",
+            "assetDisplayCode",
             "operatorId",
             "operatorName",
             "supervisorId",
@@ -66,10 +70,17 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "code", "status", "advances")
 
-    def get_operatorName(self, obj):
+    def get_operatorName(self, obj) -> str:
         return obj.technician.get_full_name() or obj.technician.username
 
-    def get_supervisorName(self, obj):
+    def get_assetCode(self, obj) -> str | None:
+        return obj.incident.asset.code if obj.incident.asset else None
+
+    def get_assetDisplayCode(self, obj) -> str | None:
+        asset = obj.incident.asset
+        return (asset.fm_code or asset.code) if asset else None
+
+    def get_supervisorName(self, obj) -> str:
         return obj.supervisor.get_full_name() or obj.supervisor.username
 
     @transaction.atomic

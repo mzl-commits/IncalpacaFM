@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = [".venv", "**/migrations/**"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "SIM", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Django and DRF intentionally keep immutable configuration collections as
+# class attributes; generated migrations are excluded above.
+"apps/**/models.py" = ["RUF012"]
+"apps/**/views.py" = ["RUF012"]
