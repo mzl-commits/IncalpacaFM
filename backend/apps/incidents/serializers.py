@@ -1,7 +1,9 @@
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.accounts.models import AccountProfile
 from apps.audit.services import record_audit
 
 from .models import Incident
@@ -10,7 +12,8 @@ from .models import Incident
 class IncidentSerializer(serializers.ModelSerializer):
     requesterId = serializers.CharField(source="requester.account_profile.id", read_only=True)
     requesterName = serializers.SerializerMethodField()
-    requesterEmail = serializers.EmailField(source="requester.email", read_only=True)
+    requesterEmail = serializers.SerializerMethodField()
+    requesterPhone = serializers.SerializerMethodField()
     locationId = serializers.SerializerMethodField()
     zone = serializers.SerializerMethodField()
     building = serializers.SerializerMethodField()
@@ -25,6 +28,8 @@ class IncidentSerializer(serializers.ModelSerializer):
     reportedAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     assetId = serializers.UUIDField(source="asset_id", required=False, allow_null=True)
+    requesterContact = serializers.JSONField(source="requester_contact", required=False)
+    impactAssessment = serializers.JSONField(source="impact_assessment", required=False)
 
     class Meta:
         model = Incident
@@ -35,6 +40,8 @@ class IncidentSerializer(serializers.ModelSerializer):
             "requesterId",
             "requesterName",
             "requesterEmail",
+            "requesterPhone",
+            "requesterContact",
             "locationId",
             "zone",
             "building",
@@ -45,6 +52,7 @@ class IncidentSerializer(serializers.ModelSerializer):
             "requesterPriority",
             "project",
             "evidence",
+            "impactAssessment",
             "status",
             "rejectionReason",
             "workOrderId",
@@ -54,7 +62,13 @@ class IncidentSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "code", "requesterId", "requesterName", "requesterEmail")
 
     def get_requesterName(self, obj):
-        return obj.requester.get_full_name() or obj.requester.username
+        return obj.requester_contact.get("name") or obj.requester.get_full_name() or obj.requester.username
+
+    def get_requesterEmail(self, obj):
+        return obj.requester_contact.get("email") or obj.requester.email
+
+    def get_requesterPhone(self, obj):
+        return obj.requester_contact.get("phone", "")
 
     def _location(self, obj, key):
         return obj.location_snapshot.get(key, "")
@@ -114,3 +128,86 @@ class IncidentSerializer(serializers.ModelSerializer):
             after={"status": instance.status, "rejection_reason": instance.rejection_reason},
         )
         return instance
+
+
+class PublicIncidentSerializer(serializers.Serializer):
+    requesterName = serializers.CharField(max_length=160)
+    requesterEmail = serializers.EmailField()
+    requesterPhone = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    zone = serializers.CharField(max_length=120)
+    building = serializers.CharField(max_length=160)
+    area = serializers.CharField(max_length=160)
+    room = serializers.CharField(max_length=160)
+    description = serializers.CharField(min_length=10, max_length=1000)
+    evidence = serializers.ListField(required=False, default=list)
+    noPhotoReason = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    suggestedPriority = serializers.ChoiceField(choices=("NORMAL", "URGENTE", "EMERGENCIA"))
+    priorityReasons = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    impactAnswers = serializers.DictField(required=True)
+
+    def _public_requester(self):
+        user_model = get_user_model()
+        user, created = user_model.objects.get_or_create(
+            username="solicitante.publico",
+            defaults={
+                "first_name": "Solicitante",
+                "last_name": "Publico",
+                "email": "solicitante.publico@incalpaca.test",
+                "is_active": True,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=("password",))
+        AccountProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                "worker_code": "solicitante-publico",
+                "role": AccountProfile.Role.REQUESTER,
+                "must_change_password": False,
+                "active": True,
+            },
+        )
+        return user
+
+    @transaction.atomic
+    def create(self, validated_data):
+        requester = self._public_requester()
+        sequence = Incident.objects.select_for_update().count() + 1
+        location = {
+            "locationId": "-".join(
+                [
+                    validated_data["zone"],
+                    validated_data["building"],
+                    validated_data["area"],
+                    validated_data["room"],
+                ]
+            ),
+            "zone": validated_data["zone"],
+            "building": validated_data["building"],
+            "area": validated_data["area"],
+            "room": validated_data["room"],
+        }
+        incident = Incident.objects.create(
+            code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
+            requester=requester,
+            requester_contact={
+                "name": validated_data["requesterName"],
+                "email": validated_data["requesterEmail"],
+                "phone": validated_data.get("requesterPhone", ""),
+            },
+            location_snapshot=location,
+            request_type="OTRO",
+            description=validated_data["description"],
+            requester_priority=validated_data["suggestedPriority"],
+            project=False,
+            evidence=validated_data.get("evidence", []),
+            impact_assessment={
+                "suggestedPriority": validated_data["suggestedPriority"],
+                "priorityReasons": validated_data.get("priorityReasons", []),
+                "answers": validated_data["impactAnswers"],
+                "noPhotoReason": validated_data.get("noPhotoReason", ""),
+            },
+            status="RECIBIDA",
+        )
+        return incident

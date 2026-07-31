@@ -14,6 +14,7 @@ import { AssignmentDetailPage } from "@/modules/assignments/pages/AssignmentDeta
 import { IncidentListPage } from "@/modules/incidents/pages/IncidentListPage";
 import { IncidentCreatePage } from "@/modules/incidents/pages/IncidentCreatePage";
 import { IncidentDetailPage } from "@/modules/incidents/pages/IncidentDetailPage";
+import { PublicWorkRequestPage } from "@/modules/incidents/pages/PublicWorkRequestPage";
 import { WorkOrderCreatePage } from "@/modules/workorders/pages/WorkOrderCreatePage";
 import { WorkOrderListPage } from "@/modules/workorders/pages/WorkOrderListPage";
 import { WorkOrderDetailPage } from "@/modules/workorders/pages/WorkOrderDetailPage";
@@ -26,6 +27,7 @@ import { FinalDispositionPage } from "@/modules/lifecycle/pages/FinalDisposition
 import { ReportsPage } from "@/modules/reports/pages/ReportsPage";
 import { LoginPage } from "@/modules/accounts/pages/LoginPage";
 import { ProtectedRoute } from "@/modules/accounts/ProtectedRoute";
+import { RequestTrackingPage } from "@/modules/incidents/pages/RequestTrackingPage";
 
 const modules = [
   ["mantenimiento", "Mantenimiento"],
@@ -36,6 +38,7 @@ const modules = [
 
 export const router = createBrowserRouter([
   { path: "/q/:token", element: <PublicAssetPage /> },
+  { path: "/solicitud-trabajo", element: <PublicWorkRequestPage /> },
   { path: "/login", element: <LoginPage /> },
   {
     path: "/",
@@ -57,6 +60,7 @@ export const router = createBrowserRouter([
       { path: "incidencias", element: <IncidentListPage /> },
       { path: "incidencias/nueva", element: <IncidentCreatePage /> },
       { path: "incidencias/:id", element: <IncidentDetailPage /> },
+      { path: "incidencias/:id/seguimiento", element:<RequestTrackingPage /> },
       { path: "ordenes-trabajo", element: <WorkOrderListPage /> },
       { path: "ordenes-trabajo/nueva/:requestId", element: <WorkOrderCreatePage /> },
       { path: "ordenes-trabajo/:id", element: <WorkOrderDetailPage /> },
@@ -75,4 +79,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-

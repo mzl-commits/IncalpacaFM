@@ -1018,3 +1018,354 @@ td { padding: 13px 14px; }
     animation: none;
   }
 }
+
+
+.tracking-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tracking-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.tracking-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #1d4ed8;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.tracking-item {
+  position: relative;
+}
+
+.tracking-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 18px;
+  width: 2px;
+  height: calc(100% + 10px);
+  background: #d1d5db;
+}
+
+.tracking-dot.active {
+  background: #16a34a;
+  transform: scale(1.3);
+}
+
+.tracking-item small {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.tracking-item h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.public-request-page {
+  min-height: 100vh;
+  background: var(--app-bg);
+  padding: 40px 18px 100px;
+}
+
+.public-request-page .page-heading {
+  margin-bottom: 8px;
+}
+
+.public-request-page .page-heading h1 {
+  font-size: clamp(22px, 2.8vw, 30px);
+}
+
+.public-request-shell {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.public-request-form {
+  display: grid;
+  gap: 20px;
+}
+
+.public-request-form .form-section {
+  padding: 24px 28px 28px;
+  border: 1px solid #dce4f0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04);
+  border-bottom: 0;
+}
+
+.public-request-form .section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eaeff6;
+}
+
+.public-request-form .section-heading > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+}
+
+.public-request-form .section-heading h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.public-request-form .section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.public-request-form .section-number {
+  margin-top: 2px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  font-size: 13px;
+}
+
+.public-request-form .form-grid {
+  gap: 16px;
+}
+
+.public-request-form .form-error {
+  margin: 0;
+}
+
+.public-request-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-top: 1px solid #dce4f0;
+  background: rgb(255 255 255 / 0.96);
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+.public-request-actions .button {
+  min-width: 180px;
+}
+
+@media (max-width: 720px) {
+  .public-request-page {
+    padding: 24px 12px 90px;
+  }
+
+  .public-request-form .form-section {
+    padding: 18px 16px 22px;
+    border-radius: 8px;
+  }
+
+  .public-request-form .section-heading {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  .public-request-form .section-heading h2 {
+    font-size: 16px;
+  }
+
+  .public-request-actions {
+    display: grid;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .public-request-actions .button {
+    min-width: 0;
+  }
+}
+
+.public-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.impact-question {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+  background: #f8fafc;
+  transition: border-color 0.15s ease;
+}
+
+.impact-question:focus-within {
+  border-color: #93b4d8;
+}
+
+.impact-question legend {
+  display: block;
+  float: left;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.impact-question > div {
+  clear: both;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.impact-question label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.impact-question label:hover {
+  background: #eef3fa;
+}
+
+@media (max-width: 720px) {
+  .public-impact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.public-evidence-box {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  border-style: dashed;
+}
+
+.public-no-photo-option {
+  margin-top: 8px;
+}
+
+.public-evidence-warning {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.87rem;
+  font-weight: 600;
+}
+.suggested-priority {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #64748b;
+  border-radius: 10px;
+  background: #fafbfd;
+}
+
+.suggested-priority span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.suggested-priority strong {
+  color: var(--text);
+  font-size: 1.2rem;
+}
+
+.suggested-priority p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.suggested-priority ul {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 0.87rem;
+}
+
+.suggested-priority.is-normal {
+  border-left-color: #16a34a;
+}
+
+.suggested-priority.is-urgente {
+  border-left-color: #d97706;
+}
+
+.suggested-priority.is-emergencia {
+  border-left-color: #dc2626;
+}
+
+.public-request-success {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 14px;
+  padding: 16px 20px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.public-request-success p {
+  margin: 4px 0 0;
+  color: #166534;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.public-impact-review {
+  margin-top: 18px;
+}
+
+.impact-reasons {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.impact-reasons ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+}

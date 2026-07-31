@@ -32,6 +32,8 @@ class Incident(models.Model):
     evidence = models.JSONField(default=list)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.RECEIVED)
     rejection_reason = models.TextField(blank=True)
+    requester_contact = models.JSONField(blank=True, default=dict)
+    impact_assessment = models.JSONField(blank=True, default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
