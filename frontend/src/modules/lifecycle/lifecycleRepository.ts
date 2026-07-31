@@ -3,7 +3,7 @@ import type { DisposalMethod, RetirementRequest, TechnicalDiagnosis } from "./ty
 
 type DiagnosisApi = {
   id: string; work_order_id: string; work_order_code: string; asset: string;
-  asset_code: string; asset_name: string; evaluator_name: string;
+  asset_code: string; asset_display_code?: string | null; asset_name: string; evaluator_name: string;
   result: TechnicalDiagnosis["result"]; description: string; probable_cause: string;
   operational_risk: string; affected_components: string; technical_justification: string;
   estimated_repair_cost: string; estimated_current_value: string; evidence: string[];
@@ -11,7 +11,7 @@ type DiagnosisApi = {
 };
 
 type RetirementApi = {
-  id: string; code: string; asset: string; asset_code: string; asset_name: string;
+  id: string; code: string; asset: string; asset_code: string; asset_display_code?: string | null; asset_name: string;
   diagnosis: string; work_order_code: string; diagnosis_result: RetirementRequest["diagnosisResult"];
   technical_justification: string; evidence: string[]; estimated_repair_cost: string;
   estimated_current_value: string; recommendation: DisposalMethod; requested_by: string;
@@ -23,7 +23,7 @@ type RetirementApi = {
 function mapDiagnosis(item: DiagnosisApi): TechnicalDiagnosis {
   return {
     id: item.id, workOrderId: item.work_order_id, workOrderCode: item.work_order_code,
-    assetId: item.asset, assetCode: item.asset_code, assetName: item.asset_name,
+    assetId: item.asset, assetCode: item.asset_display_code || item.asset_code, assetName: item.asset_name,
     evaluatorName: item.evaluator_name, result: item.result, description: item.description,
     probableCause: item.probable_cause, operationalRisk: item.operational_risk,
     affectedComponents: item.affected_components, technicalJustification: item.technical_justification,
@@ -34,7 +34,7 @@ function mapDiagnosis(item: DiagnosisApi): TechnicalDiagnosis {
 
 function mapRequest(item: RetirementApi): RetirementRequest {
   return {
-    id: item.id, code: item.code, assetId: item.asset, assetCode: item.asset_code,
+    id: item.id, code: item.code, assetId: item.asset, assetCode: item.asset_display_code || item.asset_code,
     assetName: item.asset_name, diagnosisId: item.diagnosis, workOrderCode: item.work_order_code,
     diagnosisResult: item.diagnosis_result, technicalJustification: item.technical_justification,
     evidence: item.evidence, estimatedRepairCost: Number(item.estimated_repair_cost),

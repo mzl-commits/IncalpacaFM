@@ -7,6 +7,10 @@ function notifyChanges() {
   window.dispatchEvent(new Event(WORK_ORDERS_UPDATED_EVENT));
 }
 
+export function getWorkOrderAssetDisplayCode(workOrder: Pick<WorkOrder, "assetCode" | "assetDisplayCode">) {
+  return workOrder.assetDisplayCode || workOrder.assetCode || "";
+}
+
 export async function listWorkOrders(): Promise<WorkOrder[]> {
   const { data } = await api.get<WorkOrder[]>("/work-orders/");
   return data;

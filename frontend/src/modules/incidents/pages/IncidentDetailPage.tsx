@@ -18,6 +18,7 @@ import {
   type RequestStatus,
 } from "@/modules/incidents/incidentModel";
 import {
+  getWorkRequestAssetDisplayCode,
   getWorkRequestById,
   updateWorkRequest,
 } from "@/modules/incidents/incidentRepository";
@@ -278,6 +279,12 @@ export function IncidentDetailPage() {
           </div>
 
           <dl className="detail-list">
+            {getWorkRequestAssetDisplayCode(request) && (
+              <div>
+                <dt>Bien asociado</dt>
+                <dd>{getWorkRequestAssetDisplayCode(request)}</dd>
+              </div>
+            )}
             <div>
               <dt>Nombre</dt>
               <dd>{request.requesterName}</dd>

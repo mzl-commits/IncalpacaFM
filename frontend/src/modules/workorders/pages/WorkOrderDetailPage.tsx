@@ -18,7 +18,10 @@ import {
   workOrderStatusLabels,
   type WorkOrderStatus,
 } from "@/modules/workorders/workOrderModel";
-import { getWorkOrderById } from "@/modules/workorders/workOrderRepository";
+import {
+  getWorkOrderAssetDisplayCode,
+  getWorkOrderById,
+} from "@/modules/workorders/workOrderRepository";
 
 const statusClass: Record<WorkOrderStatus, string> = {
   PROGRAMADA: "status-neutral",
@@ -208,6 +211,13 @@ export function WorkOrderDetailPage() {
               <dt>Solicitud de origen</dt>
               <dd>{workOrder.requestCode}</dd>
             </div>
+
+            {getWorkOrderAssetDisplayCode(workOrder) && (
+              <div>
+                <dt>Bien asociado</dt>
+                <dd>{getWorkOrderAssetDisplayCode(workOrder)}</dd>
+              </div>
+            )}
           </dl>
         </article>
 

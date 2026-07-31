@@ -369,7 +369,7 @@
 }
 
 .list-filter-clear {
-  min-height: 36px;
+  min-height: 44px;
   flex: 0 0 auto;
   border: 0;
   border-radius: 7px;
@@ -451,7 +451,7 @@
   }
 
   .list-filter-clear {
-    min-height: 40px;
+    min-height: 44px;
     align-self: stretch;
     border: 1px solid #b7cbdf;
     background: #fff;

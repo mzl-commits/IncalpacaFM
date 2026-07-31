@@ -6,6 +6,7 @@ import {
   MapPin,
   PencilSimple,
   Printer,
+  Tag,
   UserCircle,
   Wrench,
   X,
@@ -16,12 +17,18 @@ import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import {
   getAssetDetail,
+  classifyAsset,
   updateAssetDetail,
   type AssetDetailRecord,
   type AssetDetailUpdate,
 } from "@/modules/assets/assetDetailRepository";
+import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
 
 type DetailTab = "overview" | "responsibles" | "repairs" | "qr";
+
+function displayCode(asset: AssetDetailRecord) {
+  return asset.display_code || asset.fm_code || asset.code;
+}
 
 export function AssetDetailPage() {
   const { id = "" } = useParams();
@@ -34,6 +41,10 @@ export function AssetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [classifying, setClassifying] = useState(false);
+  const [classificationOpen, setClassificationOpen] = useState(false);
+  const [classificationTaxonomyId, setClassificationTaxonomyId] = useState("");
+  const [classificationError, setClassificationError] = useState("");
   const [editForm, setEditForm] = useState<AssetDetailUpdate>({
     name: "",
     description: "",
@@ -101,6 +112,27 @@ export function AssetDetailPage() {
     }
   }
 
+  async function completeClassification() {
+    if (!asset || !classificationTaxonomyId) {
+      setClassificationError("Selecciona una taxonomía activa.");
+      return;
+    }
+    setClassifying(true);
+    setClassificationError("");
+    try {
+      const updated = await classifyAsset(asset.id, classificationTaxonomyId);
+      setAsset(updated);
+      setClassificationOpen(false);
+      setClassificationTaxonomyId("");
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 3500);
+    } catch {
+      setClassificationError("No se pudo clasificar el bien. La taxonomía puede haber cambiado; actualiza la selección e inténtalo nuevamente.");
+    } finally {
+      setClassifying(false);
+    }
+  }
+
   return (
     <section className="asset-record-page">
       {saved && (
@@ -117,7 +149,7 @@ export function AssetDetailPage() {
         <div>
           <p className="breadcrumb">Bienes / Ficha</p>
           <h1>{asset.name}</h1>
-          <p>{asset.code}</p>
+          <p>{displayCode(asset)}{asset.fm_code && <small> · {asset.code}</small>}</p>
         </div>
         <div className="detail-actions">
           <span
@@ -137,6 +169,20 @@ export function AssetDetailPage() {
           </button>
         </div>
       </div>
+      {user?.role === "ADMINISTRADOR" && (!asset.fm_code || !asset.taxonomy_detail) && (
+        <section className="asset-classification-callout">
+          <Tag size={25} weight="duotone" />
+          <div><strong>Clasificación pendiente</strong><p>Asigna una taxonomía validada para reservar el código FM sin cambiar el identificador técnico ni el enlace QR.</p></div>
+          <button className="button button-primary" type="button" onClick={() => setClassificationOpen((current) => !current)}>{classificationOpen ? "Cerrar" : "Completar clasificación"}</button>
+        </section>
+      )}
+      {classificationOpen && (
+        <section className="asset-classification-panel" aria-labelledby="asset-classification-title">
+          <header><div><span>Administración</span><h2 id="asset-classification-title">Asignar taxonomía y código FM</h2><p>El código se reservará transaccionalmente al confirmar.</p></div><code>{asset.code}</code></header>
+          <TaxonomyPicker selectedId={classificationTaxonomyId} onSelect={(taxonomy) => { setClassificationTaxonomyId(taxonomy.id); setClassificationError(""); }} error={classificationError} />
+          <footer><button className="button button-secondary" type="button" onClick={() => { setClassificationOpen(false); setClassificationError(""); }}>Cancelar</button><button className="button button-primary" type="button" disabled={classifying || !classificationTaxonomyId} onClick={completeClassification}>{classifying ? "Clasificando…" : "Confirmar clasificación"}</button></footer>
+        </section>
+      )}
       <nav className="record-tabs" aria-label="Secciones de la ficha">
         {(
           [
@@ -162,7 +208,11 @@ export function AssetDetailPage() {
             <p className="record-description">{asset.description}</p>
             <dl className="record-facts">
               <div>
-                <dt>Código</dt>
+                <dt>Código FM</dt>
+                <dd>{displayCode(asset)}</dd>
+              </div>
+              <div>
+                <dt>Identificador técnico</dt>
                 <dd>{asset.code}</dd>
               </div>
               <div>
@@ -181,7 +231,7 @@ export function AssetDetailPage() {
                 <dt>Clasificación</dt>
                 <dd>
                   {asset.taxonomy_detail
-                    ? `${asset.taxonomy_detail.category} / ${asset.taxonomy_detail.subcategory}`
+                    ? `${asset.taxonomy_detail.prefix ? `${asset.taxonomy_detail.prefix} — ` : ""}${asset.taxonomy_detail.category} / ${asset.taxonomy_detail.subcategory}`
                     : "Pendiente"}
                 </dd>
               </div>
@@ -234,15 +284,16 @@ export function AssetDetailPage() {
           <div>
             <h2>Identificación QR</h2>
             <p>Este código abre la ficha pública segura del bien.</p>
-            <strong>{asset.code}</strong>
+            <strong>{displayCode(asset)}</strong>
+            {asset.fm_code && <small>ID técnico: {asset.code}</small>}
           </div>
-          {qr && <img src={qr} alt={`Código QR de ${asset.code}`} />}
+          {qr && <img src={qr} alt={`Código QR de ${displayCode(asset)}`} />}
           <div className="qr-record-actions">
             <button className="button button-primary" onClick={() => window.print()}>
               <Printer />
               Imprimir etiqueta
             </button>
-            <a className="button button-secondary" href={qr} download={`${asset.code}-QR.png`}>
+            <a className="button button-secondary" href={qr} download={`${displayCode(asset)}-QR.png`}>
               <DownloadSimple />
               Descargar PNG
             </a>
@@ -261,7 +312,7 @@ export function AssetDetailPage() {
               <div>
                 <span>Edición administrativa</span>
                 <h2 id="asset-edit-title">Actualizar ficha del bien</h2>
-                <p>{asset.code}</p>
+                <p>{displayCode(asset)}{asset.fm_code && ` · ${asset.code}`}</p>
               </div>
               <button type="button" aria-label="Cerrar edición" onClick={() => setEditing(false)}>
                 <X />

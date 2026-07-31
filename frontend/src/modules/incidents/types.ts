@@ -15,6 +15,9 @@ export interface WorkRequestEvidence {
 export interface WorkRequest {
   id: string;
   code: string;
+  assetId?: string | null;
+  assetCode?: string | null;
+  assetDisplayCode?: string | null;
 
   requesterId: string;
   requesterName: string;
@@ -25,6 +28,9 @@ export interface WorkRequest {
   building: string;
   area: string;
   room: string;
+  locationMapId?: string | null;
+  locationMarkerX?: number | null;
+  locationMarkerY?: number | null;
 
   requestType: RequestType;
   description: string;

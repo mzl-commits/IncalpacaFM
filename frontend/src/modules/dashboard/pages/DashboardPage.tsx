@@ -14,8 +14,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
-import type { RegisteredAsset } from "@/modules/assets/entryModel";
 import {
+  getAssetDisplayCode,
+  type RegisteredAsset,
+} from "@/modules/assets/entryModel";
+import {
+  getAssignmentAssetDisplayCode,
   listAssignments,
   type AssignmentRecord,
 } from "@/modules/assignments/assignmentRepository";
@@ -156,7 +160,7 @@ export function DashboardPage() {
       id: `asset-${asset.id}`,
       date: asset.createdAt,
       title: "Bien registrado",
-      detail: `${asset.code} · ${asset.draft.name}`,
+      detail: `${getAssetDisplayCode(asset)} · ${asset.draft.name}`,
       to: `/bienes/${asset.id}`,
       type: "asset",
     }));
@@ -169,7 +173,7 @@ export function DashboardPage() {
           assignment.status === "ACTIVA"
             ? "Asignación vigente"
             : "Asignación actualizada",
-        detail: `${assignment.asset.code} · ${assignment.responsible.name}`,
+        detail: `${getAssignmentAssetDisplayCode(assignment.asset)} · ${assignment.responsible.name}`,
         to: `/asignaciones/${assignment.id}`,
         type: "assignment",
       }),

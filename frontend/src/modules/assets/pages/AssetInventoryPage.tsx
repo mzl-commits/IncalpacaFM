@@ -13,7 +13,11 @@ import {
   useListFilterParams,
 } from "@/components/filters/filterUtils";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
-import { entryTypeLabels, type RegisteredAsset } from "@/modules/assets/entryModel";
+import {
+  entryTypeLabels,
+  getAssetDisplayCode,
+  type RegisteredAsset,
+} from "@/modules/assets/entryModel";
 
 const FILTER_KEYS = ["q", "assignment", "entryType", "condition", "criticality", "brand"] as const;
 
@@ -59,6 +63,7 @@ export function AssetInventoryPage() {
     return assets.filter((asset) => {
       const searchable = [
         asset.code,
+        asset.fmCode,
         asset.draft.name,
         asset.draft.description,
         asset.draft.brand,
@@ -246,7 +251,8 @@ export function AssetInventoryPage() {
               <div>
                 <strong>{asset.draft.name}</strong>
                 <span>
-                  {asset.code} ·{" "}
+                  {getAssetDisplayCode(asset)}
+                  {asset.fmCode && <small> · {asset.code}</small>} ·{" "}
                   {[asset.draft.brand, asset.draft.model].filter(Boolean).join(" ") ||
                     "Sin marca o modelo"}
                 </span>

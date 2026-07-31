@@ -31,6 +31,8 @@ export interface WorkOrder {
 
   requestId: string;
   requestCode: string;
+  assetCode?: string | null;
+  assetDisplayCode?: string | null;
 
   operatorId: string;
   operatorName: string;
