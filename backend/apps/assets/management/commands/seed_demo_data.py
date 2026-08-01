@@ -1,9 +1,11 @@
 import base64
-from datetime import datetime, timedelta
+import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import AccountProfile
@@ -16,15 +18,18 @@ from apps.assets.models import (
     Taxonomy,
     TaxonomySequence,
 )
+from apps.audit.models import AuditEvent
 from apps.incidents.models import Incident
+from apps.lifecycle.models import RetirementRequest, TechnicalDiagnosis
 from apps.maintenance.models import RepairRecord
 from apps.taxonomy.services import assign_fm_identifier, sync_taxonomy_catalog
 from apps.workorders.models import WorkOrder
 
 
 class Command(BaseCommand):
-    help = "Carga 30 bienes de prueba idempotentes coherentes con el modelo del SGTB."
+    help = "Carga datos de prueba idempotentes coherentes con el modelo del SGTB."
 
+    @transaction.atomic
     def handle(self, *args, **options):
         user, _ = get_user_model().objects.update_or_create(
             username="facility.demo",
@@ -672,6 +677,7 @@ class Command(BaseCommand):
         ]
 
         now = timezone.now()
+        assignment_anchor = now - timedelta(days=45)
         previous_responsibles = list(responsibles.values())
 
         for index, sample in enumerate(samples):
@@ -782,8 +788,7 @@ class Command(BaseCommand):
                     defaults={
                         "responsible": responsible,
                         "location": location,
-                        "start_date": timezone.make_aware(datetime(2026, 7, 22, 9, 0))
-                        + timedelta(days=index),
+                        "start_date": assignment_anchor + timedelta(days=index),
                         "change_reason": "Asignación vigente de datos de prueba",
                         "registered_by": user,
                     },
@@ -940,6 +945,19 @@ class Command(BaseCommand):
                         "building": asset.location.building if asset.location else "",
                         "area": asset.location.area if asset.location else "",
                         "room": asset.location.room if asset.location else "",
+                        "locationMapId": (
+                            str(asset.location_map_id) if asset.location_map_id else None
+                        ),
+                        "locationMarkerX": (
+                            float(asset.location_marker_x)
+                            if asset.location_marker_x is not None
+                            else None
+                        ),
+                        "locationMarkerY": (
+                            float(asset.location_marker_y)
+                            if asset.location_marker_y is not None
+                            else None
+                        ),
                     },
                     "evidence": [
                         {
@@ -956,8 +974,9 @@ class Command(BaseCommand):
             )
             seeded_incidents.append(incident)
 
+        seeded_work_orders = []
         for index, incident in enumerate(seeded_incidents[:4], start=1):
-            WorkOrder.objects.update_or_create(
+            work_order, _ = WorkOrder.objects.update_or_create(
                 code=f"OT-2026-{index:04d}",
                 defaults={
                     "incident": incident,
@@ -990,10 +1009,114 @@ class Command(BaseCommand):
                     "created_by": admin_user,
                 },
             )
+            seeded_work_orders.append(work_order)
+
+        lifecycle_samples = [
+            {
+                "result": TechnicalDiagnosis.Result.NOT_REPAIRABLE,
+                "description": "Daño irreversible confirmado durante las pruebas técnicas.",
+                "justification": (
+                    "El reemplazo de los componentes críticos supera el valor actual del bien."
+                ),
+                "repair_cost": Decimal("1850.00"),
+                "current_value": Decimal("800.00"),
+                "recommendation": RetirementRequest.Method.RECYCLING,
+                "status": RetirementRequest.Status.PENDING,
+            },
+            {
+                "result": TechnicalDiagnosis.Result.NOT_VIABLE,
+                "description": "Obsolescencia tecnológica con repuestos fuera de fabricación.",
+                "justification": (
+                    "La reparación no es viable por falta de repuestos y bajo valor recuperable."
+                ),
+                "repair_cost": Decimal("1200.00"),
+                "current_value": Decimal("650.00"),
+                "recommendation": RetirementRequest.Method.DONATION,
+                "status": RetirementRequest.Status.IN_REVIEW,
+            },
+        ]
+        seeded_retirement_requests = []
+        for index, (work_order, sample) in enumerate(
+            zip(seeded_work_orders[:2], lifecycle_samples, strict=True),
+            start=1,
+        ):
+            diagnosis, _ = TechnicalDiagnosis.objects.update_or_create(
+                work_order_id=str(work_order.id),
+                defaults={
+                    "work_order_code": work_order.code,
+                    "asset": work_order.incident.asset,
+                    "evaluator_name": technician_user.get_full_name()
+                    or technician_user.username,
+                    "result": sample["result"],
+                    "description": sample["description"],
+                    "probable_cause": "Desgaste acumulado de componentes críticos.",
+                    "operational_risk": "ALTO",
+                    "affected_components": "Sistema eléctrico y componentes mecánicos",
+                    "technical_justification": sample["justification"],
+                    "estimated_repair_cost": sample["repair_cost"],
+                    "estimated_current_value": sample["current_value"],
+                    "evidence": [
+                        f"diagnostico-{work_order.code.lower()}.pdf",
+                        f"evidencia-{work_order.code.lower()}.jpg",
+                    ],
+                },
+            )
+            retirement_request, _ = RetirementRequest.objects.update_or_create(
+                diagnosis=diagnosis,
+                defaults={
+                    "code": f"SOL-BAJA-2026-{index:06d}",
+                    "asset": diagnosis.asset,
+                    "recommendation": sample["recommendation"],
+                    "requested_by": technician_user.get_full_name()
+                    or technician_user.username,
+                    "supervisor_name": admin_user.get_full_name() or admin_user.username,
+                    "status": sample["status"],
+                },
+            )
+            seeded_retirement_requests.append(retirement_request)
+
+        audit_samples = [
+            ("ASSET_REGISTERED", "Asset", asset.id, {"code": asset.code})
+            for asset in seeded_assets[:8]
+        ]
+        audit_samples.extend(
+            ("INCIDENT_CREATED", "Incident", incident.id, {"code": incident.code})
+            for incident in seeded_incidents
+        )
+        audit_samples.extend(
+            ("WORK_ORDER_CREATED", "WorkOrder", work_order.id, {"code": work_order.code})
+            for work_order in seeded_work_orders
+        )
+        audit_samples.extend(
+            (
+                "RETIREMENT_REQUEST_CREATED",
+                "RetirementRequest",
+                retirement_request.id,
+                {"code": retirement_request.code, "status": retirement_request.status},
+            )
+            for retirement_request in seeded_retirement_requests
+        )
+        for action, entity, entity_id, after in audit_samples:
+            correlation_id = uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"incalpaca-demo:{action}:{entity_id}",
+            )
+            AuditEvent.objects.update_or_create(
+                correlation_id=correlation_id,
+                defaults={
+                    "actor": admin_user,
+                    "action": action,
+                    "entity": entity,
+                    "entity_id": str(entity_id),
+                    "before": None,
+                    "after": after,
+                    "ip_address": "127.0.0.1",
+                },
+            )
 
         self.stdout.write(
             self.style.SUCCESS(
-                "Datos de prueba cargados: 31 bienes, 6 incidencias, 4 OT y usuarios "
-                "Administrador/Técnico."
+                "Datos de prueba cargados: 31 bienes, 6 incidencias, 4 OT, "
+                "2 solicitudes de baja y usuarios Administrador/Técnico."
             )
         )
