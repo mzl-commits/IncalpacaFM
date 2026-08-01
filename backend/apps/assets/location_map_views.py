@@ -7,15 +7,14 @@ from django.shortcuts import get_object_or_404
 from django.utils.cache import patch_vary_headers
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsAdministrator, IsTechnicianOrAdministrator
+from apps.accounts.permissions import IsAdministrator
 from apps.audit.services import record_audit
 
 from .location_map_serializers import (
@@ -79,6 +78,7 @@ class LocationMapListCreateView(generics.ListCreateAPIView):
 class LocationMapDeactivateView(APIView):
     permission_classes = [IsAdministrator]
 
+    @extend_schema(responses={204: None})
     @transaction.atomic
     def delete(self, request, pk):
         location_map = get_object_or_404(
