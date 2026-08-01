@@ -7,8 +7,8 @@ from .facility_plan_views import (
     FacilityPlanReconcileView,
 )
 from .location_map_views import (
-    LocationMapDeactivateView,
     LocationListView,
+    LocationMapDeactivateView,
     LocationMapImageView,
     LocationMapListCreateView,
 )
