@@ -95,13 +95,20 @@ class IncidentSerializer(serializers.ModelSerializer):
     def get_locationMapId(self, obj) -> str | None:
         return self._location(obj, "locationMapId") or None
 
+    def _location_float(self, obj, key) -> float | None:
+        value = self._location(obj, key)
+        if value in (None, ""):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     def get_locationMarkerX(self, obj) -> float | None:
-        value = self._location(obj, "locationMarkerX")
-        return float(value) if value is not None else None
+        return self._location_float(obj, "locationMarkerX")
 
     def get_locationMarkerY(self, obj) -> float | None:
-        value = self._location(obj, "locationMarkerY")
-        return float(value) if value is not None else None
+        return self._location_float(obj, "locationMarkerY")
 
     def get_workOrderId(self, obj) -> str | None:
         return str(obj.work_order.id) if hasattr(obj, "work_order") else None
@@ -125,7 +132,9 @@ class IncidentSerializer(serializers.ModelSerializer):
         try:
             location = Location.objects.get(pk=location_id, active=True)
         except (Location.DoesNotExist, TypeError, ValueError):
-            raise serializers.ValidationError({"locationId": "Selecciona una ubicación oficial activa."})
+            raise serializers.ValidationError(
+                {"locationId": "Selecciona una ubicación oficial activa."}
+            ) from None
 
         map_id = request.data.get("locationMapId") or None
         location_map = None
@@ -133,7 +142,13 @@ class IncidentSerializer(serializers.ModelSerializer):
             try:
                 location_map = LocationMap.objects.get(pk=map_id, location=location, active=True)
             except (LocationMap.DoesNotExist, TypeError, ValueError):
-                raise serializers.ValidationError({"locationMapId": "La imagen referencial no corresponde al ambiente seleccionado."})
+                raise serializers.ValidationError(
+                    {
+                        "locationMapId": (
+                            "La imagen referencial no corresponde al ambiente seleccionado."
+                        )
+                    }
+                ) from None
 
         marker_x = request.data.get("locationMarkerX")
         marker_y = request.data.get("locationMarkerY")
@@ -143,7 +158,9 @@ class IncidentSerializer(serializers.ModelSerializer):
             try:
                 marker_x, marker_y = float(marker_x), float(marker_y)
             except (TypeError, ValueError):
-                raise serializers.ValidationError({"locationMarkerX": "Las coordenadas del marcador no son válidas."})
+                raise serializers.ValidationError(
+                    {"locationMarkerX": "Las coordenadas del marcador no son válidas."}
+                ) from None
             if not location_map or not (0 <= marker_x <= 1 and 0 <= marker_y <= 1):
                 raise serializers.ValidationError({"locationMarkerX": "El marcador debe pertenecer a la imagen seleccionada."})
 
