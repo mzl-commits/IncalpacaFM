@@ -9,11 +9,15 @@ from .models import RetirementRequest, TechnicalDiagnosis
 
 class TechnicalDiagnosisSerializer(serializers.ModelSerializer):
     asset_code = serializers.CharField(source="asset.code", read_only=True)
+    asset_display_code = serializers.SerializerMethodField()
     asset_name = serializers.CharField(source="asset.name", read_only=True)
 
     class Meta:
         model = TechnicalDiagnosis
         fields = "__all__"
+
+    def get_asset_display_code(self, obj) -> str:
+        return obj.asset.fm_code or obj.asset.code
 
     def validate(self, attrs):
         result = attrs.get("result", getattr(self.instance, "result", None))
@@ -29,6 +33,7 @@ class TechnicalDiagnosisSerializer(serializers.ModelSerializer):
 
 class RetirementRequestSerializer(serializers.ModelSerializer):
     asset_code = serializers.CharField(source="asset.code", read_only=True)
+    asset_display_code = serializers.SerializerMethodField()
     asset_name = serializers.CharField(source="asset.name", read_only=True)
     work_order_code = serializers.CharField(source="diagnosis.work_order_code", read_only=True)
     diagnosis_result = serializers.CharField(source="diagnosis.result", read_only=True)
@@ -41,6 +46,9 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
         model = RetirementRequest
         fields = "__all__"
         read_only_fields = ("code",)
+
+    def get_asset_display_code(self, obj) -> str:
+        return obj.asset.fm_code or obj.asset.code
 
     def validate(self, attrs):
         diagnosis = attrs.get("diagnosis", getattr(self.instance, "diagnosis", None))

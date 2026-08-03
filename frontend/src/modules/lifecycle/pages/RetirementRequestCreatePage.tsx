@@ -39,7 +39,7 @@ export function RetirementRequestCreatePage() {
     return <section><div className="page-heading"><div><h1>Diagnóstico no encontrado</h1><p>Registra primero un diagnóstico técnico válido.</p></div><Link className="button button-secondary" to="/ordenes-trabajo">Volver</Link></div></section>;
   }
   if (existing) {
-    return <section><div className="page-heading"><div><h1>Solicitud ya registrada</h1><p>{existing.code} ya fue creada desde este diagnóstico.</p></div><Link className="button button-primary" to={`/ciclo-vida/bajas/${existing.id}`}>Ver solicitud</Link></div></section>;
+    return <section><div className="page-heading"><div><h1>Solicitud ya registrada</h1><p>{existing.code} ya fue creada desde este diagnóstico.</p></div><Link className="button button-primary" to={`/bienes/ciclo-vida/bajas/${existing.id}`}>Ver solicitud</Link></div></section>;
   }
 
   async function submit() {
@@ -53,7 +53,7 @@ export function RetirementRequestCreatePage() {
         supervisorName: supervisor,
         requestedBy: currentUser.fullName,
       });
-      navigate(`/ciclo-vida/bajas/${request.id}`);
+      navigate(`/bienes/ciclo-vida/bajas/${request.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo crear la solicitud.");
     }

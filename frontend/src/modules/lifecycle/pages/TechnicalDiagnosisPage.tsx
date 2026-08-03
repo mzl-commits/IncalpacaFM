@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { currentUser } from "@/modules/accounts/currentUser";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
-import type { RegisteredAsset } from "@/modules/assets/entryModel";
+import { getAssetDisplayCode, type RegisteredAsset } from "@/modules/assets/entryModel";
 import {
   getDiagnosisByWorkOrder,
   getRetirementRequestByDiagnosis,
@@ -83,7 +83,7 @@ export function TechnicalDiagnosisPage() {
       workOrderId: workOrder.id,
       workOrderCode: workOrder.code,
       assetId: selectedAsset.id,
-      assetCode: selectedAsset.code,
+      assetCode: getAssetDisplayCode(selectedAsset),
       assetName: selectedAsset.draft.name,
       evaluatorName: currentUser.fullName,
       result,
@@ -96,7 +96,7 @@ export function TechnicalDiagnosisPage() {
       estimatedCurrentValue: currentValue,
       evidence,
     }, existing?.id);
-    navigate(derive ? `/ciclo-vida/bajas/nueva/${diagnosis.id}` : `/ordenes-trabajo/${workOrder.id}`);
+    navigate(derive ? `/bienes/ciclo-vida/bajas/nueva/${diagnosis.id}` : `/ordenes-trabajo/${workOrder.id}`);
     } catch {
       setError("No se pudo guardar el diagnóstico. Revisa los campos obligatorios.");
     }
@@ -132,7 +132,7 @@ export function TechnicalDiagnosisPage() {
             <label className="field field-wide"><span>Bien evaluado *</span>
               <select value={assetId} onChange={(event) => setAssetId(event.target.value)}>
                 <option value="">Seleccionar bien</option>
-                {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.code} — {asset.draft.name}</option>)}
+                {assets.map((asset) => <option key={asset.id} value={asset.id}>{getAssetDisplayCode(asset)} — {asset.draft.name}</option>)}
               </select>
             </label>
             <label className="field field-wide"><span>Descripción del diagnóstico *</span>

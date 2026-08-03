@@ -28,8 +28,8 @@ export function FinalDispositionPage() {
 
   if (loading) return <section><p>Cargando disposición…</p></section>;
   if (!request) return <section><h1>Solicitud no encontrada</h1></section>;
-  if (request.status === "CERRADA") return <section className="lifecycle-success"><CheckCircle weight="fill" /><h1>Ciclo de vida cerrado</h1><p>{request.assetCode} fue dado de baja y su disposición final quedó registrada.</p><Link className="button button-primary" to={`/ciclo-vida/bajas/${request.id}`}>Ver expediente</Link><Link className="button button-secondary" to="/ciclo-vida/bajas">Volver al listado</Link></section>;
-  if (request.status !== "PENDIENTE_DISPOSICION") return <section><h1>Disposición no habilitada</h1><p>La solicitud debe estar aprobada antes de registrar el cierre.</p><Link to={`/ciclo-vida/bajas/${request.id}`}>Volver</Link></section>;
+  if (request.status === "CERRADA") return <section className="lifecycle-success"><CheckCircle weight="fill" /><h1>Ciclo de vida cerrado</h1><p>{request.assetCode} fue dado de baja y su disposición final quedó registrada.</p><Link className="button button-primary" to={`/bienes/ciclo-vida/bajas/${request.id}`}>Ver expediente</Link><Link className="button button-secondary" to="/bienes/ciclo-vida/bajas">Volver al listado</Link></section>;
+  if (request.status !== "PENDIENTE_DISPOSICION") return <section><h1>Disposición no habilitada</h1><p>La solicitud debe estar aprobada antes de registrar el cierre.</p><Link to={`/bienes/ciclo-vida/bajas/${request.id}`}>Volver</Link></section>;
 
   async function submit() {
     if (!date || !certificate.trim() || !organization.trim() || !evidence.length || !Object.values(checks).every(Boolean)) {
@@ -46,7 +46,7 @@ export function FinalDispositionPage() {
       },
     });
     setRequest(updated);
-    navigate(`/ciclo-vida/bajas/${request!.id}/disposicion`, { replace: true });
+    navigate(`/bienes/ciclo-vida/bajas/${request!.id}/disposicion`, { replace: true });
     } catch {
       setError("No se pudo cerrar el ciclo de vida. Revisa el acta y las verificaciones.");
     }
@@ -54,7 +54,7 @@ export function FinalDispositionPage() {
 
   return (
     <section className="lifecycle-page disposition-page">
-      <div className="page-heading"><div><p className="breadcrumb">Ciclo de vida / Bajas / Disposición final</p><h1>Registrar disposición final</h1><p>Documenta la ejecución autorizada para cerrar el ciclo de vida del bien.</p></div><Link className="button button-secondary" to={`/ciclo-vida/bajas/${request.id}`}><ArrowLeft />Volver</Link></div>
+      <div className="page-heading"><div><p className="breadcrumb">Bienes / Ciclo de vida / Disposición final</p><h1>Registrar disposición final</h1><p>Documenta la ejecución autorizada para cerrar el ciclo de vida del bien.</p></div><Link className="button button-secondary" to={`/bienes/ciclo-vida/bajas/${request.id}`}><ArrowLeft />Volver</Link></div>
       <div className="disposition-layout">
         <aside className="data-panel disposition-summary"><Recycle /><h2>{request.assetName}</h2><strong>{request.assetCode}</strong><dl><div><dt>Solicitud</dt><dd>{request.code}</dd></div><div><dt>Método aprobado</dt><dd>{disposalLabels[request.approvedMethod ?? request.recommendation]}</dd></div></dl><div className="consequence-note"><Warning /><p>Al confirmar, el bien quedará cerrado y su QR administrativo deberá quedar inactivo.</p></div></aside>
         <form className="data-panel lifecycle-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
@@ -74,7 +74,7 @@ export function FinalDispositionPage() {
             <label><input type="checkbox" checked={checks.inventory} onChange={(event) => setChecks({ ...checks, inventory: event.target.checked })} />Se completó la actualización del inventario.</label>
           </fieldset>
           {error && <div className="form-error" role="alert">{error}</div>}
-          <div className="form-actions"><Link className="button button-secondary" to={`/ciclo-vida/bajas/${request.id}`}>Guardar para después</Link><button className="button button-danger" type="submit"><CheckCircle />Confirmar disposición y cerrar bien</button></div>
+          <div className="form-actions"><Link className="button button-secondary" to={`/bienes/ciclo-vida/bajas/${request.id}`}>Guardar para después</Link><button className="button button-danger" type="submit"><CheckCircle />Confirmar disposición y cerrar bien</button></div>
         </form>
       </div>
     </section>

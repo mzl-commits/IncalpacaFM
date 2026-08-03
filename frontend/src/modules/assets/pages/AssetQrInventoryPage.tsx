@@ -22,7 +22,7 @@ import {
 } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
-import type { RegisteredAsset } from "@/modules/assets/entryModel";
+import { getAssetDisplayCode, type RegisteredAsset } from "@/modules/assets/entryModel";
 
 const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
   "Sin asignar",
@@ -68,6 +68,7 @@ function matchesSearch(asset: RegisteredAsset, search: string) {
 
   return [
     asset.code,
+    asset.fmCode,
     asset.draft.name,
     asset.draft.brand,
     asset.draft.model,
@@ -123,7 +124,7 @@ function AssetQrPreview({ asset }: { asset: RegisteredAsset }) {
     return (
       <span
         className="qr-inventory-preview-state is-loading"
-        aria-label={`Generando código QR de ${asset.code}`}
+        aria-label={`Generando código QR de ${getAssetDisplayCode(asset)}`}
       >
         <QrCode size={30} aria-hidden="true" />
       </span>
@@ -134,7 +135,7 @@ function AssetQrPreview({ asset }: { asset: RegisteredAsset }) {
     <img
       className="qr-inventory-preview-image"
       src={dataUrl}
-      alt={`Código QR del bien ${asset.code}`}
+      alt={`Código QR del bien ${getAssetDisplayCode(asset)}`}
       loading="lazy"
     />
   );
@@ -349,18 +350,22 @@ export function AssetQrInventoryPage() {
         const organization = document.createElement("span");
         const code = document.createElement("strong");
         const name = document.createElement("span");
+        const technicalCode = document.createElement("small");
         const categoryText = document.createElement("small");
         const instruction = document.createElement("small");
 
         image.src = dataUrl;
         image.alt = "";
         organization.textContent = "SGTB · INCALPACA";
-        code.textContent = asset.code;
+        code.textContent = getAssetDisplayCode(asset);
         name.textContent = asset.draft.name;
+        technicalCode.textContent = asset.fmCode ? `ID técnico: ${asset.code}` : "";
         categoryText.textContent = getCategory(asset);
         instruction.textContent = "Escanea para consultar la ficha pública autorizada.";
 
-        copy.append(organization, code, name, categoryText, instruction);
+        copy.append(organization, code, name);
+        if (asset.fmCode) copy.append(technicalCode);
+        copy.append(categoryText, instruction);
         label.append(image, copy);
         main.append(label);
       });
@@ -582,7 +587,7 @@ export function AssetQrInventoryPage() {
                             checked={selected}
                             onChange={() => toggleSelection(asset.id)}
                           />
-                          <span>Seleccionar {asset.code}</span>
+                          <span>Seleccionar {getAssetDisplayCode(asset)}</span>
                         </label>
                         <span
                           className={`qr-inventory-status is-${asset.assignmentStatus
@@ -599,8 +604,9 @@ export function AssetQrInventoryPage() {
 
                       <div className="qr-inventory-card-content">
                         <Link className="qr-inventory-asset-link" to={`/bienes/${asset.id}`}>
-                          <span>{asset.code}</span>
+                          <span>{getAssetDisplayCode(asset)}</span>
                           <strong>{asset.draft.name}</strong>
+                          {asset.fmCode && <small>ID técnico: {asset.code}</small>}
                         </Link>
 
                         <dl className="qr-inventory-card-facts">
@@ -637,7 +643,7 @@ export function AssetQrInventoryPage() {
                           href={asset.publicUrl}
                           target="_blank"
                           rel="noreferrer"
-                          aria-label={`Abrir ficha pública de ${asset.code} en una pestaña nueva`}
+                          aria-label={`Abrir ficha pública de ${getAssetDisplayCode(asset)} en una pestaña nueva`}
                         >
                           <ArrowSquareOut size={17} aria-hidden="true" />
                           Ficha pública

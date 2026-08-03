@@ -21,6 +21,7 @@ import {
   type RequestStatus,
 } from "@/modules/incidents/incidentModel";
 import {
+  getWorkRequestAssetDisplayCode,
   listWorkRequests,
   WORK_REQUESTS_UPDATED_EVENT,
 } from "@/modules/incidents/incidentRepository";
@@ -110,6 +111,7 @@ export function IncidentListPage() {
     return allRequests.filter((request) => {
       const searchable = [
         request.code,
+        getWorkRequestAssetDisplayCode(request),
         request.requesterName,
         request.requesterEmail,
         request.description,
@@ -397,6 +399,9 @@ export function IncidentListPage() {
                     <strong>{requestTypeLabels[request.requestType]}</strong>
                     <br />
                     <small>{request.description}</small>
+                    {getWorkRequestAssetDisplayCode(request) && (
+                      <><br /><small>Bien: {getWorkRequestAssetDisplayCode(request)}</small></>
+                    )}
                   </td>
                   <td>
                     {request.building}
@@ -456,6 +461,9 @@ export function IncidentListPage() {
               <span className="grid gap-1">
                 <strong className="text-sm">{requestTypeLabels[request.requestType]}</strong>
                 <small className="line-clamp-2 text-xs text-slate-600">{request.description}</small>
+                {getWorkRequestAssetDisplayCode(request) && (
+                  <small className="text-xs text-slate-600">Bien: {getWorkRequestAssetDisplayCode(request)}</small>
+                )}
               </span>
               <span className="grid grid-cols-2 gap-3 text-xs text-slate-600">
                 <span>

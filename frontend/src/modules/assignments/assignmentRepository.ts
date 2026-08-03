@@ -2,7 +2,7 @@ import { api } from "@/services/api";
 
 export type AssignmentRecord = {
   id: string;
-  asset: { id: string; code: string; name: string; brand: string; model: string; condition: string; assignment_status: string };
+  asset: { id: string; code: string; display_code?: string | null; name: string; brand: string; model: string; condition: string; assignment_status: string };
   responsible: { id: string; reference: string; type: "PERSONA" | "AREA" | "ESPACIO_COMUN"; name: string; area: string };
   location: { id: string; zone: string; building: string; area: string; room: string; specific_location: string } | null;
   start_date: string;
@@ -27,8 +27,12 @@ export type AssignmentRecord = {
 export type AssignmentCatalog = {
   responsibles: Array<{ id: string; external_reference: string; type: AssignmentRecord["responsible"]["type"]; display_name: string; area_name: string }>;
   locations: Array<{ id: string; zone: string; building: string; area: string; room: string; specific_location: string }>;
-  assets: Array<{ id: string; code: string; name: string; brand: string; model: string; condition: string; assignment_status: string }>;
+  assets: Array<{ id: string; code: string; display_code?: string | null; name: string; brand: string; model: string; condition: string; assignment_status: string }>;
 };
+
+export function getAssignmentAssetDisplayCode(asset: { code: string; display_code?: string | null }) {
+  return asset.display_code || asset.code;
+}
 
 export type DeliveryPayload = {
   asset_id: string;

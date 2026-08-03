@@ -7,6 +7,10 @@ function notifyChanges() {
   window.dispatchEvent(new Event(WORK_REQUESTS_UPDATED_EVENT));
 }
 
+export function getWorkRequestAssetDisplayCode(request: Pick<WorkRequest, "assetCode" | "assetDisplayCode">) {
+  return request.assetDisplayCode || request.assetCode || "";
+}
+
 export async function listWorkRequests(): Promise<WorkRequest[]> {
   const { data } = await api.get<WorkRequest[]>("/incidents/");
   return data;

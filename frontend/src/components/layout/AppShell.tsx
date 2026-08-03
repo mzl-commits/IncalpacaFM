@@ -1,20 +1,26 @@
 import {
   Archive,
   ArrowRight,
+  Barcode,
   Bell,
   CaretDown,
   ChartBar,
   ClipboardText,
   DotsThree,
+  Files,
+  GearSix,
   House,
   Lightning,
   ListChecks,
   ListDashes,
+  MapTrifold,
   Package,
   Plus,
   QrCode,
   SignOut,
+  ShieldCheck,
   SquaresFour,
+  TreeStructure,
   Toolbox,
   UserCircle,
   Wrench,
@@ -23,6 +29,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
+import type { UserRole } from "@/modules/accounts/types";
+import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
 
 type NavItem = {
   to: string;
@@ -37,6 +45,7 @@ const groups: Array<{
   icon: typeof House;
   paths: string[];
   items: NavItem[];
+  roles?: UserRole[];
 }> = [
   {
     id: "assets",
@@ -47,7 +56,15 @@ const groups: Array<{
       { to: "/bienes", label: "Inventario", icon: ListDashes, end: true },
       { to: "/bienes/entradas", label: "Entradas", icon: Package },
       { to: "/bienes/qr", label: "Códigos QR", icon: QrCode },
+      { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: Archive },
     ],
+  },
+  {
+    id: "map",
+    label: "Mapa",
+    icon: MapTrifold,
+    paths: ["/mapa"],
+    items: [{ to: "/mapa", label: "Mapa", icon: MapTrifold, end: true }],
   },
   {
     id: "operations",
@@ -65,31 +82,44 @@ const groups: Array<{
     ],
   },
   {
-    id: "lifecycle",
-    label: "Ciclo de vida",
-    icon: Archive,
-    paths: ["/ciclo-vida"],
-    items: [
-      {
-        to: "/ciclo-vida/bajas",
-        label: "Solicitudes de baja",
-        icon: Archive,
-      },
-    ],
-  },
-  {
     id: "reports",
     label: "Informes",
     icon: ChartBar,
     paths: ["/informes"],
     items: [{ to: "/informes", label: "Informes", icon: ChartBar, end: true }],
   },
+  {
+    id: "administration",
+    label: "Administración",
+    icon: GearSix,
+    paths: ["/administracion", "/documentos", "/auditoria"],
+    roles: ["ADMINISTRADOR"],
+    items: [
+      {
+        to: "/administracion/taxonomia",
+        label: "Taxonomía",
+        icon: TreeStructure,
+      },
+      {
+        to: "/administracion/taxonomia/codigos",
+        label: "Códigos FM",
+        icon: Barcode,
+      },
+      {
+        to: "/administracion/mapas-ambientes",
+        label: "Mapas de ambientes",
+        icon: MapTrifold,
+      },
+      { to: "/documentos", label: "Documentos", icon: Files },
+      { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
+    ],
+  },
 ];
 
 const mobilePrimary: NavItem[] = [
   { to: "/", label: "Inicio", icon: House, end: true },
   { to: "/bienes", label: "Bienes", icon: ListDashes, end: true },
-  { to: "/asignaciones", label: "Asignar", icon: ClipboardText },
+  { to: "/mapa", label: "Mapa", icon: MapTrifold, end: true },
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
 
@@ -123,13 +153,17 @@ function isGroupActive(pathname: string, paths: string[]) {
 function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Panel ejecutivo", "Inicio"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
+  if (pathname.startsWith("/mapa")) return ["Mapa", "Activos por ubicación"];
   if (pathname.startsWith("/bienes/entradas")) return ["Bienes", "Entradas"];
   if (pathname.startsWith("/bienes")) return ["Bienes", "Inventario"];
   if (pathname.startsWith("/asignaciones")) return ["Operación", "Asignaciones"];
   if (pathname.startsWith("/incidencias")) return ["Operación", "Incidencias"];
   if (pathname.startsWith("/ordenes-trabajo")) return ["Operación", "Órdenes de trabajo"];
-  if (pathname.startsWith("/ciclo-vida")) return ["Ciclo de vida", "Bajas"];
+  if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
+  if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
+  if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
+  if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
   if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];
   if (pathname.startsWith("/auditoria")) return ["Administración", "Auditoría"];
   return ["SGTB", "Facility Management"];
@@ -154,8 +188,11 @@ export function AppShell() {
       .join("")
       .toUpperCase() || "SG";
   const technicianMode = user?.role === "TECNICO";
+  const roleGroups = groups.filter(
+    (group) => !group.roles || Boolean(user && group.roles.includes(user.role)),
+  );
   const visibleGroups = technicianMode
-    ? groups
+    ? roleGroups
         .filter((group) => group.id === "assets" || group.id === "operations")
         .map((group) => ({
           ...group,
@@ -166,7 +203,7 @@ export function AppShell() {
               item.to !== "/bienes/entradas/nueva",
           ),
         }))
-    : groups;
+    : roleGroups;
   const visibleMobilePrimary = technicianMode
     ? mobilePrimary.filter((item) => item.to === "/" || item.to === "/bienes")
     : mobilePrimary;
@@ -426,6 +463,7 @@ export function AppShell() {
         </header>
 
         <main className="main-content">
+          <RouteBreadcrumbs />
           <div className="route-stage" key={location.pathname}>
             <Outlet />
           </div>

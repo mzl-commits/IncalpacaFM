@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -9,12 +10,15 @@ from apps.accounts.models import AccountProfile
 from apps.assets.models import (
     Asset,
     AssetAssignment,
+    AssetInternalSequence,
     AssignableResponsible,
     Location,
     Taxonomy,
+    TaxonomySequence,
 )
 from apps.incidents.models import Incident
 from apps.maintenance.models import RepairRecord
+from apps.taxonomy.services import assign_fm_identifier, sync_taxonomy_catalog
 from apps.workorders.models import WorkOrder
 
 
@@ -94,6 +98,13 @@ class Command(BaseCommand):
 
         locations = {}
         for zone, building, area, room, common_space in [
+            (
+                "Zona Industrial",
+                "Edificio Administrativo",
+                "Facility Management",
+                "Oficina FM",
+                False,
+            ),
             ("Zona Industrial", "Edificio Administrativo", "Sistemas", "Oficina 204", False),
             (
                 "Zona Industrial",
@@ -148,75 +159,55 @@ class Command(BaseCommand):
             )
             locations[room] = location
 
-        taxonomies = {}
-        for asset_type, category, subcategory, specialty in [
-            ("Tecnología", "Equipos de cómputo", "Laptop", "TI"),
-            ("Tecnología", "Equipos de cómputo", "Servidor", "TI"),
-            ("Tecnología", "Periféricos", "Monitor", "TI"),
-            ("Tecnología", "Periféricos", "Impresora", "TI"),
-            ("Tecnología", "Periféricos", "Escáner", "TI"),
-            ("Tecnología", "Periféricos", "Teclado", "TI"),
-            ("Tecnología", "Periféricos", "Proyector", "TI"),
-            (
-                "Herramientas y equipos",
-                "Herramienta eléctrica",
-                "Taladro",
-                "Eléctrica",
-            ),
-            (
-                "Herramientas y equipos",
-                "Herramienta eléctrica",
-                "Esmeril",
-                "Eléctrica",
-            ),
-            (
-                "Herramientas y equipos",
-                "Herramienta eléctrica",
-                "Sierra",
-                "Mecánica",
-            ),
-            (
-                "Herramientas y equipos",
-                "Herramienta eléctrica",
-                "Compresora",
-                "Mecánica",
-            ),
-            (
-                "Herramientas y equipos",
-                "Equipo industrial",
-                "Bomba",
-                "Mecánica",
-            ),
-            (
-                "Herramientas y equipos",
-                "Equipo industrial",
-                "Motor",
-                "Eléctrica",
-            ),
-            (
-                "Herramientas y equipos",
-                "Equipo industrial",
-                "Generador",
-                "Eléctrica",
-            ),
-            (
-                "Herramientas y equipos",
-                "Equipo industrial",
-                "Tablero eléctrico",
-                "Eléctrica",
-            ),
-            ("Mobiliario", "Oficina", "Escritorio", "No aplica"),
-            ("Mobiliario", "Oficina", "Silla", "No aplica"),
-            ("Mobiliario", "Oficina", "Archivador", "No aplica"),
-            ("Mobiliario", "Oficina", "Estante", "No aplica"),
+        sync_taxonomy_catalog()
+        official_prefixes = {
+            "Impresora": "IM",
+            "Escritorio": "ME",
+            "Silla": "SL",
+            "Archivador": "MR",
+            "Estante": "MS",
+        }
+        taxonomies = {
+            sample_key: Taxonomy.objects.get(prefix=prefix)
+            for sample_key, prefix in official_prefixes.items()
+        }
+        for sample_key, prefix, asset_type, category, specialty in [
+            ("Laptop", "LAP", "Tecnología", "Equipos de cómputo", "TI"),
+            ("Servidor", "SRV", "Tecnología", "Equipos de cómputo", "TI"),
+            ("Monitor", "MON", "Tecnología", "Periféricos", "TI"),
+            ("Escáner", "ESC", "Tecnología", "Periféricos", "TI"),
+            ("Teclado", "TCL", "Tecnología", "Periféricos", "TI"),
+            ("Proyector", "PRO", "Tecnología", "Periféricos", "TI"),
+            ("Taladro", "TL", "Herramientas y equipos", "Herramienta eléctrica", "Eléctrica"),
+            ("Esmeril", "ESM", "Herramientas y equipos", "Herramienta eléctrica", "Eléctrica"),
+            ("Sierra", "SIE", "Herramientas y equipos", "Herramienta eléctrica", "Mecánica"),
+            ("Compresora", "CMP", "Herramientas y equipos", "Equipo industrial", "Mecánica"),
+            ("Bomba", "BOM", "Herramientas y equipos", "Equipo industrial", "Mecánica"),
+            ("Motor", "MOT", "Herramientas y equipos", "Equipo industrial", "Eléctrica"),
+            ("Generador", "GEN", "Herramientas y equipos", "Equipo industrial", "Eléctrica"),
+            ("Tablero eléctrico", "TBE", "Herramientas y equipos", "Equipo industrial", "Eléctrica"),
         ]:
             taxonomy, _ = Taxonomy.objects.update_or_create(
-                asset_type=asset_type,
-                category=category,
-                subcategory=subcategory,
-                defaults={"specialty": specialty, "active": True},
+                prefix=prefix,
+                defaults={
+                    "canonical_prefix": prefix,
+                    "name": sample_key,
+                    "asset_type": asset_type,
+                    "category": category,
+                    "subcategory": sample_key,
+                    "specialty": specialty,
+                    "sequence_digits": 4,
+                    "default_criticality": "Media",
+                    "issuance_enabled": True,
+                    "review_status": Taxonomy.ReviewStatus.VALIDATED,
+                    "aliases": [],
+                    "source_version": "DEMO",
+                    "notes": "Extensión exclusiva para datos demostrativos.",
+                    "active": True,
+                },
             )
-            taxonomies[subcategory] = taxonomy
+            TaxonomySequence.objects.get_or_create(taxonomy=taxonomy)
+            taxonomies[sample_key] = taxonomy
 
         responsibles = {}
         for ref, kind, name, area, room in [
@@ -292,8 +283,8 @@ class Command(BaseCommand):
                 "condition": "Bueno",
                 "criticality": "Baja",
                 "taxonomy": "Archivador",
-                "room": "Oficina 204",
-                "responsible": "A-SIS",
+                "room": "Oficina FM",
+                "responsible": "P-0319",
                 "assignment_status": "Asignado",
             },
             {
@@ -320,8 +311,8 @@ class Command(BaseCommand):
                 "condition": "Nuevo",
                 "criticality": "Media",
                 "taxonomy": "Impresora",
-                "room": "Oficina 204",
-                "responsible": "A-SIS",
+                "room": "Oficina FM",
+                "responsible": "P-0319",
                 "assignment_status": "Asignado",
             },
             {
@@ -376,7 +367,7 @@ class Command(BaseCommand):
                 "condition": "Bueno",
                 "criticality": "Media",
                 "taxonomy": "Escáner",
-                "room": "Oficina 204",
+                "room": "Oficina FM",
                 "responsible": "P-0319",
                 "assignment_status": "Asignado",
             },
@@ -717,6 +708,32 @@ class Command(BaseCommand):
                 ),
                 "confirmInspected": True,
                 "confirmAssignment": bool(responsible),
+                "evidence": [
+                    {
+                        "id": f"DOC-ORIG-{index:03d}",
+                        "name": f"sustento-ingreso-{sample['code'][-6:]}.pdf",
+                        "category": "origin",
+                        "mimeType": "application/pdf",
+                        "size": 148000 + index * 1700,
+                    },
+                    {
+                        "id": f"DOC-FOTO-{index:03d}",
+                        "name": f"registro-fotografico-{sample['code'][-6:]}.jpg",
+                        "category": "photo",
+                        "mimeType": "image/jpeg",
+                        "size": 264000 + index * 2300,
+                    },
+                    *([{
+                        "id": f"DOC-COPIA-{index:03d}",
+                        "name": f"constancia-digital-{sample['code'][-6:]}.txt",
+                        "category": "other",
+                        "mimeType": "text/plain",
+                        "size": 96,
+                        "dataUrl": "data:text/plain;base64," + base64.b64encode(
+                            f"Constancia digital de prueba para {sample['code']}.".encode()
+                        ).decode("ascii"),
+                    }] if index <= 5 else []),
+                ],
             }
             asset, _ = Asset.objects.update_or_create(
                 code=sample["code"],
@@ -738,6 +755,25 @@ class Command(BaseCommand):
                     "entry_payload": entry_payload,
                 },
             )
+            if not asset.fm_code:
+                asset = assign_fm_identifier(asset, taxonomy)
+
+            office_marker = {
+                "INC-BIEN-2026-000190": (Decimal("0.18000000"), Decimal("0.25000000")),
+                "INC-BIEN-2026-000192": (Decimal("0.47000000"), Decimal("0.27000000")),
+                "INC-BIEN-2026-000196": (Decimal("0.40000000"), Decimal("0.30000000")),
+            }.get(asset.code)
+            active_location_map = location.reference_maps.filter(active=True).first()
+            if office_marker and active_location_map:
+                asset.location_map = active_location_map
+                asset.location_marker_x, asset.location_marker_y = office_marker
+                asset.save(
+                    update_fields=(
+                        "location_map",
+                        "location_marker_x",
+                        "location_marker_y",
+                    )
+                )
 
             if responsible:
                 AssetAssignment.objects.update_or_create(
@@ -814,7 +850,71 @@ class Command(BaseCommand):
                     },
                 )
 
-        seeded_assets = list(Asset.objects.filter(code__in=[item["code"] for item in samples]))
+        pending_code = "INC-BIEN-2026-000218"
+        pending_location = locations["Almacén central"]
+        Asset.objects.get_or_create(
+            code=pending_code,
+            defaults={
+                "entry_type": Asset.EntryType.PURCHASE,
+                "name": "Equipo recibido pendiente de clasificación",
+                "description": (
+                    "Bien resguardado en almacén mientras se valida su ficha técnica "
+                    "y la taxonomía FM correspondiente."
+                ),
+                "brand": "Por confirmar",
+                "model": "Por confirmar",
+                "serial_number": "DEMO-000218",
+                "condition": "Requiere revisión",
+                "criticality": "Media",
+                "administrative_status": "Registrado",
+                "operational_status": "No evaluado",
+                "assignment_status": "Sin asignar",
+                "taxonomy": None,
+                "location": pending_location,
+                "registered_by": user,
+                "entry_payload": {
+                    "source": "seed_demo_data",
+                    "currentStep": 6,
+                    "entryType": Asset.EntryType.PURCHASE,
+                    "name": "Equipo recibido pendiente de clasificación",
+                    "description": (
+                        "Bien resguardado en almacén mientras se valida su ficha técnica "
+                        "y la taxonomía FM correspondiente."
+                    ),
+                    "brand": "Por confirmar",
+                    "model": "Por confirmar",
+                    "serialNumber": "DEMO-000218",
+                    "condition": "Requiere revisión",
+                    "criticality": "Media",
+                    "classificationPending": True,
+                    "classificationPendingReason": (
+                        "Ficha técnica y familia del bien pendientes de validación."
+                    ),
+                    "zone": pending_location.zone,
+                    "building": pending_location.building,
+                    "locationArea": pending_location.area,
+                    "room": pending_location.room,
+                    "locationPending": False,
+                    "confirmInspected": True,
+                    "confirmAssignment": False,
+                },
+            },
+        )
+
+        internal_max = max(
+            max(int(item["code"].rsplit("-", 1)[-1]) for item in samples),
+            int(pending_code.rsplit("-", 1)[-1]),
+        )
+        internal_counter, _ = AssetInternalSequence.objects.get_or_create(year=2026)
+        if internal_counter.last_value < internal_max:
+            internal_counter.last_value = internal_max
+            internal_counter.save(update_fields=("last_value", "updated_at"))
+
+        seeded_assets = list(
+            Asset.objects.filter(
+                code__in=[item["code"] for item in samples] + [pending_code]
+            )
+        )
         incident_samples = [
             ("FALLA_EQUIPO", "El equipo presenta vibración y pérdida de rendimiento.", "ALTA"),
             ("MANTENIMIENTO", "Se solicita revisión preventiva antes del siguiente turno.", "MEDIA"),
@@ -893,7 +993,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                "Datos de prueba cargados: 30 bienes, 6 incidencias, 4 OT y usuarios "
+                "Datos de prueba cargados: 31 bienes, 6 incidencias, 4 OT y usuarios "
                 "Administrador/Técnico."
             )
         )
