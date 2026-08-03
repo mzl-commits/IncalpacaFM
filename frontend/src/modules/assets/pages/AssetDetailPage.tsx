@@ -45,6 +45,7 @@ export function AssetDetailPage() {
   const [classificationOpen, setClassificationOpen] = useState(false);
   const [classificationTaxonomyId, setClassificationTaxonomyId] = useState("");
   const [classificationError, setClassificationError] = useState("");
+  const isAdministrator = user?.role === "ADMINISTRADOR";
   const [editForm, setEditForm] = useState<AssetDetailUpdate>({
     name: "",
     description: "",
@@ -60,13 +61,13 @@ export function AssetDetailPage() {
       .catch(() => setError("No se pudo cargar la ficha del bien."));
   }, [id]);
   useEffect(() => {
-    if (asset)
+    if (asset && isAdministrator)
       QRCode.toDataURL(asset.public_url, {
         width: 420,
         margin: 2,
         color: { dark: "#002b58", light: "#ffffff" },
       }).then(setQr);
-  }, [asset]);
+  }, [asset, isAdministrator]);
   if (!asset)
     return <section className="loading-panel">{error || "Cargando ficha del bien…"}</section>;
   const activeAssignment = asset.responsible_history.find((item) => item.status === "ACTIVA");
@@ -141,7 +142,7 @@ export function AssetDetailPage() {
           Ficha del bien actualizada correctamente.
         </div>
       )}
-      <Link className="back-link" to="/bienes">
+      <Link className="back-link" to={isAdministrator ? "/bienes" : "/ordenes-trabajo"}>
         <ArrowLeft />
         Volver a bienes
       </Link>
@@ -157,7 +158,7 @@ export function AssetDetailPage() {
           >
             {asset.assignment_status}
           </span>
-          {user?.role === "ADMINISTRADOR" && (
+          {isAdministrator && (
             <button className="button button-secondary" type="button" onClick={openEditor}>
               <PencilSimple />
               Editar ficha
@@ -169,7 +170,7 @@ export function AssetDetailPage() {
           </button>
         </div>
       </div>
-      {user?.role === "ADMINISTRADOR" && (!asset.fm_code || !asset.taxonomy_detail) && (
+      {isAdministrator && (!asset.fm_code || !asset.taxonomy_detail) && (
         <section className="asset-classification-callout">
           <Tag size={25} weight="duotone" />
           <div><strong>Clasificación pendiente</strong><p>Asigna una taxonomía validada para reservar el código FM sin cambiar el identificador técnico ni el enlace QR.</p></div>
@@ -189,7 +190,7 @@ export function AssetDetailPage() {
             ["overview", "Resumen"],
             ["responsibles", `Responsables (${asset.responsible_history.length})`],
             ["repairs", `Reparaciones (${asset.repair_history.length})`],
-            ["qr", "Código QR"],
+            ...(isAdministrator ? [["qr", "Código QR"] as [DetailTab, string]] : []),
           ] as Array<[DetailTab, string]>
         ).map(([value, label]) => (
           <button
@@ -279,7 +280,7 @@ export function AssetDetailPage() {
           <RepairList items={asset.repair_history} />
         </section>
       )}
-      {tab === "qr" && (
+      {isAdministrator && tab === "qr" && (
         <section className="detail-section qr-record">
           <div>
             <h2>Identificación QR</h2>

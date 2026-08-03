@@ -42,6 +42,7 @@ class RetirementRequest(models.Model):
         CLOSED = "CERRADA", "Cerrada"
 
     class Method(models.TextChoices):
+        PENDING = "POR_DEFINIR", "Por definir"
         SALE = "VENTA", "Venta"
         RECYCLING = "RECICLAJE", "Reciclaje"
         DISCARD = "DESECHO", "Desecho"
