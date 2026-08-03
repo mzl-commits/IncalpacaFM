@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .models import AccountProfile
 from .permissions import IsAdministrator
+from apps.notifications.services import queue_notification
 from .serializers import (
     ChangePasswordSerializer,
     CurrentUserSerializer,
@@ -82,7 +83,36 @@ class TechnicianDetailView(generics.RetrieveUpdateAPIView):
         return get_object_or_404(self.get_queryset(), account_profile__id=self.kwargs['pk'])
 
 
+class TechnicianManualNotificationView(views.APIView):
+    permission_classes = [IsAdministrator]
+
+    def post(self, request, pk):
+        technician = get_object_or_404(TechnicianDetailView.queryset, account_profile__id=pk)
+        template = str(request.data.get('template') or 'CUSTOM').upper()
+        templates = {
+            'REMINDER': ('Recordatorio de jornada', 'Recuerda revisar tu agenda, iniciar el temporizador al comenzar y actualizar el avance de cada OT.'),
+            'TRACEABILITY': ('Actualiza la trazabilidad de tus OT', 'Registra el inicio, tiempo trabajado y avance de las órdenes asignadas para mantener la trazabilidad al día.'),
+            'SCHEDULE': ('Cambio en tu programación', 'Revisa tu agenda semanal: se registró una actualización en la programación de tus órdenes de trabajo.'),
+        }
+        if template == 'CUSTOM':
+            subject = str(request.data.get('subject') or '').strip()
+            body = str(request.data.get('body') or '').strip()
+            if not subject or not body:
+                return response.Response({'detail': 'Ingresa asunto y mensaje para la notificación personalizada.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            if template not in templates:
+                return response.Response({'detail': 'Plantilla no válida.'}, status=status.HTTP_400_BAD_REQUEST)
+            subject, body = templates[template]
+        notification = queue_notification(
+            event='TECHNICIAN_MANUAL_NOTIFICATION', recipient=technician,
+            subject=subject, body=body, discriminator=f'manual:{template}:{timezone.now().isoformat()}',
+        )
+        if not notification:
+            return response.Response({'detail': 'El técnico necesita un correo activo para recibir la notificación.'}, status=status.HTTP_400_BAD_REQUEST)
+        return response.Response({'detail': 'Notificación enviada a la bandeja y programada para correo.'}, status=status.HTTP_201_CREATED)
+
+
 __all__ = [
     "LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView",
-    "TechnicianListCreateView", "TechnicianDetailView",
+    "TechnicianListCreateView", "TechnicianDetailView", "TechnicianManualNotificationView",
 ]
