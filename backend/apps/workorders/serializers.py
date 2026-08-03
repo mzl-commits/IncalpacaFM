@@ -10,6 +10,11 @@ from rest_framework.exceptions import PermissionDenied
 from apps.accounts.models import AccountProfile
 from apps.audit.services import record_audit
 from apps.incidents.models import Incident
+from apps.notifications.services import (
+    queue_for_administrators,
+    queue_incident_requester,
+    queue_notification,
+)
 
 from .models import WorkOrder
 
@@ -42,6 +47,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     supervisorName = serializers.SerializerMethodField()
     adminPriority = serializers.CharField(source="admin_priority")
     scheduledDate = serializers.DateField(source="scheduled_date")
+    plannedHours = serializers.IntegerField(source="planned_hours", min_value=1, max_value=16)
     startedAt = serializers.DateTimeField(source="started_at", read_only=True)
     finishedAt = serializers.DateTimeField(source="finished_at", read_only=True)
     closedAt = serializers.DateTimeField(source="closed_at", read_only=True)
@@ -74,6 +80,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "adminPriority",
             "status",
             "scheduledDate",
+            "plannedHours",
             "startedAt",
             "finishedAt",
             "closedAt",
@@ -155,6 +162,35 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             entity_id=order.id,
             after={"code": order.code, "technician": technician_code},
         )
+        queue_notification(
+            event='WORK_ORDER_ASSIGNED',
+            recipient=technician,
+            subject=f'Orden asignada {order.code}',
+            body=(
+                f'Tienes asignada la orden {order.code} para el bien '
+                f'{incident.asset.fm_code or incident.asset.code if incident.asset else "sin bien asociado"}.'
+            ),
+            entity=order,
+            discriminator=str(technician.id),
+        )
+        queue_for_administrators(
+            event='WORK_ORDER_ASSIGNED',
+            subject=f'Orden creada {order.code}',
+            body=f'La orden {order.code} fue asignada y está lista para atención.',
+            entity=order,
+            discriminator='planner',
+        )
+        queue_incident_requester(
+            event='INCIDENT_REVIEW_SCHEDULED',
+            incident=incident,
+            subject=f'Revisión programada para tu reporte {incident.code}',
+            body=(
+                f'Programamos la revisión de tu reporte {incident.code} para el '
+                f'{order.scheduled_date.strftime("%d/%m/%Y")}. '
+                'Te avisaremos cuando la revisión haya sido aprobada.'
+            ),
+            discriminator=order.code,
+        )
         return order
 
 
@@ -174,6 +210,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
         )
     )
     percentage = serializers.IntegerField(required=False, min_value=0, max_value=100)
+    workedMinutes = serializers.IntegerField(required=False, min_value=0, max_value=720)
     observation = serializers.CharField(required=False, allow_blank=True)
     evidence = serializers.ListField(required=False, default=list)
     payload = serializers.DictField(required=False, default=dict)
@@ -258,6 +295,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
                     "operatorId": str(request.user.account_profile.id),
                     "operatorName": request.user.get_full_name() or request.user.username,
                     "percentage": percentage,
+                    "workedMinutes": self.validated_data.get("workedMinutes", 0),
                     "observation": self.validated_data.get("observation", ""),
                     "evidence": self.validated_data.get("evidence", []),
                     "createdAt": now.isoformat(),
@@ -316,6 +354,57 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 order.incident.save(update_fields=("status", "updated_at"))
 
         order.save()
+        if action == 'PROGRESS' and order.status == WorkOrder.Status.SUPERVISION:
+            queue_notification(
+                event='REPAIR_FINISHED',
+                recipient=order.supervisor,
+                subject=f'Revisión requerida para {order.code}',
+                body=(
+                    f'El técnico marcó como finalizado el trabajo de la orden {order.code}. '
+                    'Revisa el resultado y las evidencias.'
+                ),
+                entity=order,
+                discriminator='finished',
+            )
+        elif action.startswith('SUPERVISOR_'):
+            outcome = 'aprobó' if action.endswith('APPROVE') else 'devolvió'
+            queue_notification(
+                event='SUPERVISOR_REVIEW',
+                recipient=order.technician,
+                subject=f'Revisión de supervisor para {order.code}',
+                body=f'El supervisor {outcome} la orden {order.code}.',
+                entity=order,
+                discriminator=action,
+            )
+            queue_for_administrators(
+                event='SUPERVISOR_REVIEW',
+                subject=f'Revisión registrada para {order.code}',
+                body=f'El supervisor {outcome} la orden {order.code}.',
+                entity=order,
+                discriminator=action,
+            )
+        elif action == 'ADMIN_APPROVE':
+            queue_incident_requester(
+                event='INCIDENT_REVIEW_APPROVED',
+                incident=order.incident,
+                subject=f'Revisión aprobada para tu reporte {order.incident.code}',
+                body=(
+                    f'La revisión de tu reporte {order.incident.code} fue aprobada. '
+                    'Estamos finalizando la atención y te avisaremos cuando el bien esté listo.'
+                ),
+                discriminator=order.code,
+            )
+        elif action == 'CONFORM':
+            queue_incident_requester(
+                event='ASSET_SERVICE_READY',
+                incident=order.incident,
+                subject=f'Tu bien ya está listo · {order.incident.code}',
+                body=(
+                    f'La atención de tu reporte {order.incident.code} finalizó. '
+                    'El bien ya está listo para su uso o entrega según la coordinación de Facility Management.'
+                ),
+                discriminator=order.code,
+            )
         record_audit(
             request=request,
             action=f"WORK_ORDER_{action}",

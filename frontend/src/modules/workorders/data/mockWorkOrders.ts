@@ -19,6 +19,7 @@ export const mockWorkOrders: WorkOrder[] = [
     status: "PROGRAMADA",
 
     scheduledDate: "2026-07-26",
+    plannedHours: 2,
     administratorNotes:
       "Coordinar acceso con el responsable del área.",
 

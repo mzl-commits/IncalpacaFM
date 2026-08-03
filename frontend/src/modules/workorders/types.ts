@@ -25,6 +25,7 @@ export interface WorkOrderProgress {
   operatorName: string;
 
   percentage: number;
+  workedMinutes?: number;
   observation: string;
   evidence: WorkOrderEvidence[];
 
@@ -51,6 +52,7 @@ export interface WorkOrder {
   status: WorkOrderStatus;
 
   scheduledDate: string;
+  plannedHours: number;
   startedAt?: string;
   finishedAt?: string;
   closedAt?: string;

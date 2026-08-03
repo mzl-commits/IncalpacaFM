@@ -36,6 +36,7 @@ interface WorkOrderFormState {
   specialty: Specialty | "";
   adminPriority: AdminPriority;
   scheduledDate: string;
+  plannedHours: number;
   administratorNotes: string;
 }
 
@@ -75,6 +76,7 @@ const initialForm: WorkOrderFormState = {
   specialty: "",
   adminPriority: "MEDIA",
   scheduledDate: "",
+  plannedHours: 2,
   administratorNotes: "",
 };
 
@@ -137,6 +139,7 @@ export function WorkOrderCreatePage() {
       status: "PROGRAMADA",
 
       scheduledDate: form.scheduledDate,
+      plannedHours: form.plannedHours,
       administratorNotes:
         form.administratorNotes.trim(),
 
@@ -450,6 +453,18 @@ export function WorkOrderCreatePage() {
                   )
                 }
               />
+            </label>
+
+            <label className="field">
+              <span>Horas previstas *</span>
+              <input
+                type="number"
+                min={1}
+                max={16}
+                value={form.plannedHours}
+                onChange={(event) => updateField("plannedHours", Number(event.target.value))}
+              />
+              <small>Se considera en la carga semanal del técnico.</small>
             </label>
 
             <label className="field field-wide">

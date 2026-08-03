@@ -33,6 +33,7 @@ class WorkOrder(models.Model):
     admin_priority = models.CharField(max_length=20)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.SCHEDULED)
     scheduled_date = models.DateField()
+    planned_hours = models.PositiveSmallIntegerField(default=2)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)

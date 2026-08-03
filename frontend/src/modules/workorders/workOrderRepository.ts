@@ -45,6 +45,7 @@ export interface RegisterProgressInput {
   operatorId: string;
   operatorName: string;
   percentage: number;
+  workedMinutes: number;
   observation: string;
   evidenceNames: string[];
 }
@@ -56,6 +57,7 @@ export async function registerWorkOrderProgress(
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
     action: "PROGRESS",
     percentage: input.percentage,
+    workedMinutes: input.workedMinutes,
     observation: input.observation,
     evidence: input.evidenceNames.map((name) => ({
       id: crypto.randomUUID(),
