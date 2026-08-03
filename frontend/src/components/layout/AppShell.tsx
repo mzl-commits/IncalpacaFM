@@ -1,5 +1,4 @@
 ﻿import {
-  Archive,
   ArrowRight,
   Barcode,
   Bell,
@@ -17,13 +16,13 @@
   MapTrifold,
   Package,
   Plus,
-  QrCode,
   SignOut,
   ShieldCheck,
   SquaresFour,
   TreeStructure,
   Toolbox,
   UserCircle,
+  UsersThree,
   Wrench,
   X,
 } from "@phosphor-icons/react";
@@ -32,6 +31,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { UserRole } from "@/modules/accounts/types";
 import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
+import { listNotifications } from "@/modules/notifications/notificationRepository";
 
 type NavItem = {
   to: string;
@@ -61,11 +61,13 @@ const groups: Array<{
     label: "Bienes",
     icon: ListDashes,
     paths: ["/bienes"],
+    roles: ["ADMINISTRADOR"],
     items: [
       { to: "/bienes", label: "Inventario", icon: ListDashes, end: true },
       { to: "/bienes/entradas", label: "Entradas", icon: Package },
-      { to: "/bienes/qr", label: "Códigos QR", icon: QrCode },
-      { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: Archive },
+      { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
+      { to: "/bienes/qr", label: "Códigos QR", icon: Barcode },
+      { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: ShieldCheck },
     ],
   },
   {
@@ -77,26 +79,27 @@ const groups: Array<{
   },
   {
     id: "operations",
-    label: "Operación y mantenimiento",
+    label: "Planificación y OT",
     icon: Wrench,
-    paths: ["/asignaciones", "/incidencias", "/ordenes-trabajo"],
+    paths: ["/incidencias", "/ordenes-trabajo"],
     items: [
-      { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
-      { to: "/incidencias", label: "Incidencias", icon: ListChecks },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
+      { to: "/ordenes-trabajo/recomendaciones", label: "Recomendaciones", icon: Lightning },
       {
         to: "/ordenes-trabajo",
         label: "Órdenes de trabajo",
         icon: Toolbox,
       },
+      { to: "/supervision", label: "Revisión de OT", icon: ShieldCheck },
     ],
   },
   {
-    id: "supervision",
-    label: "Supervisión",
-    icon: ShieldCheck,
-    paths: ["/supervision"],
-    roles: ["SUPERVISOR", "ADMINISTRADOR"],
-    items: [{ to: "/supervision", label: "Revisión de OT", icon: ShieldCheck, end: true }],
+    id: "team",
+    label: "Equipo",
+    icon: UsersThree,
+    paths: ["/administracion/tecnicos"],
+    roles: ["ADMINISTRADOR"],
+    items: [{ to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree }],
   },
   {
     id: "reports",
@@ -107,9 +110,9 @@ const groups: Array<{
   },
   {
     id: "administration",
-    label: "Administración",
+    label: "Configuración",
     icon: GearSix,
-    paths: ["/administracion", "/documentos", "/auditoria"],
+    paths: ["/administracion/taxonomia", "/administracion/mapas-ambientes", "/documentos", "/auditoria"],
     roles: ["ADMINISTRADOR"],
     items: [
       {
@@ -123,17 +126,13 @@ const groups: Array<{
         icon: Barcode,
       },
       {
-        to: "/administracion/tecnicos",
-        label: "Técnicos",
-        icon: Wrench,
-      },
-      {
         to: "/administracion/mapas-ambientes",
         label: "Mapas de ambientes",
         icon: MapTrifold,
       },
       { to: "/documentos", label: "Documentos", icon: Files },
       { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
+      { to: "/notificaciones", label: "Notificaciones", icon: Bell },
     ],
   },
 ];
@@ -201,6 +200,7 @@ export function AppShell() {
   const [openGroup, setOpenGroup] = useState(activeGroup ?? "assets");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
@@ -218,22 +218,23 @@ export function AppShell() {
     (group) => !group.roles || Boolean(user && group.roles.includes(user.role)),
   );
   const visibleGroups = supervisorMode
-    ? roleGroups.filter((group) => group.id === "supervision")
+    ? roleGroups.filter((group) => group.id === "operations").map((group) => ({ ...group, items: group.items.filter((item) => item.to === "/supervision") }))
     : technicianMode
       ? roleGroups
-          .filter((group) => group.id === "technician" || group.id === "assets" || group.id === "operations")
+          .filter((group) => group.id === "technician" || group.id === "operations")
           .map((group) => ({
             ...group,
             items: group.items.filter(
               (item) =>
                 !item.to.startsWith("/asignaciones") &&
-                item.to !== "/bienes/entradas" &&
-                item.to !== "/bienes/entradas/nueva",
+                !item.to.startsWith("/incidencias") &&
+                !item.to.startsWith("/ordenes-trabajo/recomendaciones") &&
+                !item.to.startsWith("/supervision"),
             ),
           }))
       : roleGroups;
   const visibleMobilePrimary = technicianMode
-    ? mobilePrimary.filter((item) => item.to === "/" || item.to === "/bienes")
+    ? mobilePrimary.filter((item) => item.to === "/")
     : supervisorMode
       ? []
       : mobilePrimary;
@@ -251,6 +252,19 @@ export function AppShell() {
     mobileMenuRef.current?.close();
     quickMenuRef.current?.close();
   }, [location.pathname, activeGroup]);
+
+  useEffect(() => {
+    let alive = true;
+    async function refreshNotifications() {
+      try {
+        const notifications = await listNotifications();
+        if (alive) setUnreadNotifications(notifications.filter((item) => !item.readAt).length);
+      } catch { /* The bell remains usable when the API is temporarily unavailable. */ }
+    }
+    void refreshNotifications();
+    const interval = window.setInterval(() => void refreshNotifications(), 60000);
+    return () => { alive = false; window.clearInterval(interval); };
+  }, [location.pathname]);
 
   function openMobileMenu() {
     setMobileMenuOpen(true);
@@ -480,7 +494,6 @@ export function AppShell() {
               <Plus size={16} weight="bold" />
             </button>
             )}
-            {!supervisorMode && (
             <NavLink
               to="/notificaciones"
               className="icon-button"
@@ -488,8 +501,8 @@ export function AppShell() {
               title="Ver notificaciones"
             >
               <Bell size={20} />
+              {unreadNotifications > 0 && <span className="notification-dot" aria-label={`${unreadNotifications} notificaciones sin leer`} />}
             </NavLink>
-            )}
             <div className="topbar-user" aria-label="Usuario actual">
               <span>{initials}</span>
               <div>

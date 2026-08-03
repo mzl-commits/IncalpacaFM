@@ -13,6 +13,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
+import { TechnicianDetailPage } from "@/modules/accounts/pages/TechnicianDetailPage";
 import { TechnicianSchedulePage } from "@/modules/workorders/pages/TechnicianSchedulePage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
 import { SupervisorWorkOrderReviewPage } from "@/modules/workorders/pages/SupervisorWorkOrderReviewPage";
@@ -29,6 +30,23 @@ function lazyRoute<TModule, TKey extends keyof TModule>(
 
 function SupervisorWorkOrderReviewRoute() {
   return <SupervisorWorkOrderReviewPage />;
+}
+
+function administratorLazyRoute<TModule, TKey extends keyof TModule>(
+  loader: () => Promise<TModule>,
+  exportName: TKey,
+) {
+  return async () => {
+    const module = await loader();
+    const Component = module[exportName] as ComponentType;
+    return {
+      Component: () => (
+        <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+          <Component />
+        </RoleRoute>
+      ),
+    };
+  };
 }
 
 const modules = [["mantenimiento", "Mantenimiento"]] as const;
@@ -92,35 +110,35 @@ export const router = createBrowserRouter([
       },
       {
         path: "bienes",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/assets/pages/AssetInventoryPage"),
           "AssetInventoryPage",
         ),
       },
       {
         path: "bienes/entradas",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/assets/pages/AssetEntryListPage"),
           "AssetEntryListPage",
         ),
       },
       {
         path: "bienes/entradas/nueva",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/assets/pages/AssetEntryWizardPage"),
           "AssetEntryWizardPage",
         ),
       },
       {
         path: "bienes/qr",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/assets/pages/AssetQrInventoryPage"),
           "AssetQrInventoryPage",
         ),
       },
       {
         path: "mapa",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/assets/pages/AssetMapOverviewPage"),
           "AssetMapOverviewPage",
         ),
@@ -222,31 +240,45 @@ export const router = createBrowserRouter([
         ),
       },
       { path: "bienes/mapa", element: <Navigate to="/mapa" replace /> },
-      { path: "bienes/ciclo-vida", element: <Navigate to="/bienes/ciclo-vida/bajas" replace /> },
+      {
+        path: "bienes/ciclo-vida",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <Navigate to="/bienes/ciclo-vida/bajas" replace />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "ordenes-trabajo/recomendaciones",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/AssignmentRecommendationsPage"),
+          "AssignmentRecommendationsPage",
+        ),
+      },
       {
         path: "bienes/ciclo-vida/bajas",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/lifecycle/pages/RetirementRequestListPage"),
           "RetirementRequestListPage",
         ),
       },
       {
         path: "bienes/ciclo-vida/bajas/nueva/:diagnosisId",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/lifecycle/pages/RetirementRequestCreatePage"),
           "RetirementRequestCreatePage",
         ),
       },
       {
         path: "bienes/ciclo-vida/bajas/:id",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/lifecycle/pages/RetirementRequestDetailPage"),
           "RetirementRequestDetailPage",
         ),
       },
       {
         path: "bienes/ciclo-vida/bajas/:id/disposicion",
-        lazy: lazyRoute(
+        lazy: administratorLazyRoute(
           () => import("@/modules/lifecycle/pages/FinalDispositionPage"),
           "FinalDispositionPage",
         ),
@@ -293,6 +325,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
             <TechnicianManagementPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "administracion/tecnicos/:id",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <TechnicianDetailPage />
           </RoleRoute>
         ),
       },
