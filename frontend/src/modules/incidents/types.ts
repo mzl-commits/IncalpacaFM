@@ -12,6 +12,19 @@ export interface WorkRequestEvidence {
   dataUrl?: string;
 }
 
+export interface WorkRequestImpactAssessment {
+  suggestedPriority?: RequestPriority;
+  priorityReasons?: string[];
+  answers?: {
+    stopsWork?: "SI" | "NO";
+    safetyRisk?: "SI" | "NO";
+    essentialService?: "SI" | "NO";
+    biggerDamageRisk?: "SI" | "NO";
+    affectedPeople?: "SOLO_YO" | "VARIAS_PERSONAS" | "TODA_EL_AREA";
+  };
+  noPhotoReason?: string;
+}
+
 export interface WorkRequest {
   id: string;
   code: string;
@@ -22,6 +35,13 @@ export interface WorkRequest {
   requesterId: string;
   requesterName: string;
   requesterEmail: string;
+  requesterPhone?: string;
+  requesterContact?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    workerCode?: string;
+  };
 
   locationId: string;
   zone: string;
@@ -38,6 +58,7 @@ export interface WorkRequest {
   project: boolean;
 
   evidence: WorkRequestEvidence[];
+  impactAssessment?: WorkRequestImpactAssessment;
 
   status: RequestStatus;
   rejectionReason?: string;

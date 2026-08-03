@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+﻿import { api } from "@/services/api";
 import type { WorkOrder } from "./types";
 
 export const WORK_ORDERS_UPDATED_EVENT = "sgtb:work-orders-updated";
@@ -22,7 +22,7 @@ export async function createWorkOrder(
   const { data } = await api.post<WorkOrder>("/work-orders/", {
     ...workOrder,
     technicianWorkerCode: "tecnico",
-    supervisorWorkerCode: "admin",
+    supervisorWorkerCode: "supervisor",
   });
   notifyChanges();
   return data;
@@ -64,6 +64,37 @@ export async function registerWorkOrderProgress(
       size: 0,
       createdAt: new Date().toISOString(),
     })),
+  });
+  notifyChanges();
+  return data;
+}
+export async function superviseWorkOrder(
+  id: string,
+  approved: boolean,
+  comment: string,
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: approved ? "SUPERVISOR_APPROVE" : "SUPERVISOR_RETURN",
+    payload: { comment },
+  });
+  notifyChanges();
+  return data;
+}
+export async function adminReviewWorkOrder(
+  id: string,
+  approved: boolean,
+  comment: string,
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: approved ? "ADMIN_APPROVE" : "ADMIN_RETURN",
+    payload: { comment },
+  });
+  notifyChanges();
+  return data;
+}
+export async function pauseWorkOrder(id: string): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: "PAUSE",
   });
   notifyChanges();
   return data;

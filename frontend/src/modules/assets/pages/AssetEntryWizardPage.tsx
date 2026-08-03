@@ -147,7 +147,7 @@ export function AssetEntryWizardPage() {
         ...current,
         [category === "photo" ? "photo" : category]: category === "photo"
           ? "Usa una imagen JPG, PNG o WEBP de hasta 8 MB."
-          : "El archivo supera el mÃ¡ximo permitido de 5 MB.",
+          : "El archivo supera el máximo permitido de 5 MB.",
       }));
       event.target.value = "";
       return;
@@ -158,7 +158,7 @@ export function AssetEntryWizardPage() {
         const validDimensions = bitmap.width >= 320 && bitmap.height >= 240;
         bitmap.close();
         if (!validDimensions) {
-          setErrors((current) => ({ ...current, photo: "La fotografÃ­a debe tener al menos 320 Ã— 240 px." }));
+          setErrors((current) => ({ ...current, photo: "La fotografía debe tener al menos 320 × 240 px." }));
           event.target.value = "";
           return;
         }
@@ -312,7 +312,7 @@ export function AssetEntryWizardPage() {
       <Field label="Moneda"><select value={draft.currency} onChange={(e) => setField("currency", e.target.value as "PEN" | "USD")}><option value="PEN">PEN — Soles</option><option value="USD">USD — Dólares</option></select></Field>
     </>;
     if (draft.entryType === "own_creation") return <>
-      <Field label="Área productora" error={errors.producingArea} required><input value={draft.producingArea} onChange={(e) => setField("producingArea", e.target.value)} /></Field>
+      <Field label="?rea productora" error={errors.producingArea} required><input value={draft.producingArea} onChange={(e) => setField("producingArea", e.target.value)} /></Field>
       <Field label="Proyecto u orden interna" error={errors.internalOrder} required><input value={draft.internalOrder} onChange={(e) => setField("internalOrder", e.target.value)} /></Field>
       <Field label="Fecha de finalización" error={errors.completionDate} required><input type="date" value={draft.completionDate} onChange={(e) => setField("completionDate", e.target.value)} /></Field>
     </>;
@@ -331,10 +331,10 @@ export function AssetEntryWizardPage() {
 
   const upload = (category: EvidenceItem["category"], title: string, error?: string) => (
     <div className={`upload-block ${error ? "has-error" : ""}`}>
-      <div><FileArrowUp size={23} /><span><strong>{title}</strong><small>{category === "photo" ? "JPG, PNG o WEBP · mínimo 320 × 240 px · máximo 8 MB" : "PDF, JPG o PNG · máximo 5 MB"}</small></span></div>
+      <div><FileArrowUp size={23} /><span><strong>{title}</strong><small>{category === "photo" ? "JPG, PNG o WEBP · mínimo 320 x 240 px · máximo 8 MB" : "PDF, JPG o PNG · máximo 5 MB"}</small></span></div>
       <label className="button button-secondary">{category === "photo" && evidenceByCategory.photo.length ? "Reemplazar fotografía" : "Seleccionar archivo"}<input type="file" accept={category === "photo" ? "image/jpeg,image/png,image/webp" : ".pdf,image/*"} multiple={category !== "photo"} onChange={(e) => addFiles(e, category)} /></label>
       {error && <small className="field-error"><WarningCircle size={15} />{error}</small>}
-      {category === "photo" && evidenceByCategory.photo[0]?.dataUrl && <div className="official-photo-preview"><img src={evidenceByCategory.photo[0].dataUrl} alt="Vista previa del bien" /><span>Esta fotografÃ­a identificarÃ¡ el bien en su ficha QR pÃºblica.</span></div>}
+      {category === "photo" && evidenceByCategory.photo[0]?.dataUrl && <div className="official-photo-preview"><img src={evidenceByCategory.photo[0].dataUrl} alt="Vista previa del bien" /><span>Esta fotografía identificará el bien en su ficha QR pública.</span></div>}
       {evidenceByCategory[category].map((file) => <div className="file-row" key={file.id}>
         <span><ClipboardText size={18} />{file.name}<small>{(file.size / 1024).toFixed(0)} KB</small></span>
         <button type="button" aria-label={`Eliminar ${file.name}`} onClick={() => setField("evidence", draft.evidence.filter((item) => item.id !== file.id))}><Trash size={17} /></button>
@@ -389,7 +389,7 @@ export function AssetEntryWizardPage() {
         : <div className="form-grid">
           <Field label="Zona" error={errors.zone} required><select value={draft.zone} onChange={(e) => setDraft((current) => ({ ...current, zone: e.target.value, building: "", locationArea: "", room: "", locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))}><option value="">Seleccionar</option>{zones.map((x) => <option key={x}>{x}</option>)}</select></Field>
           <Field label="Edificio" error={errors.building} required><select value={draft.building} disabled={!draft.zone} onChange={(e) => setDraft((current) => ({ ...current, building: e.target.value, locationArea: "", room: "", locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))}><option value="">Seleccionar</option>{buildings.map((x) => <option key={x}>{x}</option>)}</select></Field>
-          <Field label="Área" error={errors.locationArea} required><select value={draft.locationArea} disabled={!draft.building} onChange={(e) => setDraft((current) => ({ ...current, locationArea: e.target.value, room: "", locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))}><option value="">Seleccionar</option>{areas.map((x) => <option key={x}>{x}</option>)}</select></Field>
+          <Field label="?rea" error={errors.locationArea} required><select value={draft.locationArea} disabled={!draft.building} onChange={(e) => setDraft((current) => ({ ...current, locationArea: e.target.value, room: "", locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))}><option value="">Seleccionar</option>{areas.map((x) => <option key={x}>{x}</option>)}</select></Field>
           <Field label="Ambiente" error={errors.room} required><select value={draft.locationId} disabled={!draft.locationArea} onChange={(e) => {
             const match = roomOptions.find((item) => item.id === e.target.value);
             setDraft((current) => ({ ...current, room: match?.room ?? "", locationId: match?.id ?? "", locationMapId: match?.activeMap?.id ?? "", locationMarkerX: null, locationMarkerY: null }));

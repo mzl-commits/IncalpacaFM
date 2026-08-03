@@ -1,4 +1,4 @@
-import {
+﻿import {
   Archive,
   ArrowRight,
   Barcode,
@@ -82,6 +82,14 @@ const groups: Array<{
     ],
   },
   {
+    id: "supervision",
+    label: "Supervisión",
+    icon: ShieldCheck,
+    paths: ["/supervision"],
+    roles: ["SUPERVISOR", "ADMINISTRADOR"],
+    items: [{ to: "/supervision", label: "Revisión de OT", icon: ShieldCheck, end: true }],
+  },
+  {
     id: "reports",
     label: "Informes",
     icon: ChartBar,
@@ -158,6 +166,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/bienes")) return ["Bienes", "Inventario"];
   if (pathname.startsWith("/asignaciones")) return ["Operación", "Asignaciones"];
   if (pathname.startsWith("/incidencias")) return ["Operación", "Incidencias"];
+  if (pathname.startsWith("/supervision")) return ["Supervisión", "Revisión de OT"];
   if (pathname.startsWith("/ordenes-trabajo")) return ["Operación", "Órdenes de trabajo"];
   if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
@@ -179,7 +188,7 @@ export function AppShell() {
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
-  const roleLabel = user?.role === "TECNICO" ? "Técnico" : "Administrador / Planner";
+  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : "Administrador / Planner";
   const initials =
     user?.fullName
       .split(" ")
@@ -188,31 +197,38 @@ export function AppShell() {
       .join("")
       .toUpperCase() || "SG";
   const technicianMode = user?.role === "TECNICO";
+  const supervisorMode = user?.role === "SUPERVISOR";
   const roleGroups = groups.filter(
     (group) => !group.roles || Boolean(user && group.roles.includes(user.role)),
   );
-  const visibleGroups = technicianMode
-    ? roleGroups
-        .filter((group) => group.id === "assets" || group.id === "operations")
-        .map((group) => ({
-          ...group,
-          items: group.items.filter(
-            (item) =>
-              !item.to.startsWith("/asignaciones") &&
-              item.to !== "/bienes/entradas" &&
-              item.to !== "/bienes/entradas/nueva",
-          ),
-        }))
-    : roleGroups;
+  const visibleGroups = supervisorMode
+    ? roleGroups.filter((group) => group.id === "supervision")
+    : technicianMode
+      ? roleGroups
+          .filter((group) => group.id === "assets" || group.id === "operations")
+          .map((group) => ({
+            ...group,
+            items: group.items.filter(
+              (item) =>
+                !item.to.startsWith("/asignaciones") &&
+                item.to !== "/bienes/entradas" &&
+                item.to !== "/bienes/entradas/nueva",
+            ),
+          }))
+      : roleGroups;
   const visibleMobilePrimary = technicianMode
     ? mobilePrimary.filter((item) => item.to === "/" || item.to === "/bienes")
-    : mobilePrimary;
+    : supervisorMode
+      ? []
+      : mobilePrimary;
   const visibleMobileSecondary = visibleGroups
     .flatMap((group) => group.items)
     .filter((item) => !visibleMobilePrimary.some((primary) => primary.to === item.to));
   const visibleQuickActions = technicianMode
     ? quickActions.filter((item) => item.to === "/incidencias/nueva")
-    : quickActions;
+    : supervisorMode
+      ? []
+      : quickActions;
 
   useEffect(() => {
     if (activeGroup) setOpenGroup(activeGroup);
@@ -250,6 +266,7 @@ export function AppShell() {
         </div>
 
         <nav className="desktop-navigation">
+          {!supervisorMode && (
           <NavLink
             to="/"
             end
@@ -258,6 +275,7 @@ export function AppShell() {
             <House size={20} weight="duotone" />
             <span>Inicio</span>
           </NavLink>
+          )}
 
           <div className="nav-groups">
             {visibleGroups.map((group) => {
@@ -434,6 +452,7 @@ export function AppShell() {
           </div>
 
           <div className="topbar-actions">
+            {visibleQuickActions.length > 0 && (
             <button
               className="topbar-quick-action"
               type="button"
@@ -444,6 +463,8 @@ export function AppShell() {
               <span>Nueva acción</span>
               <Plus size={16} weight="bold" />
             </button>
+            )}
+            {!supervisorMode && (
             <NavLink
               to="/#dashboard-priorities-title"
               className="icon-button"
@@ -452,6 +473,7 @@ export function AppShell() {
             >
               <Bell size={20} />
             </NavLink>
+            )}
             <div className="topbar-user" aria-label="Usuario actual">
               <span>{initials}</span>
               <div>

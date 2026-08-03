@@ -89,14 +89,14 @@ class AssetSerializer(serializers.ModelSerializer):
 
     def validate_photo(self, value):
         if value.size > 8 * 1024 * 1024:
-            raise serializers.ValidationError('La fotografÃ­a no puede superar 8 MB.')
+            raise serializers.ValidationError('La fotografía no puede superar 8 MB.')
         if value.image.format not in {'JPEG', 'PNG', 'WEBP'}:
             raise serializers.ValidationError('Usa una imagen JPG, PNG o WEBP.')
         width, height = value.image.size
         if width < 320 or height < 240:
-            raise serializers.ValidationError('La fotografÃ­a debe tener al menos 320 Ã— 240 px.')
+            raise serializers.ValidationError('La fotografía debe tener al menos 320 × 240 px.')
         if width * height > 25_000_000:
-            raise serializers.ValidationError('La resoluciÃ³n de la fotografÃ­a es demasiado alta.')
+            raise serializers.ValidationError('La resolución de la fotografía es demasiado alta.')
         return value
 
     def get_display_code(self, obj) -> str:

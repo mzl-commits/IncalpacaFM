@@ -101,6 +101,29 @@ class Command(BaseCommand):
             },
         )
 
+        supervisor_user = (
+            user_model.objects.filter(username="supervisor").first()
+            or user_model.objects.filter(username="SUP-001").first()
+        )
+        if supervisor_user is None:
+            supervisor_user = user_model()
+        supervisor_user.username = "supervisor"
+        supervisor_user.first_name = "Mariela"
+        supervisor_user.last_name = "Quispe"
+        supervisor_user.email = "supervisor@incalpaca.test"
+        supervisor_user.is_active = True
+        supervisor_user.set_password("12345")
+        supervisor_user.save()
+        AccountProfile.objects.update_or_create(
+            user=supervisor_user,
+            defaults={
+                "worker_code": "supervisor",
+                "role": AccountProfile.Role.SUPERVISOR,
+                "specialty": "Supervision de mantenimiento",
+                "must_change_password": False,
+                "active": True,
+            },
+        )
         locations = {}
         for zone, building, area, room, common_space in [
             (
@@ -981,7 +1004,7 @@ class Command(BaseCommand):
                 defaults={
                     "incident": incident,
                     "technician": technician_user,
-                    "supervisor": admin_user,
+                    "supervisor": supervisor_user,
                     "specialty": (
                         "ELECTRICIDAD" if index % 2 else "SOLDADURA"
                     ),
@@ -1069,7 +1092,7 @@ class Command(BaseCommand):
                     "recommendation": sample["recommendation"],
                     "requested_by": technician_user.get_full_name()
                     or technician_user.username,
-                    "supervisor_name": admin_user.get_full_name() or admin_user.username,
+                    "supervisor_name": supervisor_user.get_full_name() or supervisor_user.username,
                     "status": sample["status"],
                 },
             )
@@ -1117,6 +1140,6 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "Datos de prueba cargados: 31 bienes, 6 incidencias, 4 OT, "
-                "2 solicitudes de baja y usuarios Administrador/Técnico."
+                "2 solicitudes de baja y usuarios Administrador/Técnico/Supervisor."
             )
         )

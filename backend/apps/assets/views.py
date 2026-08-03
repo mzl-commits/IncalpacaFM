@@ -102,7 +102,7 @@ class PublicAssetPhotoView(APIView):
         asset = get_object_or_404(Asset, public_token=token)
         if not asset.photo:
             from rest_framework.exceptions import NotFound
-            raise NotFound('El bien no tiene una fotografÃ­a disponible.')
+            raise NotFound('El bien no tiene una fotografía disponible.')
         content_type = mimetypes.guess_type(asset.photo.name)[0] or 'application/octet-stream'
         response = FileResponse(asset.photo.open('rb'), content_type=content_type)
         response['Cache-Control'] = 'private, max-age=300'

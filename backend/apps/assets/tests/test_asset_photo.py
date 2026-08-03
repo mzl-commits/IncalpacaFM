@@ -40,8 +40,8 @@ class AssetPhotoApiTests(TestCase):
     def test_photo_is_uploaded_and_available_through_public_token(self):
         response = self.client.post('/api/v1/assets/', {
             'entry_type': 'purchase',
-            'name': 'Bien con fotografÃ­a',
-            'description': 'Registro con fotografÃ­a oficial verificable.',
+            'name': 'Bien con fotografía',
+            'description': 'Registro con fotografía oficial verificable.',
             'condition': 'Nuevo',
             'photo': uploaded_photo(),
             'entry_payload': json.dumps({
@@ -69,8 +69,8 @@ class AssetPhotoApiTests(TestCase):
         Image.new('RGB', (120, 120), 'white').save(stream, format='PNG')
         response = self.client.post('/api/v1/assets/', {
             'entry_type': 'purchase',
-            'name': 'Bien con fotografÃ­a invÃ¡lida',
-            'description': 'La imagen no alcanza la resoluciÃ³n mÃ­nima.',
+            'name': 'Bien con fotografía inválida',
+            'description': 'La imagen no alcanza la resolución mínima.',
             'condition': 'Nuevo',
             'photo': SimpleUploadedFile('small.png', stream.getvalue(), content_type='image/png'),
             'entry_payload': json.dumps({

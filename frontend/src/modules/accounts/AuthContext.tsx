@@ -17,7 +17,7 @@ type ApiUser = {
 
 type AuthContextValue = {
   user: SystemUser | null;
-  login: (input: LoginInput) => Promise<void>;
+  login: (input: LoginInput) => Promise<SystemUser>;
   logout: () => void;
 };
 
@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem("sgtb_refresh_token", data.refresh);
     sessionStorage.setItem("sgtb_current_user", JSON.stringify(mapped));
     setUser(mapped);
+    return mapped;
   }
 
   function logout() {
