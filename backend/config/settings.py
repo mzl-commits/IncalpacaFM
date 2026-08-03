@@ -205,9 +205,11 @@ SPECTACULAR_SETTINGS = {
 
 PUBLIC_FRONTEND_URL = os.environ.get("PUBLIC_FRONTEND_URL", "http://localhost:5173")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "SGTB Incalpaca <no-reply@incalpaca.test>")
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+# The generic variables take precedence in production, while the Brevo names
+# keep existing deployments working without duplicating credentials.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", os.environ.get("BREVO_SMTP_HOST", "smtp-relay.brevo.com"))
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", os.environ.get("BREVO_SMTP_PORT", "587")))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", os.environ.get("BREVO_SMTP_USE_TLS", "1")) == "1"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", os.environ.get("BREVO_SMTP_USERNAME", ""))
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", os.environ.get("BREVO_SMTP_PASSWORD", ""))

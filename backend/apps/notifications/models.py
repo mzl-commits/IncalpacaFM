@@ -32,6 +32,7 @@ class Notification(models.Model):
     max_attempts = models.PositiveSmallIntegerField(default=3)
     available_at = models.DateTimeField()
     sent_at = models.DateTimeField(null=True, blank=True)
+    read_at = models.DateTimeField(null=True, blank=True)
     message_id = models.CharField(max_length=255, blank=True)
     last_error = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

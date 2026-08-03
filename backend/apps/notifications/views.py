@@ -18,7 +18,16 @@ class NotificationListView(generics.ListAPIView):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        return notifications_for_user(self.request.user)
+        return notifications_for_user(self.request.user, include_all=self.request.query_params.get('all') == '1')
+
+
+class NotificationReadView(APIView):
+    def post(self, request, pk):
+        notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+        if not notification.read_at:
+            notification.read_at = timezone.now()
+            notification.save(update_fields=('read_at', 'updated_at'))
+        return Response(NotificationSerializer(notification).data)
 
 
 class NotificationRetryView(APIView):
