@@ -1,3 +1,4 @@
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, response, views
 
@@ -16,10 +17,11 @@ def participant_queryset(request):
         "technician__account_profile",
         "supervisor",
         "supervisor__account_profile",
+        "satisfaction",
     )
     role = user_role(request.user)
     if role == AccountProfile.Role.TECHNICIAN:
-        queryset = queryset.filter(technician=request.user)
+        queryset = queryset.filter(Q(technician=request.user) | Q(supporting_technicians=request.user)).distinct()
     elif role == AccountProfile.Role.SUPERVISOR:
         queryset = queryset.filter(supervisor=request.user)
     return queryset

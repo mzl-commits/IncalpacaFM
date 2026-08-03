@@ -1,5 +1,6 @@
 ﻿import uuid
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
@@ -15,6 +16,7 @@ from apps.notifications.services import (
     queue_incident_requester,
     queue_notification,
 )
+from apps.notifications.monitoring import queue_work_order_alerts
 
 from .models import WorkOrder
 
@@ -39,6 +41,7 @@ def effective_work_minutes(order):
 class WorkOrderSerializer(serializers.ModelSerializer):
     requestId = serializers.UUIDField(source="incident_id")
     requestCode = serializers.CharField(source="incident.code", read_only=True)
+    assetId = serializers.SerializerMethodField()
     assetCode = serializers.SerializerMethodField()
     assetDisplayCode = serializers.SerializerMethodField()
     operatorId = serializers.CharField(source="technician.account_profile.id", read_only=True)
@@ -47,6 +50,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     supervisorName = serializers.SerializerMethodField()
     adminPriority = serializers.CharField(source="admin_priority")
     scheduledDate = serializers.DateField(source="scheduled_date")
+    scheduledStartTime = serializers.TimeField(source="scheduled_start_time", required=False)
     plannedHours = serializers.IntegerField(source="planned_hours", min_value=1, max_value=16)
     startedAt = serializers.DateTimeField(source="started_at", read_only=True)
     finishedAt = serializers.DateTimeField(source="finished_at", read_only=True)
@@ -58,9 +62,11 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     workSessions = serializers.JSONField(source="work_sessions", read_only=True)
     effectiveWorkMinutes = serializers.SerializerMethodField()
     activeWorkSession = serializers.SerializerMethodField()
+    satisfaction = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     technicianWorkerCode = serializers.CharField(write_only=True, required=False)
+    technicianWorkerCodes = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
     supervisorWorkerCode = serializers.CharField(write_only=True, required=False)
 
     class Meta:
@@ -70,6 +76,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "code",
             "requestId",
             "requestCode",
+            "assetId",
             "assetCode",
             "assetDisplayCode",
             "operatorId",
@@ -80,6 +87,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "adminPriority",
             "status",
             "scheduledDate",
+            "scheduledStartTime",
             "plannedHours",
             "startedAt",
             "finishedAt",
@@ -90,12 +98,14 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "workSessions",
             "effectiveWorkMinutes",
             "activeWorkSession",
+            "satisfaction",
             "diagnosis",
             "supervisor_validation",
             "administrator_validation",
             "conformity",
             "recommendation_snapshot",
             "technicianWorkerCode",
+            "technicianWorkerCodes",
             "supervisorWorkerCode",
             "createdAt",
             "updatedAt",
@@ -108,11 +118,28 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     def get_activeWorkSession(self, obj):
         return active_work_session(obj)
 
+    def get_satisfaction(self, obj):
+        request = self.context.get("request")
+        if not request or getattr(request.user.account_profile, "role", None) != AccountProfile.Role.ADMIN:
+            return None
+        satisfaction = getattr(obj, "satisfaction", None)
+        if not satisfaction:
+            return None
+        return {
+            "accepted": satisfaction.accepted,
+            "rating": satisfaction.rating,
+            "comment": satisfaction.comment,
+            "submittedAt": satisfaction.submitted_at,
+        }
+
     def get_operatorName(self, obj) -> str:
         return obj.technician.get_full_name() or obj.technician.username
 
     def get_assetCode(self, obj) -> str | None:
         return obj.incident.asset.code if obj.incident.asset else None
+
+    def get_assetId(self, obj) -> str | None:
+        return str(obj.incident.asset_id) if obj.incident.asset_id else None
 
     def get_assetDisplayCode(self, obj) -> str | None:
         asset = obj.incident.asset
@@ -126,6 +153,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         request = self.context["request"]
         incident_id = validated_data.pop("incident_id")
         technician_code = validated_data.pop("technicianWorkerCode", "tecnico")
+        technician_codes = validated_data.pop("technicianWorkerCodes", [])
         supervisor_code = validated_data.pop("supervisorWorkerCode", "supervisor")
         users = get_user_model().objects.select_related("account_profile")
         technician = users.get(
@@ -153,8 +181,23 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             },
             **validated_data,
         )
+        if technician_codes:
+            order.supporting_technicians.set(
+                users.filter(
+                    account_profile__worker_code__in=technician_codes,
+                    account_profile__role=AccountProfile.Role.TECHNICIAN,
+                ).exclude(pk=technician.pk)
+            )
+            for collaborator in order.supporting_technicians.all():
+                queue_notification(
+                    event='WORK_ORDER_ASSIGNED', recipient=collaborator,
+                    subject=f'Orden compartida {order.code}',
+                    body=f'Participas como técnico de apoyo en la orden {order.code}. Revisa tu agenda y la trazabilidad.',
+                    entity=order, discriminator=f'support:{collaborator.id}',
+                )
         incident.status = Incident.Status.IN_PROGRESS
         incident.save(update_fields=("status", "updated_at"))
+        queue_work_order_alerts(order)
         record_audit(
             request=request,
             action="WORK_ORDER_CREATED",
@@ -226,8 +269,8 @@ class WorkOrderActionSerializer(serializers.Serializer):
         role = getattr(request.user.account_profile, 'role', None)
         technical_actions = {'START', 'PAUSE', 'PROGRESS', 'DIAGNOSIS'}
         if role == AccountProfile.Role.TECHNICIAN:
-            if order.technician_id != request.user.id:
-                raise PermissionDenied('Solo el técnico asignado puede actualizar esta orden.')
+            if order.technician_id != request.user.id and not order.supporting_technicians.filter(pk=request.user.id).exists():
+                raise PermissionDenied('Solo los técnicos asignados pueden actualizar esta orden.')
             if action not in technical_actions:
                 raise PermissionDenied('Esta accion corresponde a la validación administrativa.')
         elif role == AccountProfile.Role.SUPERVISOR:
@@ -385,12 +428,13 @@ class WorkOrderActionSerializer(serializers.Serializer):
             )
         elif action == 'ADMIN_APPROVE':
             queue_incident_requester(
-                event='INCIDENT_REVIEW_APPROVED',
+                event='INCIDENT_SERVICE_DELIVERED',
                 incident=order.incident,
-                subject=f'Revisión aprobada para tu reporte {order.incident.code}',
+                subject=f'Tu atención está lista · {order.incident.code}',
                 body=(
-                    f'La revisión de tu reporte {order.incident.code} fue aprobada. '
-                    'Estamos finalizando la atención y te avisaremos cuando el bien esté listo.'
+                    f'La atención de tu reporte {order.incident.code} está lista para entrega o uso. '
+                    f'Confirma el resultado y califica el servicio en '
+                    f'{settings.PUBLIC_FRONTEND_URL}/seguimiento-solicitud/{order.incident.code}.'
                 ),
                 discriminator=order.code,
             )

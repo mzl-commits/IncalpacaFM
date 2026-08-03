@@ -26,6 +26,9 @@ class WorkOrder(models.Model):
     technician = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="technical_orders", on_delete=models.PROTECT
     )
+    supporting_technicians = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, related_name="supporting_technical_orders", blank=True
+    )
     supervisor = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="supervised_orders", on_delete=models.PROTECT
     )
@@ -33,6 +36,7 @@ class WorkOrder(models.Model):
     admin_priority = models.CharField(max_length=20)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.SCHEDULED)
     scheduled_date = models.DateField()
+    scheduled_start_time = models.TimeField(default="08:00")
     planned_hours = models.PositiveSmallIntegerField(default=2)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
@@ -54,3 +58,19 @@ class WorkOrder(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+
+
+class TechnicianSatisfaction(models.Model):
+    """Private management record created from the public delivery survey."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    work_order = models.OneToOneField(WorkOrder, related_name="satisfaction", on_delete=models.PROTECT)
+    technician = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="satisfaction_records", on_delete=models.PROTECT)
+    accepted = models.BooleanField()
+    rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    comment = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-submitted_at",)
+        constraints = [models.CheckConstraint(condition=models.Q(rating__isnull=True) | models.Q(rating__gte=1, rating__lte=5), name="satisfaction_rating_between_1_and_5")]

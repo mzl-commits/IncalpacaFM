@@ -12,7 +12,6 @@ import {
   useParams,
 } from "react-router-dom";
 
-import { currentUser } from "@/modules/accounts/currentUser";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
 import {
   getWorkOrderById,
@@ -29,6 +28,13 @@ function formatMinutesDuration(minutes?: number) {
   if (rest === 0) return `${hours} h`;
   return `${hours} h ${rest} min`;
 }
+
+function formatTimer(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
+  return [hours, minutes, rest].map((value) => String(value).padStart(2, "0")).join(":");
+}
 export function WorkOrderExecutionPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -39,7 +45,7 @@ export function WorkOrderExecutionPage() {
     if (!id) return;
     void getWorkOrderById(id).then(async (order) => {
       setWorkOrder(order);
-      setPercentage(order.progressPercentage);
+      setPercentage(Math.min(order.progressPercentage + 5, 100));
       setRequest(await getWorkRequestById(order.requestId));
     });
   }, [id]);
@@ -50,13 +56,18 @@ export function WorkOrderExecutionPage() {
 
   const [observation, setObservation] =
     useState("");
-
-  const [workedMinutes, setWorkedMinutes] = useState(60);
+  const [timerNow, setTimerNow] = useState(() => Date.now());
 
   const [evidenceNames, setEvidenceNames] =
     useState<string[]>([]);
 
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!workOrder?.activeWorkSession?.startAt) return undefined;
+    const interval = window.setInterval(() => setTimerNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [workOrder?.activeWorkSession?.startAt]);
 
   async function handleStart() {
     if (!workOrder) {
@@ -115,26 +126,11 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    if (observation.trim().length < 10) {
-      setError(
-        "La observación debe tener al menos 10 caracteres.",
-      );
-      return;
-    }
-
-    if (workedMinutes < 1 || workedMinutes > 720) {
-      setError("Registra entre 1 y 720 minutos trabajados.");
-      return;
-    }
-
     const updated =
       await registerWorkOrderProgress(
         workOrder.id,
         {
-          operatorId: currentUser.id,
-          operatorName: currentUser.fullName,
           percentage,
-          workedMinutes,
           observation,
           evidenceNames,
         },
@@ -149,7 +145,6 @@ export function WorkOrderExecutionPage() {
 
     setWorkOrder(updated);
     setObservation("");
-    setWorkedMinutes(60);
     setEvidenceNames([]);
     setError("");
 
@@ -198,6 +193,9 @@ export function WorkOrderExecutionPage() {
 
   const hasActiveSession = Boolean(workOrder.activeWorkSession);
   const canStartSession = workOrder.status !== "EN_PROCESO" || !hasActiveSession;
+  const activeSessionSeconds = workOrder.activeWorkSession?.startAt
+    ? Math.max(0, Math.floor((timerNow - new Date(workOrder.activeWorkSession.startAt).getTime()) / 1000))
+    : 0;
 
   return (
     <section>
@@ -292,6 +290,9 @@ export function WorkOrderExecutionPage() {
                 <p>
                   El tiempo efectivo está corriendo. Pausa cuando dejes de trabajar en esta OT.
                 </p>
+                <strong className="work-session-timer" aria-label={`Sesión activa: ${formatTimer(activeSessionSeconds)}`}>
+                  {formatTimer(activeSessionSeconds)}
+                </strong>
                 <small>Tiempo efectivo acumulado: {formatMinutesDuration(workOrder.effectiveWorkMinutes)}</small>
               </div>
 
@@ -319,61 +320,28 @@ export function WorkOrderExecutionPage() {
                   <div>
                     <h2>Avance del trabajo</h2>
 
-                    <p>
-                      Registra el porcentaje y
-                      describe lo realizado.
-                    </p>
+                    <p>Actualiza el avance. El tiempo se registra únicamente con la sesión activa.</p>
                   </div>
                 </div>
               </div>
 
               <div className="form-grid">
-                <label className="field">
-                  <span>
-                    Porcentaje de avance *
-                  </span>
-
+                <label className="field field-wide progress-range-field">
+                  <span>Porcentaje de avance <output>{percentage} %</output></span>
                   <input
-                    type="number"
-                    min={0}
+                    type="range"
+                    min={Math.min(workOrder.progressPercentage + 1, 100)}
                     max={100}
+                    step={5}
                     value={percentage}
-                    onChange={(event) =>
-                      setPercentage(
-                        Number(
-                          event.target.value,
-                        ),
-                      )
-                    }
+                    onChange={(event) => setPercentage(Number(event.target.value))}
+                    aria-valuetext={`${percentage} por ciento de avance`}
                   />
-
-                  <small>
-                    Avance anterior:{" "}
-                    {
-                      workOrder.progressPercentage
-                    }{" "}
-                    %
-                  </small>
-                </label>
-
-                <label className="field">
-                  <span>Tiempo trabajado (minutos)</span>
-
-                  <input
-                    type="number"
-                    min={1}
-                    max={720}
-                    value={workedMinutes}
-                    onChange={(event) => setWorkedMinutes(Number(event.target.value))}
-                  />
-
-                  <small>Se acumula en tu hoja semanal.</small>
+                  <div className="progress-range-scale"><small>Anterior: {workOrder.progressPercentage} %</small><small>Finalizado: 100 %</small></div>
                 </label>
 
                 <label className="field field-wide">
-                  <span>
-                    Observación del operario *
-                  </span>
+                  <span>Nota para la solicitud <em>Opcional</em></span>
 
                   <textarea
                     value={observation}
@@ -384,12 +352,11 @@ export function WorkOrderExecutionPage() {
                     }
                     rows={5}
                     maxLength={1000}
-                    placeholder="Describe las tareas ejecutadas, dificultades y resultados."
+                    placeholder="Comparte una actualización, hallazgo o dificultad si es necesario."
                   />
 
                   <small>
-                    {observation.length} / 1000
-                    caracteres
+                    Se enviará junto al avance. {observation.length} / 1000 caracteres
                   </small>
                 </label>
               </div>

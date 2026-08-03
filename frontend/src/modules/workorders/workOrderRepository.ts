@@ -17,11 +17,12 @@ export async function listWorkOrders(): Promise<WorkOrder[]> {
 }
 
 export async function createWorkOrder(
-  workOrder: Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">,
+  workOrder: Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt"> & { technicianWorkerCode?: string; technicianWorkerCodes?: string[] },
 ): Promise<WorkOrder> {
   const { data } = await api.post<WorkOrder>("/work-orders/", {
     ...workOrder,
-    technicianWorkerCode: "tecnico",
+    technicianWorkerCode: workOrder.technicianWorkerCode || "tecnico",
+    technicianWorkerCodes: workOrder.technicianWorkerCodes || [],
     supervisorWorkerCode: "supervisor",
   });
   notifyChanges();
@@ -42,10 +43,7 @@ export async function startWorkOrder(id: string): Promise<WorkOrder> {
 }
 
 export interface RegisterProgressInput {
-  operatorId: string;
-  operatorName: string;
   percentage: number;
-  workedMinutes: number;
   observation: string;
   evidenceNames: string[];
 }
@@ -57,7 +55,6 @@ export async function registerWorkOrderProgress(
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
     action: "PROGRESS",
     percentage: input.percentage,
-    workedMinutes: input.workedMinutes,
     observation: input.observation,
     evidence: input.evidenceNames.map((name) => ({
       id: crypto.randomUUID(),

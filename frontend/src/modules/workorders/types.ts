@@ -38,6 +38,7 @@ export interface WorkOrder {
 
   requestId: string;
   requestCode: string;
+  assetId?: string | null;
   assetCode?: string | null;
   assetDisplayCode?: string | null;
 
@@ -52,6 +53,7 @@ export interface WorkOrder {
   status: WorkOrderStatus;
 
   scheduledDate: string;
+  scheduledStartTime?: string;
   plannedHours: number;
   startedAt?: string;
   finishedAt?: string;
@@ -64,6 +66,12 @@ export interface WorkOrder {
   workSessions?: WorkOrderSession[];
   effectiveWorkMinutes?: number;
   activeWorkSession?: WorkOrderSession | null;
+  satisfaction?: {
+    accepted: boolean;
+    rating: number | null;
+    comment: string;
+    submittedAt: string;
+  } | null;
   diagnosis?: Record<string, unknown>;
   supervisor_validation?: Record<string, unknown>;
   administrator_validation?: Record<string, unknown>;
