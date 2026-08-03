@@ -17,6 +17,7 @@ import {
 import {
   adminPriorityLabels,
   specialtyLabels,
+  WORK_ORDER_STATUSES,
   workOrderStatusLabels,
   type WorkOrderStatus,
 } from "@/modules/workorders/workOrderModel";
@@ -60,6 +61,9 @@ const statusClass: Record<WorkOrderStatus, string> = {
   ASIGNADA: "status-warning",
   EN_PROCESO: "status-warning",
   PENDIENTE_DE_SUPERVISION: "status-neutral",
+  PENDIENTE_DE_VALIDACION: "status-warning",
+  PENDIENTE_DE_CONFORMIDAD: "status-warning",
+  DEVUELTA: "status-error",
   REPROCESO: "status-error",
   APROBADA_POR_SUPERVISOR: "status-success",
   CERRADA: "status-success",
@@ -99,14 +103,18 @@ export function WorkOrderListPage() {
     };
   }, []);
 
-  const statusOptions = useMemo(
-    () =>
-      buildFilterOptions(
-        allWorkOrders.map((workOrder) => workOrder.status),
-        workOrderStatusLabels,
-      ),
-    [allWorkOrders],
-  );
+  const statusOptions = useMemo(() => {
+    const counts = new Map<WorkOrderStatus, number>();
+    allWorkOrders.forEach((workOrder) => {
+      counts.set(workOrder.status, (counts.get(workOrder.status) ?? 0) + 1);
+    });
+
+    return WORK_ORDER_STATUSES.map((status) => ({
+      value: status,
+      label: workOrderStatusLabels[status],
+      count: counts.get(status) ?? 0,
+    }));
+  }, [allWorkOrders]);
   const specialtyOptions = useMemo(
     () =>
       buildFilterOptions(

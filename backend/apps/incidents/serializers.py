@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+﻿from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -10,65 +10,11 @@ from apps.audit.services import record_audit
 from .models import Incident
 
 
-class PublicIncidentSerializer(serializers.Serializer):
-    reporterName = serializers.CharField(max_length=160)
-    reporterEmail = serializers.EmailField(required=False, allow_blank=True)
-    requestType = serializers.CharField(max_length=40)
-    description = serializers.CharField(min_length=10, max_length=3000)
-    requesterPriority = serializers.ChoiceField(
-        choices=('BAJA', 'MEDIA', 'ALTA'), default='MEDIA'
-    )
-
-    @transaction.atomic
-    def create(self, validated_data):
-        asset = self.context['asset']
-        user_model = get_user_model()
-        reporter, created = user_model.objects.get_or_create(
-            username='public.reporter',
-            defaults={
-                'first_name': 'Reporte',
-                'last_name': 'pÃºblico',
-                'email': '',
-                'is_active': True,
-            },
-        )
-        if created:
-            reporter.set_unusable_password()
-            reporter.save(update_fields=['password'])
-        AccountProfile.objects.get_or_create(
-            user=reporter,
-            defaults={
-                'worker_code': 'PUBLIC-REPORTER',
-                'role': AccountProfile.Role.REQUESTER,
-                'must_change_password': False,
-            },
-        )
-        sequence = Incident.objects.select_for_update().count() + 1
-        location = asset.location
-        return Incident.objects.create(
-            code=f'SOL-{timezone.localdate().year}-{sequence:04d}',
-            asset=asset,
-            requester=reporter,
-            reporter_name=validated_data['reporterName'],
-            reporter_email=validated_data.get('reporterEmail', ''),
-            public_submission=True,
-            request_type=validated_data['requestType'],
-            description=validated_data['description'],
-            requester_priority=validated_data['requesterPriority'],
-            location_snapshot={
-                'locationId': str(location.id) if location else '',
-                'zone': location.zone if location else '',
-                'building': location.building if location else '',
-                'area': location.area if location else '',
-                'room': location.room if location else '',
-            },
-        )
-
-
 class IncidentSerializer(serializers.ModelSerializer):
     requesterId = serializers.CharField(source="requester.account_profile.id", read_only=True)
     requesterName = serializers.SerializerMethodField()
     requesterEmail = serializers.SerializerMethodField()
+    requesterPhone = serializers.SerializerMethodField()
     locationId = serializers.SerializerMethodField()
     zone = serializers.SerializerMethodField()
     building = serializers.SerializerMethodField()
@@ -86,6 +32,8 @@ class IncidentSerializer(serializers.ModelSerializer):
     reportedAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     assetId = serializers.UUIDField(source="asset_id", required=False, allow_null=True)
+    requesterContact = serializers.JSONField(source="requester_contact", required=False)
+    impactAssessment = serializers.JSONField(source="impact_assessment", required=False)
     assetCode = serializers.SerializerMethodField()
     assetDisplayCode = serializers.SerializerMethodField()
     status = serializers.CharField(required=False)
@@ -101,6 +49,8 @@ class IncidentSerializer(serializers.ModelSerializer):
             "requesterId",
             "requesterName",
             "requesterEmail",
+            "requesterPhone",
+            "requesterContact",
             "locationId",
             "zone",
             "building",
@@ -114,6 +64,7 @@ class IncidentSerializer(serializers.ModelSerializer):
             "requesterPriority",
             "project",
             "evidence",
+            "impactAssessment",
             "status",
             "rejectionReason",
             "workOrderId",
@@ -123,14 +74,21 @@ class IncidentSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "code", "requesterId", "requesterName", "requesterEmail")
 
     def get_requesterName(self, obj) -> str:
+        if obj.requester_contact.get("name"):
+            return obj.requester_contact["name"]
         if obj.public_submission and obj.reporter_name:
             return obj.reporter_name
         return obj.requester.get_full_name() or obj.requester.username
 
     def get_requesterEmail(self, obj) -> str:
+        if obj.requester_contact.get("email"):
+            return obj.requester_contact["email"]
         if obj.public_submission and obj.reporter_email:
             return obj.reporter_email
         return obj.requester.email
+
+    def get_requesterPhone(self, obj) -> str:
+        return obj.requester_contact.get("phone", "")
 
     def get_assetCode(self, obj) -> str | None:
         return obj.asset.code if obj.asset else None
@@ -292,3 +250,321 @@ class IncidentSerializer(serializers.ModelSerializer):
             after={"status": instance.status, "rejection_reason": instance.rejection_reason},
         )
         return instance
+
+
+class PublicAssetIncidentSerializer(serializers.Serializer):
+    reporterName = serializers.CharField(max_length=160)
+    reporterEmail = serializers.EmailField(required=False, allow_blank=True)
+    requestType = serializers.CharField(max_length=40)
+    description = serializers.CharField(min_length=10, max_length=3000)
+    requesterPriority = serializers.ChoiceField(choices=("BAJA", "MEDIA", "ALTA"), default="MEDIA")
+
+    def _public_requester(self):
+        user_model = get_user_model()
+        user, created = user_model.objects.get_or_create(
+            username="public.reporter",
+            defaults={
+                "first_name": "Reporte",
+                "last_name": "Publico",
+                "email": "",
+                "is_active": True,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=("password",))
+        AccountProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                "worker_code": "PUBLIC-REPORTER",
+                "role": AccountProfile.Role.REQUESTER,
+                "must_change_password": False,
+            },
+        )
+        return user
+
+    @transaction.atomic
+    def create(self, validated_data):
+        asset = self.context["asset"]
+        requester = self._public_requester()
+        sequence = Incident.objects.select_for_update().count() + 1
+        location = asset.location
+        return Incident.objects.create(
+            code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
+            asset=asset,
+            requester=requester,
+            reporter_name=validated_data["reporterName"],
+            reporter_email=validated_data.get("reporterEmail", ""),
+            public_submission=True,
+            requester_contact={
+                "name": validated_data["reporterName"],
+                "email": validated_data.get("reporterEmail", ""),
+                "phone": "",
+            },
+            request_type=validated_data["requestType"],
+            description=validated_data["description"],
+            requester_priority=validated_data["requesterPriority"],
+            location_snapshot={
+                "locationId": str(location.id) if location else "",
+                "zone": location.zone if location else "",
+                "building": location.building if location else "",
+                "area": location.area if location else "",
+                "room": location.room if location else "",
+            },
+            status="RECIBIDA",
+        )
+
+
+class PublicWorkRequestSerializer(serializers.Serializer):
+    requesterName = serializers.CharField(max_length=160)
+    requesterEmail = serializers.EmailField()
+    requesterPhone = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    requesterWorkerCode = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    locationId = serializers.CharField(required=False, allow_blank=True)
+    zone = serializers.CharField(max_length=120)
+    building = serializers.CharField(max_length=160)
+    area = serializers.CharField(max_length=160)
+    room = serializers.CharField(max_length=160)
+    description = serializers.CharField(min_length=10, max_length=1000)
+    evidence = serializers.ListField(required=False, default=list)
+    noPhotoReason = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    suggestedPriority = serializers.ChoiceField(choices=("NORMAL", "URGENTE", "EMERGENCIA"))
+    priorityReasons = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    impactAnswers = serializers.DictField(required=True)
+
+    def _public_requester(self):
+        user_model = get_user_model()
+        user, created = user_model.objects.get_or_create(
+            username="solicitante.publico",
+            defaults={
+                "first_name": "Solicitante",
+                "last_name": "Publico",
+                "email": "solicitante.publico@incalpaca.test",
+                "is_active": True,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=("password",))
+        AccountProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                "worker_code": "solicitante-publico",
+                "role": AccountProfile.Role.REQUESTER,
+                "must_change_password": False,
+                "active": True,
+            },
+        )
+        return user
+
+    @transaction.atomic
+    def create(self, validated_data):
+        requester = self._public_requester()
+        sequence = Incident.objects.select_for_update().count() + 1
+        location = {
+            "locationId": validated_data.get("locationId") or "-".join(
+                [
+                    validated_data["zone"],
+                    validated_data["building"],
+                    validated_data["area"],
+                    validated_data["room"],
+                ]
+            ),
+            "zone": validated_data["zone"],
+            "building": validated_data["building"],
+            "area": validated_data["area"],
+            "room": validated_data["room"],
+        }
+        incident = Incident.objects.create(
+            code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
+            requester=requester,
+            requester_contact={
+                "name": validated_data["requesterName"],
+                "email": validated_data["requesterEmail"],
+                "phone": validated_data.get("requesterPhone", ""),
+                "workerCode": validated_data.get("requesterWorkerCode", ""),
+            },
+            location_snapshot=location,
+            request_type="OTRO",
+            description=validated_data["description"],
+            requester_priority=validated_data["suggestedPriority"],
+            project=False,
+            evidence=validated_data.get("evidence", []),
+            impact_assessment={
+                "suggestedPriority": validated_data["suggestedPriority"],
+                "priorityReasons": validated_data.get("priorityReasons", []),
+                "answers": validated_data["impactAnswers"],
+                "noPhotoReason": validated_data.get("noPhotoReason", ""),
+            },
+            status="RECIBIDA",
+        )
+        return incident
+
+
+class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
+    incidentId = serializers.UUIDField(source="id", read_only=True)
+    currentStatus = serializers.SerializerMethodField()
+    workOrderStatus = serializers.SerializerMethodField()
+    canSubmitConformity = serializers.SerializerMethodField()
+    conformity = serializers.SerializerMethodField()
+    workerName = serializers.SerializerMethodField()
+    workerSpecialty = serializers.SerializerMethodField()
+    workOrderCode = serializers.SerializerMethodField()
+    progressPercentage = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+    reportedAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    events = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Incident
+        fields = (
+            "incidentId",
+            "code",
+            "description",
+            "currentStatus",
+            "workOrderStatus",
+            "canSubmitConformity",
+            "conformity",
+            "workerName",
+            "workerSpecialty",
+            "workOrderCode",
+            "progressPercentage",
+            "location",
+            "reportedAt",
+            "updatedAt",
+            "events",
+        )
+
+    def _work_order(self, obj):
+        return getattr(obj, "work_order", None)
+
+    def get_currentStatus(self, obj):
+        order = self._work_order(obj)
+        if order:
+            if order.status == "CERRADA":
+                return "FINALIZADO"
+            if order.status == "PENDIENTE_DE_CONFORMIDAD":
+                return "PENDIENTE_CONFORMIDAD"
+            if order.status in {"EN_PROCESO", "PENDIENTE_DE_SUPERVISION", "PENDIENTE_DE_VALIDACION"}:
+                return "EN_PROCESO"
+            return "ASIGNADO"
+        if obj.status == Incident.Status.REJECTED:
+            return "RECHAZADO"
+        if obj.status in {Incident.Status.REVIEW, Incident.Status.ATTENDED}:
+            return "EN_REVISION"
+        return "REPORTADO"
+
+
+    def get_workOrderStatus(self, obj):
+        order = self._work_order(obj)
+        return order.status if order else ""
+
+    def get_canSubmitConformity(self, obj):
+        order = self._work_order(obj)
+        return bool(order and order.status == "PENDIENTE_DE_CONFORMIDAD")
+
+    def get_conformity(self, obj):
+        order = self._work_order(obj)
+        return order.conformity if order else {}
+    def get_workerName(self, obj):
+        order = self._work_order(obj)
+        if not order:
+            return "Pendiente de asignacion"
+        return order.technician.get_full_name() or order.technician.username
+
+    def get_workerSpecialty(self, obj):
+        order = self._work_order(obj)
+        return order.specialty if order else "Aún no asignado"
+
+    def get_workOrderCode(self, obj):
+        order = self._work_order(obj)
+        return order.code if order else ""
+
+    def get_progressPercentage(self, obj):
+        order = self._work_order(obj)
+        return order.progress_percentage if order else 0
+
+    def get_location(self, obj):
+        parts = [
+            obj.location_snapshot.get("zone"),
+            obj.location_snapshot.get("building"),
+            obj.location_snapshot.get("area"),
+            obj.location_snapshot.get("room"),
+        ]
+        return " / ".join([part for part in parts if part])
+
+    def get_events(self, obj):
+        events = [
+            {
+                "id": f"{obj.id}-reported",
+                "status": "REPORTADO",
+                "description": "Solicitud registrada correctamente.",
+                "date": obj.created_at.isoformat(),
+            }
+        ]
+        if obj.status in {Incident.Status.REVIEW, Incident.Status.ATTENDED, Incident.Status.IN_PROGRESS, Incident.Status.CLOSED}:
+            events.append(
+                {
+                    "id": f"{obj.id}-review",
+                    "status": "EN_REVISION",
+                    "description": "La solicitud fue revisada por administración.",
+                    "date": obj.updated_at.isoformat(),
+                }
+            )
+        if obj.status == Incident.Status.REJECTED:
+            events.append(
+                {
+                    "id": f"{obj.id}-rejected",
+                    "status": "RECHAZADO",
+                    "description": obj.rejection_reason or "La solicitud no fue aprobada para atención.",
+                    "date": obj.updated_at.isoformat(),
+                }
+            )
+        order = self._work_order(obj)
+        if order:
+            events.append(
+                {
+                    "id": f"{order.id}-assigned",
+                    "status": "ASIGNADO",
+                    "description": f"Orden de trabajo {order.code} generada y asignada.",
+                    "date": order.created_at.isoformat(),
+                }
+            )
+            if order.started_at:
+                events.append(
+                    {
+                        "id": f"{order.id}-started",
+                        "status": "EN_PROCESO",
+                        "description": "La atención fue iniciada por el técnico asignado.",
+                        "date": order.started_at.isoformat(),
+                    }
+                )
+            for advance in order.advances or []:
+                events.append(
+                    {
+                        "id": advance.get("id", f"{order.id}-advance"),
+                        "status": "EN_PROCESO",
+                        "description": advance.get("observation") or f"Avance registrado al {advance.get('percentage', order.progress_percentage)}%.",
+                        "date": advance.get("createdAt") or order.updated_at.isoformat(),
+                    }
+                )
+            if order.status == "PENDIENTE_DE_CONFORMIDAD":
+                events.append(
+                    {
+                        "id": f"{order.id}-conformity-pending",
+                        "status": "PENDIENTE_CONFORMIDAD",
+                        "description": "El trabajo fue ejecutado y espera tu conformidad.",
+                        "date": order.updated_at.isoformat(),
+                    }
+                )
+            if order.closed_at:
+                events.append(
+                    {
+                        "id": f"{order.id}-closed",
+                        "status": "FINALIZADO",
+                        "description": "La orden de trabajo fue cerrada.",
+                        "date": order.closed_at.isoformat(),
+                    }
+                )
+        return events

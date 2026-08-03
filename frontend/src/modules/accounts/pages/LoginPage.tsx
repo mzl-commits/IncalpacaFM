@@ -20,8 +20,9 @@ export function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      await login({ workerCode: workerCode.trim(), password });
-      navigate((location.state as { from?: string } | null)?.from ?? "/", {
+      const loggedUser = await login({ workerCode: workerCode.trim(), password });
+      const defaultPath = loggedUser.role === "SUPERVISOR" ? "/supervision" : "/";
+      navigate((location.state as { from?: string } | null)?.from ?? defaultPath, {
         replace: true,
       });
     } catch {
@@ -85,8 +86,9 @@ export function LoginPage() {
           </button>
           <aside className="login-demo-accounts">
             <strong>Accesos de demostración</strong>
-            <span>Administrador: admin</span>
-            <span>Técnico: tecnico</span>
+            <span>Administrador: admin / Montescoli3</span>
+            <span>Operario: tecnico / Montescoli3</span>
+            <span>Supervisor: supervisor / 12345</span>
           </aside>
         </form>
       </section>

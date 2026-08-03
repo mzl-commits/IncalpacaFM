@@ -13,6 +13,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
+import { SupervisorWorkOrderReviewPage } from "@/modules/workorders/pages/SupervisorWorkOrderReviewPage";
 
 function lazyRoute<TModule, TKey extends keyof TModule>(
   loader: () => Promise<TModule>,
@@ -22,6 +23,10 @@ function lazyRoute<TModule, TKey extends keyof TModule>(
     const module = await loader();
     return { Component: module[exportName] as ComponentType };
   };
+}
+
+function SupervisorWorkOrderReviewRoute() {
+  return <SupervisorWorkOrderReviewPage />;
 }
 
 const modules = [
@@ -35,10 +40,31 @@ export const router = createBrowserRouter([
     lazy: lazyRoute(() => import("@/modules/assets/pages/PublicAssetPage"), "PublicAssetPage"),
   },
   {
+    path: "/solicitud-trabajo",
+    lazy: lazyRoute(
+      () => import("@/modules/incidents/pages/PublicWorkRequestPage"),
+      "PublicWorkRequestPage",
+    ),
+  },
+  {
     path: "/reportar/:token",
     lazy: lazyRoute(
       () => import("@/modules/incidents/pages/PublicIncidentCreatePage"),
       "PublicIncidentCreatePage",
+    ),
+  },
+  {
+    path: "/seguimiento-solicitud",
+    lazy: lazyRoute(
+      () => import("@/modules/incidents/pages/RequestTrackingPage"),
+      "RequestTrackingPage",
+    ),
+  },
+  {
+    path: "/seguimiento-solicitud/:code",
+    lazy: lazyRoute(
+      () => import("@/modules/incidents/pages/RequestTrackingPage"),
+      "RequestTrackingPage",
     ),
   },
   {
@@ -136,6 +162,21 @@ export const router = createBrowserRouter([
         lazy: lazyRoute(
           () => import("@/modules/incidents/pages/IncidentDetailPage"),
           "IncidentDetailPage",
+        ),
+      },
+      {
+        path: "incidencias/:id/seguimiento",
+        lazy: lazyRoute(
+          () => import("@/modules/incidents/pages/RequestTrackingPage"),
+          "RequestTrackingPage",
+        ),
+      },
+      {
+        path: "supervision",
+        element: (
+          <RoleRoute allowedRoles={["SUPERVISOR", "ADMINISTRADOR"]}>
+            <SupervisorWorkOrderReviewRoute />
+          </RoleRoute>
         ),
       },
       {
