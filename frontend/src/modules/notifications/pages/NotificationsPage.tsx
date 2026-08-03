@@ -1,92 +1,22 @@
-import { ArrowClockwise, CheckCircle, EnvelopeSimple, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, Bell, CheckCircle, EnvelopeSimple, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/modules/accounts/AuthContext";
-import {
-  type DeliveryStatus,
-  type EmailNotification,
-  listNotifications,
-  retryNotification,
-} from "@/modules/notifications/notificationRepository";
+import { type EmailNotification, listNotifications, markNotificationRead, retryNotification } from "@/modules/notifications/notificationRepository";
 
-const labels: Record<DeliveryStatus, string> = {
-  PENDIENTE: "Pendiente de envío",
-  ENVIADA: "Enviada",
-  ERROR: "Requiere revisión",
-  CANCELADA: "Cancelada",
-};
-
-const statusClasses: Record<DeliveryStatus, string> = {
-  PENDIENTE: "status-warning",
-  ENVIADA: "status-success",
-  ERROR: "status-error",
-  CANCELADA: "status-neutral",
-};
-
-function dateTime(value: string | null) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("es-PE", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
+function dateTime(value: string | null) { return value ? new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—"; }
+const statusLabel = { PENDIENTE: "En cola", ENVIADA: "Enviada", ERROR: "Error", CANCELADA: "Cancelada" } as const;
 
 export function NotificationsPage() {
-  const { user } = useAuth();
-  const [notifications, setNotifications] = useState<EmailNotification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [retryingId, setRetryingId] = useState("");
-
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      setNotifications(await listNotifications());
-    } catch {
-      setError("No se pudo cargar el historial de correos.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { void load(); }, []);
-
-  const summary = useMemo(() => ({
-    pending: notifications.filter((item) => item.status === "PENDIENTE").length,
-    sent: notifications.filter((item) => item.status === "ENVIADA").length,
-    errors: notifications.filter((item) => item.status === "ERROR").length,
-  }), [notifications]);
-
-  async function retry(notification: EmailNotification) {
-    setRetryingId(notification.id);
-    try {
-      const updated = await retryNotification(notification.id);
-      setNotifications((current) => current.map((item) => item.id === updated.id ? updated : item));
-    } catch {
-      setError("No se pudo reprogramar el correo.");
-    } finally {
-      setRetryingId("");
-    }
-  }
-
-  return <section className="notifications-page">
-    <div className="page-heading">
-      <div><p className="breadcrumb">Administración / Comunicaciones</p><h1>Notificaciones por correo</h1><p>Consulta el estado de los avisos generados por solicitudes, órdenes de trabajo y bajas.</p></div>
-    </div>
-    <div className="notification-summary" aria-label="Resumen de envíos">
-      <article><span>Pendientes</span><strong>{summary.pending}</strong><small>En cola para envío</small></article>
-      <article><span>Enviadas</span><strong>{summary.sent}</strong><small>Confirmadas por el servidor</small></article>
-      <article className={summary.errors ? "has-errors" : ""}><span>Con error</span><strong>{summary.errors}</strong><small>Requieren seguimiento</small></article>
-    </div>
-    <article className="data-panel notification-panel">
-      <header><div><EnvelopeSimple size={22} /><div><h2>Historial de comunicaciones</h2><p>Los envíos fallidos se conservan en cola para reintento; el proceso operativo no se detiene.</p></div></div><button className="button button-secondary" type="button" onClick={() => void load()} disabled={loading}><ArrowClockwise size={17} />Actualizar</button></header>
-      {loading ? <div className="loading-panel">Cargando notificaciones…</div> : error ? <div className="form-error"><WarningCircle />{error}</div> : !notifications.length ? <div className="notification-empty"><CheckCircle size={30} /><strong>No hay notificaciones registradas</strong><span>Los correos aparecerán aquí cuando se produzca un evento operativo.</span></div> : <div className="notification-list">
-        {notifications.map((notification) => <article key={notification.id} className="notification-row">
-          <div className="notification-row-main"><div><strong>{notification.subject}</strong><p>{notification.body}</p></div><span className={`status ${statusClasses[notification.status]}`}>{labels[notification.status]}</span></div>
-          <dl><div><dt>Destinatario</dt><dd>{user?.role === "ADMINISTRADOR" ? `${notification.recipientName} · ${notification.recipientEmail}` : notification.recipientEmail}</dd></div><div><dt>Creada</dt><dd>{dateTime(notification.createdAt)}</dd></div><div><dt>Enviada</dt><dd>{dateTime(notification.sentAt)}</dd></div><div><dt>Intentos</dt><dd>{notification.attempts} / {notification.max_attempts}</dd></div></dl>
-          {notification.status === "ERROR" && <footer><span><WarningCircle />{notification.last_error || "El proveedor no confirmó el envío."}</span>{user?.role === "ADMINISTRADOR" && <button className="button button-secondary" type="button" onClick={() => void retry(notification)} disabled={retryingId === notification.id}><ArrowClockwise size={16} />{retryingId === notification.id ? "Reprogramando…" : "Reintentar"}</button>}</footer>}
-        </article>)}
-      </div>}
-    </article>
-  </section>;
+  const { user } = useAuth(); const isAdmin = user?.role === "ADMINISTRADOR";
+  const [items, setItems] = useState<EmailNotification[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [showHistory, setShowHistory] = useState(false); const [retrying, setRetrying] = useState("");
+  async function load() { setLoading(true); setError(""); try { setItems(await listNotifications({ includeAll: isAdmin && showHistory })); } catch { setError("No se pudo cargar tu bandeja de notificaciones."); } finally { setLoading(false); } }
+  useEffect(() => { void load(); }, [showHistory]);
+  const unread = useMemo(() => items.filter((item) => !item.readAt).length, [items]); const failures = items.filter((item) => item.status === "ERROR").length;
+  async function read(item: EmailNotification) { if (item.readAt) return; try { const updated = await markNotificationRead(item.id); setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry)); } catch { setError("No se pudo actualizar la notificación."); } }
+  async function retry(item: EmailNotification) { setRetrying(item.id); try { const updated = await retryNotification(item.id); setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry)); } catch { setError("No se pudo reprogramar el correo."); } finally { setRetrying(""); } }
+  return <section className="notifications-page"><header className="page-heading"><div><p className="breadcrumb">Comunicaciones</p><h1>Notificaciones</h1><p>Alertas operativas y comunicaciones importantes dirigidas a tu usuario.</p></div></header>
+    <div className="notification-summary" aria-label="Resumen de notificaciones"><article><span>Sin leer</span><strong>{unread}</strong><small>Requieren tu atención</small></article><article><span>Registradas</span><strong>{items.length}</strong><small>En esta bandeja</small></article><article className={failures ? "has-errors" : ""}><span>Con error de correo</span><strong>{failures}</strong><small>{isAdmin ? "Puedes reintentar el envío" : "En seguimiento por FM"}</small></article></div>
+    <article className="data-panel notification-panel"><header><div><Bell size={22} /><div><h2>{showHistory ? "Historial general de correos" : "Tu bandeja"}</h2><p>{showHistory ? "Vista administrativa de todos los envíos del sistema." : "Al abrir un aviso se marca como leído. Los correos se reservan para hitos y alertas importantes."}</p></div></div><div className="notification-toolbar">{isAdmin && <label className="switch-row compact-switch"><input type="checkbox" checked={showHistory} onChange={(event) => setShowHistory(event.target.checked)} /><span>Ver todos</span></label>}<button className="button button-secondary" type="button" onClick={() => void load()} disabled={loading}><ArrowClockwise size={17} />Actualizar</button></div></header>
+      {loading ? <div className="loading-panel">Cargando notificaciones…</div> : error ? <div className="form-error"><WarningCircle />{error}</div> : !items.length ? <div className="notification-empty"><CheckCircle size={30} /><strong>Todo está al día</strong><span>Las asignaciones, reportes, revisiones y alertas aparecerán aquí.</span></div> : <div className="notification-list">{items.map((item) => <article key={item.id} className={`notification-row ${!item.readAt ? "is-unread" : ""}`}><button type="button" className="notification-row-main" onClick={() => void read(item)}><div><strong>{item.subject}</strong><p>{item.body}</p></div><span className={`status status-${item.status === "ERROR" ? "error" : item.status === "PENDIENTE" ? "warning" : item.status === "ENVIADA" ? "success" : "neutral"}`}>{statusLabel[item.status]}</span></button><footer><span>{item.readAt ? `Leída ${dateTime(item.readAt)}` : `Nueva · ${dateTime(item.createdAt)}`}</span>{item.status === "ERROR" && isAdmin && <button className="button button-secondary" type="button" onClick={() => void retry(item)} disabled={retrying === item.id}><ArrowClockwise size={16} />{retrying === item.id ? "Reprogramando…" : "Reintentar correo"}</button>}</footer></article>)}</div>}
+    </article></section>;
 }

@@ -4,11 +4,14 @@ import {
   ArrowRight,
   CheckCircle,
   ClipboardText,
+  Clock,
   Package,
   Plus,
+  Play,
   QrCode,
   Warning,
   WarningCircle,
+  Wrench,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -24,6 +27,9 @@ import {
   type AssignmentRecord,
 } from "@/modules/assignments/assignmentRepository";
 import { listRetirementRequests } from "@/modules/lifecycle/lifecycleRepository";
+import { useAuth } from "@/modules/accounts/AuthContext";
+import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
+import { workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
 import {
   retirementStatusLabels,
   type RetirementRequest,
@@ -65,7 +71,95 @@ function getGreeting() {
   return "Buenas noches";
 }
 
-export function DashboardPage() {
+function mondayKey() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return date.toISOString().slice(0, 10);
+}
+
+function formatHours(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+function orderWorkedMinutes(order: Awaited<ReturnType<typeof listWorkOrders>>[number], weekStart: string) {
+  const sessions = order.workSessions ?? [];
+  if (!sessions.length) return 0;
+  return sessions.reduce((total, session) => {
+    if (session.startAt.slice(0, 10) < weekStart) return total;
+    const started = new Date(session.startAt).getTime();
+    const ended = session.endAt ? new Date(session.endAt).getTime() : Date.now();
+    return total + Math.max(0, Math.round((ended - started) / 60000));
+  }, 0);
+}
+
+function TechnicianDashboard() {
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
+  const [loading, setLoading] = useState(true);
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = mondayKey();
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setOrders(await listWorkOrders());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const activeOrder = orders.find((order) => order.status === "EN_PROCESO" && order.activeWorkSession);
+  const actionableOrders = orders
+    .filter((order) => ["PROGRAMADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(order.status))
+    .sort((left, right) => left.scheduledDate.localeCompare(right.scheduledDate));
+  const nextOrder = activeOrder ?? actionableOrders.find((order) => order.scheduledDate >= today) ?? actionableOrders[0];
+  const todayOrders = orders.filter((order) => order.scheduledDate === today);
+  const weekMinutes = orders.reduce((total, order) => total + orderWorkedMinutes(order, weekStart), 0);
+  const weekPlanned = orders
+    .filter((order) => order.scheduledDate >= weekStart)
+    .reduce((total, order) => total + (order.plannedHours || 2) * 60, 0);
+  const weekCoverage = weekPlanned ? Math.min(100, Math.round((weekMinutes / weekPlanned) * 100)) : 0;
+
+  return (
+    <section className="technician-dashboard">
+      <header className="technician-dashboard-heading">
+        <div><p className="breadcrumb">Inicio / Mi trabajo</p><h1>{getGreeting()}, {user?.fullName.split(" ")[0] || "técnico"}</h1><p>Empieza por la orden prioritaria y mantén el temporizador activo mientras trabajas.</p></div>
+        <button className="button button-secondary" type="button" onClick={() => void refresh()} disabled={loading}><ArrowClockwise size={18} className={loading ? "is-spinning" : ""} />Actualizar</button>
+      </header>
+
+      {loading ? <div className="dashboard-loading technician-dashboard-loading" aria-label="Cargando mi jornada"><div /><div /><div /></div> : <>
+        <section className="technician-dashboard-focus" aria-labelledby="next-task-title">
+          <div className="technician-dashboard-focus-copy">
+            <span>{activeOrder ? "Sesión en curso" : "Siguiente acción"}</span>
+            <h2 id="next-task-title">{nextOrder ? `${nextOrder.code} · ${getWorkOrderAssetDisplayCode(nextOrder) || nextOrder.requestCode}` : "No tienes órdenes pendientes"}</h2>
+            <p>{nextOrder ? `${workOrderStatusLabels[nextOrder.status]} · programada para ${formatDate(nextOrder.scheduledDate)}` : "Tu agenda está al día. Revisa tu jornada para consultar los registros de esta semana."}</p>
+            {nextOrder && <Link className="button button-primary" to={`/ordenes-trabajo/${nextOrder.id}${["PROGRAMADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(nextOrder.status) ? "/ejecutar" : ""}`}><Play size={18} weight="fill" />{activeOrder ? "Volver al temporizador" : "Abrir orden"}</Link>}
+          </div>
+          <dl><div><dt>Para hoy</dt><dd>{todayOrders.length}</dd><small>Órdenes programadas</small></div><div><dt>En atención</dt><dd>{activeOrder ? "1" : "0"}</dd><small>Sesiones activas</small></div></dl>
+        </section>
+
+        <section className="technician-dashboard-hours" aria-labelledby="technician-hours-title">
+          <header><div><h2 id="technician-hours-title">Horas de la semana</h2><p>El temporizador de tus órdenes actualiza este resumen automáticamente.</p></div><Clock size={24} /></header>
+          <div className="technician-dashboard-hours-number"><strong>{formatHours(weekMinutes)}</strong><span>registradas de {formatHours(weekPlanned)} programadas</span></div>
+          <div className="technician-dashboard-hours-track" aria-label={`${weekCoverage}% de horas registradas`}><span style={{ width: `${weekCoverage}%` }} /></div>
+          <footer><strong>{weekCoverage}% cubierto</strong><Link to="/mi-jornada">Ver detalle semanal <ArrowRight size={15} /></Link></footer>
+        </section>
+
+        <section className="technician-dashboard-orders" aria-labelledby="technician-orders-title">
+          <header><div><h2 id="technician-orders-title">Órdenes que requieren atención</h2><p>{actionableOrders.length ? "Abre una orden para iniciar, reanudar o registrar un avance." : "No tienes tareas operativas pendientes."}</p></div><Link to="/ordenes-trabajo">Todas <ArrowRight size={16} /></Link></header>
+          {actionableOrders.length ? <div>{actionableOrders.slice(0, 4).map((order) => <Link key={order.id} to={`/ordenes-trabajo/${order.id}${["PROGRAMADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(order.status) ? "/ejecutar" : ""}`}><span className="technician-dashboard-order-icon"><Wrench size={19} /></span><span><strong>{order.code}</strong><small>{getWorkOrderAssetDisplayCode(order) || order.requestCode} · {workOrderStatusLabels[order.status]}</small></span><time>{order.scheduledDate === today ? "Hoy" : formatDate(order.scheduledDate)}</time><ArrowRight size={18} /></Link>)}</div> : <div className="technician-dashboard-empty"><CheckCircle size={30} weight="fill" /><span><strong>Sin órdenes pendientes</strong><small>Cuando recibas una nueva asignación, aparecerá aquí.</small></span></div>}
+        </section>
+      </>}
+    </section>
+  );
+}
+
+function AdministrativeDashboard() {
   const [data, setData] = useState<DashboardData>(emptyData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -513,4 +607,9 @@ export function DashboardPage() {
       )}
     </section>
   );
+}
+
+export function DashboardPage() {
+  const { user } = useAuth();
+  return user?.role === "TECNICO" ? <TechnicianDashboard /> : <AdministrativeDashboard />;
 }

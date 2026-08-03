@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import Notification
+from .monitoring import evaluate_all_work_order_alerts
 
 
 def deliver_notification(notification_id):
@@ -62,3 +63,9 @@ def send_notification_task(self, notification_id):
     if outcome == 'retry':
         raise self.retry(countdown=2 ** attempts * 60)
     return outcome
+
+
+@shared_task
+def evaluate_work_order_alerts_task():
+    evaluate_all_work_order_alerts()
+    return "done"

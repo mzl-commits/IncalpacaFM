@@ -10,6 +10,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     entityId = serializers.CharField(source='entity_id', read_only=True)
     availableAt = serializers.DateTimeField(source='available_at', read_only=True)
     sentAt = serializers.DateTimeField(source='sent_at', read_only=True)
+    readAt = serializers.DateTimeField(source='read_at', read_only=True)
     createdAt = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
@@ -17,7 +18,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'event', 'subject', 'body', 'recipientName', 'recipientEmail',
             'entityType', 'entityId', 'status', 'attempts', 'max_attempts',
-            'availableAt', 'sentAt', 'last_error', 'createdAt',
+            'availableAt', 'sentAt', 'readAt', 'last_error', 'createdAt',
         )
 
     def get_recipientName(self, obj) -> str:
