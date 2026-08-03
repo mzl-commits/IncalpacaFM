@@ -1,4 +1,4 @@
-import type { TrackingEvent, TrackingStatus } from "../trackingModel";
+﻿import type { TrackingEvent, TrackingStatus } from "../trackingModel";
 
 interface Props {
   events: TrackingEvent[];
@@ -6,11 +6,12 @@ interface Props {
 
 const statusLabels: Record<TrackingStatus, string> = {
   REPORTADO: "Reportado",
-  EN_REVISION: "En revision",
+  EN_REVISION: "En revisión",
   RECHAZADO: "No aprobado",
   ASIGNADO: "Asignado",
-  EN_PROCESO: "En atencion",
+  EN_PROCESO: "En atención",
   FINALIZADO: "Finalizado",
+  PENDIENTE_CONFORMIDAD: "Pendiente de conformidad",
 };
 
 function formatDate(value: string) {

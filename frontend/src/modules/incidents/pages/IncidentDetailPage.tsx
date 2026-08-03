@@ -317,6 +317,13 @@ export function IncidentDetailPage() {
               </div>
             )}
 
+            {request.requesterContact?.workerCode && (
+              <div>
+                <dt>Codigo de trabajador</dt>
+                <dd>{request.requesterContact.workerCode}</dd>
+              </div>
+            )}
+
             <div>
               <dt>Fecha de reporte</dt>
               <dd>

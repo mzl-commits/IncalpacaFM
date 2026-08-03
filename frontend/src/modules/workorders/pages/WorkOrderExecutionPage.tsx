@@ -1,7 +1,8 @@
-import {
+﻿import {
   ArrowLeft,
   Camera,
   FloppyDisk,
+  Pause,
   Play,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
@@ -15,10 +16,19 @@ import { currentUser } from "@/modules/accounts/currentUser";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
 import {
   getWorkOrderById,
+  pauseWorkOrder,
   registerWorkOrderProgress,
   startWorkOrder,
 } from "@/modules/workorders/workOrderRepository";
 
+function formatMinutesDuration(minutes?: number) {
+  if (minutes === undefined || minutes === null || minutes <= 0) return "0 min";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} min`;
+  if (rest === 0) return `${hours} h`;
+  return `${hours} h ${rest} min`;
+}
 export function WorkOrderExecutionPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -58,6 +68,18 @@ export function WorkOrderExecutionPage() {
     }
   }
 
+
+  async function handlePause() {
+    if (!workOrder) {
+      return;
+    }
+
+    const updated = await pauseWorkOrder(workOrder.id);
+
+    if (updated) {
+      setWorkOrder(updated);
+    }
+  }
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
   ) {
@@ -67,9 +89,9 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    if (workOrder.status !== "EN_PROCESO") {
+    if (workOrder.status !== "EN_PROCESO" || !workOrder.activeWorkSession) {
       setError(
-        "Primero debes iniciar la orden de trabajo.",
+        "Inicia o reanuda el trabajo antes de registrar avance.",
       );
       return;
     }
@@ -160,8 +182,13 @@ export function WorkOrderExecutionPage() {
       "PENDIENTE_DE_SUPERVISION" ||
     workOrder.status ===
       "APROBADA_POR_SUPERVISOR" ||
+    workOrder.status === "PENDIENTE_DE_VALIDACION" ||
+    workOrder.status === "PENDIENTE_DE_CONFORMIDAD" ||
     workOrder.status === "CERRADA" ||
     workOrder.status === "CANCELADA";
+
+  const hasActiveSession = Boolean(workOrder.activeWorkSession);
+  const canStartSession = workOrder.status !== "EN_PROCESO" || !hasActiveSession;
 
   return (
     <section>
@@ -224,15 +251,13 @@ export function WorkOrderExecutionPage() {
         </article>
       ) : (
         <>
-          {workOrder.status !==
-            "EN_PROCESO" && (
+          {canStartSession && (
             <article className="data-panel execution-start-card">
               <div>
                 <h2>Iniciar ejecución</h2>
 
                 <p>
-                  Al iniciar se registrará
-                  automáticamente la fecha y hora.
+                  Usa este boton cada vez que empieces o retomes el trabajo.
                 </p>
               </div>
 
@@ -245,11 +270,32 @@ export function WorkOrderExecutionPage() {
                   size={18}
                   weight="fill"
                 />
-                Iniciar orden
+                {workOrder.progressPercentage > 0 ? "Reanudar trabajo" : "Iniciar trabajo"}
               </button>
             </article>
           )}
 
+
+          {hasActiveSession && (
+            <article className="data-panel execution-start-card work-session-card">
+              <div>
+                <h2>Sesión activa</h2>
+                <p>
+                  El tiempo efectivo está corriendo. Pausa cuando dejes de trabajar en esta OT.
+                </p>
+                <small>Tiempo efectivo acumulado: {formatMinutesDuration(workOrder.effectiveWorkMinutes)}</small>
+              </div>
+
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={handlePause}
+              >
+                <Pause size={18} weight="fill" />
+                Pausar trabajo
+              </button>
+            </article>
+          )}
           <form
             className="data-panel"
             onSubmit={handleSubmit}
@@ -406,10 +452,7 @@ export function WorkOrderExecutionPage() {
               <button
                 className="button button-primary"
                 type="submit"
-                disabled={
-                  workOrder.status !==
-                  "EN_PROCESO"
-                }
+                disabled={workOrder.status !== "EN_PROCESO" || !hasActiveSession}
               >
                 <FloppyDisk
                   size={18}

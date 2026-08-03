@@ -1,4 +1,4 @@
-import type { TrackingStatus } from "../trackingModel";
+﻿import type { TrackingStatus } from "../trackingModel";
 
 interface Props {
   status: TrackingStatus;
@@ -8,11 +8,12 @@ interface Props {
 
 const statusLabels: Record<TrackingStatus, string> = {
   REPORTADO: "Solicitud recibida",
-  EN_REVISION: "En revision",
+  EN_REVISION: "En revisión",
   RECHAZADO: "No aprobada",
   ASIGNADO: "Orden asignada",
-  EN_PROCESO: "En atencion",
+  EN_PROCESO: "En atención",
   FINALIZADO: "Finalizada",
+  PENDIENTE_CONFORMIDAD: "Pendiente de tu conformidad",
 };
 
 export function TrackingStatusCard({ status, progress, workOrderCode }: Props) {
@@ -23,7 +24,7 @@ export function TrackingStatusCard({ status, progress, workOrderCode }: Props) {
       </span>
       <h2>Estado actual</h2>
       <strong>{progress}% de avance</strong>
-      {workOrderCode ? <p>Orden relacionada: {workOrderCode}</p> : <p>Aun no tiene orden de trabajo asignada.</p>}
+      {workOrderCode ? <p>Orden relacionada: {workOrderCode}</p> : <p>Aún no tiene orden de trabajo asignada.</p>}
     </article>
   );
 }

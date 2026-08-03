@@ -27,6 +27,16 @@ class IsTechnicianOrAdministrator(BasePermission):
         }
 
 
+
+class IsWorkOrderParticipant(BasePermission):
+    def has_permission(self, request, view):
+        return user_role(request.user) in {
+            AccountProfile.Role.ADMIN,
+            AccountProfile.Role.TECHNICIAN,
+            AccountProfile.Role.SUPERVISOR,
+        }
+
+
 class IsAuthenticatedReadAdministratorWrite(BasePermission):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:

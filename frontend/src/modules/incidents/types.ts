@@ -36,6 +36,12 @@ export interface WorkRequest {
   requesterName: string;
   requesterEmail: string;
   requesterPhone?: string;
+  requesterContact?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    workerCode?: string;
+  };
 
   locationId: string;
   zone: string;

@@ -4,7 +4,8 @@ export type TrackingStatus =
   | "RECHAZADO"
   | "ASIGNADO"
   | "EN_PROCESO"
-  | "FINALIZADO";
+  | "FINALIZADO"
+  | "PENDIENTE_CONFORMIDAD";
 
 export interface TrackingEvent {
   id: string;
@@ -21,6 +22,14 @@ export interface RequestTracking {
   workerName: string;
   workerSpecialty: string;
   workOrderCode: string;
+  workOrderStatus: string;
+  canSubmitConformity: boolean;
+  conformity?: {
+    accepted?: boolean;
+    rating?: number;
+    comment?: string;
+    at?: string;
+  };
   progressPercentage: number;
   location: string;
   reportedAt: string;

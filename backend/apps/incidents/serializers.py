@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+﻿from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -319,6 +319,8 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     requesterName = serializers.CharField(max_length=160)
     requesterEmail = serializers.EmailField()
     requesterPhone = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    requesterWorkerCode = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    locationId = serializers.CharField(required=False, allow_blank=True)
     zone = serializers.CharField(max_length=120)
     building = serializers.CharField(max_length=160)
     area = serializers.CharField(max_length=160)
@@ -360,7 +362,7 @@ class PublicWorkRequestSerializer(serializers.Serializer):
         requester = self._public_requester()
         sequence = Incident.objects.select_for_update().count() + 1
         location = {
-            "locationId": "-".join(
+            "locationId": validated_data.get("locationId") or "-".join(
                 [
                     validated_data["zone"],
                     validated_data["building"],
@@ -380,6 +382,7 @@ class PublicWorkRequestSerializer(serializers.Serializer):
                 "name": validated_data["requesterName"],
                 "email": validated_data["requesterEmail"],
                 "phone": validated_data.get("requesterPhone", ""),
+                "workerCode": validated_data.get("requesterWorkerCode", ""),
             },
             location_snapshot=location,
             request_type="OTRO",
@@ -401,6 +404,9 @@ class PublicWorkRequestSerializer(serializers.Serializer):
 class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
     incidentId = serializers.UUIDField(source="id", read_only=True)
     currentStatus = serializers.SerializerMethodField()
+    workOrderStatus = serializers.SerializerMethodField()
+    canSubmitConformity = serializers.SerializerMethodField()
+    conformity = serializers.SerializerMethodField()
     workerName = serializers.SerializerMethodField()
     workerSpecialty = serializers.SerializerMethodField()
     workOrderCode = serializers.SerializerMethodField()
@@ -417,6 +423,9 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
             "code",
             "description",
             "currentStatus",
+            "workOrderStatus",
+            "canSubmitConformity",
+            "conformity",
             "workerName",
             "workerSpecialty",
             "workOrderCode",
@@ -435,7 +444,9 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
         if order:
             if order.status == "CERRADA":
                 return "FINALIZADO"
-            if order.status in {"EN_PROCESO", "PENDIENTE_DE_SUPERVISION", "PENDIENTE_DE_VALIDACION", "PENDIENTE_DE_CONFORMIDAD"}:
+            if order.status == "PENDIENTE_DE_CONFORMIDAD":
+                return "PENDIENTE_CONFORMIDAD"
+            if order.status in {"EN_PROCESO", "PENDIENTE_DE_SUPERVISION", "PENDIENTE_DE_VALIDACION"}:
                 return "EN_PROCESO"
             return "ASIGNADO"
         if obj.status == Incident.Status.REJECTED:
@@ -444,6 +455,18 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
             return "EN_REVISION"
         return "REPORTADO"
 
+
+    def get_workOrderStatus(self, obj):
+        order = self._work_order(obj)
+        return order.status if order else ""
+
+    def get_canSubmitConformity(self, obj):
+        order = self._work_order(obj)
+        return bool(order and order.status == "PENDIENTE_DE_CONFORMIDAD")
+
+    def get_conformity(self, obj):
+        order = self._work_order(obj)
+        return order.conformity if order else {}
     def get_workerName(self, obj):
         order = self._work_order(obj)
         if not order:
@@ -452,7 +475,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
 
     def get_workerSpecialty(self, obj):
         order = self._work_order(obj)
-        return order.specialty if order else "Aun no asignado"
+        return order.specialty if order else "Aún no asignado"
 
     def get_workOrderCode(self, obj):
         order = self._work_order(obj)
@@ -485,7 +508,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                 {
                     "id": f"{obj.id}-review",
                     "status": "EN_REVISION",
-                    "description": "La solicitud fue revisada por administracion.",
+                    "description": "La solicitud fue revisada por administración.",
                     "date": obj.updated_at.isoformat(),
                 }
             )
@@ -494,7 +517,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                 {
                     "id": f"{obj.id}-rejected",
                     "status": "RECHAZADO",
-                    "description": obj.rejection_reason or "La solicitud no fue aprobada para atencion.",
+                    "description": obj.rejection_reason or "La solicitud no fue aprobada para atención.",
                     "date": obj.updated_at.isoformat(),
                 }
             )
@@ -513,7 +536,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                     {
                         "id": f"{order.id}-started",
                         "status": "EN_PROCESO",
-                        "description": "La atencion fue iniciada por el tecnico asignado.",
+                        "description": "La atención fue iniciada por el técnico asignado.",
                         "date": order.started_at.isoformat(),
                     }
                 )
@@ -524,6 +547,15 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                         "status": "EN_PROCESO",
                         "description": advance.get("observation") or f"Avance registrado al {advance.get('percentage', order.progress_percentage)}%.",
                         "date": advance.get("createdAt") or order.updated_at.isoformat(),
+                    }
+                )
+            if order.status == "PENDIENTE_DE_CONFORMIDAD":
+                events.append(
+                    {
+                        "id": f"{order.id}-conformity-pending",
+                        "status": "PENDIENTE_CONFORMIDAD",
+                        "description": "El trabajo fue ejecutado y espera tu conformidad.",
+                        "date": order.updated_at.isoformat(),
                     }
                 )
             if order.closed_at:

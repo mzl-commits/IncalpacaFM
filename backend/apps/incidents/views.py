@@ -1,4 +1,7 @@
-from uuid import UUID
+﻿from uuid import UUID
+
+from django.db import transaction
+from django.utils import timezone
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -9,8 +12,9 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAuthenticatedReadAdministratorWrite, user_role
-from apps.assets.models import Asset
+from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
+from apps.workorders.models import WorkOrder
 
 from .models import Incident
 from .serializers import (
@@ -37,6 +41,26 @@ class IncidentDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = IncidentSerializer
     queryset = Incident.objects.select_related("requester", "asset")
 
+
+
+class PublicLocationListView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        locations = Location.objects.filter(active=True).order_by("zone", "building", "area", "room")
+        return Response([
+            {
+                "id": str(location.id),
+                "code": location.location_code,
+                "zone": location.zone,
+                "building": location.building,
+                "area": location.area,
+                "room": location.room,
+                "specificLocation": location.specific_location,
+                "displayName": str(location),
+            }
+            for location in locations
+        ])
 
 class PublicWorkRequestCreateView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
@@ -132,3 +156,45 @@ class PublicIncidentTrackingView(generics.RetrieveAPIView):
             return get_object_or_404(queryset, pk=token)
         except ValueError:
             return get_object_or_404(queryset, code__iexact=token)
+class PublicIncidentConformityView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @transaction.atomic
+    def post(self, request, token):
+        queryset = Incident.objects.select_related("work_order")
+        try:
+            UUID(token)
+            incident = get_object_or_404(queryset, pk=token)
+        except ValueError:
+            incident = get_object_or_404(queryset, code__iexact=token)
+
+        order = getattr(incident, "work_order", None)
+        if not order or order.status != WorkOrder.Status.CONFORMITY:
+            return Response(
+                {"detail": "La solicitud aún no está lista para conformidad."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        accepted = bool(request.data.get("accepted"))
+        rating = request.data.get("rating")
+        comment = str(request.data.get("comment") or "").strip()
+        now = timezone.now()
+        order.conformity = {
+            "accepted": accepted,
+            "rating": rating,
+            "comment": comment,
+            "at": now.isoformat(),
+            "by": "Solicitante",
+            "source": "public_tracking",
+        }
+        if accepted:
+            order.status = WorkOrder.Status.CLOSED
+            order.closed_at = now
+            incident.status = Incident.Status.CLOSED
+            incident.save(update_fields=("status", "updated_at"))
+        else:
+            order.status = WorkOrder.Status.RETURNED
+            order.closed_at = None
+        order.save(update_fields=("conformity", "status", "closed_at", "updated_at"))
+
+        return Response(PublicIncidentTrackingSerializer(incident).data)

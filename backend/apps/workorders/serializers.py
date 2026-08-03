@@ -1,8 +1,9 @@
-import uuid
+﻿import uuid
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
@@ -12,6 +13,23 @@ from apps.incidents.models import Incident
 
 from .models import WorkOrder
 
+
+def active_work_session(order):
+    for session in reversed(order.work_sessions or []):
+        if not session.get("endAt"):
+            return session
+    return None
+
+
+def effective_work_minutes(order):
+    total_seconds = 0
+    now = timezone.now()
+    for session in order.work_sessions or []:
+        start = parse_datetime(session.get("startAt") or "")
+        end = parse_datetime(session.get("endAt") or "") if session.get("endAt") else now
+        if start and end and end >= start:
+            total_seconds += (end - start).total_seconds()
+    return round(total_seconds / 60)
 
 class WorkOrderSerializer(serializers.ModelSerializer):
     requestId = serializers.UUIDField(source="incident_id")
@@ -31,6 +49,9 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         source="administrator_notes", required=False, allow_blank=True
     )
     progressPercentage = serializers.IntegerField(source="progress_percentage", read_only=True)
+    workSessions = serializers.JSONField(source="work_sessions", read_only=True)
+    effectiveWorkMinutes = serializers.SerializerMethodField()
+    activeWorkSession = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     technicianWorkerCode = serializers.CharField(write_only=True, required=False)
@@ -59,6 +80,9 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "administratorNotes",
             "progressPercentage",
             "advances",
+            "workSessions",
+            "effectiveWorkMinutes",
+            "activeWorkSession",
             "diagnosis",
             "supervisor_validation",
             "administrator_validation",
@@ -69,7 +93,13 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "createdAt",
             "updatedAt",
         )
-        read_only_fields = ("id", "code", "status", "advances")
+        read_only_fields = ("id", "code", "status", "advances", "workSessions")
+
+    def get_effectiveWorkMinutes(self, obj) -> int:
+        return effective_work_minutes(obj)
+
+    def get_activeWorkSession(self, obj):
+        return active_work_session(obj)
 
     def get_operatorName(self, obj) -> str:
         return obj.technician.get_full_name() or obj.technician.username
@@ -89,7 +119,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         request = self.context["request"]
         incident_id = validated_data.pop("incident_id")
         technician_code = validated_data.pop("technicianWorkerCode", "tecnico")
-        supervisor_code = validated_data.pop("supervisorWorkerCode", "admin")
+        supervisor_code = validated_data.pop("supervisorWorkerCode", "supervisor")
         users = get_user_model().objects.select_related("account_profile")
         technician = users.get(
             account_profile__worker_code=technician_code,
@@ -132,6 +162,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(
         choices=(
             "START",
+            "PAUSE",
             "PROGRESS",
             "DIAGNOSIS",
             "SUPERVISOR_APPROVE",
@@ -156,15 +187,20 @@ class WorkOrderActionSerializer(serializers.Serializer):
         before = {"status": order.status, "progress": order.progress_percentage}
 
         role = getattr(request.user.account_profile, 'role', None)
-        technical_actions = {'START', 'PROGRESS', 'DIAGNOSIS'}
+        technical_actions = {'START', 'PAUSE', 'PROGRESS', 'DIAGNOSIS'}
         if role == AccountProfile.Role.TECHNICIAN:
             if order.technician_id != request.user.id:
-                raise PermissionDenied('Solo el tecnico asignado puede actualizar esta orden.')
+                raise PermissionDenied('Solo el técnico asignado puede actualizar esta orden.')
             if action not in technical_actions:
-                raise PermissionDenied('Esta accion corresponde a la validacion administrativa.')
-
+                raise PermissionDenied('Esta accion corresponde a la validación administrativa.')
+        elif role == AccountProfile.Role.SUPERVISOR:
+            if order.supervisor_id != request.user.id:
+                raise PermissionDenied('Solo el supervisor asignado puede revisar está orden.')
+            if action not in {'SUPERVISOR_APPROVE', 'SUPERVISOR_RETURN'}:
+                raise PermissionDenied('Esta accion corresponde al administrador o al operario.')
         expected_statuses = {
-            'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.RETURNED},
+            'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.RETURNED, WorkOrder.Status.IN_PROGRESS},
+            'PAUSE': {WorkOrder.Status.IN_PROGRESS},
             'PROGRESS': {WorkOrder.Status.IN_PROGRESS},
             'SUPERVISOR_APPROVE': {WorkOrder.Status.SUPERVISION},
             'SUPERVISOR_RETURN': {WorkOrder.Status.SUPERVISION},
@@ -180,9 +216,40 @@ class WorkOrderActionSerializer(serializers.Serializer):
             })
 
         if action == "START":
+            if active_work_session(order):
+                raise serializers.ValidationError({
+                    'action': 'Ya hay una sesión de trabajo activa.'
+                })
             order.status = WorkOrder.Status.IN_PROGRESS
             order.started_at = order.started_at or now
+            order.work_sessions = [
+                *(order.work_sessions or []),
+                {
+                    "id": str(uuid.uuid4()),
+                    "startAt": now.isoformat(),
+                    "endAt": None,
+                    "operatorName": request.user.get_full_name() or request.user.username,
+                },
+            ]
+        elif action == "PAUSE":
+            session = active_work_session(order)
+            if not session:
+                raise serializers.ValidationError({
+                    'action': 'No hay una sesión activa para pausar.'
+                })
+            order.work_sessions = [
+                {
+                    **item,
+                    "endAt": now.isoformat() if item.get("id") == session.get("id") else item.get("endAt"),
+                }
+                for item in (order.work_sessions or [])
+            ]
         elif action == "PROGRESS":
+            session = active_work_session(order)
+            if not session:
+                raise serializers.ValidationError({
+                    'action': 'Reanuda el trabajo antes de registrar avance.'
+                })
             percentage = self.validated_data.get("percentage", 0)
             order.advances = [
                 *order.advances,
@@ -199,6 +266,13 @@ class WorkOrderActionSerializer(serializers.Serializer):
             order.progress_percentage = percentage
             order.started_at = order.started_at or now
             if percentage == 100:
+                order.work_sessions = [
+                    {
+                        **item,
+                        "endAt": now.isoformat() if item.get("id") == session.get("id") else item.get("endAt"),
+                    }
+                    for item in (order.work_sessions or [])
+                ]
                 order.status = WorkOrder.Status.SUPERVISION
                 order.finished_at = now
             else:

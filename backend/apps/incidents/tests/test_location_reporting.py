@@ -76,12 +76,12 @@ class PublicIncidentReportingTests(TestCase):
     def setUp(self):
         owner = get_user_model().objects.create_user(username='asset-owner')
         self.location = Location.objects.create(
-            zone='Zona Industrial', building='AdministraciÃ³n',
+            zone='Zona Industrial', building='Administración',
             area='Facility Management', room='Oficina FM',
         )
         self.asset = Asset.objects.create(
             code='INC-BIEN-2026-009999',
-            entry_type='purchase', name='Equipo pÃºblico',
+            entry_type='purchase', name='Equipo público',
             description='Bien disponible mediante QR.', condition='Bueno',
             location=self.location, registered_by=owner,
         )

@@ -13,6 +13,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
+import { SupervisorWorkOrderReviewPage } from "@/modules/workorders/pages/SupervisorWorkOrderReviewPage";
 
 function lazyRoute<TModule, TKey extends keyof TModule>(
   loader: () => Promise<TModule>,
@@ -22,6 +23,10 @@ function lazyRoute<TModule, TKey extends keyof TModule>(
     const module = await loader();
     return { Component: module[exportName] as ComponentType };
   };
+}
+
+function SupervisorWorkOrderReviewRoute() {
+  return <SupervisorWorkOrderReviewPage />;
 }
 
 const modules = [
@@ -164,6 +169,14 @@ export const router = createBrowserRouter([
         lazy: lazyRoute(
           () => import("@/modules/incidents/pages/RequestTrackingPage"),
           "RequestTrackingPage",
+        ),
+      },
+      {
+        path: "supervision",
+        element: (
+          <RoleRoute allowedRoles={["SUPERVISOR", "ADMINISTRADOR"]}>
+            <SupervisorWorkOrderReviewRoute />
+          </RoleRoute>
         ),
       },
       {

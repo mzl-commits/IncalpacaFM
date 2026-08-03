@@ -1,4 +1,4 @@
-
+﻿
 import uuid
 
 from django.conf import settings
@@ -39,6 +39,7 @@ class WorkOrder(models.Model):
     administrator_notes = models.TextField(blank=True)
     progress_percentage = models.PositiveSmallIntegerField(default=0)
     advances = models.JSONField(default=list)
+    work_sessions = models.JSONField(default=list)
     diagnosis = models.JSONField(default=dict)
     supervisor_validation = models.JSONField(default=dict)
     administrator_validation = models.JSONField(default=dict)

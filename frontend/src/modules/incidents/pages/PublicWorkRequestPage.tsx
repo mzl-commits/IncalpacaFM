@@ -1,5 +1,5 @@
-import { Camera, CheckCircle, PaperPlaneTilt } from "@phosphor-icons/react";
-import { useState, type FormEvent } from "react";
+﻿import { Camera, CheckCircle, PaperPlaneTilt } from "@phosphor-icons/react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "@/services/api";
@@ -8,10 +8,23 @@ type ImpactAnswer = "" | "SI" | "NO";
 type AffectedPeople = "" | "SOLO_YO" | "VARIAS_PERSONAS" | "TODA_EL_AREA";
 type SuggestedPriority = "NORMAL" | "URGENTE" | "EMERGENCIA";
 
+interface PublicLocationOption {
+  id: string;
+  code: string;
+  zone: string;
+  building: string;
+  area: string;
+  room: string;
+  specificLocation: string;
+  displayName: string;
+}
+
 interface PublicRequestFormState {
   requesterName: string;
   requesterEmail: string;
   requesterPhone: string;
+  requesterWorkerCode: string;
+  locationId: string;
   zone: string;
   building: string;
   area: string;
@@ -31,6 +44,8 @@ const initialForm: PublicRequestFormState = {
   requesterName: "",
   requesterEmail: "",
   requesterPhone: "",
+  requesterWorkerCode: "",
+  locationId: "",
   zone: "",
   building: "",
   area: "",
@@ -90,6 +105,25 @@ export function PublicWorkRequestPage() {
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [locations, setLocations] = useState<PublicLocationOption[]>([]);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.get<PublicLocationOption[]>("/incidents/public/locations/")
+      .then(({ data }) => {
+        if (active) setLocations(data);
+      })
+      .catch(() => {
+        if (active) setLocations([]);
+      })
+      .finally(() => {
+        if (active) setLocationsLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function updateField<K extends keyof PublicRequestFormState>(
     field: K,
@@ -189,7 +223,7 @@ export function PublicWorkRequestPage() {
             <CheckCircle size={24} weight="fill" />
             <div>
               <strong>Solicitud registrada</strong>
-              <p>Tu codigo de solicitud es {submittedCode}. El administrador revisara la prioridad final.</p>
+              <p>Tu código de solicitud es {submittedCode}. El administrador revisará la prioridad final.</p>
               <Link className="button button-secondary" to={`/seguimiento-solicitud/${submittedCode}`}>
                 Ver seguimiento
               </Link>
@@ -239,6 +273,15 @@ export function PublicWorkRequestPage() {
                   placeholder="Ej. 204 o 999 999 999"
                 />
               </label>
+
+              <label className="field">
+                <span>Código de trabajador</span>
+                <input
+                  value={form.requesterWorkerCode}
+                  onChange={(event) => updateField("requesterWorkerCode", event.target.value.toUpperCase())}
+                  placeholder="Ej. K4F89J"
+                />
+              </label>
             </div>
           </div>
 
@@ -247,26 +290,52 @@ export function PublicWorkRequestPage() {
               <div>
                 <span className="section-number">2</span>
                 <div>
-                  <h2>Ubicacion del problema</h2>
-                  <p>Ayudanos a ubicar exactamente donde se necesita la atencion.</p>
+                  <h2>Ubicación del problema</h2>
+                  <p>Ayudanos a ubicar exactamente donde se necesita la atención.</p>
                 </div>
               </div>
             </div>
 
             <div className="form-grid">
+              <label className="field field-wide">
+                <span>Ambiente oficial</span>
+                <select
+                  value={form.locationId}
+                  onChange={(event) => {
+                    const selected = locations.find((location) => location.id === event.target.value);
+                    if (!selected) {
+                      updateField("locationId", "");
+                      return;
+                    }
+                    setForm((current) => ({
+                      ...current,
+                      locationId: selected.id,
+                      zone: selected.zone,
+                      building: selected.building,
+                      area: selected.area,
+                      room: selected.room,
+                    }));
+                    setError("");
+                  }}
+                >
+                  <option value="">{locationsLoaded ? "Buscar por ambiente o código" : "Cargando ambientes..."}</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.displayName}
+                    </option>
+                  ))}
+                </select>
+                <small>Si no encuentras el ambiente, completa los campos de abajo.</small>
+              </label>
+
               <label className="field">
                 <span>Zona *</span>
-                <select
+                <input
                   required
                   value={form.zone}
                   onChange={(event) => updateField("zone", event.target.value)}
-                >
-                  <option value="">Seleccionar zona</option>
-                  <option value="Zona Industrial">Zona Industrial</option>
-                  <option value="Casona">Casona</option>
-                  <option value="Planta Principal">Planta Principal</option>
-                  <option value="Oficinas Administrativas">Oficinas Administrativas</option>
-                </select>
+                  placeholder="Ej. Zona Industrial"
+                />
               </label>
 
               <label className="field">
@@ -280,7 +349,7 @@ export function PublicWorkRequestPage() {
               </label>
 
               <label className="field">
-                <span>Area *</span>
+                <span>Área *</span>
                 <input
                   required
                   value={form.area}
@@ -307,7 +376,7 @@ export function PublicWorkRequestPage() {
                 <span className="section-number">3</span>
                 <div>
                   <h2>Descripcion y evidencia</h2>
-                  <p>Describe el problema y adjunta una foto para facilitar la revision.</p>
+                  <p>Describe el problema y adjunta una foto para facilitar la revisión.</p>
                 </div>
               </div>
             </div>
@@ -380,7 +449,7 @@ export function PublicWorkRequestPage() {
                   maxLength={300}
                   rows={3}
                   onChange={(event) => updateField("noPhotoReason", event.target.value)}
-                  placeholder="Ej. El problema esta dentro del equipo y no es visible desde fuera."
+                  placeholder="Ej. El problema está dentro del equipo y no es visible desde fuera."
                 />
                 <small>{form.noPhotoReason.length} / 300 caracteres</small>
               </label>
@@ -510,7 +579,7 @@ export function PublicWorkRequestPage() {
               <span>Prioridad sugerida</span>
               <strong>{hasImpactAnswers ? priorityLabels[suggestedPriority] : "Pendiente"}</strong>
               <p>
-                Esta recomendacion ayudara al administrador, pero la decision final se revisara
+                Esta recomendacion ayudara al administrador, pero la decision final se revisará
                 internamente.
               </p>
 

@@ -9,6 +9,8 @@ export const mockTracking: RequestTracking[] = [
     workerName: "Carlos Medina",
     workerSpecialty: "Electricidad",
     workOrderCode: "OT-2026-0001",
+    workOrderStatus: "EN_PROCESO",
+    canSubmitConformity: false,
     progressPercentage: 45,
     location: "Planta / Administracion / Oficina 1",
     reportedAt: "2026-07-31T08:00:00Z",
