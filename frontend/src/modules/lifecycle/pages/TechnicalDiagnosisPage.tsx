@@ -14,7 +14,7 @@ import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { getAssetDisplayCode, type RegisteredAsset } from "@/modules/assets/entryModel";
 import {
   getDiagnosisByWorkOrder,
-  getRetirementRequestByDiagnosis,
+  requestRetirementEvaluation,
   saveDiagnosis,
 } from "@/modules/lifecycle/lifecycleRepository";
 import type { ReparabilityResult, TechnicalDiagnosis } from "@/modules/lifecycle/types";
@@ -49,7 +49,6 @@ export function TechnicalDiagnosisPage() {
       setRisk(diagnosis.operationalRisk); setComponents(diagnosis.affectedComponents);
       setJustification(diagnosis.technicalJustification); setRepairCost(diagnosis.estimatedRepairCost);
       setCurrentValue(diagnosis.estimatedCurrentValue); setEvidence(diagnosis.evidence);
-      getRetirementRequestByDiagnosis(diagnosis.id).then((value) => setRequestExists(!!value));
     }).catch(() => setError("No se pudo cargar el diagnóstico."));
   }, [id]);
 
@@ -96,7 +95,11 @@ export function TechnicalDiagnosisPage() {
       estimatedCurrentValue: currentValue,
       evidence,
     }, existing?.id);
-    navigate(derive ? `/bienes/ciclo-vida/bajas/nueva/${diagnosis.id}` : `/ordenes-trabajo/${workOrder.id}`);
+    if (derive) {
+      await requestRetirementEvaluation(diagnosis.id);
+      setRequestExists(true);
+    }
+    navigate(`/ordenes-trabajo/${workOrder.id}`);
     } catch {
       setError("No se pudo guardar el diagnóstico. Revisa los campos obligatorios.");
     }
@@ -112,7 +115,7 @@ export function TechnicalDiagnosisPage() {
         <div>
           <p className="breadcrumb">Órdenes de trabajo / {workOrder.code} / Diagnóstico</p>
           <h1>Diagnóstico técnico</h1>
-          <p>Documenta el estado del bien y determina si corresponde iniciar una evaluación de baja.</p>
+          <p>Documenta el estado del bien. Si no es reparable, puedes solicitar que Administración evalúe una posible baja.</p>
         </div>
         <Link className="button button-secondary" to={`/ordenes-trabajo/${workOrder.id}`}>
           <ArrowLeft size={18} /> Volver
@@ -148,7 +151,7 @@ export function TechnicalDiagnosisPage() {
             <label className="field field-wide"><span>Componentes afectados</span><input value={components} onChange={(event) => setComponents(event.target.value)} /></label>
           </div>
 
-          <div className="lifecycle-section-heading"><WarningCircle /><div><h2>Evaluación de reparabilidad</h2><p>La baja solo se habilita para resultados técnicamente sustentados.</p></div></div>
+          <div className="lifecycle-section-heading"><WarningCircle /><div><h2>Evaluación de reparabilidad</h2><p>El técnico puede solicitar una evaluación. Administración decide si procede una baja.</p></div></div>
           <div className="form-grid">
             <label className="field field-wide"><span>Resultado *</span>
               <select value={result} onChange={(event) => setResult(event.target.value as ReparabilityResult)}>
@@ -173,14 +176,14 @@ export function TechnicalDiagnosisPage() {
           <div className="form-actions">
             <button className="button button-secondary" type="submit"><FloppyDisk />Guardar diagnóstico</button>
             <button className="button button-primary" type="button" disabled={!canDerive || requestExists} onClick={() => persist(true)}>
-              {requestExists ? "Solicitud de baja ya creada" : "Derivar a evaluación de baja"}
+              {requestExists ? "Evaluación de baja solicitada" : "Solicitar evaluación de baja"}
             </button>
           </div>
         </form>
 
         <aside className="data-panel eligibility-panel">
           <h2>Requisitos para derivar</h2>
-          <p>Esta acción crea una solicitud pendiente. No da de baja el bien.</p>
+          <p>Esta acción crea una solicitud pendiente para Administración. No da de baja el bien.</p>
           <ul>
             {[
               ["diagnosis", "Diagnóstico técnico completo"],

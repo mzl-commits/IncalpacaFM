@@ -7,7 +7,7 @@ export type RetirementStatus =
   | "SUBSANACION"
   | "PENDIENTE_DISPOSICION"
   | "CERRADA";
-export type DisposalMethod = "VENTA" | "RECICLAJE" | "DESECHO" | "DONACION";
+export type DisposalMethod = "POR_DEFINIR" | "VENTA" | "RECICLAJE" | "DESECHO" | "DONACION";
 
 export interface TechnicalDiagnosis {
   id: string;
@@ -76,6 +76,7 @@ export const retirementStatusLabels: Record<RetirementStatus, string> = {
 };
 
 export const disposalLabels: Record<DisposalMethod, string> = {
+  POR_DEFINIR: "Por definir",
   VENTA: "Venta",
   RECICLAJE: "Reciclaje",
   DESECHO: "Desecho",

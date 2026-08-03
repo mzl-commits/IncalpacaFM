@@ -84,6 +84,13 @@ export async function getRetirementRequestByDiagnosis(diagnosisId: string) {
   return (await listRetirementRequests()).find((item) => item.diagnosisId === diagnosisId);
 }
 
+export async function requestRetirementEvaluation(diagnosisId: string) {
+  const { data } = await api.post<RetirementApi>(
+    `/lifecycle/diagnoses/${diagnosisId}/request-retirement/`,
+  );
+  return mapRequest(data);
+}
+
 export async function createRetirementRequest(
   diagnosis: TechnicalDiagnosis,
   input: { recommendation: DisposalMethod; supervisorName: string; requestedBy: string },
