@@ -6,6 +6,7 @@ from rest_framework import serializers
 from apps.accounts.models import AccountProfile
 from apps.assets.models import Location, LocationMap
 from apps.audit.services import record_audit
+from apps.notifications.services import queue_for_administrators, queue_incident_requester
 
 from .models import Incident
 
@@ -233,6 +234,27 @@ class IncidentSerializer(serializers.ModelSerializer):
             entity="Incident",
             entity_id=incident.id,
             after={"code": incident.code, "status": incident.status},
+        )
+        queue_for_administrators(
+            event='INCIDENT_CREATED',
+            subject=f'Nueva incidencia {incident.code}',
+            body=(
+                f'Se recibió una incidencia en {selected_location.room}. '
+                'Revisa la bandeja de incidencias para atenderla.'
+            ),
+            entity=incident,
+            context={'locationId': str(selected_location.id)},
+            discriminator=incident.status,
+        )
+        queue_incident_requester(
+            event='INCIDENT_RECEIVED',
+            incident=incident,
+            subject=f'Recibimos tu reporte {incident.code}',
+            body=(
+                f'Recibimos tu reporte {incident.code} y ya se encuentra en evaluación. '
+                'Te avisaremos cuando programemos la revisión o haya una actualización importante.'
+            ),
+            discriminator=incident.status,
         )
         return incident
 

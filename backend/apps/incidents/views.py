@@ -14,6 +14,7 @@ from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAuthenticatedReadAdministratorWrite, user_role
 from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
+from apps.notifications.services import queue_for_administrators, queue_incident_requester
 from apps.workorders.models import WorkOrder
 
 from .models import Incident
@@ -70,6 +71,20 @@ class PublicWorkRequestCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         incident = serializer.save()
+        queue_for_administrators(
+            event="INCIDENT_CREATED",
+            subject=f"Nueva solicitud {incident.code}",
+            body="Se recibió una solicitud pública y está lista para ser evaluada.",
+            entity=incident,
+            discriminator=incident.status,
+        )
+        queue_incident_requester(
+            event="INCIDENT_RECEIVED",
+            incident=incident,
+            subject=f"Recibimos tu solicitud {incident.code}",
+            body="Recibimos tu solicitud. Te notificaremos cuando programemos su revisión.",
+            discriminator=incident.status,
+        )
         email_sent = False
         try:
             email_sent = send_public_request_confirmation(incident)
@@ -110,6 +125,20 @@ class PublicAssetIncidentCreateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         incident = serializer.save()
+        queue_for_administrators(
+            event="INCIDENT_CREATED",
+            subject=f"Nueva incidencia {incident.code}",
+            body=f"Se recibió una incidencia para el bien {asset.fm_code or asset.code}.",
+            entity=incident,
+            discriminator=incident.status,
+        )
+        queue_incident_requester(
+            event="INCIDENT_RECEIVED",
+            incident=incident,
+            subject=f"Recibimos tu reporte {incident.code}",
+            body="Recibimos tu reporte. Te notificaremos cuando programemos su revisión.",
+            discriminator=incident.status,
+        )
         email_sent = False
         try:
             email_sent = send_public_request_confirmation(incident)

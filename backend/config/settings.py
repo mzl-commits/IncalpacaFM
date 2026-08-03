@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.assets",
     "apps.taxonomy",
     "apps.assignments",
+    "apps.notifications",
     "apps.incidents",
     "apps.workorders",
     "apps.maintenance",
@@ -137,6 +138,23 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
+
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.environ.get('BREVO_SMTP_HOST', 'smtp-relay.brevo.com')
+EMAIL_PORT = int(os.environ.get('BREVO_SMTP_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('BREVO_SMTP_USERNAME', '')
+EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('BREVO_SMTP_USE_TLS', '1') == '1'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'SGTB Incalpaca <noreply@localhost>')
+NOTIFICATION_MESSAGE_ID_DOMAIN = os.environ.get('NOTIFICATION_MESSAGE_ID_DOMAIN', 'incalpaca.local')
+NOTIFICATION_DISPATCH_ENABLED = os.environ.get(
+    'NOTIFICATION_DISPATCH_ENABLED', '0' if DEBUG else '1'
+) == '1'
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TIMEZONE = TIME_ZONE
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

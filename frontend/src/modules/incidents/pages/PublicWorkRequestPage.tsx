@@ -102,7 +102,6 @@ function getPriorityReasons(form: PublicRequestFormState) {
 export function PublicWorkRequestPage() {
   const [form, setForm] = useState<PublicRequestFormState>(initialForm);
   const [submittedCode, setSubmittedCode] = useState("");
-  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [locations, setLocations] = useState<PublicLocationOption[]>([]);
