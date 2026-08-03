@@ -25,3 +25,8 @@ export async function updateTechnician(id: string, input: Partial<TechnicianInpu
   const { data } = await api.patch<Technician>(`/technicians/${id}/`, input);
   return data;
 }
+
+export async function notifyTechnician(id: string, input: { template: "REMINDER" | "TRACEABILITY" | "SCHEDULE" | "CUSTOM"; subject?: string; body?: string }) {
+  const { data } = await api.post<{ detail: string }>(`/technicians/${id}/notifications/`, input);
+  return data;
+}
