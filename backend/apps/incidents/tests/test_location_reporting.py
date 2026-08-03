@@ -4,6 +4,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AccountProfile
 from apps.assets.models import Location
+from apps.incidents.models import Incident
 
 
 class IncidentLocationReportingTests(TestCase):
@@ -44,3 +45,28 @@ class IncidentLocationReportingTests(TestCase):
         }, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("locationId", response.json())
+
+    def test_list_tolerates_legacy_blank_location_markers(self):
+        Incident.objects.create(
+            code="SOL-2026-LEGACY",
+            requester=self.user,
+            request_type="INSPECCION",
+            description="Registro heredado sin marcador dentro del ambiente.",
+            location_snapshot={
+                "locationId": str(self.location.id),
+                "zone": self.location.zone,
+                "building": self.location.building,
+                "area": self.location.area,
+                "room": self.location.room,
+                "locationMapId": "",
+                "locationMarkerX": "",
+                "locationMarkerY": "",
+            },
+        )
+
+        response = self.client.get("/api/v1/incidents/")
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIsNone(response.json()[0]["locationMapId"])
+        self.assertIsNone(response.json()[0]["locationMarkerX"])
+        self.assertIsNone(response.json()[0]["locationMarkerY"])

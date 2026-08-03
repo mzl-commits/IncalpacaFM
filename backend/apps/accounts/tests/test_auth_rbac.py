@@ -3,8 +3,8 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.audit.models import AuditEvent
 from apps.assets.models import Location
+from apps.audit.models import AuditEvent
 
 
 class AuthenticationAndRbacTests(TestCase):

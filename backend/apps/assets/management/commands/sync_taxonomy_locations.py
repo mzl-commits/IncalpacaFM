@@ -6,7 +6,6 @@ from django.db import transaction
 
 from apps.assets.models import Location
 
-
 SOURCE_FILE = Path(__file__).resolve().parents[2] / "data" / "taxonomy_locations_2026.json"
 
 

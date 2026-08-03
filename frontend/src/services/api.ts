@@ -1,5 +1,7 @@
 import axios from "axios";
 
+type RefreshResponse = { access: string; refresh?: string };
+
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1",
   timeout: 15_000,
@@ -7,6 +9,26 @@ export const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+let refreshRequest: Promise<string> | null = null;
+
+function refreshAccessToken(refreshToken: string) {
+  if (!refreshRequest) {
+    refreshRequest = axios
+      .post<RefreshResponse>(`${api.defaults.baseURL}/auth/refresh/`, {
+        refresh: refreshToken,
+      })
+      .then(({ data }) => {
+        sessionStorage.setItem("sgtb_access_token", data.access);
+        if (data.refresh) sessionStorage.setItem("sgtb_refresh_token", data.refresh);
+        return data.access;
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+  return refreshRequest;
+}
 
 api.interceptors.request.use((config) => {
   const token = sessionStorage.getItem("sgtb_access_token");
@@ -22,17 +44,19 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && refresh && !original?._retried) {
       original._retried = true;
       try {
-        const { data } = await axios.post<{ access: string; refresh?: string }>(
-          `${api.defaults.baseURL}/auth/refresh/`,
-          { refresh },
-        );
-        sessionStorage.setItem("sgtb_access_token", data.access);
-        if (data.refresh) sessionStorage.setItem("sgtb_refresh_token", data.refresh);
-        original.headers.Authorization = `Bearer ${data.access}`;
+        const currentAccess = sessionStorage.getItem("sgtb_access_token");
+        const failedAuthorization = original.headers?.Authorization;
+        const access =
+          currentAccess && failedAuthorization !== `Bearer ${currentAccess}`
+            ? currentAccess
+            : await refreshAccessToken(refresh);
+        original.headers.Authorization = `Bearer ${access}`;
         return api(original);
       } catch {
-        sessionStorage.clear();
-        window.location.assign("/login");
+        sessionStorage.removeItem("sgtb_access_token");
+        sessionStorage.removeItem("sgtb_refresh_token");
+        sessionStorage.removeItem("sgtb_current_user");
+        if (window.location.pathname !== "/login") window.location.assign("/login");
       }
     }
     return Promise.reject(error);

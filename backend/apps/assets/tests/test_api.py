@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.assets.models import (
@@ -9,6 +10,8 @@ from apps.assets.models import (
     AssignableResponsible,
     Taxonomy,
 )
+from apps.audit.models import AuditEvent
+from apps.lifecycle.models import RetirementRequest, TechnicalDiagnosis
 
 
 class AssetEntryApiTests(TestCase):
@@ -46,6 +49,10 @@ class AssetEntryApiTests(TestCase):
             'SL',
         )
         self.assertEqual(Taxonomy.objects.filter(source_version='DEMO').count(), 14)
+        self.assertEqual(TechnicalDiagnosis.objects.count(), 2)
+        self.assertEqual(RetirementRequest.objects.count(), 2)
+        self.assertGreaterEqual(AuditEvent.objects.count(), 20)
+        self.assertFalse(AssetAssignment.objects.filter(start_date__gt=timezone.now()).exists())
 
     def test_create_asset_does_not_create_assignment_even_with_legacy_payload(self):
         responsible = AssignableResponsible.objects.get(external_reference='P-0142')
