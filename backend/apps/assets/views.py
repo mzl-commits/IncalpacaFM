@@ -16,7 +16,9 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import (
     IsAdministrator,
     IsAuthenticatedReadAdministratorWrite,
+    user_role,
 )
+from apps.accounts.models import AccountProfile
 from apps.audit.services import record_audit
 
 from .models import Asset
@@ -49,6 +51,10 @@ class AssetListCreateView(generics.ListCreateAPIView):
         queryset = Asset.objects.select_related(
             'registered_by', 'taxonomy', 'location', 'location_map',
         )
+        if user_role(self.request.user) == AccountProfile.Role.TECHNICIAN:
+            queryset = queryset.filter(
+                incidents__work_order__technician=self.request.user,
+            ).distinct()
         search = self.request.query_params.get('search', '').strip()
         if search:
             queryset = queryset.filter(
@@ -116,9 +122,15 @@ class PublicAssetPhotoView(APIView):
 class AssetDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
     serializer_class = AssetDetailSerializer
-    queryset = Asset.objects.select_related(
-        'registered_by', 'taxonomy', 'location', 'location_map',
-    ).prefetch_related('assignments__responsible', 'repair_records')
+    def get_queryset(self):
+        queryset = Asset.objects.select_related(
+            'registered_by', 'taxonomy', 'location', 'location_map',
+        ).prefetch_related('assignments__responsible', 'repair_records')
+        if user_role(self.request.user) == AccountProfile.Role.TECHNICIAN:
+            queryset = queryset.filter(
+                incidents__work_order__technician=self.request.user,
+            ).distinct()
+        return queryset
 
 
 class AssetClassificationView(APIView):

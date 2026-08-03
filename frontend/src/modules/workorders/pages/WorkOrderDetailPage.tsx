@@ -312,7 +312,7 @@ export function WorkOrderDetailPage() {
             <div><dt>Estado actual</dt><dd>{workOrderStatusLabels[workOrder.status]}</dd></div>
             <div><dt>Solicitud de origen</dt><dd>{workOrder.requestCode}</dd></div>
             {getWorkOrderAssetDisplayCode(workOrder) && (
-              <div><dt>Bien asociado</dt><dd>{getWorkOrderAssetDisplayCode(workOrder)}</dd></div>
+              <div><dt>Bien asociado</dt><dd>{workOrder.assetId ? <Link className="detail-link" to={`/bienes/${workOrder.assetId}`}>{getWorkOrderAssetDisplayCode(workOrder)}</Link> : getWorkOrderAssetDisplayCode(workOrder)}</dd></div>
             )}
           </dl>
         </article>

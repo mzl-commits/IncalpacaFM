@@ -25,10 +25,13 @@ import {
 } from "@/modules/workorders/workOrderModel";
 
 import { createWorkOrder } from "@/modules/workorders/workOrderRepository";
+import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 
 interface WorkOrderFormState {
   operatorId: string;
   operatorName: string;
+  technicianWorkerCode: string;
+  supportingWorkerCodes: string[];
 
   supervisorId: string;
   supervisorName: string;
@@ -36,6 +39,7 @@ interface WorkOrderFormState {
   specialty: Specialty | "";
   adminPriority: AdminPriority;
   scheduledDate: string;
+  scheduledStartTime: string;
   plannedHours: number;
   administratorNotes: string;
 }
@@ -69,6 +73,8 @@ const supervisors = [
 const initialForm: WorkOrderFormState = {
   operatorId: "",
   operatorName: "",
+  technicianWorkerCode: "",
+  supportingWorkerCodes: [],
 
   supervisorId: "",
   supervisorName: "",
@@ -76,6 +82,7 @@ const initialForm: WorkOrderFormState = {
   specialty: "",
   adminPriority: "MEDIA",
   scheduledDate: "",
+  scheduledStartTime: "08:00",
   plannedHours: 2,
   administratorNotes: "",
 };
@@ -85,8 +92,10 @@ export function WorkOrderCreatePage() {
   const navigate = useNavigate();
 
   const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   useEffect(() => {
     if (requestId) void getWorkRequestById(requestId).then(setRequest);
+    void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
   }, [requestId]);
 
   const [form, setForm] =
@@ -139,6 +148,9 @@ export function WorkOrderCreatePage() {
       status: "PROGRAMADA",
 
       scheduledDate: form.scheduledDate,
+      scheduledStartTime: form.scheduledStartTime,
+      technicianWorkerCode: form.technicianWorkerCode,
+      technicianWorkerCodes: form.supportingWorkerCodes,
       plannedHours: form.plannedHours,
       administratorNotes:
         form.administratorNotes.trim(),
@@ -290,7 +302,7 @@ export function WorkOrderCreatePage() {
                 value={form.operatorId}
                 onChange={(event) => {
                   const operator =
-                    operators.find(
+                    technicians.find(
                       (item) =>
                         item.id ===
                         event.target.value,
@@ -303,23 +315,32 @@ export function WorkOrderCreatePage() {
 
                   updateField(
                     "operatorName",
-                    operator?.name ?? "",
+                    operator?.full_name ?? "",
                   );
+                  updateField("technicianWorkerCode", operator?.worker_code ?? "");
                 }}
               >
                 <option value="">
                   Seleccionar operario
                 </option>
 
-                {operators.map((operator) => (
+                {technicians.map((operator) => (
                   <option
                     key={operator.id}
                     value={operator.id}
                   >
-                    {operator.name}
+                    {operator.full_name} · {operator.specialty || "Sin especialidad"}
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label className="field">
+              <span>Técnicos de apoyo</span>
+              <select multiple value={form.supportingWorkerCodes} onChange={(event) => updateField("supportingWorkerCodes", Array.from(event.target.selectedOptions).map((option) => option.value))}>
+                {technicians.filter((person) => person.worker_code !== form.technicianWorkerCode).map((person) => <option key={person.id} value={person.worker_code}>{person.full_name} · {person.specialty || "Sin especialidad"}</option>)}
+              </select>
+              <small>Opcional. Usa Ctrl o Cmd para seleccionar varios técnicos.</small>
             </label>
 
             <label className="field">
@@ -465,6 +486,12 @@ export function WorkOrderCreatePage() {
                 onChange={(event) => updateField("plannedHours", Number(event.target.value))}
               />
               <small>Se considera en la carga semanal del técnico.</small>
+            </label>
+
+            <label className="field">
+              <span>Hora de inicio *</span>
+              <input type="time" value={form.scheduledStartTime} onChange={(event) => updateField("scheduledStartTime", event.target.value)} />
+              <small>Se muestra en el cronograma de cada técnico asignado.</small>
             </label>
 
             <label className="field field-wide">
