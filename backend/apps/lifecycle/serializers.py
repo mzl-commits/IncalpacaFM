@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.audit.services import record_audit
+from apps.notifications.services import queue_for_administrators
 
 from .models import RetirementRequest, TechnicalDiagnosis
 
@@ -87,6 +88,16 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
                 entity_id=instance.id,
                 after={"code": instance.code, "status": instance.status},
             )
+        queue_for_administrators(
+            event='RETIREMENT_REQUEST_CREATED',
+            subject=f'Solicitud de baja {instance.code}',
+            body=(
+                f'Se registró una solicitud de baja para el bien '
+                f'{instance.asset.fm_code or instance.asset.code}.'
+            ),
+            entity=instance,
+            discriminator=instance.status,
+        )
         return instance
 
     @transaction.atomic
@@ -113,5 +124,16 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
                 entity_id=instance.id,
                 before=before,
                 after={"status": instance.status, "approved_method": instance.approved_method},
+            )
+        if instance.status == RetirementRequest.Status.PENDING_DISPOSAL:
+            queue_for_administrators(
+                event='RETIREMENT_APPROVED',
+                subject=f'Baja aprobada {instance.code}',
+                body=(
+                    f'La baja del bien {instance.asset.fm_code or instance.asset.code} '
+                    'fue aprobada y requiere completar su disposición final.'
+                ),
+                entity=instance,
+                discriminator=instance.status,
             )
         return instance

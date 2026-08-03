@@ -5,12 +5,22 @@ from rest_framework.test import APIClient
 from apps.accounts.models import AccountProfile
 from apps.assets.models import Asset, Location
 from apps.incidents.models import Incident
+from apps.notifications.models import Notification
 
 
 class IncidentLocationReportingTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="reporter", first_name="Ana", last_name="Ríos")
         AccountProfile.objects.create(user=self.user, worker_code="REPORTER-01", role=AccountProfile.Role.REQUESTER, must_change_password=False)
+        planner = get_user_model().objects.create_user(
+            username='planner-incidents', email='planner@incalpaca.test'
+        )
+        AccountProfile.objects.create(
+            user=planner,
+            worker_code='PLANNER-INCIDENTS',
+            role=AccountProfile.Role.ADMIN,
+            must_change_password=False,
+        )
         self.location = Location.objects.create(zone="Zona Industrial", building="Edificio Administrativo", area="Facility Management", room="Oficina FM", location_code="AMB-FM")
         self.client = APIClient()
         self.client.force_authenticate(self.user)
@@ -33,6 +43,7 @@ class IncidentLocationReportingTests(TestCase):
         self.assertEqual(response.json()["locationId"], str(self.location.id))
         self.assertEqual(response.json()["room"], "Oficina FM")
         self.assertEqual(response.json()["status"], "PENDIENTE")
+        self.assertEqual(Notification.objects.filter(event='INCIDENT_CREATED').count(), 1)
 
     def test_rejects_unknown_location(self):
         response = self.client.post("/api/v1/incidents/", {
