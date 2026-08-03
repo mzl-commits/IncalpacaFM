@@ -3,6 +3,7 @@
   ArrowRight,
   Barcode,
   Bell,
+  CalendarBlank,
   CaretDown,
   ChartBar,
   ClipboardText,
@@ -47,6 +48,14 @@ const groups: Array<{
   items: NavItem[];
   roles?: UserRole[];
 }> = [
+  {
+    id: "technician",
+    label: "Mi jornada",
+    icon: CalendarBlank,
+    paths: ["/mi-jornada"],
+    roles: ["TECNICO"],
+    items: [{ to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank, end: true }],
+  },
   {
     id: "assets",
     label: "Bienes",
@@ -114,6 +123,11 @@ const groups: Array<{
         icon: Barcode,
       },
       {
+        to: "/administracion/tecnicos",
+        label: "Técnicos",
+        icon: Wrench,
+      },
+      {
         to: "/administracion/mapas-ambientes",
         label: "Mapas de ambientes",
         icon: MapTrifold,
@@ -160,6 +174,7 @@ function isGroupActive(pathname: string, paths: string[]) {
 
 function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Panel ejecutivo", "Inicio"];
+  if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
   if (pathname.startsWith("/mapa")) return ["Mapa", "Activos por ubicación"];
   if (pathname.startsWith("/bienes/entradas")) return ["Bienes", "Entradas"];
@@ -171,6 +186,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
+  if (pathname.startsWith("/administracion/tecnicos")) return ["Administración", "Técnicos"];
   if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
   if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
   if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];
@@ -205,7 +221,7 @@ export function AppShell() {
     ? roleGroups.filter((group) => group.id === "supervision")
     : technicianMode
       ? roleGroups
-          .filter((group) => group.id === "assets" || group.id === "operations")
+          .filter((group) => group.id === "technician" || group.id === "assets" || group.id === "operations")
           .map((group) => ({
             ...group,
             items: group.items.filter(
@@ -466,10 +482,10 @@ export function AppShell() {
             )}
             {!supervisorMode && (
             <NavLink
-              to="/#dashboard-priorities-title"
+              to="/notificaciones"
               className="icon-button"
-              aria-label="Ver prioridades del panel"
-              title="Ver prioridades"
+              aria-label="Ver notificaciones"
+              title="Ver notificaciones"
             >
               <Bell size={20} />
             </NavLink>

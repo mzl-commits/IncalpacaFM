@@ -12,6 +12,8 @@ import { FacilityMapPage } from "@/modules/taxonomy/pages/FacilityMapPage";
 import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPage";
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
+import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
+import { TechnicianSchedulePage } from "@/modules/workorders/pages/TechnicianSchedulePage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
 import { SupervisorWorkOrderReviewPage } from "@/modules/workorders/pages/SupervisorWorkOrderReviewPage";
 
@@ -29,10 +31,7 @@ function SupervisorWorkOrderReviewRoute() {
   return <SupervisorWorkOrderReviewPage />;
 }
 
-const modules = [
-  ["mantenimiento", "Mantenimiento"],
-  ["notificaciones", "Notificaciones"],
-] as const;
+const modules = [["mantenimiento", "Mantenimiento"]] as const;
 
 export const router = createBrowserRouter([
   {
@@ -82,6 +81,14 @@ export const router = createBrowserRouter([
       {
         index: true,
         lazy: lazyRoute(() => import("@/modules/dashboard/pages/DashboardPage"), "DashboardPage"),
+      },
+      {
+        path: "mi-jornada",
+        element: (
+          <RoleRoute allowedRoles={["TECNICO"]}>
+            <TechnicianSchedulePage />
+          </RoleRoute>
+        ),
       },
       {
         path: "bienes",
@@ -249,6 +256,13 @@ export const router = createBrowserRouter([
         lazy: lazyRoute(() => import("@/modules/reports/pages/ReportsPage"), "ReportsPage"),
       },
       {
+        path: "notificaciones",
+        lazy: lazyRoute(
+          () => import("@/modules/notifications/pages/NotificationsPage"),
+          "NotificationsPage",
+        ),
+      },
+      {
         path: "documentos",
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
@@ -271,6 +285,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
             <TaxonomyCatalogPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "administracion/tecnicos",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <TechnicianManagementPage />
           </RoleRoute>
         ),
       },

@@ -1,12 +1,17 @@
 
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import permissions, response, serializers, status, views
+from rest_framework import generics, permissions, response, serializers, status, views
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from .models import AccountProfile
+from .permissions import IsAdministrator
 from .serializers import (
     ChangePasswordSerializer,
     CurrentUserSerializer,
     LoginSerializer,
+    TechnicianSerializer,
 )
 
 
@@ -58,4 +63,26 @@ class ChangePasswordView(views.APIView):
         )
 
 
-__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView"]
+class TechnicianListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = TechnicianSerializer
+    queryset = get_user_model().objects.select_related('account_profile').filter(
+        account_profile__role=AccountProfile.Role.TECHNICIAN
+    ).order_by('first_name', 'last_name', 'username')
+
+
+class TechnicianDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = TechnicianSerializer
+    queryset = get_user_model().objects.select_related('account_profile').filter(
+        account_profile__role=AccountProfile.Role.TECHNICIAN
+    )
+
+    def get_object(self):
+        return get_object_or_404(self.get_queryset(), account_profile__id=self.kwargs['pk'])
+
+
+__all__ = [
+    "LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView",
+    "TechnicianListCreateView", "TechnicianDetailView",
+]

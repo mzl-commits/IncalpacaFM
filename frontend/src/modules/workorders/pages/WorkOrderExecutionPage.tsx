@@ -51,6 +51,8 @@ export function WorkOrderExecutionPage() {
   const [observation, setObservation] =
     useState("");
 
+  const [workedMinutes, setWorkedMinutes] = useState(60);
+
   const [evidenceNames, setEvidenceNames] =
     useState<string[]>([]);
 
@@ -120,6 +122,11 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
+    if (workedMinutes < 1 || workedMinutes > 720) {
+      setError("Registra entre 1 y 720 minutos trabajados.");
+      return;
+    }
+
     const updated =
       await registerWorkOrderProgress(
         workOrder.id,
@@ -127,6 +134,7 @@ export function WorkOrderExecutionPage() {
           operatorId: currentUser.id,
           operatorName: currentUser.fullName,
           percentage,
+          workedMinutes,
           observation,
           evidenceNames,
         },
@@ -141,6 +149,7 @@ export function WorkOrderExecutionPage() {
 
     setWorkOrder(updated);
     setObservation("");
+    setWorkedMinutes(60);
     setEvidenceNames([]);
     setError("");
 
@@ -345,6 +354,20 @@ export function WorkOrderExecutionPage() {
                     }{" "}
                     %
                   </small>
+                </label>
+
+                <label className="field">
+                  <span>Tiempo trabajado (minutos)</span>
+
+                  <input
+                    type="number"
+                    min={1}
+                    max={720}
+                    value={workedMinutes}
+                    onChange={(event) => setWorkedMinutes(Number(event.target.value))}
+                  />
+
+                  <small>Se acumula en tu hoja semanal.</small>
                 </label>
 
                 <label className="field field-wide">
