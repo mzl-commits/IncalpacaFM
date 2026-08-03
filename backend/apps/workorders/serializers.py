@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import AccountProfile
 from apps.audit.services import record_audit
@@ -153,6 +154,30 @@ class WorkOrderActionSerializer(serializers.Serializer):
         action = self.validated_data["action"]
         now = timezone.now()
         before = {"status": order.status, "progress": order.progress_percentage}
+
+        role = getattr(request.user.account_profile, 'role', None)
+        technical_actions = {'START', 'PROGRESS', 'DIAGNOSIS'}
+        if role == AccountProfile.Role.TECHNICIAN:
+            if order.technician_id != request.user.id:
+                raise PermissionDenied('Solo el tecnico asignado puede actualizar esta orden.')
+            if action not in technical_actions:
+                raise PermissionDenied('Esta accion corresponde a la validacion administrativa.')
+
+        expected_statuses = {
+            'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.RETURNED},
+            'PROGRESS': {WorkOrder.Status.IN_PROGRESS},
+            'SUPERVISOR_APPROVE': {WorkOrder.Status.SUPERVISION},
+            'SUPERVISOR_RETURN': {WorkOrder.Status.SUPERVISION},
+            'ADMIN_APPROVE': {WorkOrder.Status.ADMIN_REVIEW},
+            'ADMIN_RETURN': {WorkOrder.Status.ADMIN_REVIEW},
+            'CONFORM': {WorkOrder.Status.CONFORMITY},
+            'REOPEN': {WorkOrder.Status.CONFORMITY},
+        }
+        allowed_statuses = expected_statuses.get(action)
+        if allowed_statuses and order.status not in allowed_statuses:
+            raise serializers.ValidationError({
+                'action': 'La accion no corresponde al estado actual de la orden.'
+            })
 
         if action == "START":
             order.status = WorkOrder.Status.IN_PROGRESS

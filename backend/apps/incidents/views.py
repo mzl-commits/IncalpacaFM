@@ -1,11 +1,64 @@
 
-from rest_framework import generics
+from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAuthenticatedReadAdministratorWrite, user_role
+from apps.assets.models import Asset
+from apps.audit.services import record_audit
 
 from .models import Incident
-from .serializers import IncidentSerializer
+from .serializers import IncidentSerializer, PublicIncidentSerializer
+
+
+class PublicIncidentCreateView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = 'public_report'
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    def get(self, request, token):
+        asset = get_object_or_404(
+            Asset.objects.select_related('location'), public_token=token
+        )
+        return Response({
+            'displayCode': asset.fm_code or asset.code,
+            'name': asset.name,
+            'photoUrl': request.build_absolute_uri(
+                f'/api/v1/public/assets/{asset.public_token}/photo/'
+            ) if asset.photo else None,
+            'generalLocation': (
+                f'{asset.location.building} Â· {asset.location.area}'
+                if asset.location else 'Por confirmar'
+            ),
+        })
+
+    @extend_schema(request=PublicIncidentSerializer, responses={201: OpenApiTypes.OBJECT})
+    def post(self, request, token):
+        asset = get_object_or_404(Asset, public_token=token)
+        serializer = PublicIncidentSerializer(
+            data=request.data, context={'asset': asset, 'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        incident = serializer.save()
+        record_audit(
+            request=request,
+            action='PUBLIC_INCIDENT_CREATED',
+            entity='Incident',
+            entity_id=incident.id,
+            after={
+                'code': incident.code,
+                'asset_id': str(asset.id),
+                'status': incident.status,
+            },
+        )
+        return Response(
+            {'id': str(incident.id), 'code': incident.code, 'status': 'RECIBIDA'},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class IncidentListCreateView(generics.ListCreateAPIView):

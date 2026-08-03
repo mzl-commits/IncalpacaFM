@@ -14,8 +14,10 @@ from .models import Asset, Location, LocationMap, Taxonomy
 
 class AssetSerializer(serializers.ModelSerializer):
     entry_type_label = serializers.CharField(source='get_entry_type_display', read_only=True)
+    photo = serializers.ImageField(write_only=True, required=False, allow_null=True)
     registered_by_name = serializers.SerializerMethodField()
     public_url = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
     display_code = serializers.SerializerMethodField()
     taxonomy_id = serializers.PrimaryKeyRelatedField(
         source='taxonomy', queryset=Taxonomy.objects.all(), required=False,
@@ -59,13 +61,14 @@ class AssetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Asset
         fields = ('id', 'code', 'fm_code', 'display_code', 'public_token', 'public_url',
+                  'photo', 'photo_url',
                   'entry_type', 'entry_type_label', 'name',
                   'description', 'brand', 'model', 'serial_number', 'condition', 'criticality', 'administrative_status',
                   'operational_status', 'assignment_status', 'taxonomy_id', 'taxonomy_detail',
                   'location_id', 'location_map_id', 'location_marker_x',
                   'location_marker_y', 'location_detail', 'registered_by_name',
                   'created_at', 'entry_payload')
-        read_only_fields = ('id', 'code', 'fm_code', 'display_code', 'public_token', 'public_url', 'administrative_status',
+        read_only_fields = ('id', 'code', 'fm_code', 'display_code', 'public_token', 'public_url', 'photo_url', 'administrative_status',
                             'operational_status', 'assignment_status', 'registered_by_name', 'created_at')
 
     def get_registered_by_name(self, obj) -> str:
@@ -76,6 +79,25 @@ class AssetSerializer(serializers.ModelSerializer):
         path = f'/q/{obj.public_token}'
         origin = request.headers.get('X-Frontend-Origin', 'http://localhost:5173') if request else 'http://localhost:5173'
         return f'{origin.rstrip("/")}{path}'
+
+    def get_photo_url(self, obj) -> str | None:
+        if not obj.photo:
+            return None
+        request = self.context.get('request')
+        path = f'/api/v1/public/assets/{obj.public_token}/photo/'
+        return request.build_absolute_uri(path) if request else path
+
+    def validate_photo(self, value):
+        if value.size > 8 * 1024 * 1024:
+            raise serializers.ValidationError('La fotografÃ­a no puede superar 8 MB.')
+        if value.image.format not in {'JPEG', 'PNG', 'WEBP'}:
+            raise serializers.ValidationError('Usa una imagen JPG, PNG o WEBP.')
+        width, height = value.image.size
+        if width < 320 or height < 240:
+            raise serializers.ValidationError('La fotografÃ­a debe tener al menos 320 Ã— 240 px.')
+        if width * height > 25_000_000:
+            raise serializers.ValidationError('La resoluciÃ³n de la fotografÃ­a es demasiado alta.')
+        return value
 
     def get_display_code(self, obj) -> str:
         return obj.fm_code or obj.code
@@ -285,11 +307,15 @@ class PublicAssetSerializer(serializers.ModelSerializer):
     classification = serializers.SerializerMethodField()
     general_location = serializers.SerializerMethodField()
     display_code = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
+    report_url = serializers.SerializerMethodField()
+    service_tracking = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
         fields = ('code', 'display_code', 'name', 'brand', 'model', 'condition', 'administrative_status',
-                  'operational_status', 'classification', 'general_location', 'updated_at')
+                  'operational_status', 'classification', 'general_location', 'photo_url',
+                  'report_url', 'service_tracking', 'updated_at')
 
     def get_code(self, obj) -> str:
         return obj.fm_code or obj.code
@@ -302,6 +328,93 @@ class PublicAssetSerializer(serializers.ModelSerializer):
 
     def get_general_location(self, obj) -> str:
         return 'Por confirmar' if not obj.location else f'{obj.location.building} · {obj.location.area}'
+
+
+    def get_photo_url(self, obj) -> str | None:
+        if not obj.photo:
+            return None
+        request = self.context.get('request')
+        path = f'/api/v1/public/assets/{obj.public_token}/photo/'
+        return request.build_absolute_uri(path) if request else path
+
+    def get_report_url(self, obj) -> str:
+        request = self.context.get('request')
+        origin = request.headers.get('X-Frontend-Origin', 'http://localhost:5173') if request else 'http://localhost:5173'
+        return f'{origin.rstrip("/")}/reportar/{obj.public_token}'
+
+    def get_service_tracking(self, obj) -> dict | None:
+        incident = (
+            obj.incidents.exclude(
+                status__in=['CERRADA', 'RECHAZADA'],
+            )
+            .select_related('work_order')
+            .order_by('-updated_at')
+            .first()
+        )
+        if not incident:
+            return None
+
+        order = getattr(incident, 'work_order', None)
+        if order and order.status == 'CANCELADA':
+            return None
+
+        work_status = order.status if order else ''
+        current_stage = 'received'
+        current_label = 'Recibimos tu reporte'
+        if incident.status == 'EN_REVISION':
+            current_stage, current_label = 'evaluation', 'Estamos revisando el reporte'
+        elif order:
+            work_state_labels = {
+                'PROGRAMADA': ('assigned', 'Un técnico fue asignado'),
+                'EN_PROCESO': ('repair', 'Estamos trabajando en el bien'),
+                'PENDIENTE_DE_SUPERVISION': ('review', 'El trabajo está en revisión'),
+                'PENDIENTE_DE_VALIDACION': ('review', 'El trabajo está en revisión'),
+                'PENDIENTE_DE_CONFORMIDAD': ('review', 'Esperamos la confirmación final'),
+                'DEVUELTA': ('repair', 'Se solicitó una corrección'),
+            }
+            current_stage, current_label = work_state_labels.get(
+                work_status,
+                ('assigned', 'La atención fue programada'),
+            )
+        elif incident.status == 'APROBADA':
+            current_stage, current_label = 'assigned', 'La atención fue aprobada'
+
+        stage_order = ['sent', 'received', 'evaluation', 'assigned', 'repair', 'review']
+        current_index = stage_order.index(current_stage)
+        labels = {
+            'sent': 'Reporte enviado',
+            'received': 'Reporte recibido',
+            'evaluation': 'Revisión inicial',
+            'assigned': 'Técnico asignado',
+            'repair': 'Trabajo en curso',
+            'review': 'Revisión final',
+        }
+        steps = []
+        for index, stage in enumerate(stage_order):
+            state = 'complete' if index < current_index else 'current' if index == current_index else 'pending'
+            timestamp = None
+            if stage == 'sent' or (stage == 'received' and index <= current_index):
+                timestamp = incident.created_at.isoformat()
+            elif stage == 'repair' and order and order.started_at and index <= current_index:
+                timestamp = order.started_at.isoformat()
+            elif stage == 'review' and order and order.finished_at and index <= current_index:
+                timestamp = order.finished_at.isoformat()
+            elif stage in {'evaluation', 'assigned'} and index <= current_index:
+                timestamp = incident.updated_at.isoformat()
+            steps.append({
+                'id': stage,
+                'label': labels[stage],
+                'state': state,
+                'at': timestamp,
+            })
+
+        return {
+            'case_code': incident.code,
+            'current_stage': current_stage,
+            'current_label': current_label,
+            'updated_at': (order.updated_at if order else incident.updated_at).isoformat(),
+            'steps': steps,
+        }
 
 
 class AssetDetailSerializer(AssetSerializer):

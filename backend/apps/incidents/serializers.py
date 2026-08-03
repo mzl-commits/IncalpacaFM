@@ -1,17 +1,74 @@
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.accounts.models import AccountProfile
 from apps.assets.models import Location, LocationMap
 from apps.audit.services import record_audit
 
 from .models import Incident
 
 
+class PublicIncidentSerializer(serializers.Serializer):
+    reporterName = serializers.CharField(max_length=160)
+    reporterEmail = serializers.EmailField(required=False, allow_blank=True)
+    requestType = serializers.CharField(max_length=40)
+    description = serializers.CharField(min_length=10, max_length=3000)
+    requesterPriority = serializers.ChoiceField(
+        choices=('BAJA', 'MEDIA', 'ALTA'), default='MEDIA'
+    )
+
+    @transaction.atomic
+    def create(self, validated_data):
+        asset = self.context['asset']
+        user_model = get_user_model()
+        reporter, created = user_model.objects.get_or_create(
+            username='public.reporter',
+            defaults={
+                'first_name': 'Reporte',
+                'last_name': 'pÃºblico',
+                'email': '',
+                'is_active': True,
+            },
+        )
+        if created:
+            reporter.set_unusable_password()
+            reporter.save(update_fields=['password'])
+        AccountProfile.objects.get_or_create(
+            user=reporter,
+            defaults={
+                'worker_code': 'PUBLIC-REPORTER',
+                'role': AccountProfile.Role.REQUESTER,
+                'must_change_password': False,
+            },
+        )
+        sequence = Incident.objects.select_for_update().count() + 1
+        location = asset.location
+        return Incident.objects.create(
+            code=f'SOL-{timezone.localdate().year}-{sequence:04d}',
+            asset=asset,
+            requester=reporter,
+            reporter_name=validated_data['reporterName'],
+            reporter_email=validated_data.get('reporterEmail', ''),
+            public_submission=True,
+            request_type=validated_data['requestType'],
+            description=validated_data['description'],
+            requester_priority=validated_data['requesterPriority'],
+            location_snapshot={
+                'locationId': str(location.id) if location else '',
+                'zone': location.zone if location else '',
+                'building': location.building if location else '',
+                'area': location.area if location else '',
+                'room': location.room if location else '',
+            },
+        )
+
+
 class IncidentSerializer(serializers.ModelSerializer):
     requesterId = serializers.CharField(source="requester.account_profile.id", read_only=True)
     requesterName = serializers.SerializerMethodField()
-    requesterEmail = serializers.EmailField(source="requester.email", read_only=True)
+    requesterEmail = serializers.SerializerMethodField()
     locationId = serializers.SerializerMethodField()
     zone = serializers.SerializerMethodField()
     building = serializers.SerializerMethodField()
@@ -66,7 +123,14 @@ class IncidentSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "code", "requesterId", "requesterName", "requesterEmail")
 
     def get_requesterName(self, obj) -> str:
+        if obj.public_submission and obj.reporter_name:
+            return obj.reporter_name
         return obj.requester.get_full_name() or obj.requester.username
+
+    def get_requesterEmail(self, obj) -> str:
+        if obj.public_submission and obj.reporter_email:
+            return obj.reporter_email
+        return obj.requester.email
 
     def get_assetCode(self, obj) -> str | None:
         return obj.asset.code if obj.asset else None

@@ -8,7 +8,11 @@ from django.core.validators import MaxValueValidator, MinValueValidator, RegexVa
 from django.db import models
 from django.db.models import Q
 
-from .storage import private_facility_plan_storage, private_location_map_storage
+from .storage import (
+    private_asset_photo_storage,
+    private_facility_plan_storage,
+    private_location_map_storage,
+)
 
 
 def generate_public_token():
@@ -204,6 +208,12 @@ class Asset(UUIDModel):
     entry_type = models.CharField(max_length=20, choices=EntryType.choices)
     name = models.CharField(max_length=180)
     description = models.TextField()
+    photo = models.ImageField(
+        upload_to='asset_photos/',
+        storage=private_asset_photo_storage,
+        null=True,
+        blank=True,
+    )
     brand = models.CharField(max_length=100, blank=True)
     model = models.CharField(max_length=100, blank=True)
     serial_number = models.CharField(max_length=120, blank=True, null=True, unique=True)

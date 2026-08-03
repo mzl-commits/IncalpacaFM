@@ -3,7 +3,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AccountProfile
-from apps.assets.models import Location
+from apps.assets.models import Asset, Location
 from apps.incidents.models import Incident
 
 
@@ -70,3 +70,60 @@ class IncidentLocationReportingTests(TestCase):
         self.assertIsNone(response.json()[0]["locationMapId"])
         self.assertIsNone(response.json()[0]["locationMarkerX"])
         self.assertIsNone(response.json()[0]["locationMarkerY"])
+
+
+class PublicIncidentReportingTests(TestCase):
+    def setUp(self):
+        owner = get_user_model().objects.create_user(username='asset-owner')
+        self.location = Location.objects.create(
+            zone='Zona Industrial', building='AdministraciÃ³n',
+            area='Facility Management', room='Oficina FM',
+        )
+        self.asset = Asset.objects.create(
+            code='INC-BIEN-2026-009999',
+            entry_type='purchase', name='Equipo pÃºblico',
+            description='Bien disponible mediante QR.', condition='Bueno',
+            location=self.location, registered_by=owner,
+        )
+        self.client = APIClient()
+
+    def test_anonymous_user_can_report_from_asset_qr(self):
+        context = self.client.get(
+            f'/api/v1/public/assets/{self.asset.public_token}/report/'
+        )
+        self.assertEqual(context.status_code, 200)
+        self.assertEqual(context.json()['displayCode'], self.asset.code)
+
+        response = self.client.post(
+            f'/api/v1/public/assets/{self.asset.public_token}/report/',
+            {
+                'reporterName': 'Visitante de planta',
+                'reporterEmail': 'visitante@example.com',
+                'requestType': 'FALLA',
+                'requesterPriority': 'ALTA',
+                'description': 'El equipo emite un ruido inusual al encender.',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        incident = Incident.objects.get(pk=response.json()['id'])
+        self.assertEqual(incident.asset, self.asset)
+        self.assertTrue(incident.public_submission)
+        self.assertEqual(incident.reporter_name, 'Visitante de planta')
+        self.assertEqual(incident.location_snapshot['room'], 'Oficina FM')
+
+        tracking = self.client.get(
+            f'/api/v1/public/assets/{self.asset.public_token}/'
+        )
+        self.assertEqual(tracking.status_code, 200)
+        self.assertEqual(
+            tracking.json()['service_tracking']['current_stage'],
+            'received',
+        )
+
+        incident.status = Incident.Status.CLOSED
+        incident.save(update_fields=['status', 'updated_at'])
+        completed = self.client.get(
+            f'/api/v1/public/assets/{self.asset.public_token}/'
+        )
+        self.assertIsNone(completed.json()['service_tracking'])

@@ -49,7 +49,16 @@ type AssetApiRecord = {
     specific_location: string;
     marker: { map_id: string; map_version: number; x: string; y: string } | null;
   } | null;
+  photo_url?: string | null;
 };
+
+function dataUrlToFile(dataUrl: string, name: string, mimeType: string) {
+  const [metadata, encoded] = dataUrl.split(",", 2);
+  const bytes = metadata.includes(";base64")
+    ? Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0))
+    : new TextEncoder().encode(decodeURIComponent(encoded));
+  return new File([bytes], name, { type: mimeType });
+}
 
 function mapAsset(item: AssetApiRecord): RegisteredAsset {
   return {
@@ -145,28 +154,61 @@ export async function getPublicAsset(token: string) {
     operational_status: string;
     classification: string;
     general_location: string;
+    photo_url: string | null;
+    report_url: string;
+    service_tracking: {
+      current_stage: string;
+      current_label: string;
+      updated_at: string;
+      steps: Array<{
+        id: string;
+        label: string;
+        state: "complete" | "current" | "pending";
+        at: string | null;
+      }>;
+    } | null;
     updated_at: string;
   };
 }
 
 export async function registerAsset(draft: AssetEntryDraft): Promise<RegisteredAsset> {
+  const officialPhoto = draft.evidence.find(
+    (item) => item.category === "photo" && item.dataUrl,
+  );
+  const form = new FormData();
+  form.append("entry_type", draft.entryType);
+  form.append("name", draft.name);
+  form.append("description", draft.description);
+  form.append("brand", draft.brand);
+  form.append("model", draft.model);
+  if (draft.serialNumber) form.append("serial_number", draft.serialNumber);
+  form.append("condition", draft.condition);
+  if (!draft.classificationPending && draft.taxonomyId) form.append("taxonomy_id", draft.taxonomyId);
+  if (!draft.locationPending && draft.locationId) form.append("location_id", draft.locationId);
+  if (!draft.locationPending && draft.locationMapId) form.append("location_map_id", draft.locationMapId);
+  if (!draft.locationPending && draft.locationMarkerX !== null) {
+    form.append("location_marker_x", String(draft.locationMarkerX));
+    form.append("location_marker_y", String(draft.locationMarkerY));
+  }
+  const entryPayload = {
+    ...draft,
+    evidence: draft.evidence.map((item) => {
+      if (item.category !== "photo") return item;
+      const metadata: typeof item = { ...item };
+      delete metadata.dataUrl;
+      return metadata;
+    }),
+  };
+  form.append("entry_payload", JSON.stringify(entryPayload));
+  if (officialPhoto?.dataUrl) {
+    form.append(
+      "photo",
+      dataUrlToFile(officialPhoto.dataUrl, officialPhoto.name, officialPhoto.mimeType),
+    );
+  }
   const { data } = await api.post<AssetApiRecord>(
     "/assets/",
-    {
-      entry_type: draft.entryType,
-      name: draft.name,
-      description: draft.description,
-      brand: draft.brand,
-      model: draft.model,
-      serial_number: draft.serialNumber || null,
-      condition: draft.condition,
-      taxonomy_id: draft.classificationPending ? null : draft.taxonomyId,
-      location_id: draft.locationPending ? null : draft.locationId || null,
-      location_map_id: draft.locationPending ? null : draft.locationMapId || null,
-      location_marker_x: draft.locationPending ? null : draft.locationMarkerX,
-      location_marker_y: draft.locationPending ? null : draft.locationMarkerY,
-      entry_payload: draft,
-    },
+    form,
     { headers: { "X-Frontend-Origin": window.location.origin } },
   );
   const registered = mapAsset(data);

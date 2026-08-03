@@ -31,3 +31,11 @@ class PrivateLocationMapStorage(PrivateFacilityPlanStorage):
 
 
 private_location_map_storage = PrivateLocationMapStorage()
+
+
+@deconstructible
+class PrivateAssetPhotoStorage(PrivateFacilityPlanStorage):
+    """Private storage for the official photograph of an asset."""
+
+
+private_asset_photo_storage = PrivateAssetPhotoStorage()
