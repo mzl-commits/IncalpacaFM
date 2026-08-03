@@ -15,7 +15,7 @@ from apps.accounts.permissions import IsAuthenticatedReadAdministratorWrite, use
 from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
-from apps.workorders.models import WorkOrder
+from apps.workorders.models import TechnicianSatisfaction, WorkOrder
 
 from .models import Incident
 from .serializers import (
@@ -225,5 +225,40 @@ class PublicIncidentConformityView(APIView):
             order.status = WorkOrder.Status.RETURNED
             order.closed_at = None
         order.save(update_fields=("conformity", "status", "closed_at", "updated_at"))
+        TechnicianSatisfaction.objects.update_or_create(
+            work_order=order,
+            defaults={
+                "technician": order.technician,
+                "accepted": accepted,
+                "rating": rating if accepted else None,
+                "comment": comment,
+            },
+        )
+        if accepted:
+            queue_for_administrators(
+                event='SERVICE_SATISFACTION_RECEIVED',
+                subject=f'Satisfacción registrada · {incident.code}',
+                body=(
+                    f'El solicitante confirmó la atención {incident.code} '
+                    f'con una calificación de {rating or "sin calificación"}/5.'
+                ),
+                entity=incident,
+                discriminator='accepted',
+            )
+            queue_incident_requester(
+                event='SERVICE_SATISFACTION_THANK_YOU',
+                incident=incident,
+                subject=f'Gracias por tu evaluación · {incident.code}',
+                body='Tu confirmación y evaluación fueron registradas. Gracias por ayudarnos a mejorar el servicio.',
+                discriminator='accepted-thank-you',
+            )
+        else:
+            queue_for_administrators(
+                event='SERVICE_RETURNED_BY_REQUESTER',
+                subject=f'Revisión solicitada por el usuario · {incident.code}',
+                body=f'El solicitante indicó que la atención {incident.code} requiere una nueva revisión. {comment}',
+                entity=incident,
+                discriminator='returned',
+            )
 
         return Response(PublicIncidentTrackingSerializer(incident).data)
