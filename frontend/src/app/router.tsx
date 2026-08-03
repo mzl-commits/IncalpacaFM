@@ -42,6 +42,13 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/reportar/:token",
+    lazy: lazyRoute(
+      () => import("@/modules/incidents/pages/PublicIncidentCreatePage"),
+      "PublicIncidentCreatePage",
+    ),
+  },
+  {
     path: "/seguimiento-solicitud",
     lazy: lazyRoute(
       () => import("@/modules/incidents/pages/RequestTrackingPage"),
@@ -54,7 +61,8 @@ export const router = createBrowserRouter([
       () => import("@/modules/incidents/pages/RequestTrackingPage"),
       "RequestTrackingPage",
     ),
-  },  {
+  },
+  {
     path: "/login",
     lazy: lazyRoute(() => import("@/modules/accounts/pages/LoginPage"), "LoginPage"),
   },

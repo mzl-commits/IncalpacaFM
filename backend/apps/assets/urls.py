@@ -16,6 +16,7 @@ from .views import (
     AssetClassificationView,
     AssetDetailView,
     AssetListCreateView,
+    PublicAssetPhotoView,
     PublicAssetView,
 )
 
@@ -64,4 +65,5 @@ urlpatterns = [
         name='asset-classify',
     ),
     path('public/assets/<str:token>/', PublicAssetView.as_view(), name='public-asset'),
+    path('public/assets/<str:token>/photo/', PublicAssetPhotoView.as_view(), name='public-asset-photo'),
 ]

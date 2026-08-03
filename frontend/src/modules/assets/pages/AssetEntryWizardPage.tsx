@@ -136,9 +136,45 @@ export function AssetEntryWizardPage() {
 
   const addFiles = async (event: ChangeEvent<HTMLInputElement>, category: EvidenceItem["category"]) => {
     const files = Array.from(event.target.files ?? []);
-    const accepted = files.filter((file) => file.size <= 5 * 1024 * 1024);
+    const maxSize = category === "photo" ? 8 * 1024 * 1024 : 5 * 1024 * 1024;
+    const accepted = files.filter((file) =>
+      file.size <= maxSize && (
+        category !== "photo" || ["image/jpeg", "image/png", "image/webp"].includes(file.type)
+      ),
+    );
+    if (files.length && !accepted.length) {
+      setErrors((current) => ({
+        ...current,
+        [category === "photo" ? "photo" : category]: category === "photo"
+          ? "Usa una imagen JPG, PNG o WEBP de hasta 8 MB."
+          : "El archivo supera el mÃ¡ximo permitido de 5 MB.",
+      }));
+      event.target.value = "";
+      return;
+    }
+    if (category === "photo" && accepted[0]) {
+      try {
+        const bitmap = await createImageBitmap(accepted[0]);
+        const validDimensions = bitmap.width >= 320 && bitmap.height >= 240;
+        bitmap.close();
+        if (!validDimensions) {
+          setErrors((current) => ({ ...current, photo: "La fotografÃ­a debe tener al menos 320 Ã— 240 px." }));
+          event.target.value = "";
+          return;
+        }
+      } catch {
+        setErrors((current) => ({ ...current, photo: "No se pudo leer la imagen. Selecciona otro archivo." }));
+        event.target.value = "";
+        return;
+      }
+    }
     const evidence = await Promise.all(accepted.map((file) => fileToEvidence(file, category)));
-    setField("evidence", [...draft.evidence, ...evidence]);
+    setField(
+      "evidence",
+      category === "photo"
+        ? [...draft.evidence.filter((item) => item.category !== "photo"), ...evidence.slice(0, 1)]
+        : [...draft.evidence, ...evidence],
+    );
     event.target.value = "";
   };
 
@@ -295,9 +331,10 @@ export function AssetEntryWizardPage() {
 
   const upload = (category: EvidenceItem["category"], title: string, error?: string) => (
     <div className={`upload-block ${error ? "has-error" : ""}`}>
-      <div><FileArrowUp size={23} /><span><strong>{title}</strong><small>PDF, JPG o PNG · máximo 5 MB</small></span></div>
-      <label className="button button-secondary">Seleccionar archivo<input type="file" accept=".pdf,image/*" multiple onChange={(e) => addFiles(e, category)} /></label>
+      <div><FileArrowUp size={23} /><span><strong>{title}</strong><small>{category === "photo" ? "JPG, PNG o WEBP · mínimo 320 × 240 px · máximo 8 MB" : "PDF, JPG o PNG · máximo 5 MB"}</small></span></div>
+      <label className="button button-secondary">{category === "photo" && evidenceByCategory.photo.length ? "Reemplazar fotografía" : "Seleccionar archivo"}<input type="file" accept={category === "photo" ? "image/jpeg,image/png,image/webp" : ".pdf,image/*"} multiple={category !== "photo"} onChange={(e) => addFiles(e, category)} /></label>
       {error && <small className="field-error"><WarningCircle size={15} />{error}</small>}
+      {category === "photo" && evidenceByCategory.photo[0]?.dataUrl && <div className="official-photo-preview"><img src={evidenceByCategory.photo[0].dataUrl} alt="Vista previa del bien" /><span>Esta fotografÃ­a identificarÃ¡ el bien en su ficha QR pÃºblica.</span></div>}
       {evidenceByCategory[category].map((file) => <div className="file-row" key={file.id}>
         <span><ClipboardText size={18} />{file.name}<small>{(file.size / 1024).toFixed(0)} KB</small></span>
         <button type="button" aria-label={`Eliminar ${file.name}`} onClick={() => setField("evidence", draft.evidence.filter((item) => item.id !== file.id))}><Trash size={17} /></button>
@@ -327,7 +364,7 @@ export function AssetEntryWizardPage() {
       <Field label="Año de fabricación" error={errors.manufactureYear}><input type="number" value={draft.manufactureYear} onChange={(e) => setField("manufactureYear", e.target.value)} /></Field>
       <Field label="Condición de ingreso"><select value={draft.condition} onChange={(e) => setField("condition", e.target.value as AssetEntryDraft["condition"])}>{CONDITIONS.map((x) => <option key={x}>{x}</option>)}</select></Field>
       <Field label="Observaciones" wide><textarea value={draft.observations} onChange={(e) => setField("observations", e.target.value)} rows={3} /></Field>
-      <div className="field-wide">{upload("photo", "Fotografías del bien", errors.photo)}</div>
+      <div className="field-wide">{upload("photo", "Fotografía oficial del bien", errors.photo)}</div>
     </div>;
     if (draft.currentStep === 2) return <div className="section-gap">
       <label className="switch-row"><input type="checkbox" checked={draft.classificationPending} onChange={(e) => toggleClassificationPending(e.target.checked)} /><span><strong>Clasificación por confirmar</strong><small>Úsalo solo cuando se requiera una validación técnica posterior.</small></span></label>
@@ -374,7 +411,7 @@ export function AssetEntryWizardPage() {
     </div>;
     if (draft.currentStep === 4) return <div className="evidence-grid section-gap">
       {upload("origin", "Documento de origen", errors.originDocument)}
-      {upload("photo", "Fotografías", errors.photo)}
+      {upload("photo", "Fotografía oficial", errors.photo)}
       {upload("certificate", "Certificados")}
       {upload("manual", "Manuales")}
       {upload("other", "Otros documentos")}

@@ -74,10 +74,18 @@ class IncidentSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "code", "requesterId", "requesterName", "requesterEmail")
 
     def get_requesterName(self, obj) -> str:
-        return obj.requester_contact.get("name") or obj.requester.get_full_name() or obj.requester.username
+        if obj.requester_contact.get("name"):
+            return obj.requester_contact["name"]
+        if obj.public_submission and obj.reporter_name:
+            return obj.reporter_name
+        return obj.requester.get_full_name() or obj.requester.username
 
     def get_requesterEmail(self, obj) -> str:
-        return obj.requester_contact.get("email") or obj.requester.email
+        if obj.requester_contact.get("email"):
+            return obj.requester_contact["email"]
+        if obj.public_submission and obj.reporter_email:
+            return obj.reporter_email
+        return obj.requester.email
 
     def get_requesterPhone(self, obj) -> str:
         return obj.requester_contact.get("phone", "")
@@ -244,7 +252,70 @@ class IncidentSerializer(serializers.ModelSerializer):
         return instance
 
 
-class PublicIncidentSerializer(serializers.Serializer):
+class PublicAssetIncidentSerializer(serializers.Serializer):
+    reporterName = serializers.CharField(max_length=160)
+    reporterEmail = serializers.EmailField(required=False, allow_blank=True)
+    requestType = serializers.CharField(max_length=40)
+    description = serializers.CharField(min_length=10, max_length=3000)
+    requesterPriority = serializers.ChoiceField(choices=("BAJA", "MEDIA", "ALTA"), default="MEDIA")
+
+    def _public_requester(self):
+        user_model = get_user_model()
+        user, created = user_model.objects.get_or_create(
+            username="public.reporter",
+            defaults={
+                "first_name": "Reporte",
+                "last_name": "Publico",
+                "email": "",
+                "is_active": True,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=("password",))
+        AccountProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                "worker_code": "PUBLIC-REPORTER",
+                "role": AccountProfile.Role.REQUESTER,
+                "must_change_password": False,
+            },
+        )
+        return user
+
+    @transaction.atomic
+    def create(self, validated_data):
+        asset = self.context["asset"]
+        requester = self._public_requester()
+        sequence = Incident.objects.select_for_update().count() + 1
+        location = asset.location
+        return Incident.objects.create(
+            code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
+            asset=asset,
+            requester=requester,
+            reporter_name=validated_data["reporterName"],
+            reporter_email=validated_data.get("reporterEmail", ""),
+            public_submission=True,
+            requester_contact={
+                "name": validated_data["reporterName"],
+                "email": validated_data.get("reporterEmail", ""),
+                "phone": "",
+            },
+            request_type=validated_data["requestType"],
+            description=validated_data["description"],
+            requester_priority=validated_data["requesterPriority"],
+            location_snapshot={
+                "locationId": str(location.id) if location else "",
+                "zone": location.zone if location else "",
+                "building": location.building if location else "",
+                "area": location.area if location else "",
+                "room": location.room if location else "",
+            },
+            status="RECIBIDA",
+        )
+
+
+class PublicWorkRequestSerializer(serializers.Serializer):
     requesterName = serializers.CharField(max_length=160)
     requesterEmail = serializers.EmailField()
     requesterPhone = serializers.CharField(max_length=40, required=False, allow_blank=True)

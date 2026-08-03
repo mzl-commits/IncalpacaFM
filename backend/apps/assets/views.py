@@ -1,11 +1,15 @@
 
+import mimetypes
 import uuid
 
 from django.db.models import Q
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -27,6 +31,7 @@ from .serializers import (
 class AssetListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
     serializer_class = AssetSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     allowed_ordering_fields = {'created_at', 'fm_code', 'code', 'name'}
 
     def _boolean_query_param(self, name):
@@ -87,6 +92,25 @@ class PublicAssetView(generics.RetrieveAPIView):
     lookup_field = 'public_token'
     lookup_url_kwarg = 'token'
     queryset = Asset.objects.select_related('taxonomy', 'location')
+
+
+class PublicAssetPhotoView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(responses={(200, 'image/*'): OpenApiTypes.BINARY})
+    def get(self, request, token):
+        asset = get_object_or_404(Asset, public_token=token)
+        if not asset.photo:
+            from rest_framework.exceptions import NotFound
+            raise NotFound('El bien no tiene una fotografÃ­a disponible.')
+        content_type = mimetypes.guess_type(asset.photo.name)[0] or 'application/octet-stream'
+        response = FileResponse(asset.photo.open('rb'), content_type=content_type)
+        response['Cache-Control'] = 'private, max-age=300'
+        response['X-Content-Type-Options'] = 'nosniff'
+        response['Content-Security-Policy'] = "default-src 'none'; sandbox"
+        response['Referrer-Policy'] = 'no-referrer'
+        response['Cross-Origin-Resource-Policy'] = 'cross-origin'
+        return response
 
 
 class AssetDetailView(generics.RetrieveUpdateAPIView):
