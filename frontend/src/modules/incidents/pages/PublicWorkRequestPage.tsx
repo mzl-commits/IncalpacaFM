@@ -30,6 +30,9 @@ interface PublicRequestFormState {
   area: string;
   room: string;
   description: string;
+  issueCategory: string;
+  assetCondition: string;
+  startedWhen: string;
   photoName: string;
   cannotAttachPhoto: boolean;
   noPhotoReason: string;
@@ -51,6 +54,9 @@ const initialForm: PublicRequestFormState = {
   area: "",
   room: "",
   description: "",
+  issueCategory: "",
+  assetCondition: "",
+  startedWhen: "",
   photoName: "",
   cannotAttachPhoto: false,
   noPhotoReason: "",
@@ -159,6 +165,10 @@ export function PublicWorkRequestPage() {
       setError("Responde todas las preguntas de impacto antes de continuar.");
       return;
     }
+    if (!form.issueCategory || !form.assetCondition || !form.startedWhen) {
+      setError("Completa la clasificación del problema antes de continuar.");
+      return;
+    }
 
     setSubmitting(true);
     setError("");
@@ -187,6 +197,9 @@ export function PublicWorkRequestPage() {
         suggestedPriority,
         priorityReasons,
         impactAnswers: {
+          issueCategory: form.issueCategory,
+          assetCondition: form.assetCondition,
+          startedWhen: form.startedWhen,
           stopsWork: form.stopsWork,
           safetyRisk: form.safetyRisk,
           essentialService: form.essentialService,
@@ -296,6 +309,20 @@ export function PublicWorkRequestPage() {
             </div>
 
             <div className="form-grid">
+              <label className="field">
+                <span>¿Qué tipo de problema es? *</span>
+                <select required value={form.issueCategory} onChange={(event) => updateField("issueCategory", event.target.value)}>
+                  <option value="">Seleccionar tipo</option><option value="ELECTRICO">Eléctrico o iluminación</option><option value="GASFITERIA">Agua, desagüe o gas</option><option value="CLIMATIZACION">Climatización</option><option value="MOBILIARIO">Mobiliario, puertas o ventanas</option><option value="INFRAESTRUCTURA">Infraestructura o acabados</option><option value="EQUIPO">Equipo o dispositivo</option><option value="OTRO">Otro</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Estado actual *</span>
+                <select required value={form.assetCondition} onChange={(event) => updateField("assetCondition", event.target.value)}><option value="">Seleccionar estado</option><option value="NO_FUNCIONA">No funciona</option><option value="FUNCIONA_PARCIALMENTE">Funciona parcialmente</option><option value="DANADO">Está dañado o deteriorado</option><option value="RIESGO">Presenta una condición de riesgo</option></select>
+              </label>
+              <label className="field">
+                <span>¿Cuándo empezó? *</span>
+                <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Esta semana</option><option value="MAS_TIEMPO">Hace más tiempo</option></select>
+              </label>
               <label className="field field-wide">
                 <span>Ambiente oficial</span>
                 <select
