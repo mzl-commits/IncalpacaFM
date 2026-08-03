@@ -4,6 +4,7 @@ import {
   CalendarBlank,
   EnvelopeSimple,
   MapPin,
+  Paperclip,
   User,
   Warning,
 } from "@phosphor-icons/react";
@@ -463,16 +464,11 @@ export function IncidentDetailPage() {
               </ul>
             </div>
           ) : null}
-
-          {request.impactAssessment.noPhotoReason && (
-            <p className="detail-empty">
-              Sin foto: {request.impactAssessment.noPhotoReason}
-            </p>
-          )}
         </article>
       )}
       <article className="data-panel detail-card detail-evidence">
         <div className="detail-card-heading">
+          <Paperclip size={22} />
           <h2>Evidencias adjuntas</h2>
         </div>
 
@@ -485,9 +481,14 @@ export function IncidentDetailPage() {
               </li>
             ))}
           </ul>
+        ) : request.impactAssessment?.noPhotoReason ? (
+          <div className="detail-empty evidence-empty-note">
+            <span>No adjunto fotografia</span>
+            <p>Motivo: {request.impactAssessment.noPhotoReason}</p>
+          </div>
         ) : (
           <p className="detail-empty">
-            La solicitud no tiene fotografías o archivos adjuntos.
+            La solicitud no tiene fotografias o archivos adjuntos.
           </p>
         )}
       </article>

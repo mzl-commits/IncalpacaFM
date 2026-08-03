@@ -325,3 +325,143 @@ class PublicIncidentSerializer(serializers.Serializer):
             status="RECIBIDA",
         )
         return incident
+
+
+class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
+    incidentId = serializers.UUIDField(source="id", read_only=True)
+    currentStatus = serializers.SerializerMethodField()
+    workerName = serializers.SerializerMethodField()
+    workerSpecialty = serializers.SerializerMethodField()
+    workOrderCode = serializers.SerializerMethodField()
+    progressPercentage = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+    reportedAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    events = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Incident
+        fields = (
+            "incidentId",
+            "code",
+            "description",
+            "currentStatus",
+            "workerName",
+            "workerSpecialty",
+            "workOrderCode",
+            "progressPercentage",
+            "location",
+            "reportedAt",
+            "updatedAt",
+            "events",
+        )
+
+    def _work_order(self, obj):
+        return getattr(obj, "work_order", None)
+
+    def get_currentStatus(self, obj):
+        order = self._work_order(obj)
+        if order:
+            if order.status == "CERRADA":
+                return "FINALIZADO"
+            if order.status in {"EN_PROCESO", "PENDIENTE_DE_SUPERVISION", "PENDIENTE_DE_VALIDACION", "PENDIENTE_DE_CONFORMIDAD"}:
+                return "EN_PROCESO"
+            return "ASIGNADO"
+        if obj.status == Incident.Status.REJECTED:
+            return "RECHAZADO"
+        if obj.status in {Incident.Status.REVIEW, Incident.Status.ATTENDED}:
+            return "EN_REVISION"
+        return "REPORTADO"
+
+    def get_workerName(self, obj):
+        order = self._work_order(obj)
+        if not order:
+            return "Pendiente de asignacion"
+        return order.technician.get_full_name() or order.technician.username
+
+    def get_workerSpecialty(self, obj):
+        order = self._work_order(obj)
+        return order.specialty if order else "Aun no asignado"
+
+    def get_workOrderCode(self, obj):
+        order = self._work_order(obj)
+        return order.code if order else ""
+
+    def get_progressPercentage(self, obj):
+        order = self._work_order(obj)
+        return order.progress_percentage if order else 0
+
+    def get_location(self, obj):
+        parts = [
+            obj.location_snapshot.get("zone"),
+            obj.location_snapshot.get("building"),
+            obj.location_snapshot.get("area"),
+            obj.location_snapshot.get("room"),
+        ]
+        return " / ".join([part for part in parts if part])
+
+    def get_events(self, obj):
+        events = [
+            {
+                "id": f"{obj.id}-reported",
+                "status": "REPORTADO",
+                "description": "Solicitud registrada correctamente.",
+                "date": obj.created_at.isoformat(),
+            }
+        ]
+        if obj.status in {Incident.Status.REVIEW, Incident.Status.ATTENDED, Incident.Status.IN_PROGRESS, Incident.Status.CLOSED}:
+            events.append(
+                {
+                    "id": f"{obj.id}-review",
+                    "status": "EN_REVISION",
+                    "description": "La solicitud fue revisada por administracion.",
+                    "date": obj.updated_at.isoformat(),
+                }
+            )
+        if obj.status == Incident.Status.REJECTED:
+            events.append(
+                {
+                    "id": f"{obj.id}-rejected",
+                    "status": "RECHAZADO",
+                    "description": obj.rejection_reason or "La solicitud no fue aprobada para atencion.",
+                    "date": obj.updated_at.isoformat(),
+                }
+            )
+        order = self._work_order(obj)
+        if order:
+            events.append(
+                {
+                    "id": f"{order.id}-assigned",
+                    "status": "ASIGNADO",
+                    "description": f"Orden de trabajo {order.code} generada y asignada.",
+                    "date": order.created_at.isoformat(),
+                }
+            )
+            if order.started_at:
+                events.append(
+                    {
+                        "id": f"{order.id}-started",
+                        "status": "EN_PROCESO",
+                        "description": "La atencion fue iniciada por el tecnico asignado.",
+                        "date": order.started_at.isoformat(),
+                    }
+                )
+            for advance in order.advances or []:
+                events.append(
+                    {
+                        "id": advance.get("id", f"{order.id}-advance"),
+                        "status": "EN_PROCESO",
+                        "description": advance.get("observation") or f"Avance registrado al {advance.get('percentage', order.progress_percentage)}%.",
+                        "date": advance.get("createdAt") or order.updated_at.isoformat(),
+                    }
+                )
+            if order.closed_at:
+                events.append(
+                    {
+                        "id": f"{order.id}-closed",
+                        "status": "FINALIZADO",
+                        "description": "La orden de trabajo fue cerrada.",
+                        "date": order.closed_at.isoformat(),
+                    }
+                )
+        return events

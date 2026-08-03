@@ -3,16 +3,12 @@ interface Props {
   specialty: string;
 }
 
-export function TrackingWorkerCard({
-  name,
-  specialty,
-}: Props) {
+export function TrackingWorkerCard({ name, specialty }: Props) {
   return (
-    <article className="data-panel detail-card">
-      <h2>Operario asignado</h2>
-
-      <p>{name}</p>
-      <small>{specialty}</small>
+    <article className="data-panel detail-card tracking-worker-card">
+      <h2>Responsable de atencion</h2>
+      <strong>{name}</strong>
+      <p>{specialty}</p>
     </article>
   );
 }

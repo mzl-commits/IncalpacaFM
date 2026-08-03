@@ -1,35 +1,43 @@
-import type { TrackingEvent } from "../trackingModel";
+import type { TrackingEvent, TrackingStatus } from "../trackingModel";
 
 interface Props {
   events: TrackingEvent[];
 }
 
+const statusLabels: Record<TrackingStatus, string> = {
+  REPORTADO: "Reportado",
+  EN_REVISION: "En revision",
+  RECHAZADO: "No aprobado",
+  ASIGNADO: "Asignado",
+  EN_PROCESO: "En atencion",
+  FINALIZADO: "Finalizado",
+};
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export function TrackingTimeline({ events }: Props) {
+  const lastEventId = events.at(-1)?.id;
 
   return (
-    <article className="data-panel detail-card">
+    <article className="data-panel detail-card tracking-history-card">
       <h2>Historial</h2>
 
       <div className="tracking-timeline">
-        {events.map((event, index) => (
-          <div 
-            className="tracking-item"
-            key={event.id}
-          >
-            <div
-            className={`tracking-dot ${
-                event.status === events[events.length - 1].status
-                ? "active"
-                : ""
-            }`}
-            ></div>
-
+        {events.map((event) => (
+          <div className="tracking-item" key={event.id}>
+            <div className={`tracking-dot ${event.id === lastEventId ? "active" : ""}`} />
             <div>
-              <h4>{event.status}</h4>
+              <h4>{statusLabels[event.status]}</h4>
               <p>{event.description}</p>
-              <small>
-                Fecha: {event.date}
-              </small>
+              <small>{formatDate(event.date)}</small>
             </div>
           </div>
         ))}

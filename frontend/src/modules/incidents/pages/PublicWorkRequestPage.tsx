@@ -87,6 +87,7 @@ function getPriorityReasons(form: PublicRequestFormState) {
 export function PublicWorkRequestPage() {
   const [form, setForm] = useState<PublicRequestFormState>(initialForm);
   const [submittedCode, setSubmittedCode] = useState("");
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -130,7 +131,7 @@ export function PublicWorkRequestPage() {
     setError("");
 
     try {
-      const { data } = await api.post<{ code: string }>("/incidents/public/", {
+      const { data } = await api.post<{ code: string; emailSent?: boolean }>("/incidents/public/", {
         requesterName: form.requesterName.trim(),
         requesterEmail: form.requesterEmail.trim(),
         requesterPhone: form.requesterPhone.trim(),
@@ -189,6 +190,9 @@ export function PublicWorkRequestPage() {
             <div>
               <strong>Solicitud registrada</strong>
               <p>Tu codigo de solicitud es {submittedCode}. El administrador revisara la prioridad final.</p>
+              <Link className="button button-secondary" to={`/seguimiento-solicitud/${submittedCode}`}>
+                Ver seguimiento
+              </Link>
             </div>
           </div>
         )}

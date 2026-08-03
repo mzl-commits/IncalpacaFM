@@ -42,6 +42,19 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/seguimiento-solicitud",
+    lazy: lazyRoute(
+      () => import("@/modules/incidents/pages/RequestTrackingPage"),
+      "RequestTrackingPage",
+    ),
+  },
+  {
+    path: "/seguimiento-solicitud/:code",
+    lazy: lazyRoute(
+      () => import("@/modules/incidents/pages/RequestTrackingPage"),
+      "RequestTrackingPage",
+    ),
+  },  {
     path: "/login",
     lazy: lazyRoute(() => import("@/modules/accounts/pages/LoginPage"), "LoginPage"),
   },

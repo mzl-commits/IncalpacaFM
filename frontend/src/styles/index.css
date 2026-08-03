@@ -458,7 +458,12 @@ section:has(.detail-header) .detail-grid { grid-template-columns: repeat(2, minm
 .detail-list dt { color: #667085; font-size: .82rem; font-weight: 600; }
 .detail-list dd { display: flex; align-items: center; gap: 7px; margin: 0; color: #182230; font-weight: 500; }
 .detail-empty { margin: 0; color: #667085; }
+.public-impact-review { margin-bottom: 22px; }
 .detail-evidence { margin-bottom: 20px; }
+.detail-evidence .detail-card-heading { margin-bottom: 18px; }
+.evidence-empty-note { display: grid; gap: 6px; padding: 16px 18px; border: 1px solid #dce4f0; border-radius: 8px; background: #f8faff; }
+.evidence-empty-note span { color: #17365d; font-weight: 700; }
+.evidence-empty-note p { margin: 0; color: #667085; line-height: 1.5; }
 .evidence-list { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
 .evidence-list li { display: flex; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid #dce4f0; border-radius: 8px; }
 .evidence-list span { color: #667085; font-size: .85rem; }
@@ -1368,4 +1373,141 @@ td { padding: 13px 14px; }
   margin: 0;
   padding-left: 18px;
   color: var(--text);
+}
+
+.tracking-public-page {
+  display: block;
+}
+
+.tracking-public-shell {
+  width: min(100%, 900px);
+  margin: 0 auto;
+}
+
+.tracking-public-heading {
+  align-items: center;
+  gap: 18px;
+}
+
+.tracking-search-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  padding: 20px;
+  margin: 18px 0;
+}
+
+.tracking-search-card .button {
+  min-height: 44px;
+}
+
+.tracking-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 34px 22px;
+  color: #17365d;
+  text-align: center;
+}
+
+.tracking-empty-state h2,
+.tracking-empty-state p {
+  margin: 0;
+}
+
+.tracking-empty-state p,
+.tracking-request-card p,
+.tracking-summary-card p,
+.tracking-worker-card p {
+  color: #667085;
+}
+
+.tracking-request-card {
+  margin-bottom: 18px;
+}
+
+.tracking-request-card h2 {
+  margin: 8px 0;
+  color: #10233f;
+  font-size: 1.15rem;
+}
+
+.tracking-request-card p {
+  margin: 0;
+}
+
+.tracking-detail-grid {
+  margin-bottom: 18px;
+}
+
+.tracking-summary-card,
+.tracking-worker-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.tracking-summary-card h2,
+.tracking-worker-card h2,
+.tracking-history-card h2 {
+  margin: 0;
+  color: #17365d;
+  font-size: 1.05rem;
+}
+
+.tracking-summary-card strong,
+.tracking-worker-card strong {
+  color: #10233f;
+  font-size: 1.15rem;
+}
+
+.tracking-summary-card p,
+.tracking-worker-card p {
+  margin: 0;
+}
+
+.tracking-history-card {
+  padding: 24px;
+}
+
+.tracking-history-card h2 {
+  margin-bottom: 20px;
+}
+
+.tracking-status-reportado,
+.tracking-status-en_revision {
+  width: fit-content;
+}
+
+.tracking-status-rechazado {
+  width: fit-content;
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #b42318;
+}
+
+.tracking-status-asignado,
+.tracking-status-en_proceso {
+  width: fit-content;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.tracking-status-finalizado {
+  width: fit-content;
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #067647;
+}
+
+@media (max-width: 720px) {
+  .tracking-public-heading {
+    align-items: stretch;
+  }
+
+  .tracking-search-card {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,7 +1,10 @@
-import { mockTracking } from "./data/mockTracking";
+import { api } from "@/services/api";
+import type { RequestTracking } from "./trackingModel";
 
-export async function getTrackingByIncidentId(id:string) {
-  return mockTracking.find(
-    (tracking) => tracking.incidentId === id
+export async function getTrackingByIncidentId(token: string): Promise<RequestTracking> {
+  const cleanToken = token.trim();
+  const { data } = await api.get<RequestTracking>(
+    `/incidents/public/tracking/${encodeURIComponent(cleanToken)}/`,
   );
+  return data;
 }
