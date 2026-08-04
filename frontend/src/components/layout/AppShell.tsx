@@ -1,28 +1,37 @@
-import {
-  Archive,
+﻿import {
   ArrowRight,
+  Barcode,
   Bell,
+  CalendarBlank,
   CaretDown,
   ChartBar,
   ClipboardText,
   DotsThree,
+  Files,
+  GearSix,
   House,
   Lightning,
   ListChecks,
   ListDashes,
+  MapTrifold,
   Package,
   Plus,
-  QrCode,
   SignOut,
+  ShieldCheck,
   SquaresFour,
+  TreeStructure,
   Toolbox,
   UserCircle,
+  UsersThree,
   Wrench,
   X,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
+import type { UserRole } from "@/modules/accounts/types";
+import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
+import { listNotifications } from "@/modules/notifications/notificationRepository";
 
 type NavItem = {
   to: string;
@@ -37,45 +46,60 @@ const groups: Array<{
   icon: typeof House;
   paths: string[];
   items: NavItem[];
+  roles?: UserRole[];
 }> = [
+  {
+    id: "technician",
+    label: "Mi jornada",
+    icon: CalendarBlank,
+    paths: ["/mi-jornada"],
+    roles: ["TECNICO"],
+    items: [{ to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank, end: true }],
+  },
   {
     id: "assets",
     label: "Bienes",
     icon: ListDashes,
     paths: ["/bienes"],
+    roles: ["ADMINISTRADOR"],
     items: [
       { to: "/bienes", label: "Inventario", icon: ListDashes, end: true },
       { to: "/bienes/entradas", label: "Entradas", icon: Package },
-      { to: "/bienes/qr", label: "Códigos QR", icon: QrCode },
+      { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
+      { to: "/bienes/qr", label: "Códigos QR", icon: Barcode },
+      { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: ShieldCheck },
     ],
   },
   {
+    id: "map",
+    label: "Mapa",
+    icon: MapTrifold,
+    paths: ["/mapa"],
+    items: [{ to: "/mapa", label: "Mapa", icon: MapTrifold, end: true }],
+  },
+  {
     id: "operations",
-    label: "Operación y mantenimiento",
+    label: "Planificación y OT",
     icon: Wrench,
-    paths: ["/asignaciones", "/incidencias", "/ordenes-trabajo"],
+    paths: ["/incidencias", "/ordenes-trabajo"],
     items: [
-      { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
-      { to: "/incidencias", label: "Incidencias", icon: ListChecks },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
+      { to: "/ordenes-trabajo/recomendaciones", label: "Recomendaciones", icon: Lightning },
       {
         to: "/ordenes-trabajo",
         label: "Órdenes de trabajo",
         icon: Toolbox,
       },
+      { to: "/supervision", label: "Revisión de OT", icon: ShieldCheck },
     ],
   },
   {
-    id: "lifecycle",
-    label: "Ciclo de vida",
-    icon: Archive,
-    paths: ["/ciclo-vida"],
-    items: [
-      {
-        to: "/ciclo-vida/bajas",
-        label: "Solicitudes de baja",
-        icon: Archive,
-      },
-    ],
+    id: "team",
+    label: "Equipo",
+    icon: UsersThree,
+    paths: ["/administracion/tecnicos"],
+    roles: ["ADMINISTRADOR"],
+    items: [{ to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree }],
   },
   {
     id: "reports",
@@ -84,12 +108,39 @@ const groups: Array<{
     paths: ["/informes"],
     items: [{ to: "/informes", label: "Informes", icon: ChartBar, end: true }],
   },
+  {
+    id: "administration",
+    label: "Configuración",
+    icon: GearSix,
+    paths: ["/administracion/taxonomia", "/administracion/mapas-ambientes", "/documentos", "/auditoria"],
+    roles: ["ADMINISTRADOR"],
+    items: [
+      {
+        to: "/administracion/taxonomia",
+        label: "Taxonomía",
+        icon: TreeStructure,
+      },
+      {
+        to: "/administracion/taxonomia/codigos",
+        label: "Códigos FM",
+        icon: Barcode,
+      },
+      {
+        to: "/administracion/mapas-ambientes",
+        label: "Mapas de ambientes",
+        icon: MapTrifold,
+      },
+      { to: "/documentos", label: "Documentos", icon: Files },
+      { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
+      { to: "/notificaciones", label: "Notificaciones", icon: Bell },
+    ],
+  },
 ];
 
 const mobilePrimary: NavItem[] = [
   { to: "/", label: "Inicio", icon: House, end: true },
   { to: "/bienes", label: "Bienes", icon: ListDashes, end: true },
-  { to: "/asignaciones", label: "Asignar", icon: ClipboardText },
+  { to: "/mapa", label: "Mapa", icon: MapTrifold, end: true },
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
 
@@ -122,14 +173,21 @@ function isGroupActive(pathname: string, paths: string[]) {
 
 function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Panel ejecutivo", "Inicio"];
+  if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
+  if (pathname.startsWith("/mapa")) return ["Mapa", "Activos por ubicación"];
   if (pathname.startsWith("/bienes/entradas")) return ["Bienes", "Entradas"];
   if (pathname.startsWith("/bienes")) return ["Bienes", "Inventario"];
   if (pathname.startsWith("/asignaciones")) return ["Operación", "Asignaciones"];
   if (pathname.startsWith("/incidencias")) return ["Operación", "Incidencias"];
+  if (pathname.startsWith("/supervision")) return ["Supervisión", "Revisión de OT"];
   if (pathname.startsWith("/ordenes-trabajo")) return ["Operación", "Órdenes de trabajo"];
-  if (pathname.startsWith("/ciclo-vida")) return ["Ciclo de vida", "Bajas"];
+  if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
+  if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
+  if (pathname.startsWith("/administracion/tecnicos")) return ["Administración", "Técnicos"];
+  if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
+  if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
   if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];
   if (pathname.startsWith("/auditoria")) return ["Administración", "Auditoría"];
   return ["SGTB", "Facility Management"];
@@ -142,10 +200,11 @@ export function AppShell() {
   const [openGroup, setOpenGroup] = useState(activeGroup ?? "assets");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
-  const roleLabel = user?.role === "TECNICO" ? "Técnico" : "Administrador / Planner";
+  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : "Administrador / Planner";
   const initials =
     user?.fullName
       .split(" ")
@@ -154,34 +213,58 @@ export function AppShell() {
       .join("")
       .toUpperCase() || "SG";
   const technicianMode = user?.role === "TECNICO";
-  const visibleGroups = technicianMode
-    ? groups
-        .filter((group) => group.id === "assets" || group.id === "operations")
-        .map((group) => ({
-          ...group,
-          items: group.items.filter(
-            (item) =>
-              !item.to.startsWith("/asignaciones") &&
-              item.to !== "/bienes/entradas" &&
-              item.to !== "/bienes/entradas/nueva",
-          ),
-        }))
-    : groups;
+  const supervisorMode = user?.role === "SUPERVISOR";
+  const roleGroups = groups.filter(
+    (group) => !group.roles || Boolean(user && group.roles.includes(user.role)),
+  );
+  const visibleGroups = supervisorMode
+    ? roleGroups.filter((group) => group.id === "operations").map((group) => ({ ...group, items: group.items.filter((item) => item.to === "/supervision") }))
+    : technicianMode
+      ? roleGroups
+          .filter((group) => group.id === "technician" || group.id === "operations")
+          .map((group) => ({
+            ...group,
+            items: group.items.filter(
+              (item) =>
+                !item.to.startsWith("/asignaciones") &&
+                !item.to.startsWith("/incidencias") &&
+                !item.to.startsWith("/ordenes-trabajo/recomendaciones") &&
+                !item.to.startsWith("/supervision"),
+            ),
+          }))
+      : roleGroups;
   const visibleMobilePrimary = technicianMode
-    ? mobilePrimary.filter((item) => item.to === "/" || item.to === "/bienes")
-    : mobilePrimary;
+    ? mobilePrimary.filter((item) => item.to === "/")
+    : supervisorMode
+      ? []
+      : mobilePrimary;
   const visibleMobileSecondary = visibleGroups
     .flatMap((group) => group.items)
     .filter((item) => !visibleMobilePrimary.some((primary) => primary.to === item.to));
   const visibleQuickActions = technicianMode
     ? quickActions.filter((item) => item.to === "/incidencias/nueva")
-    : quickActions;
+    : supervisorMode
+      ? []
+      : quickActions;
 
   useEffect(() => {
     if (activeGroup) setOpenGroup(activeGroup);
     mobileMenuRef.current?.close();
     quickMenuRef.current?.close();
   }, [location.pathname, activeGroup]);
+
+  useEffect(() => {
+    let alive = true;
+    async function refreshNotifications() {
+      try {
+        const notifications = await listNotifications();
+        if (alive) setUnreadNotifications(notifications.filter((item) => !item.readAt).length);
+      } catch { /* The bell remains usable when the API is temporarily unavailable. */ }
+    }
+    void refreshNotifications();
+    const interval = window.setInterval(() => void refreshNotifications(), 60000);
+    return () => { alive = false; window.clearInterval(interval); };
+  }, [location.pathname]);
 
   function openMobileMenu() {
     setMobileMenuOpen(true);
@@ -213,6 +296,7 @@ export function AppShell() {
         </div>
 
         <nav className="desktop-navigation">
+          {!supervisorMode && (
           <NavLink
             to="/"
             end
@@ -221,6 +305,7 @@ export function AppShell() {
             <House size={20} weight="duotone" />
             <span>Inicio</span>
           </NavLink>
+          )}
 
           <div className="nav-groups">
             {visibleGroups.map((group) => {
@@ -397,6 +482,7 @@ export function AppShell() {
           </div>
 
           <div className="topbar-actions">
+            {visibleQuickActions.length > 0 && (
             <button
               className="topbar-quick-action"
               type="button"
@@ -407,13 +493,15 @@ export function AppShell() {
               <span>Nueva acción</span>
               <Plus size={16} weight="bold" />
             </button>
+            )}
             <NavLink
-              to="/#dashboard-priorities-title"
+              to="/notificaciones"
               className="icon-button"
-              aria-label="Ver prioridades del panel"
-              title="Ver prioridades"
+              aria-label="Ver notificaciones"
+              title="Ver notificaciones"
             >
               <Bell size={20} />
+              {unreadNotifications > 0 && <span className="notification-dot" aria-label={`${unreadNotifications} notificaciones sin leer`} />}
             </NavLink>
             <div className="topbar-user" aria-label="Usuario actual">
               <span>{initials}</span>
@@ -426,6 +514,7 @@ export function AppShell() {
         </header>
 
         <main className="main-content">
+          <RouteBreadcrumbs />
           <div className="route-stage" key={location.pathname}>
             <Outlet />
           </div>

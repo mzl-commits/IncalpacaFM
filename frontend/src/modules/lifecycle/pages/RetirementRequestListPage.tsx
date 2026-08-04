@@ -378,7 +378,7 @@ export function RetirementRequestListPage() {
                     </span>
                   </td>
                   <td>
-                    <Link className="table-action" to={`/ciclo-vida/bajas/${item.id}`}>
+                    <Link className="table-action" to={`/bienes/ciclo-vida/bajas/${item.id}`}>
                       Evaluar <CaretRight />
                     </Link>
                   </td>
@@ -390,7 +390,7 @@ export function RetirementRequestListPage() {
 
         <div className="lifecycle-mobile-list">
           {filtered.map((item) => (
-            <Link key={item.id} to={`/ciclo-vida/bajas/${item.id}`}>
+            <Link key={item.id} to={`/bienes/ciclo-vida/bajas/${item.id}`}>
               <header>
                 <Package />
                 <strong>{item.assetCode}</strong>

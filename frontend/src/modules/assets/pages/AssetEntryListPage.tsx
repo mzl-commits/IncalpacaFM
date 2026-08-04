@@ -15,7 +15,11 @@ import {
   useListFilterParams,
 } from "@/components/filters/filterUtils";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
-import { entryTypeLabels, type RegisteredAsset } from "@/modules/assets/entryModel";
+import {
+  entryTypeLabels,
+  getAssetDisplayCode,
+  type RegisteredAsset,
+} from "@/modules/assets/entryModel";
 
 const FILTER_KEYS = [
   "q",
@@ -67,6 +71,7 @@ export function AssetEntryListPage() {
     return registered.filter((item) => {
       const searchable = [
         item.code,
+        item.fmCode,
         item.draft.name,
         item.draft.description,
         item.createdBy,
@@ -93,7 +98,8 @@ export function AssetEntryListPage() {
     () =>
       filteredRecords.map((item) => ({
         id: item.id,
-        code: item.code,
+        code: getAssetDisplayCode(item),
+        internalCode: item.code,
         description: item.draft.name,
         entryType: entryTypeLabels[item.draft.entryType],
         date: new Intl.DateTimeFormat("es-PE", {
@@ -313,6 +319,7 @@ export function AssetEntryListPage() {
                 <tr key={entry.id}>
                   <td>
                     <strong>{entry.code}</strong>
+                    {entry.internalCode !== entry.code && <small>{entry.internalCode}</small>}
                   </td>
                   <td>{entry.description}</td>
                   <td>{entry.entryType}</td>
@@ -346,6 +353,7 @@ export function AssetEntryListPage() {
                 <strong>{entry.code}</strong>
                 <span className="status status-success">{entry.status}</span>
               </header>
+              {entry.internalCode !== entry.code && <small>ID técnico: {entry.internalCode}</small>}
               <h2>{entry.description}</h2>
               <p>
                 {entry.entryType} · {entry.date}

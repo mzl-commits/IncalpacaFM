@@ -362,7 +362,7 @@ export function ReportsPage() {
             : `${request.code} requiere seguimiento`,
         detail: `${request.assetCode} · ${retirementStatusLabels[request.status]}`,
         date: request.updatedAt,
-        to: `/ciclo-vida/bajas/${request.id}`,
+        to: `/bienes/ciclo-vida/bajas/${request.id}`,
         severity: request.status === "PENDIENTE_DISPOSICION" ? "critical" : "warning",
         scope: "corporate",
       }));
@@ -460,7 +460,7 @@ export function ReportsPage() {
           detail: `${request.code} · ${request.assetName}`,
           status: retirementStatusLabels[request.status],
           date: request.updatedAt,
-          to: `/ciclo-vida/bajas/${request.id}`,
+          to: `/bienes/ciclo-vida/bajas/${request.id}`,
           kind: "retirement" as const,
           scope: "corporate" as const,
         })),

@@ -59,10 +59,7 @@ export function validateEntryStep(step: number, draft: AssetEntryDraft): EntryEr
 
   if (step === 2) {
     if (!draft.classificationPending) {
-      required(draft.assetType, "Selecciona el tipo de bien.", errors, "assetType");
-      required(draft.category, "Selecciona una categoría.", errors, "category");
-      required(draft.subcategory, "Selecciona una subcategoría.", errors, "subcategory");
-      required(draft.technicalSpecialty, "Selecciona la especialidad.", errors, "technicalSpecialty");
+      required(draft.taxonomyId, "Selecciona una taxonomía activa.", errors, "taxonomyId");
     } else {
       required(draft.classificationPendingReason, "Justifica por qué la clasificación está pendiente.", errors, "classificationPendingReason");
     }
@@ -78,6 +75,9 @@ export function validateEntryStep(step: number, draft: AssetEntryDraft): EntryEr
       required(draft.building, "Selecciona el edificio.", errors, "building");
       required(draft.locationArea, "Selecciona el área.", errors, "locationArea");
       required(draft.room, "Selecciona el ambiente.", errors, "room");
+      if (draft.locationMapId && (draft.locationMarkerX === null || draft.locationMarkerY === null)) {
+        errors.locationMarker = "Coloca el marcador sobre la imagen del ambiente.";
+      }
     } else {
       required(draft.locationPendingReason, "Justifica la ubicación pendiente.", errors, "locationPendingReason");
     }

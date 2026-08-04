@@ -3,17 +3,22 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.audit.services import record_audit
+from apps.notifications.services import queue_for_administrators
 
 from .models import RetirementRequest, TechnicalDiagnosis
 
 
 class TechnicalDiagnosisSerializer(serializers.ModelSerializer):
     asset_code = serializers.CharField(source="asset.code", read_only=True)
+    asset_display_code = serializers.SerializerMethodField()
     asset_name = serializers.CharField(source="asset.name", read_only=True)
 
     class Meta:
         model = TechnicalDiagnosis
         fields = "__all__"
+
+    def get_asset_display_code(self, obj) -> str:
+        return obj.asset.fm_code or obj.asset.code
 
     def validate(self, attrs):
         result = attrs.get("result", getattr(self.instance, "result", None))
@@ -29,6 +34,7 @@ class TechnicalDiagnosisSerializer(serializers.ModelSerializer):
 
 class RetirementRequestSerializer(serializers.ModelSerializer):
     asset_code = serializers.CharField(source="asset.code", read_only=True)
+    asset_display_code = serializers.SerializerMethodField()
     asset_name = serializers.CharField(source="asset.name", read_only=True)
     work_order_code = serializers.CharField(source="diagnosis.work_order_code", read_only=True)
     diagnosis_result = serializers.CharField(source="diagnosis.result", read_only=True)
@@ -41,6 +47,9 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
         model = RetirementRequest
         fields = "__all__"
         read_only_fields = ("code",)
+
+    def get_asset_display_code(self, obj) -> str:
+        return obj.asset.fm_code or obj.asset.code
 
     def validate(self, attrs):
         diagnosis = attrs.get("diagnosis", getattr(self.instance, "diagnosis", None))
@@ -79,6 +88,16 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
                 entity_id=instance.id,
                 after={"code": instance.code, "status": instance.status},
             )
+        queue_for_administrators(
+            event='RETIREMENT_REQUEST_CREATED',
+            subject=f'Solicitud de baja {instance.code}',
+            body=(
+                f'Se registró una solicitud de baja para el bien '
+                f'{instance.asset.fm_code or instance.asset.code}.'
+            ),
+            entity=instance,
+            discriminator=instance.status,
+        )
         return instance
 
     @transaction.atomic
@@ -105,5 +124,16 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
                 entity_id=instance.id,
                 before=before,
                 after={"status": instance.status, "approved_method": instance.approved_method},
+            )
+        if instance.status == RetirementRequest.Status.PENDING_DISPOSAL:
+            queue_for_administrators(
+                event='RETIREMENT_APPROVED',
+                subject=f'Baja aprobada {instance.code}',
+                body=(
+                    f'La baja del bien {instance.asset.fm_code or instance.asset.code} '
+                    'fue aprobada y requiere completar su disposición final.'
+                ),
+                entity=instance,
+                discriminator=instance.status,
             )
         return instance
