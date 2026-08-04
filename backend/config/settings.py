@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "apps.maintenance",
     "apps.lifecycle",
     "apps.privacy",
+    "apps.organization",
 ]
 
 MIDDLEWARE = [

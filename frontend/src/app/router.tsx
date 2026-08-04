@@ -13,6 +13,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
+import { ReporterRegistryPage } from "@/modules/accounts/pages/ReporterRegistryPage";
 import { TechnicianDetailPage } from "@/modules/accounts/pages/TechnicianDetailPage";
 import { TechnicianSchedulePage } from "@/modules/workorders/pages/TechnicianSchedulePage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
@@ -335,6 +336,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
             <TechnicianManagementPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "administracion/reportantes",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <ReporterRegistryPage />
           </RoleRoute>
         ),
       },

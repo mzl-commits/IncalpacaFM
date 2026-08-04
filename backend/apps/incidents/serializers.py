@@ -1,4 +1,5 @@
 ﻿from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -8,6 +9,7 @@ from apps.assets.models import Location, LocationMap
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
 from apps.privacy.services import record_privacy_event
+from apps.organization.services import register_reporter
 
 from .models import Incident
 
@@ -278,6 +280,8 @@ class IncidentSerializer(serializers.ModelSerializer):
 class PublicAssetIncidentSerializer(serializers.Serializer):
     reporterName = serializers.CharField(max_length=160)
     reporterEmail = serializers.EmailField(required=False, allow_blank=True)
+    reporterDni = serializers.CharField(max_length=12)
+    reporterWorkerCode = serializers.CharField(max_length=40)
     requestType = serializers.CharField(max_length=40)
     description = serializers.CharField(min_length=10, max_length=3000)
     requesterPriority = serializers.ChoiceField(choices=("BAJA", "MEDIA", "ALTA"), default="MEDIA")
@@ -310,12 +314,22 @@ class PublicAssetIncidentSerializer(serializers.Serializer):
     def create(self, validated_data):
         asset = self.context["asset"]
         requester = self._public_requester()
+        try:
+            reporter_profile = register_reporter(
+                dni=validated_data["reporterDni"],
+                worker_code=validated_data["reporterWorkerCode"],
+                full_name=validated_data["reporterName"],
+                email=validated_data.get("reporterEmail", ""),
+            )
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
         sequence = Incident.objects.select_for_update().count() + 1
         location = asset.location
         return Incident.objects.create(
             code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
             asset=asset,
             requester=requester,
+            reporter_profile=reporter_profile,
             reporter_name=validated_data["reporterName"],
             reporter_email=validated_data.get("reporterEmail", ""),
             public_submission=True,
@@ -323,6 +337,7 @@ class PublicAssetIncidentSerializer(serializers.Serializer):
                 "name": validated_data["reporterName"],
                 "email": validated_data.get("reporterEmail", ""),
                 "phone": "",
+                "workerCode": validated_data["reporterWorkerCode"],
             },
             request_type=validated_data["requestType"],
             description=validated_data["description"],
@@ -342,7 +357,8 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     requesterName = serializers.CharField(max_length=160)
     requesterEmail = serializers.EmailField()
     requesterPhone = serializers.CharField(max_length=40, required=False, allow_blank=True)
-    requesterWorkerCode = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    requesterWorkerCode = serializers.CharField(max_length=40)
+    requesterDni = serializers.CharField(max_length=12)
     locationId = serializers.CharField(required=False, allow_blank=True)
     zone = serializers.CharField(max_length=120)
     building = serializers.CharField(max_length=160)
@@ -383,6 +399,15 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     @transaction.atomic
     def create(self, validated_data):
         requester = self._public_requester()
+        try:
+            reporter_profile = register_reporter(
+                dni=validated_data["requesterDni"],
+                worker_code=validated_data["requesterWorkerCode"],
+                full_name=validated_data["requesterName"],
+                email=validated_data["requesterEmail"],
+            )
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
         sequence = Incident.objects.select_for_update().count() + 1
         location = {
             "locationId": validated_data.get("locationId") or "-".join(
@@ -401,6 +426,7 @@ class PublicWorkRequestSerializer(serializers.Serializer):
         incident = Incident.objects.create(
             code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
             requester=requester,
+            reporter_profile=reporter_profile,
             requester_contact={
                 "name": validated_data["requesterName"],
                 "email": validated_data["requesterEmail"],
