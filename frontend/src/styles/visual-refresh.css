@@ -1,0 +1,350 @@
+/*
+ * Visual refresh
+ * Product UI: clear operational hierarchy, restrained elevation and a shared
+ * 4-point rhythm across desktop and mobile surfaces.
+ */
+
+:root {
+  --canvas: #f3f6fa;
+  --surface-raised: #ffffff;
+  --surface-subtle: #f8fafc;
+  --surface-inset: #eef3f8;
+  --surface-hover: #f2f6fb;
+  --surface-selected: #eaf3ff;
+  --surface-border: #c7d5e3;
+  --surface-border-strong: #8fa7be;
+  --surface-divider: #dfe7ef;
+  --text: #13263a;
+  --muted: #52677c;
+  --primary: #07345f;
+  --primary-strong: #052746;
+  --accent: #1769b0;
+  --accent-soft: #eaf3ff;
+  --surface-radius: 12px;
+  --surface-radius-inner: 8px;
+  --surface-shadow: 0 1px 2px rgb(12 38 65 / 0.05), 0 3px 8px rgb(12 38 65 / 0.04);
+  --surface-shadow-hover: 0 3px 8px rgb(12 38 65 / 0.07), 0 8px 14px rgb(12 38 65 / 0.045);
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --motion-fast: 140ms;
+  --motion-base: 200ms;
+  --ease-executive: cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+
+body {
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--ease-executive);
+}
+
+:focus-visible {
+  outline: 3px solid rgb(23 105 176 / 0.34);
+  outline-offset: 2px;
+}
+
+/* Shell */
+
+.app-frame { grid-template-columns: 272px minmax(0, 1fr); }
+
+.sidebar {
+  gap: var(--space-6);
+  padding: 22px 14px 18px;
+  background: #062d52;
+}
+
+.brand { padding: 2px 8px 20px; }
+.brand-mark { border-radius: 10px; }
+.nav-groups { display: grid; gap: var(--space-2); }
+.nav-group { border-radius: 10px; }
+.nav-group-primary,
+.nav-group-toggle,
+.nav-item { border-radius: 8px; }
+.nav-submenu { padding-bottom: var(--space-2); }
+.nav-subitem { min-height: 40px; border-radius: 7px; }
+
+.topbar {
+  height: 68px;
+  padding-inline: clamp(18px, 3vw, 36px);
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: 0 1px 0 rgb(12 38 65 / 0.06);
+}
+
+.main-content { width: min(100%, 1480px); padding: clamp(22px, 3vw, 40px); }
+.route-stage { animation: route-stage-in var(--motion-base) var(--ease-executive) both; }
+
+@keyframes route-stage-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Typography hierarchy */
+
+.page-heading,
+.wizard-heading > div,
+.dashboard-heading,
+.reports-heading,
+.qr-inventory-heading {
+  gap: var(--space-6);
+}
+
+.page-heading h1,
+.wizard-heading h1,
+.dashboard-heading h1,
+.reports-heading h1,
+.qr-inventory-heading h1,
+.technician-schedule-heading h1,
+.technician-dashboard-heading h1 {
+  color: var(--primary);
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+}
+
+.page-heading p,
+.wizard-heading p,
+.dashboard-heading p,
+.reports-heading p,
+.qr-inventory-heading p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.breadcrumb,
+.reports-breadcrumb,
+.qr-inventory-breadcrumb {
+  color: #386991 !important;
+  font-weight: 700;
+}
+
+.form-section-heading h2,
+.section-heading h2,
+.dashboard-section-heading h2,
+.reports-panel-heading h2,
+.detail-card-heading h2,
+.lifecycle-section-heading h2 {
+  color: var(--primary);
+  font-weight: 700;
+  letter-spacing: -0.018em;
+}
+
+/* Surfaces and grids */
+
+.metrics-grid,
+.lifecycle-metrics,
+.qr-inventory-summary {
+  gap: 1px;
+  margin-block: var(--space-8) var(--space-5);
+  border-color: var(--surface-border);
+  box-shadow: var(--surface-shadow);
+}
+
+.metrics-grid article,
+.lifecycle-metrics article,
+.qr-inventory-summary > div {
+  min-height: 122px;
+  padding: 20px;
+}
+
+.metrics-grid article::before { display: none; }
+.metrics-grid strong,
+.lifecycle-metrics strong,
+.qr-inventory-summary dd {
+  color: var(--primary);
+  font-size: 2rem;
+  font-weight: 750;
+}
+
+.metrics-grid span,
+.metrics-grid small,
+.lifecycle-metrics span,
+.qr-inventory-summary dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.data-panel,
+.form-panel,
+.help-panel,
+.detail-card,
+.current-custody,
+.act-panel,
+.lifecycle-form,
+.lifecycle-detail-panel,
+.decision-panel,
+.disposition-summary,
+.lifecycle-wizard-panel,
+.admin-evaluation-card,
+.work-order-actions-card,
+.execution-start-card,
+.dashboard-overview,
+.reports-summary,
+.reports-panel,
+.public-card,
+.success-hero {
+  border-color: var(--surface-border);
+  box-shadow: var(--surface-shadow);
+}
+
+.data-panel > header,
+.form-panel > header,
+.dashboard-section-heading,
+.reports-panel-heading,
+.table-toolbar {
+  background: var(--surface-subtle);
+}
+
+.dashboard-main-grid,
+.reports-content-grid,
+.technician-detail-layout,
+.technician-management-layout {
+  gap: var(--space-5);
+}
+
+/* Tables and controls */
+
+th {
+  padding: 14px 18px;
+  background: #f1f5f9;
+  color: #46617b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+td { padding: 17px 18px; color: #24394e; }
+tbody tr:hover td { background: #f6f9fc; }
+
+.button,
+.topbar-quick-action,
+.qr-inventory-button {
+  min-height: 44px;
+  border-radius: 8px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.button-primary,
+.topbar-quick-action { background: var(--primary); }
+.button-primary:hover,
+.topbar-quick-action:hover { background: var(--primary-strong); }
+.button-secondary { border-color: var(--surface-border-strong); color: var(--primary); }
+
+.field,
+.login-field { color: #24394e; font-weight: 650; }
+
+.field input,
+.field select,
+.field textarea,
+.search-field,
+.compact-filter,
+.lifecycle-toolbar select,
+.reports-control select,
+.reports-period select,
+.qr-inventory-search-field > div,
+.qr-inventory-filter-field select,
+.login-field > div {
+  min-height: 46px;
+  border-color: var(--surface-border-strong);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.field input::placeholder,
+.field textarea::placeholder,
+.search-field input::placeholder { color: #63798f; opacity: 1; }
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.search-field:focus-within,
+.compact-filter:focus,
+.lifecycle-toolbar select:focus,
+.reports-control select:focus,
+.reports-period select:focus-visible,
+.qr-inventory-search-field > div:focus-within,
+.qr-inventory-filter-field select:focus,
+.login-field > div:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(23 105 176 / 0.16);
+  outline: 0;
+}
+
+.status { min-height: 30px; padding-inline: 11px; font-weight: 750; }
+
+/* Auth surface keeps the same operational language without decorative effects. */
+
+.login-page { background: var(--canvas); }
+.login-brand-panel { background: #062d52; }
+.login-brand-panel h1 { letter-spacing: -0.035em; }
+.login-form-panel form {
+  border-color: var(--surface-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgb(12 38 65 / 0.08);
+}
+.login-demo-accounts { border: 1px solid #d4e0ec; background: #f2f7fc; }
+
+@media (max-width: 1050px) {
+  .app-frame { grid-template-columns: 232px minmax(0, 1fr); }
+  .main-content { padding: 24px; }
+  .page-heading h1,
+  .wizard-heading h1,
+  .dashboard-heading h1,
+  .reports-heading h1,
+  .qr-inventory-heading h1 { font-size: 2rem; }
+}
+
+@media (max-width: 720px) {
+  .main-content { padding: 18px 14px 94px; }
+  .topbar { height: 62px; padding-inline: 14px; }
+  .topbar-context small { display: none; }
+  .page-heading,
+  .wizard-heading > div,
+  .dashboard-heading,
+  .reports-heading,
+  .qr-inventory-heading { gap: 14px; }
+  .page-heading h1,
+  .wizard-heading h1,
+  .dashboard-heading h1,
+  .reports-heading h1,
+  .qr-inventory-heading h1,
+  .technician-schedule-heading h1,
+  .technician-dashboard-heading h1 { font-size: 1.75rem; line-height: 1.16; }
+  .page-heading p,
+  .wizard-heading p,
+  .dashboard-heading p,
+  .reports-heading p,
+  .qr-inventory-heading p { font-size: 0.9375rem; }
+  .metrics-grid,
+  .lifecycle-metrics,
+  .qr-inventory-summary { margin-block: 18px 14px; }
+  .metrics-grid article,
+  .lifecycle-metrics article,
+  .qr-inventory-summary > div { min-height: 108px; padding: 16px; }
+  .metrics-grid strong,
+  .lifecycle-metrics strong,
+  .qr-inventory-summary dd { font-size: 1.75rem; }
+  th { padding: 12px 14px; }
+  td { padding: 14px; }
+  .login-form-panel form { border-radius: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-stage { animation: none; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}

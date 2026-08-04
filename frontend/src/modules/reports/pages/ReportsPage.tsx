@@ -7,6 +7,7 @@ import {
   CheckCircle,
   ClipboardText,
   DownloadSimple,
+  FileText,
   Info,
   Package,
   Printer,
@@ -342,6 +343,22 @@ export function ReportsPage() {
     [data.assets],
   );
 
+  const technicianSummary = useMemo(() => {
+    const grouped = new Map<string, { orders: number; minutes: number; ratings: number[] }>();
+    localSummary.workOrders.forEach((order) => {
+      const current = grouped.get(order.operatorName) ?? { orders: 0, minutes: 0, ratings: [] };
+      current.orders += 1;
+      current.minutes += order.effectiveWorkMinutes ?? 0;
+      if (order.satisfaction?.rating) current.ratings.push(order.satisfaction.rating);
+      grouped.set(order.operatorName, current);
+    });
+    return Array.from(grouped.entries()).map(([name, value]) => ({
+      name,
+      ...value,
+      rating: value.ratings.length ? (value.ratings.reduce((sum, rating) => sum + rating, 0) / value.ratings.length).toFixed(1) : "Pendiente",
+    })).sort((a, b) => b.minutes - a.minutes);
+  }, [localSummary.workOrders]);
+
   const retirementDistribution = useMemo(
     () =>
       buildDistribution(
@@ -610,6 +627,11 @@ export function ReportsPage() {
             <Printer size={19} aria-hidden="true" />
             <span>Imprimir</span>
           </button>
+          <Link className="button button-secondary reports-icon-action" to="/informes/ordenes-trabajo">
+            <Wrench size={19} aria-hidden="true" />
+            <span>Informes de OT</span>
+          </Link>
+          <Link className="button button-secondary reports-icon-action" to="/informes/plantillas"><FileText size={19} aria-hidden="true" /><span>Plantillas</span></Link>
         </div>
       </header>
 
@@ -827,6 +849,11 @@ export function ReportsPage() {
                 <dd>{localSummary.completionRate}%</dd>
               </div>
             </dl>
+          </section>
+
+          <section className="reports-panel technician-report-panel" aria-labelledby="technician-report-title">
+            <header className="reports-panel-heading"><div><h2 id="technician-report-title">Informe de técnicos</h2><p>OT asignadas, horas efectivas y satisfacción registrada.</p></div><UserFocus size={22} aria-hidden="true" /></header>
+            {technicianSummary.length ? <div className="table-scroll"><table><thead><tr><th>Técnico</th><th>OT</th><th>Horas</th><th>Satisfacción</th></tr></thead><tbody>{technicianSummary.map((item) => <tr key={item.name}><td>{item.name}</td><td>{item.orders}</td><td>{(item.minutes / 60).toFixed(1)} h</td><td>{item.rating === "Pendiente" ? item.rating : `${item.rating}/5`}</td></tr>)}</tbody></table></div> : <p className="reports-empty">No hay actividad técnica para el periodo seleccionado.</p>}
           </section>
 
           <div className="reports-operational-grid">

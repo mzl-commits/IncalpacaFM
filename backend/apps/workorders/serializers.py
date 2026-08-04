@@ -9,6 +9,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import AccountProfile
+from apps.assets.file_validation import validate_uploaded_file
 from apps.audit.services import record_audit
 from apps.incidents.models import Incident
 from apps.notifications.services import (
@@ -17,8 +18,9 @@ from apps.notifications.services import (
     queue_notification,
 )
 from apps.notifications.monitoring import queue_work_order_alerts
+from apps.privacy.services import record_privacy_event
 
-from .models import WorkOrder
+from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderPhoto
 
 
 def active_work_session(order):
@@ -63,6 +65,8 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     effectiveWorkMinutes = serializers.SerializerMethodField()
     activeWorkSession = serializers.SerializerMethodField()
     satisfaction = serializers.SerializerMethodField()
+    startPhoto = serializers.SerializerMethodField()
+    finishPhoto = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     technicianWorkerCode = serializers.CharField(write_only=True, required=False)
@@ -99,6 +103,8 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "effectiveWorkMinutes",
             "activeWorkSession",
             "satisfaction",
+            "startPhoto",
+            "finishPhoto",
             "diagnosis",
             "supervisor_validation",
             "administrator_validation",
@@ -131,6 +137,20 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "comment": satisfaction.comment,
             "submittedAt": satisfaction.submitted_at,
         }
+
+    def _traceability_photo_url(self, obj, stage):
+        photo = next((item for item in obj.traceability_photos.all() if item.stage == stage), None)
+        if not photo:
+            return None
+        request = self.context.get("request")
+        path = f"/api/v1/work-orders/{obj.id}/photos/{stage.lower()}/"
+        return request.build_absolute_uri(path) if request else path
+
+    def get_startPhoto(self, obj):
+        return self._traceability_photo_url(obj, WorkOrderPhoto.Stage.START)
+
+    def get_finishPhoto(self, obj):
+        return self._traceability_photo_url(obj, WorkOrderPhoto.Stage.FINISH)
 
     def get_operatorName(self, obj) -> str:
         return obj.technician.get_full_name() or obj.technician.username
@@ -237,6 +257,25 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         return order
 
 
+class WorkOrderCostSerializer(serializers.ModelSerializer):
+    categoryLabel = serializers.CharField(source="get_category_display", read_only=True)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = WorkOrderCost
+        fields = ("id", "category", "categoryLabel", "description", "amount", "createdAt")
+        read_only_fields = ("id", "createdAt")
+
+
+class ReportTemplateSerializer(serializers.ModelSerializer):
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    class Meta:
+        model = ReportTemplate
+        fields = ("id", "name", "scope", "sections", "version", "variables", "content_hash", "status", "is_active", "createdAt", "updatedAt")
+        read_only_fields = ("id", "createdAt", "updatedAt")
+
+
 class WorkOrderActionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(
         choices=(
@@ -256,7 +295,26 @@ class WorkOrderActionSerializer(serializers.Serializer):
     workedMinutes = serializers.IntegerField(required=False, min_value=0, max_value=720)
     observation = serializers.CharField(required=False, allow_blank=True)
     evidence = serializers.ListField(required=False, default=list)
+    startPhoto = serializers.ImageField(required=False, write_only=True)
+    finishPhoto = serializers.ImageField(required=False, write_only=True)
     payload = serializers.DictField(required=False, default=dict)
+
+    def validate_photo(self, value):
+        validate_uploaded_file(value)
+        if value.size > 8 * 1024 * 1024:
+            raise serializers.ValidationError("La fotografía no puede superar 8 MB.")
+        if value.image.format not in {"JPEG", "PNG", "WEBP"}:
+            raise serializers.ValidationError("Usa una imagen JPG, PNG o WEBP.")
+        width, height = value.image.size
+        if width < 320 or height < 240:
+            raise serializers.ValidationError("La fotografía debe tener al menos 320 × 240 px.")
+        return value
+
+    def validate_startPhoto(self, value):
+        return self.validate_photo(value)
+
+    def validate_finishPhoto(self, value):
+        return self.validate_photo(value)
 
     @transaction.atomic
     def save(self, **kwargs):
@@ -311,6 +369,17 @@ class WorkOrderActionSerializer(serializers.Serializer):
                     "operatorName": request.user.get_full_name() or request.user.username,
                 },
             ]
+            start_photo = self.validated_data.get("startPhoto")
+            if not WorkOrderPhoto.objects.filter(work_order=order, stage=WorkOrderPhoto.Stage.START).exists():
+                if not start_photo:
+                    raise serializers.ValidationError({"startPhoto": "Adjunta la foto de inicio antes de comenzar la orden."})
+                WorkOrderPhoto.objects.create(
+                    work_order=order,
+                    stage=WorkOrderPhoto.Stage.START,
+                    image=start_photo,
+                    uploaded_by=request.user,
+                )
+                record_privacy_event(request=request, context="EVIDENCIA", subject_reference=order.code)
         elif action == "PAUSE":
             session = active_work_session(order)
             if not session:
@@ -331,6 +400,10 @@ class WorkOrderActionSerializer(serializers.Serializer):
                     'action': 'Reanuda el trabajo antes de registrar avance.'
                 })
             percentage = self.validated_data.get("percentage", 0)
+            if percentage <= order.progress_percentage:
+                raise serializers.ValidationError({
+                    'percentage': f'El avance debe ser mayor al {order.progress_percentage} % registrado.'
+                })
             order.advances = [
                 *order.advances,
                 {
@@ -347,6 +420,17 @@ class WorkOrderActionSerializer(serializers.Serializer):
             order.progress_percentage = percentage
             order.started_at = order.started_at or now
             if percentage == 100:
+                finish_photo = self.validated_data.get("finishPhoto")
+                if not WorkOrderPhoto.objects.filter(work_order=order, stage=WorkOrderPhoto.Stage.FINISH).exists():
+                    if not finish_photo:
+                        raise serializers.ValidationError({"finishPhoto": "Adjunta la foto final antes de enviar la orden a supervisión."})
+                    WorkOrderPhoto.objects.create(
+                        work_order=order,
+                        stage=WorkOrderPhoto.Stage.FINISH,
+                        image=finish_photo,
+                        uploaded_by=request.user,
+                    )
+                    record_privacy_event(request=request, context="EVIDENCIA", subject_reference=order.code)
                 order.work_sessions = [
                     {
                         **item,

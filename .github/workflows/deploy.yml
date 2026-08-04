@@ -1,0 +1,29 @@
+name: Deploy controlled
+
+on:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated staging configuration
+        run: test -n "${{ vars.STAGING_QR_DOMAIN }}"
+      - name: Deploy staging
+        run: echo "Connect this step to the approved staging host using GitHub Environment secrets."
+
+  production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy production after required reviewer approval
+        run: echo "GitHub Environment production enforces the manual approval before this step."

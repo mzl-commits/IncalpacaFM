@@ -15,6 +15,7 @@ from apps.accounts.permissions import IsAuthenticatedReadAdministratorWrite, use
 from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
+from apps.privacy.services import record_privacy_event
 from apps.workorders.models import TechnicianSatisfaction, WorkOrder
 
 from .models import Incident
@@ -71,6 +72,7 @@ class PublicWorkRequestCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         incident = serializer.save()
+        record_privacy_event(request=request, context="REPORTE", subject_reference=incident.code)
         queue_for_administrators(
             event="INCIDENT_CREATED",
             subject=f"Nueva solicitud {incident.code}",
