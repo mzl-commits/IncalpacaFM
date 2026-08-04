@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 
 import {
   adminPriorityLabels,
+  getWorkOrderStatusLabel,
   specialtyLabels,
   workOrderStatusLabels,
   type WorkOrderStatus,
@@ -234,7 +235,7 @@ export function SupervisorWorkOrderReviewPage() {
                   <td>{formatDuration(order.startedAt, order.finishedAt)}</td>
                   <td>
                     <span className={`status ${statusClass[order.status]}`}>
-                      {workOrderStatusLabels[order.status]}
+                      {getWorkOrderStatusLabel(order)}
                     </span>
                   </td>
                   <td>

@@ -204,61 +204,60 @@ class PublicIncidentConformityView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        accepted = bool(request.data.get("accepted"))
-        rating = request.data.get("rating")
+        raw_rating = request.data.get("rating")
+        try:
+            rating = int(raw_rating)
+        except (TypeError, ValueError):
+            return Response(
+                {"rating": "Selecciona una calificación del 1 al 5."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if rating < 1 or rating > 5:
+            return Response(
+                {"rating": "Selecciona una calificación del 1 al 5."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         comment = str(request.data.get("comment") or "").strip()
         now = timezone.now()
         order.conformity = {
-            "accepted": accepted,
+            "accepted": True,
             "rating": rating,
             "comment": comment,
             "at": now.isoformat(),
             "by": "Solicitante",
             "source": "public_tracking",
         }
-        if accepted:
-            order.status = WorkOrder.Status.CLOSED
-            order.closed_at = now
-            incident.status = Incident.Status.CLOSED
-            incident.save(update_fields=("status", "updated_at"))
-        else:
-            order.status = WorkOrder.Status.RETURNED
-            order.closed_at = None
+        order.status = WorkOrder.Status.CLOSED
+        order.closed_at = now
+        incident.status = Incident.Status.CLOSED
+        incident.save(update_fields=("status", "updated_at"))
         order.save(update_fields=("conformity", "status", "closed_at", "updated_at"))
         TechnicianSatisfaction.objects.update_or_create(
             work_order=order,
             defaults={
                 "technician": order.technician,
-                "accepted": accepted,
-                "rating": rating if accepted else None,
+                "accepted": True,
+                "rating": rating,
                 "comment": comment,
             },
         )
-        if accepted:
-            queue_for_administrators(
-                event='SERVICE_SATISFACTION_RECEIVED',
-                subject=f'Satisfacción registrada · {incident.code}',
-                body=(
-                    f'El solicitante confirmó la atención {incident.code} '
-                    f'con una calificación de {rating or "sin calificación"}/5.'
-                ),
-                entity=incident,
-                discriminator='accepted',
-            )
-            queue_incident_requester(
-                event='SERVICE_SATISFACTION_THANK_YOU',
-                incident=incident,
-                subject=f'Gracias por tu evaluación · {incident.code}',
-                body='Tu confirmación y evaluación fueron registradas. Gracias por ayudarnos a mejorar el servicio.',
-                discriminator='accepted-thank-you',
-            )
-        else:
-            queue_for_administrators(
-                event='SERVICE_RETURNED_BY_REQUESTER',
-                subject=f'Revisión solicitada por el usuario · {incident.code}',
-                body=f'El solicitante indicó que la atención {incident.code} requiere una nueva revisión. {comment}',
-                entity=incident,
-                discriminator='returned',
-            )
+        queue_for_administrators(
+            event='SERVICE_SATISFACTION_RECEIVED',
+            subject=f'Satisfacción registrada · {incident.code}',
+            body=(
+                f'El solicitante calificó la atención {incident.code} '
+                f'con {rating}/5.'
+            ),
+            entity=incident,
+            discriminator='rating',
+        )
+        queue_incident_requester(
+            event='SERVICE_SATISFACTION_THANK_YOU',
+            incident=incident,
+            subject=f'Gracias por tu evaluación · {incident.code}',
+            body='Tu calificación fue registrada. Gracias por ayudarnos a mejorar el servicio.',
+            discriminator='rating-thank-you',
+        )
 
         return Response(PublicIncidentTrackingSerializer(incident).data)

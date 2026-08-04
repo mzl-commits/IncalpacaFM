@@ -646,6 +646,12 @@ section:has(.detail-header) .detail-grid { grid-template-columns: repeat(2, minm
 .execution-start-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; margin-bottom: 20px; }
 .execution-start-card h2 { margin: 0 0 6px; color: #10233f; }
 .execution-start-card p { margin: 0; color: #667085; }
+.returned-work-order-card { margin-bottom: 20px; border-color: #f6c7a8; background: #fff8f3; }
+.returned-work-order-card > div { display: flex; align-items: flex-start; gap: 14px; }
+.returned-work-order-card svg { flex: none; color: #b45309; }
+.returned-work-order-card h2 { margin: 0 0 6px; color: #7c2d12; font-size: 1.08rem; }
+.returned-work-order-card p { margin: 0 0 6px; color: #4f2d1f; line-height: 1.5; }
+.returned-work-order-card small { color: #7c4a2d; }
 .work-session-card > div { display: grid; gap: 7px; }
 .work-session-timer { color: #0b5e75; font-variant-numeric: tabular-nums; font-size: 1.55rem; letter-spacing: .04em; }
 .progress-range-field { display: grid; gap: 10px; }
@@ -1839,12 +1845,34 @@ td { padding: 13px 14px; }
 .validation-flow-grid span { font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .validation-flow-grid strong { display: block; margin: 10px 0 6px; color: #10233f; font-size: 1rem; }
 .validation-flow-grid small { line-height: 1.45; }
+.return-observation-card { margin-top: 18px; padding: 16px; border: 1px solid #f6c7a8; border-radius: 6px; background: #fff8f3; }
+.return-observation-card strong { display: block; margin-bottom: 6px; color: #7c2d12; }
+.return-observation-card p { margin: 0 0 6px; color: #4f2d1f; line-height: 1.5; }
+.return-observation-card small { color: #7c4a2d; }
 .admin-review-form { margin-top: 22px; padding-top: 22px; border-top: 1px solid #dce4f0; }
 .work-order-detail-grid { margin-top: 0 !important; }
 
 @media (max-width: 900px) {
   .validation-flow-grid { grid-template-columns: 1fr; }
 }
+.tracking-rejection-card { display: grid; gap: 14px; margin-bottom: 18px; border-color: #fecaca; background: #fff7f7; }
+.tracking-rejection-heading { display: flex; align-items: flex-start; gap: 14px; }
+.tracking-rejection-heading svg { flex: none; color: #b42318; }
+.tracking-rejection-heading span { display: block; margin-bottom: 4px; color: #b42318; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.tracking-rejection-heading h2 { margin: 0 0 6px; color: #7f1d1d; font-size: 1.22rem; }
+.tracking-rejection-heading p { margin: 0; color: #5f2930; line-height: 1.5; }
+.tracking-work-evidence-card { display: grid; gap: 18px; margin-bottom: 18px; border-color: #c9d8ea; background: #ffffff; }
+.tracking-work-evidence-heading { display: flex; align-items: flex-start; gap: 14px; }
+.tracking-work-evidence-heading svg { flex: none; color: #0b5cad; }
+.tracking-work-evidence-heading span { display: block; margin-bottom: 4px; color: #536170; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.tracking-work-evidence-heading h2 { margin: 0 0 4px; color: #10233f; font-size: 1.22rem; }
+.tracking-work-evidence-heading p { margin: 0; color: #667085; line-height: 1.5; }
+.tracking-work-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tracking-work-evidence-item { display: grid; gap: 5px; padding: 14px; border: 1px solid #dce4f0; border-radius: 8px; background: #f8fbff; }
+.tracking-work-evidence-item span { color: #536170; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.tracking-work-evidence-item strong { color: #10233f; word-break: break-word; }
+.tracking-work-evidence-item small, .tracking-work-evidence-empty { color: #667085; }
+
 .public-conformity-card { display: grid; gap: 18px; margin-bottom: 18px; border-color: #b9d3f4; background: #f8fbff; }
 .public-conformity-card.is-complete { border-color: #b7dfc4; background: #f4fbf6; }
 .public-conformity-heading { display: flex; align-items: flex-start; gap: 14px; }
@@ -1859,6 +1887,7 @@ td { padding: 13px 14px; }
 .tracking-status-pendiente_conformidad { background: #e2f0ff; color: #174a7c; }
 
 @media (max-width: 640px) {
+  .tracking-work-evidence-grid { grid-template-columns: 1fr; }
   .public-conformity-actions { flex-direction: column-reverse; }
   .public-conformity-actions .button { width: 100%; }
 }

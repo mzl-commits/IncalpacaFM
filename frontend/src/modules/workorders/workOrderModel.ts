@@ -69,3 +69,50 @@ export const workOrderStatusLabels: Record<WorkOrderStatus, string> = {
   CERRADA: "Cerrada",
   CANCELADA: "Cancelada",
 };
+
+interface WorkOrderReturnFields {
+  status: WorkOrderStatus;
+  supervisor_validation?: Record<string, unknown>;
+  administrator_validation?: Record<string, unknown>;
+}
+
+function getComment(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+export function getWorkOrderReturnInfo(workOrder: WorkOrderReturnFields) {
+  if (workOrder.status !== "DEVUELTA") return null;
+
+  if (workOrder.administrator_validation?.approved === false) {
+    return {
+      source: "admin" as const,
+      statusLabel: "Devuelta por administración",
+      title: "Orden devuelta por administración",
+      comment: getComment(workOrder.administrator_validation.comment, "Sin motivo administrativo registrado."),
+      nextStep: "Corrige lo indicado y vuelve a enviar la orden a supervisión.",
+    };
+  }
+
+  if (workOrder.supervisor_validation?.approved === false) {
+    return {
+      source: "supervisor" as const,
+      statusLabel: "Devuelta por supervisión",
+      title: "Orden devuelta por supervisión",
+      comment: getComment(workOrder.supervisor_validation.comment, "Sin motivo del supervisor registrado."),
+      nextStep: "Corrige lo indicado, registra la evidencia y vuelve a enviarla a supervisión.",
+    };
+  }
+
+  return {
+    source: "unknown" as const,
+    statusLabel: "Devuelta para corrección",
+    title: "Orden devuelta para corrección",
+    comment: "Revisa las observaciones registradas antes de continuar.",
+    nextStep: "Corrige lo indicado y vuelve a enviar la orden a supervisión.",
+  };
+}
+
+export function getWorkOrderStatusLabel(workOrder: WorkOrderReturnFields) {
+  return getWorkOrderReturnInfo(workOrder)?.statusLabel ?? workOrderStatusLabels[workOrder.status];
+}
+

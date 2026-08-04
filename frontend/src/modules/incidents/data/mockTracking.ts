@@ -10,6 +10,7 @@ export const mockTracking: RequestTracking[] = [
     workerSpecialty: "Electricidad",
     workOrderCode: "OT-2026-0001",
     workOrderStatus: "EN_PROCESO",
+    workEvidence: [],
     canSubmitConformity: false,
     progressPercentage: 45,
     location: "Planta / Administracion / Oficina 1",

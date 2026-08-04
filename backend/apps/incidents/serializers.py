@@ -1,4 +1,4 @@
-﻿from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -9,6 +9,7 @@ from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
 
 from .models import Incident
+from .services import build_tracking_url
 
 
 class IncidentSerializer(serializers.ModelSerializer):
@@ -271,6 +272,19 @@ class IncidentSerializer(serializers.ModelSerializer):
             before=before,
             after={"status": instance.status, "rejection_reason": instance.rejection_reason},
         )
+        if before["status"] != Incident.Status.REJECTED and instance.status == Incident.Status.REJECTED:
+            reason = instance.rejection_reason.strip() or "No se registró un motivo específico."
+            queue_incident_requester(
+                event="INCIDENT_REJECTED",
+                incident=instance,
+                subject=f"Solicitud no aprobada {instance.code}",
+                body=(
+                    f"Tu solicitud {instance.code} fue revisada y no fue aprobada para atención.\n\n"
+                    f"Motivo: {reason}\n\n"
+                    f"Puedes revisar el seguimiento aquí: {build_tracking_url(instance)}"
+                ),
+                discriminator=instance.status,
+            )
         return instance
 
 
@@ -432,6 +446,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
     workerName = serializers.SerializerMethodField()
     workerSpecialty = serializers.SerializerMethodField()
     workOrderCode = serializers.SerializerMethodField()
+    workEvidence = serializers.SerializerMethodField()
     progressPercentage = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     reportedAt = serializers.DateTimeField(source="created_at", read_only=True)
@@ -451,6 +466,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
             "workerName",
             "workerSpecialty",
             "workOrderCode",
+            "workEvidence",
             "progressPercentage",
             "location",
             "reportedAt",
@@ -502,6 +518,23 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
     def get_workOrderCode(self, obj):
         order = self._work_order(obj)
         return order.code if order else ""
+
+    def get_workEvidence(self, obj):
+        order = self._work_order(obj)
+        if not order:
+            return []
+
+        evidence_items = []
+        for advance in order.advances or []:
+            for evidence in advance.get("evidence") or []:
+                evidence_items.append({
+                    "id": evidence.get("id") or f"{advance.get('id')}-{len(evidence_items)}",
+                    "name": evidence.get("name") or "Evidencia registrada",
+                    "mimeType": evidence.get("mimeType") or "image/*",
+                    "createdAt": evidence.get("createdAt") or advance.get("createdAt") or order.updated_at.isoformat(),
+                    "progressPercentage": advance.get("percentage", order.progress_percentage),
+                })
+        return evidence_items
 
     def get_progressPercentage(self, obj):
         order = self._work_order(obj)
@@ -590,3 +623,4 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                     }
                 )
         return events
+

@@ -10,7 +10,7 @@ export async function getTrackingByIncidentId(token: string): Promise<RequestTra
 }
 export async function submitPublicConformity(
   token: string,
-  input: { accepted: boolean; rating?: number; comment: string },
+  input: { rating: number; comment: string },
 ): Promise<RequestTracking> {
   const cleanToken = token.trim();
   const { data } = await api.post<RequestTracking>(
