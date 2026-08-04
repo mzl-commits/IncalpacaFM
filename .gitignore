@@ -32,7 +32,8 @@ frontend/.vite/
 # Archivos generados por la plataforma
 runtime/
 media/
-documents/
+private_media/
+/documents/
 backups/
 
 # Bases de datos y respaldos

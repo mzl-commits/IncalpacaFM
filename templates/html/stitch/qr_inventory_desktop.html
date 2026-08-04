@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SGTB Incalpaca - Gestión de Etiquetas QR</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "inverse-on-surface": "#eaf1ff",
+                        "secondary-container": "#5095fe",
+                        "outline-variant": "#c3c6d1",
+                        "on-tertiary-container": "#999c9f",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#191c1e",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#dce9ff",
+                        "secondary": "#005cba",
+                        "surface-container-highest": "#d5e3fc",
+                        "tertiary-container": "#303436",
+                        "on-secondary-container": "#002d61",
+                        "outline": "#737780",
+                        "inverse-primary": "#a7c8ff",
+                        "on-secondary-fixed-variant": "#00458e",
+                        "surface-variant": "#d5e3fc",
+                        "surface-container-low": "#eff4ff",
+                        "surface-container": "#e6eeff",
+                        "tertiary-fixed-dim": "#c4c7ca",
+                        "on-secondary-fixed": "#001b3e",
+                        "on-surface": "#0d1c2e",
+                        "on-background": "#0d1c2e",
+                        "surface-bright": "#f8f9ff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#e0e3e6",
+                        "secondary-fixed": "#d7e3ff",
+                        "on-primary-container": "#799dd6",
+                        "surface-dim": "#ccdbf3",
+                        "secondary-fixed-dim": "#aac7ff",
+                        "inverse-surface": "#233144",
+                        "primary-fixed": "#d5e3ff",
+                        "background": "#f8f9ff",
+                        "on-tertiary-fixed-variant": "#44474a",
+                        "on-surface-variant": "#43474f",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#001b3c",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "tertiary": "#1b1f21",
+                        "on-error": "#ffffff",
+                        "primary": "#001e40",
+                        "primary-container": "#003366",
+                        "surface": "#f8f9ff",
+                        "surface-tint": "#3a5f94"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "touch-target": "44px",
+                        "margin-desktop": "32px",
+                        "xs": "4px",
+                        "unit": "4px",
+                        "xl": "32px",
+                        "gutter": "20px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9ff; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; }
+        .icon-fill { font-variation-settings: 'FILL' 1; }
+        /* Ambient shadow for level 2 */
+        .shadow-ambient-2 { box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="bg-background text-on-background flex min-h-screen">
+<!-- SideNavBar -->
+<nav class="bg-primary text-secondary-fixed w-[260px] h-screen fixed left-0 top-0 hidden md:flex flex-col py-md gap-sm shadow-md z-50 overflow-y-auto">
+<div class="px-lg pb-md flex items-center gap-sm">
+<img alt="SGTB Logo" class="w-8 h-8 object-contain" data-alt="A highly professional and crisp 3D rendering of an abstract corporate logo for a logistics company. The logo features geometric shapes in deep navy blue and stark white, creating a sense of precision and modern asset management. High-key studio lighting with a light-mode aesthetic, set against a pristine white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAenmjV1MZWIT4j_lYvtuP9On49UPhw287rKZdG_277QlfbzoKkup8hhcedN26hwlUhSKUK6y_dDRQcyZnBEuKAq2gQBy6uUzDTK0KkXAnBxHJ3z7qpMKKXwP4b0TqqAdAimGKXc0HvlhOBc7D7n9Hz0lVlCv6fCO7OzEcFsq0MsJu31ssTdl_USAY7dxUFuCYnt3u-OV_f9K7nm6Xaov9Gyj6EO_yT9skgQ1o0_dJXevQsAcZEtEx2PrDZqnUeB4NrJnpLGZFYjoJs"/>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-primary">SGTB Incalpaca</h1>
+<p class="font-label-sm text-label-sm text-on-primary-container">Asset Management</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-xs mt-sm">
+<!-- Navigation Items -->
+<a class="flex items-center gap-md px-lg py-sm text-on-primary-fixed-variant hover:bg-primary-fixed-dim/10 mx-2 transition-colors active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">home</span>
+<span class="font-label-md text-label-md">Inicio</span>
+</a>
+<a class="flex items-center gap-md px-lg py-sm bg-secondary-container text-on-secondary-container rounded-lg mx-2 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined text-[20px] icon-fill">inventory_2</span>
+<span class="font-label-md text-label-md">Bienes</span>
+</a>
+<a class="flex items-center gap-md px-lg py-sm text-on-primary-fixed-variant hover:bg-primary-fixed-dim/10 mx-2 transition-colors active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">login</span>
+<span class="font-label-md text-label-md">Entradas</span>
+</a>
+<a class="flex items-center gap-md px-lg py-sm text-on-primary-fixed-variant hover:bg-primary-fixed-dim/10 mx-2 transition-colors active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+<span class="font-label-md text-label-md">Asignaciones</span>
+</a>
+<a class="flex items-center gap-md px-lg py-sm text-on-primary-fixed-variant hover:bg-primary-fixed-dim/10 mx-2 transition-colors active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">report_problem</span>
+<span class="font-label-md text-label-md">Incidencias</span>
+</a>
+<a class="flex items-center gap-md px-lg py-sm text-on-primary-fixed-variant hover:bg-primary-fixed-dim/10 mx-2 transition-colors active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">task</span>
+<span class="font-label-md text-label-md">Órdenes de trabajo</span>
+</a>
+<a class="flex items-center gap-md px-lg py-sm text-on-primary-fixed-variant hover:bg-primary-fixed-dim/10 mx-2 transition-colors active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">assessment</span>
+<span class="font-label-md text-label-md">Reportes</span>
+</a>
+<a class="flex items-center gap-md px-lg py-sm text-on-primary-fixed-variant hover:bg-primary-fixed-dim/10 mx-2 transition-colors active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label-md text-label-md">Administración</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col md:ml-[260px] min-w-0">
+<!-- TopAppBar -->
+<header class="bg-surface-container-lowest h-[64px] w-full sticky top-0 z-40 border-b border-outline-variant flex justify-between items-center px-lg">
+<div class="flex items-center gap-sm md:hidden">
+<span class="material-symbols-outlined cursor-pointer active:opacity-80">menu</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">SGTB Incalpaca</span>
+</div>
+<div class="hidden md:flex items-center gap-sm">
+<!-- Breadcrumbs conceptual -->
+<span class="font-body-md text-body-md text-on-surface-variant">Bienes</span>
+<span class="material-symbols-outlined text-outline-variant text-[16px]">chevron_right</span>
+<span class="font-body-md text-body-md text-primary font-bold border-b-2 border-primary">Gestión de Etiquetas QR</span>
+</div>
+<div class="flex items-center gap-md">
+<!-- Search Bar Placeholder for TopNav -->
+<div class="hidden lg:flex items-center bg-surface-container-low rounded-full px-sm h-[40px] border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant mx-xs">search</span>
+<input class="bg-transparent border-none focus:ring-0 font-body-md text-body-md text-on-surface w-[200px]" placeholder="Buscar..." type="text"/>
+</div>
+<button class="w-touch-target h-touch-target flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all active:opacity-80 text-primary">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-touch-target h-touch-target flex items-center justify-center rounded-full hover:bg-surface-container-high transition-all active:opacity-80 text-primary">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant ml-xs cursor-pointer active:opacity-80">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A clear, professional headshot photograph of a logistics manager in a bright, modern office setting. The lighting is soft and natural, emphasizing a clean corporate aesthetic. High resolution, shallow depth of field focusing strictly on the subject." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSrpiMqijkDZG7gxLkTQmKTsxb2NDAX1h-R0s7H1mv7F-Peoo8MURw4IWH_sW7t2r4PJByg7XI2t3UjFPStcJUfbrurfO8FPp3fbAde8TiaCBUurh57s7PsYrxbi9_RgXX5R4yiaJFFhXZq2sWbgtDHF8au7veY4V_1mrVvs5BwQLL_CpHZlzcX7lb0HayGC1OKXXUW2hTO86VumGi42wKz1nxCekhPxNkOQx23gfQDLPWsmvKCyienJf_J7DbxBWFff0zWQypcEc3"/>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 p-margin-mobile md:p-margin-desktop overflow-x-hidden">
+<!-- Page Header & Actions -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
+<div>
+<h2 class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">Inventario de QR</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Gestione y exporte las etiquetas de identificación para sus bienes físicos.</p>
+</div>
+<div class="flex flex-wrap items-center gap-sm">
+<button class="h-touch-target px-md flex items-center gap-xs border border-outline-variant rounded-lg bg-surface-container-lowest text-primary hover:bg-surface-container-high transition-all font-label-md text-label-md shadow-sm">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                        Imprimir Selección
+                    </button>
+<button class="h-touch-target px-md flex items-center gap-xs border border-outline-variant rounded-lg bg-surface-container-lowest text-primary hover:bg-surface-container-high transition-all font-label-md text-label-md shadow-sm">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                        Exportar Lote
+                    </button>
+<button class="h-touch-target px-md flex items-center gap-xs bg-primary text-on-primary rounded-lg hover:bg-primary-container transition-all font-label-md text-label-md shadow-ambient-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Nuevo QR
+                    </button>
+</div>
+</div>
+<!-- Filters Section -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-lg shadow-sm flex flex-col lg:flex-row gap-md items-end">
+<div class="w-full lg:w-1/3">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Búsqueda Rápida</label>
+<div class="flex items-center border border-outline-variant rounded-lg h-touch-target px-sm bg-surface">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="w-full bg-transparent border-none focus:ring-0 font-body-md text-body-md ml-xs text-on-surface" placeholder="ID de Bien o Descripción" type="text"/>
+</div>
+</div>
+<div class="w-full lg:w-1/4">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Categoría</label>
+<select class="w-full border border-outline-variant rounded-lg h-touch-target px-sm bg-surface font-body-md text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary">
+<option>Todos los Equipos</option>
+<option>Cómputo</option>
+<option>Maquinaria</option>
+<option>Mobiliario</option>
+</select>
+</div>
+<div class="w-full lg:w-1/4">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Estado QR</label>
+<select class="w-full border border-outline-variant rounded-lg h-touch-target px-sm bg-surface font-body-md text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary">
+<option>Todos</option>
+<option>Impreso</option>
+<option>Pendiente</option>
+<option>Dañado</option>
+</select>
+</div>
+<div class="w-full lg:w-auto flex-shrink-0">
+<button class="w-full lg:w-auto h-touch-target px-md flex items-center justify-center gap-xs bg-surface-container-high text-primary rounded-lg hover:bg-surface-variant transition-all font-label-md text-label-md border border-outline-variant">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                        Filtros Avanzados
+                    </button>
+</div>
+</div>
+<!-- Bento Grid / Cards View -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm hover:shadow-ambient-2 transition-shadow group flex gap-md">
+<div class="flex-shrink-0 flex flex-col items-center justify-between">
+<div class="w-24 h-24 bg-surface p-2 border border-outline-variant rounded-lg flex items-center justify-center">
+<!-- Conceptual QR Code Image -->
+<img alt="QR INC-BIEN-2026-001245" class="w-full h-full object-cover" data-alt="A clean, high-contrast, black and white QR code printed on a stark white square background. The design is purely graphic and functional, representing digital asset tracking in a minimalist corporate style. No other elements present." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4LDw2LyQCgoGtUWF2UWZ0PRgEAAtPyWf76ZIq6WHHnCNjm8q1oA8Nk9jq0-Lm_IBbJ4-mjfoWEvuDqZvj92J52tmT7HBFskLQsfwYTwNiPuLxl2MDvqBiFWKZRZ4YP770D491o0CsPI2VXcKuXxsd80RRrRK36RyCBpqg96sAbhvzaj9YHAiBB0RL6cnWApMg29tuKZr0qZI4c3-hIi3yz98586GBDIaw_MEuyhwHo-UDXL2SsbIa9KpnhlVReVsnuye8-M-cdhAe"/>
+</div>
+<div class="mt-sm flex gap-xs">
+<button class="w-8 h-8 rounded bg-surface-container-high text-primary flex items-center justify-center hover:bg-surface-variant" title="Imprimir">
+<span class="material-symbols-outlined text-[16px]">print</span>
+</button>
+<button class="w-8 h-8 rounded bg-surface-container-high text-primary flex items-center justify-center hover:bg-surface-variant" title="Regenerar">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+</button>
+</div>
+</div>
+<div class="flex-1 flex flex-col min-w-0">
+<div class="flex justify-between items-start mb-xs">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-[#e6eeff] text-[#003366]">Activo</span>
+<input class="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" type="checkbox"/>
+</div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">INC-BIEN-2026-001245</h3>
+<p class="font-body-md text-body-md text-on-surface-variant truncate mt-xs">Laptop Lenovo Thinkpad T14</p>
+<div class="mt-auto pt-sm flex flex-col gap-xs">
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+<span class="font-label-sm text-label-sm truncate">Sede Principal - Piso 4</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">person</span>
+<span class="font-label-sm text-label-sm truncate">Juan Pérez</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm hover:shadow-ambient-2 transition-shadow group flex gap-md">
+<div class="flex-shrink-0 flex flex-col items-center justify-between">
+<div class="w-24 h-24 bg-surface p-2 border border-outline-variant rounded-lg flex items-center justify-center">
+<img alt="QR INC-BIEN-2026-001246" class="w-full h-full object-cover opacity-60" data-alt="A clean, high-contrast, black and white QR code printed on a stark white square background. The design is purely graphic and functional, representing digital asset tracking in a minimalist corporate style. No other elements present." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBI1cbNg95wtJ2E5Gb_1lpeQaNftek31xkjwjzVzmjmJxtGLxTD-yw07lXrp7ihHjyvH141k54lIl4jXmT06HxmPCpzPJa2BiXMgxt02j1AK5lgp489IHsFWbFn9KnBQwZSNxIHCytOKClQrsRjFiT29ASi8AcEqQwLVvhM6PnM15KmIkISH9NexLn1opoY5bXY0UZ8YjwQT90SPubx9v2CaYDj-1UkvQkRffKSQmLriagZPDrhUbgXxVbzVZtm3ciBmfsyFeNwqKYG"/>
+</div>
+<div class="mt-sm flex gap-xs">
+<button class="w-8 h-8 rounded bg-surface-container-high text-primary flex items-center justify-center hover:bg-surface-variant" title="Imprimir">
+<span class="material-symbols-outlined text-[16px]">print</span>
+</button>
+<button class="w-8 h-8 rounded bg-surface-container-high text-primary flex items-center justify-center hover:bg-surface-variant" title="Regenerar">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+</button>
+</div>
+</div>
+<div class="flex-1 flex flex-col min-w-0">
+<div class="flex justify-between items-start mb-xs">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-[#ffdad6] text-[#93000a]">Pendiente Impresión</span>
+<input class="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" type="checkbox"/>
+</div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">INC-BIEN-2026-001246</h3>
+<p class="font-body-md text-body-md text-on-surface-variant truncate mt-xs">Monitor Dell UltraSharp 27"</p>
+<div class="mt-auto pt-sm flex flex-col gap-xs">
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+<span class="font-label-sm text-label-sm truncate">Almacén Central - Rack B</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+<span class="font-label-sm text-label-sm truncate">Creado: 12 Oct 2023</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm hover:shadow-ambient-2 transition-shadow group flex gap-md">
+<div class="flex-shrink-0 flex flex-col items-center justify-between">
+<div class="w-24 h-24 bg-surface p-2 border border-outline-variant rounded-lg flex items-center justify-center">
+<img alt="QR INC-BIEN-2026-001247" class="w-full h-full object-cover" data-alt="A clean, high-contrast, black and white QR code printed on a stark white square background. The design is purely graphic and functional, representing digital asset tracking in a minimalist corporate style. No other elements present." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMsEt5zBxOCGrsttE_gVVfR7JvJHFuQWQlYK3VWtoeec1LeEw00GpyBpa5fJWLnzp-OYI03UMMvpSZ6D4Chho1wNiOyVHFq9WLiSc-9jYlpAFYDyoA4_nJtuB14wbm_hlFRkBR3Po6jq7RHoqaLljb9vfPP6SMrBfnoCpzNBdPhcHfMe8-G4wGco4OtswIMReURsPcrltetS7Gtqu8CepVk1NcNlY6NWhLNO4763Lfd0Ty55278e9qLAuZs-tqanTfq5-X_kbyoYLY"/>
+</div>
+<div class="mt-sm flex gap-xs">
+<button class="w-8 h-8 rounded bg-surface-container-high text-primary flex items-center justify-center hover:bg-surface-variant" title="Imprimir">
+<span class="material-symbols-outlined text-[16px]">print</span>
+</button>
+<button class="w-8 h-8 rounded bg-surface-container-high text-primary flex items-center justify-center hover:bg-surface-variant" title="Regenerar">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+</button>
+</div>
+</div>
+<div class="flex-1 flex flex-col min-w-0">
+<div class="flex justify-between items-start mb-xs">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-[#d5e3fc] text-[#002d61]">Impreso</span>
+<input class="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" type="checkbox"/>
+</div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">INC-BIEN-2026-001247</h3>
+<p class="font-body-md text-body-md text-on-surface-variant truncate mt-xs">Silla Ergonómica Herman Miller</p>
+<div class="mt-auto pt-sm flex flex-col gap-xs">
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+<span class="font-label-sm text-label-sm truncate">Sede Principal - Sala Reuniones</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span class="font-label-sm text-label-sm truncate">Último escaneo: Ayer</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination conceptual -->
+<div class="flex justify-between items-center mt-lg py-md border-t border-outline-variant">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Mostrando 1 - 12 de 3,456 etiquetas</span>
+<div class="flex gap-xs">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-primary bg-primary text-on-primary font-label-md">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high font-label-md">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high font-label-md">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="bg-surface text-primary fixed bottom-0 w-full z-50 md:hidden border-t border-outline-variant shadow-lg flex justify-around items-center h-[56px] px-sm pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-transform active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined text-[24px]">home</span>
+<span class="font-label-sm text-[10px] mt-1">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined text-[24px] icon-fill">inventory_2</span>
+<span class="font-label-sm text-[10px] mt-1">Bienes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-transform active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined text-[24px]">report_problem</span>
+<span class="font-label-sm text-[10px] mt-1">Incidencias</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-transform active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined text-[24px]">task</span>
+<span class="font-label-sm text-[10px] mt-1">Órdenes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-transform active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined text-[24px]">menu</span>
+<span class="font-label-sm text-[10px] mt-1">Más</span>
+</a>
+</nav>
+</body></html>

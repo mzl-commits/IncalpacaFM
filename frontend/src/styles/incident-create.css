@@ -1,0 +1,43 @@
+.incident-create-page { min-width: 0; }
+.incident-location-layout { display: grid; gap: .85rem; }
+.incident-location-search { max-width: 58rem; position: relative; }
+.incident-location-combobox { align-items: center; display: flex; position: relative; }
+.incident-location-combobox > svg { color: #64717e; left: .8rem; pointer-events: none; position: absolute; }
+.incident-location-combobox input { padding-left: 2.35rem; width: 100%; }
+.incident-location-results { background: #fff; border: 1px solid var(--border, #dfe4ea); display: grid; margin-top: .35rem; max-height: 23rem; overflow-y: auto; width: 100%; }
+.incident-location-results > button { align-items: center; background: transparent; border: 0; border-bottom: 1px solid var(--border, #dfe4ea); color: inherit; cursor: pointer; display: grid; gap: .65rem; grid-template-columns: auto minmax(0, 1fr) auto; min-height: 4.25rem; padding: .7rem .8rem; text-align: left; }
+.incident-location-results > button:last-child { border-bottom: 0; }
+.incident-location-results > button:hover, .incident-location-results > button.is-active { background: #eff6f4; }
+.incident-location-results > button:focus-visible { outline: 3px solid #1d6fd3; outline-offset: -3px; }
+.incident-location-results > button > svg { color: var(--color-primary, #075e54); height: 1.35rem; width: 1.35rem; }
+.incident-location-results > button > span { display: grid; gap: .12rem; min-width: 0; }
+.incident-location-results strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.incident-location-results small { color: var(--text-muted, #566372); font-size: .74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.incident-location-results em { align-items: center; color: #52606c; display: flex; font-size: .7rem; font-style: normal; gap: .25rem; white-space: nowrap; }
+.incident-location-results em svg { color: #14734e; }
+.incident-location-results > p { color: var(--text-muted, #566372); margin: 0; padding: 1rem; text-align: center; }
+.incident-location-selected { align-items: center; background: #eef7f3; border: 1px solid #9ccdb8; display: grid; gap: .65rem; grid-template-columns: auto minmax(0, 1fr) auto; margin-top: .55rem; padding: .75rem .85rem; }
+.incident-location-selected > svg { color: #168451; height: 1.4rem; width: 1.4rem; }
+.incident-location-selected > div { display: grid; gap: .12rem; min-width: 0; }
+.incident-location-selected span { color: #4f625a; font-size: .75rem; }
+.incident-location-selected button { background: transparent; border: 0; color: var(--color-primary, #075e54); cursor: pointer; font-size: .78rem; font-weight: 700; padding: .4rem; }
+.incident-location-summary { border: 1px solid var(--border, #dfe4ea); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.incident-location-summary > div { display: grid; gap: .2rem; min-width: 0; padding: .75rem; }
+.incident-location-summary > div + div { border-left: 1px solid var(--border, #dfe4ea); }
+.incident-location-summary dt { color: var(--text-muted, #566372); font-size: .68rem; }
+.incident-location-summary dd { font-size: .8rem; font-weight: 700; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.incident-reference-unavailable { align-items: flex-start; background: #f6f8f9; border: 1px solid var(--border, #dfe4ea); display: flex; gap: .7rem; margin-top: 1rem; padding: .85rem; }
+.incident-reference-unavailable > svg { color: #63717e; flex: 0 0 auto; height: 1.5rem; width: 1.5rem; }
+.incident-reference-unavailable p { display: grid; gap: .15rem; margin: 0; }
+.incident-reference-unavailable span { color: var(--text-muted, #566372); font-size: .8rem; }
+.incident-create-page .location-marker-picker { margin-top: 1rem; max-width: 58rem; }
+.incident-create-page .form-error { align-items: center; display: flex; gap: .45rem; }
+@media (max-width: 47.5rem) {
+  .incident-location-results > button { grid-template-columns: auto minmax(0, 1fr); }
+  .incident-location-results em { grid-column: 2; }
+  .incident-location-summary { grid-template-columns: 1fr 1fr; }
+  .incident-location-summary > div:nth-child(3) { border-left: 0; border-top: 1px solid var(--border, #dfe4ea); }
+  .incident-location-summary > div:nth-child(4) { border-top: 1px solid var(--border, #dfe4ea); }
+  .incident-location-selected { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { .incident-location-results > button { transition: none; } }
