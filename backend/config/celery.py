@@ -12,4 +12,8 @@ app.conf.beat_schedule = {
         'task': 'apps.notifications.tasks.evaluate_work_order_alerts_task',
         'schedule': 900.0,
     },
+    'evaluate-operational-health': {
+        'task': 'apps.notifications.tasks.evaluate_operational_health_task',
+        'schedule': 900.0,
+    },
 }
