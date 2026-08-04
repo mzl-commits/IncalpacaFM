@@ -4,6 +4,7 @@
   FloppyDisk,
   Pause,
   Play,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
 } from "react-router-dom";
 
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
+import { getWorkOrderReturnInfo } from "@/modules/workorders/workOrderModel";
 import {
   getWorkOrderById,
   pauseWorkOrder,
@@ -35,6 +37,10 @@ function formatTimer(seconds: number) {
   const rest = seconds % 60;
   return [hours, minutes, rest].map((value) => String(value).padStart(2, "0")).join(":");
 }
+
+function getReviewText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "Sin motivo registrado.";
+}
 export function WorkOrderExecutionPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -45,7 +51,8 @@ export function WorkOrderExecutionPage() {
     if (!id) return;
     void getWorkOrderById(id).then(async (order) => {
       setWorkOrder(order);
-      setPercentage(Math.min(order.progressPercentage + 5, 100));
+      const returnedForCorrection = Boolean(getWorkOrderReturnInfo(order));
+      setPercentage(returnedForCorrection ? order.progressPercentage : Math.min(order.progressPercentage + 5, 100));
       setRequest(await getWorkRequestById(order.requestId));
     });
   }, [id]);
@@ -109,10 +116,12 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    if (
-      percentage <=
-      workOrder.progressPercentage
-    ) {
+    const canResendReturnedWork =
+      Boolean(getWorkOrderReturnInfo(workOrder)) &&
+      workOrder.progressPercentage === 100 &&
+      percentage === 100;
+
+    if (percentage <= workOrder.progressPercentage && !canResendReturnedWork) {
       setError(
         `El avance debe ser mayor al ${workOrder.progressPercentage} % registrado.`,
       );
@@ -192,6 +201,10 @@ export function WorkOrderExecutionPage() {
     workOrder.status === "CANCELADA";
 
   const hasActiveSession = Boolean(workOrder.activeWorkSession);
+  const returnInfo = getWorkOrderReturnInfo(workOrder);
+  const isReturnedForCorrection = Boolean(returnInfo);
+  const returnComment = getReviewText(returnInfo?.comment);
+  const minimumProgress = isReturnedForCorrection ? workOrder.progressPercentage : Math.min(workOrder.progressPercentage + 1, 100);
   const canStartSession = workOrder.status !== "EN_PROCESO" || !hasActiveSession;
   const activeSessionSeconds = workOrder.activeWorkSession?.startAt
     ? Math.max(0, Math.floor((timerNow - new Date(workOrder.activeWorkSession.startAt).getTime()) / 1000))
@@ -258,13 +271,26 @@ export function WorkOrderExecutionPage() {
         </article>
       ) : (
         <>
+          {returnInfo && (
+            <article className="data-panel detail-card returned-work-order-card">
+              <div>
+                <WarningCircle size={28} weight="duotone" />
+                <div>
+                  <h2>Orden devuelta por supervisión</h2>
+                  <p>{returnComment}</p>
+                  <small>{returnInfo.nextStep}</small>
+                </div>
+              </div>
+            </article>
+          )}
+
           {canStartSession && (
             <article className="data-panel execution-start-card">
               <div>
                 <h2>Iniciar ejecución</h2>
 
                 <p>
-                  Usa este boton cada vez que empieces o retomes el trabajo.
+                  Usa este botón cada vez que empieces o retomes el trabajo.
                 </p>
               </div>
 
@@ -330,7 +356,7 @@ export function WorkOrderExecutionPage() {
                   <span>Porcentaje de avance <output>{percentage} %</output></span>
                   <input
                     type="range"
-                    min={Math.min(workOrder.progressPercentage + 1, 100)}
+                    min={minimumProgress}
                     max={100}
                     step={5}
                     value={percentage}
@@ -450,7 +476,9 @@ export function WorkOrderExecutionPage() {
                 />
 
                 {percentage === 100
-                  ? "Finalizar y enviar a supervisión"
+                  ? isReturnedForCorrection
+                    ? "Reenviar a supervisión"
+                    : "Finalizar y enviar a supervisión"
                   : "Guardar avance"}
               </button>
             </div>

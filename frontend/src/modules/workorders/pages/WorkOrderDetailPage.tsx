@@ -19,6 +19,8 @@ import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
 import {
   adminPriorityLabels,
+  getWorkOrderReturnInfo,
+  getWorkOrderStatusLabel,
   specialtyLabels,
   workOrderStatusLabels,
   type WorkOrderStatus,
@@ -105,9 +107,9 @@ function getConformityLabel(data: Record<string, unknown> | undefined) {
   if (!data || typeof data.accepted !== "boolean") return "Pendiente";
   return data.accepted ? "Conforme" : "Pidió revisión";
 }
-function getValidationLabel(data: Record<string, unknown> | undefined) {
+function getValidationLabel(data: Record<string, unknown> | undefined, returnedLabel = "Devuelta") {
   if (!data || typeof data.approved !== "boolean") return "Sin validar";
-  return data.approved ? "Aprobada" : "Devuelta";
+  return data.approved ? "Aprobada" : returnedLabel;
 }
 
 export function WorkOrderDetailPage() {
@@ -190,6 +192,7 @@ export function WorkOrderDetailPage() {
     "comment",
     "Sin comentario del solicitante",
   );
+  const returnInfo = getWorkOrderReturnInfo(workOrder);
 
   return (
     <section>
@@ -218,7 +221,7 @@ export function WorkOrderDetailPage() {
           </p>
         </div>
         <span className={`status ${statusClass[workOrder.status]}`}>
-          {workOrderStatusLabels[workOrder.status]}
+          {getWorkOrderStatusLabel(workOrder)}
         </span>
       </div>
 
@@ -252,12 +255,12 @@ export function WorkOrderDetailPage() {
           </div>
           <div>
             <span>2. Supervisor</span>
-            <strong>{getValidationLabel(workOrder.supervisor_validation)}</strong>
+            <strong>{getValidationLabel(workOrder.supervisor_validation, "Devuelta por supervisor")}</strong>
             <small>{supervisorComment}</small>
           </div>
           <div>
             <span>3. Administrador</span>
-            <strong>{needsAdminReview ? "Pendiente de decision" : getValidationLabel(workOrder.administrator_validation)}</strong>
+            <strong>{needsAdminReview ? "Pendiente de decisión" : getValidationLabel(workOrder.administrator_validation, "Devuelta por administración")}</strong>
             <small>{needsAdminReview ? "Debe aprobar o devolver la ejecución" : adminRegisteredComment}</small>
           </div>
           <div>
@@ -266,6 +269,14 @@ export function WorkOrderDetailPage() {
             <small>{getRatingLabel(workOrder.conformity)} - {requesterComment}</small>
           </div>
         </div>
+
+        {returnInfo && (
+          <div className="return-observation-card">
+            <strong>{returnInfo.title}</strong>
+            <p>{returnInfo.comment}</p>
+            <small>{returnInfo.nextStep}</small>
+          </div>
+        )}
 
         {isAdmin && needsAdminReview && (
           <form className="admin-review-form" onSubmit={(event) => { event.preventDefault(); void handleAdminReview(true); }}>
@@ -309,7 +320,7 @@ export function WorkOrderDetailPage() {
           <dl className="detail-list">
             <div><dt>Especialidad</dt><dd>{specialtyLabels[workOrder.specialty]}</dd></div>
             <div><dt>Prioridad administrativa</dt><dd>{adminPriorityLabels[workOrder.adminPriority]}</dd></div>
-            <div><dt>Estado actual</dt><dd>{workOrderStatusLabels[workOrder.status]}</dd></div>
+            <div><dt>Estado actual</dt><dd>{getWorkOrderStatusLabel(workOrder)}</dd></div>
             <div><dt>Solicitud de origen</dt><dd>{workOrder.requestCode}</dd></div>
             {getWorkOrderAssetDisplayCode(workOrder) && (
               <div><dt>Bien asociado</dt><dd>{workOrder.assetId ? <Link className="detail-link" to={`/bienes/${workOrder.assetId}`}>{getWorkOrderAssetDisplayCode(workOrder)}</Link> : getWorkOrderAssetDisplayCode(workOrder)}</dd></div>

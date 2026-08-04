@@ -16,6 +16,7 @@ import {
 } from "@/components/filters/filterUtils";
 import {
   adminPriorityLabels,
+  getWorkOrderStatusLabel,
   specialtyLabels,
   WORK_ORDER_STATUSES,
   workOrderStatusLabels,
@@ -463,7 +464,7 @@ export function WorkOrderListPage() {
                   </td>
                   <td>
                     <span className={`status ${statusClass[workOrder.status]}`}>
-                      {workOrderStatusLabels[workOrder.status]}
+                      {getWorkOrderStatusLabel(workOrder)}
                     </span>
                   </td>
                   <td>
@@ -498,7 +499,7 @@ export function WorkOrderListPage() {
               <span className="flex items-start justify-between gap-3">
                 <strong className="text-sm">{workOrder.code}</strong>
                 <span className={`status ${statusClass[workOrder.status]}`}>
-                  {workOrderStatusLabels[workOrder.status]}
+                  {getWorkOrderStatusLabel(workOrder)}
                 </span>
               </span>
               <span className="grid gap-1 text-xs text-slate-600">
