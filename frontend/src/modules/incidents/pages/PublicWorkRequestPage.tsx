@@ -23,6 +23,7 @@ interface PublicRequestFormState {
   requesterName: string;
   requesterEmail: string;
   requesterPhone: string;
+  requesterDni: string;
   requesterWorkerCode: string;
   locationId: string;
   zone: string;
@@ -47,6 +48,7 @@ const initialForm: PublicRequestFormState = {
   requesterName: "",
   requesterEmail: "",
   requesterPhone: "",
+  requesterDni: "",
   requesterWorkerCode: "",
   locationId: "",
   zone: "",
@@ -178,6 +180,8 @@ export function PublicWorkRequestPage() {
         requesterName: form.requesterName.trim(),
         requesterEmail: form.requesterEmail.trim(),
         requesterPhone: form.requesterPhone.trim(),
+        requesterDni: form.requesterDni.trim(),
+        requesterWorkerCode: form.requesterWorkerCode.trim(),
         zone: form.zone,
         building: form.building.trim(),
         area: form.area.trim(),
@@ -287,8 +291,23 @@ export function PublicWorkRequestPage() {
               </label>
 
               <label className="field">
-                <span>Código de trabajador</span>
+                <span>DNI *</span>
                 <input
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]{8}"
+                  minLength={8}
+                  maxLength={8}
+                  value={form.requesterDni}
+                  onChange={(event) => updateField("requesterDni", event.target.value.replace(/\D/g, ""))}
+                  placeholder="8 dígitos"
+                />
+              </label>
+
+              <label className="field">
+                <span>Código de trabajador *</span>
+                <input
+                  required
                   value={form.requesterWorkerCode}
                   onChange={(event) => updateField("requesterWorkerCode", event.target.value.toUpperCase())}
                   placeholder="Ej. K4F89J"
