@@ -66,6 +66,8 @@ export interface WorkOrder {
   workSessions?: WorkOrderSession[];
   effectiveWorkMinutes?: number;
   activeWorkSession?: WorkOrderSession | null;
+  startPhoto?: string | null;
+  finishPhoto?: string | null;
   satisfaction?: {
     accepted: boolean;
     rating: number | null;

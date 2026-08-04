@@ -7,6 +7,7 @@ from apps.accounts.models import AccountProfile
 from apps.assets.models import Location, LocationMap
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
+from apps.privacy.services import record_privacy_event
 
 from .models import Incident
 
@@ -419,6 +420,11 @@ class PublicWorkRequestSerializer(serializers.Serializer):
                 "noPhotoReason": validated_data.get("noPhotoReason", ""),
             },
             status="RECIBIDA",
+        )
+        record_privacy_event(
+            request=self.context["request"],
+            context="REPORTE",
+            subject_reference=incident.code,
         )
         return incident
 

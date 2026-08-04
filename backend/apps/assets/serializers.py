@@ -3,6 +3,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.audit.services import record_audit
+from .file_validation import validate_uploaded_file
 from apps.taxonomy.services import (
     allocate_fm_identifier,
     allocate_internal_code,
@@ -15,6 +16,9 @@ from .models import Asset, Location, LocationMap, Taxonomy
 class AssetSerializer(serializers.ModelSerializer):
     entry_type_label = serializers.CharField(source='get_entry_type_display', read_only=True)
     photo = serializers.ImageField(write_only=True, required=False, allow_null=True)
+
+    def validate_photo(self, value):
+        return validate_uploaded_file(value) if value else value
     registered_by_name = serializers.SerializerMethodField()
     public_url = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()

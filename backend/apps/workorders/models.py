@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.incidents.models import Incident
+from apps.assets.storage import private_asset_photo_storage
 
 
 class WorkOrder(models.Model):
@@ -58,6 +59,85 @@ class WorkOrder(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+
+
+class WorkOrderPhoto(models.Model):
+    """Private photographic evidence captured at the start and end of an OT."""
+
+    class Stage(models.TextChoices):
+        START = "INICIO", "Inicio"
+        FINISH = "FINAL", "Final"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    work_order = models.ForeignKey(WorkOrder, related_name="traceability_photos", on_delete=models.PROTECT)
+    stage = models.CharField(max_length=12, choices=Stage.choices)
+    image = models.ImageField(
+        upload_to="work_order_photos/",
+        storage=private_asset_photo_storage,
+    )
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="work_order_photos", on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at",)
+        constraints = [
+            models.UniqueConstraint(fields=("work_order", "stage"), name="one_traceability_photo_per_stage"),
+        ]
+
+
+class WorkOrderCost(models.Model):
+    class Category(models.TextChoices):
+        LABOR = "MANO_OBRA", "Mano de obra"
+        MATERIAL = "MATERIAL", "Material"
+        SERVICE = "SERVICIO", "Servicio"
+        OTHER = "OTRO", "Otro"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    work_order = models.ForeignKey(WorkOrder, related_name="cost_items", on_delete=models.PROTECT)
+    category = models.CharField(max_length=16, choices=Category.choices)
+    description = models.CharField(max_length=240)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="work_order_costs", on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at",)
+
+
+class WorkOrderReport(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "BORRADOR", "Borrador"
+        ISSUED = "EMITIDO", "Emitido"
+        VOID = "ANULADO", "Anulado"
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    work_order = models.ForeignKey(WorkOrder, related_name="generated_reports", on_delete=models.PROTECT)
+    file = models.FileField(upload_to="work_order_reports/", storage=private_asset_photo_storage)
+    generated_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="generated_work_order_reports", on_delete=models.PROTECT)
+    template_version = models.CharField(max_length=32, blank=True)
+    content_hash = models.CharField(max_length=64, blank=True, db_index=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.ISSUED)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+
+class ReportTemplate(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=120, unique=True)
+    scope = models.CharField(max_length=24, default="ORDEN_TRABAJO")
+    sections = models.JSONField(default=list)
+    version = models.CharField(max_length=32, default="1.0")
+    variables = models.JSONField(default=list)
+    content_hash = models.CharField(max_length=64, blank=True, db_index=True)
+    status = models.CharField(max_length=12, choices=(("BORRADOR", "Borrador"), ("EMITIDO", "Emitido"), ("ANULADO", "Anulado")), default="BORRADOR")
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="report_templates", on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name",)
 
 
 class TechnicianSatisfaction(models.Model):

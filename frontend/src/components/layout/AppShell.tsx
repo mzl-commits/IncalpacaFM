@@ -1,7 +1,6 @@
 ﻿import {
   ArrowRight,
   Barcode,
-  Bell,
   CalendarBlank,
   CaretDown,
   ChartBar,
@@ -31,7 +30,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { UserRole } from "@/modules/accounts/types";
 import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
-import { listNotifications } from "@/modules/notifications/notificationRepository";
+import { NotificationCenter } from "@/modules/notifications/components/NotificationCenter";
 
 type NavItem = {
   to: string;
@@ -58,33 +57,28 @@ const groups: Array<{
   },
   {
     id: "assets",
-    label: "Bienes",
+    label: "Activos y espacios",
     icon: ListDashes,
-    paths: ["/bienes"],
+    paths: ["/bienes", "/asignaciones", "/mapa"],
     roles: ["ADMINISTRADOR"],
     items: [
       { to: "/bienes", label: "Inventario", icon: ListDashes, end: true },
       { to: "/bienes/entradas", label: "Entradas", icon: Package },
       { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
       { to: "/bienes/qr", label: "Códigos QR", icon: Barcode },
+      { to: "/bienes/escanear", label: "Escanear bien", icon: Barcode },
+      { to: "/mapa", label: "Mapa de activos", icon: MapTrifold },
       { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: ShieldCheck },
     ],
   },
   {
-    id: "map",
-    label: "Mapa",
-    icon: MapTrifold,
-    paths: ["/mapa"],
-    items: [{ to: "/mapa", label: "Mapa", icon: MapTrifold, end: true }],
-  },
-  {
     id: "operations",
-    label: "Planificación y OT",
+    label: "Atención y mantenimiento",
     icon: Wrench,
     paths: ["/incidencias", "/ordenes-trabajo"],
     items: [
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
-      { to: "/ordenes-trabajo/recomendaciones", label: "Recomendaciones", icon: Lightning },
+      { to: "/ordenes-trabajo/recomendaciones", label: "Asignación recomendada", icon: Lightning },
       {
         to: "/ordenes-trabajo",
         label: "Órdenes de trabajo",
@@ -103,10 +97,14 @@ const groups: Array<{
   },
   {
     id: "reports",
-    label: "Informes",
+    label: "Control e informes",
     icon: ChartBar,
     paths: ["/informes"],
-    items: [{ to: "/informes", label: "Informes", icon: ChartBar, end: true }],
+    items: [
+      { to: "/informes", label: "Panel ejecutivo", icon: ChartBar, end: true },
+      { to: "/informes/ordenes-trabajo", label: "Informes de OT", icon: Toolbox },
+      { to: "/informes/plantillas", label: "Plantillas", icon: Files },
+    ],
   },
   {
     id: "administration",
@@ -132,7 +130,6 @@ const groups: Array<{
       },
       { to: "/documentos", label: "Documentos", icon: Files },
       { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
-      { to: "/notificaciones", label: "Notificaciones", icon: Bell },
     ],
   },
 ];
@@ -175,13 +172,13 @@ function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Panel ejecutivo", "Inicio"];
   if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
-  if (pathname.startsWith("/mapa")) return ["Mapa", "Activos por ubicación"];
-  if (pathname.startsWith("/bienes/entradas")) return ["Bienes", "Entradas"];
-  if (pathname.startsWith("/bienes")) return ["Bienes", "Inventario"];
-  if (pathname.startsWith("/asignaciones")) return ["Operación", "Asignaciones"];
-  if (pathname.startsWith("/incidencias")) return ["Operación", "Incidencias"];
+  if (pathname.startsWith("/mapa")) return ["Activos y espacios", "Mapa de activos"];
+  if (pathname.startsWith("/bienes/entradas")) return ["Activos y espacios", "Entradas"];
+  if (pathname.startsWith("/bienes")) return ["Activos y espacios", "Inventario"];
+  if (pathname.startsWith("/asignaciones")) return ["Activos y espacios", "Asignaciones"];
+  if (pathname.startsWith("/incidencias")) return ["Atención y mantenimiento", "Reportes"];
   if (pathname.startsWith("/supervision")) return ["Supervisión", "Revisión de OT"];
-  if (pathname.startsWith("/ordenes-trabajo")) return ["Operación", "Órdenes de trabajo"];
+  if (pathname.startsWith("/ordenes-trabajo")) return ["Atención y mantenimiento", "Órdenes de trabajo"];
   if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
@@ -200,7 +197,6 @@ export function AppShell() {
   const [openGroup, setOpenGroup] = useState(activeGroup ?? "assets");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
@@ -252,19 +248,6 @@ export function AppShell() {
     mobileMenuRef.current?.close();
     quickMenuRef.current?.close();
   }, [location.pathname, activeGroup]);
-
-  useEffect(() => {
-    let alive = true;
-    async function refreshNotifications() {
-      try {
-        const notifications = await listNotifications();
-        if (alive) setUnreadNotifications(notifications.filter((item) => !item.readAt).length);
-      } catch { /* The bell remains usable when the API is temporarily unavailable. */ }
-    }
-    void refreshNotifications();
-    const interval = window.setInterval(() => void refreshNotifications(), 60000);
-    return () => { alive = false; window.clearInterval(interval); };
-  }, [location.pathname]);
 
   function openMobileMenu() {
     setMobileMenuOpen(true);
@@ -494,15 +477,7 @@ export function AppShell() {
               <Plus size={16} weight="bold" />
             </button>
             )}
-            <NavLink
-              to="/notificaciones"
-              className="icon-button"
-              aria-label="Ver notificaciones"
-              title="Ver notificaciones"
-            >
-              <Bell size={20} />
-              {unreadNotifications > 0 && <span className="notification-dot" aria-label={`${unreadNotifications} notificaciones sin leer`} />}
-            </NavLink>
+            <NotificationCenter />
             <div className="topbar-user" aria-label="Usuario actual">
               <span>{initials}</span>
               <div>

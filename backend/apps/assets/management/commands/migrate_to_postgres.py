@@ -417,8 +417,10 @@ class Command(BaseCommand):
         taxonomy = apps.get_model("assets", "Taxonomy")
         taxonomy_sequence = apps.get_model("assets", "TaxonomySequence")
         location = apps.get_model("assets", "Location")
+        privacy_notice = apps.get_model("privacy", "PrivacyNotice")
+        processing_inventory = apps.get_model("privacy", "ProcessingInventory")
         user_model = get_user_model()
-        allowed_bootstrap = {taxonomy, taxonomy_sequence, location, user_model}
+        allowed_bootstrap = {taxonomy, taxonomy_sequence, location, user_model, privacy_notice, processing_inventory}
         occupied = {
             model._meta.label_lower: model._default_manager.using(database).count()
             for model in models
@@ -447,7 +449,7 @@ class Command(BaseCommand):
             )
         if not self._is_pristine_bootstrap_taxonomy(
             database, taxonomy, taxonomy_sequence
-        ) or not self._is_pristine_bootstrap_locations(database, location) or not self._is_pristine_bootstrap_user(database, user_model):
+        ) or not self._is_pristine_bootstrap_locations(database, location) or not self._is_pristine_bootstrap_user(database, user_model) or privacy_notice._default_manager.using(database).count() != 1 or processing_inventory._default_manager.using(database).count() != 3:
             raise CommandError(
                 "Los datos del destino no coinciden exactamente con el bootstrap; "
                 "no se modificó nada."
@@ -455,6 +457,8 @@ class Command(BaseCommand):
         location._default_manager.using(database).all().delete()
         taxonomy_sequence._default_manager.using(database).all().delete()
         taxonomy._default_manager.using(database).all().delete()
+        processing_inventory._default_manager.using(database).all().delete()
+        privacy_notice._default_manager.using(database).all().delete()
         user_model._default_manager.using(database).all().delete()
 
     @staticmethod
