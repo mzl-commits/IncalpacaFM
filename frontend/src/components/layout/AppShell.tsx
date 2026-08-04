@@ -91,9 +91,9 @@ const groups: Array<{
     id: "team",
     label: "Equipo",
     icon: UsersThree,
-    paths: ["/administracion/tecnicos"],
+    paths: ["/administracion/tecnicos", "/administracion/reportantes"],
     roles: ["ADMINISTRADOR"],
-    items: [{ to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree }],
+    items: [{ to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree }, { to: "/administracion/reportantes", label: "Historial de reportantes", icon: UserCircle }],
   },
   {
     id: "reports",
@@ -183,6 +183,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
   if (pathname.startsWith("/administracion/tecnicos")) return ["Administración", "Técnicos"];
+  if (pathname.startsWith("/administracion/reportantes")) return ["Administración", "Reportantes"];
   if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
   if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
   if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];
