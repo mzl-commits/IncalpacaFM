@@ -1,5 +1,5 @@
-import { ArrowClockwise, Bell, CheckCircle, EnvelopeSimple, WarningCircle } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowClockwise, Bell, CheckCircle, WarningCircle } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { type EmailNotification, listNotifications, markNotificationRead, retryNotification } from "@/modules/notifications/notificationRepository";
 
@@ -9,8 +9,8 @@ const statusLabel = { PENDIENTE: "En cola", ENVIADA: "Enviada", ERROR: "Error", 
 export function NotificationsPage() {
   const { user } = useAuth(); const isAdmin = user?.role === "ADMINISTRADOR";
   const [items, setItems] = useState<EmailNotification[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [showHistory, setShowHistory] = useState(false); const [retrying, setRetrying] = useState("");
-  async function load() { setLoading(true); setError(""); try { setItems(await listNotifications({ includeAll: isAdmin && showHistory })); } catch { setError("No se pudo cargar tu bandeja de notificaciones."); } finally { setLoading(false); } }
-  useEffect(() => { void load(); }, [showHistory]);
+  const load = useCallback(async () => { setLoading(true); setError(""); try { setItems(await listNotifications({ includeAll: isAdmin && showHistory })); } catch { setError("No se pudo cargar tu bandeja de notificaciones."); } finally { setLoading(false); } }, [isAdmin, showHistory]);
+  useEffect(() => { void load(); }, [load]);
   const unread = useMemo(() => items.filter((item) => !item.readAt).length, [items]); const failures = items.filter((item) => item.status === "ERROR").length;
   async function read(item: EmailNotification) { if (item.readAt) return; try { const updated = await markNotificationRead(item.id); setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry)); } catch { setError("No se pudo actualizar la notificación."); } }
   async function retry(item: EmailNotification) { setRetrying(item.id); try { const updated = await retryNotification(item.id); setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry)); } catch { setError("No se pudo reprogramar el correo."); } finally { setRetrying(""); } }
