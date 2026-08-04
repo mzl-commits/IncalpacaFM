@@ -32,13 +32,26 @@ export function useListFilterParams<const T extends readonly string[]>(keys: T) 
     [setSearchParams],
   );
 
+  const setValues = useCallback(
+    (updates: Partial<FilterValues<T>>) => {
+      const next = new URLSearchParams(window.location.search);
+      Object.entries(updates).forEach(([key, value]) => {
+        const normalized = String(value ?? "").trim();
+        if (normalized) next.set(key, normalized);
+        else next.delete(key);
+      });
+      setSearchParams(next, { replace: true });
+    },
+    [setSearchParams],
+  );
+
   const clearFilters = useCallback(() => {
     const next = new URLSearchParams(window.location.search);
     keys.forEach((key) => next.delete(key));
     setSearchParams(next, { replace: true });
   }, [keys, setSearchParams]);
 
-  return { values, setValue, clearFilters };
+  return { values, setValue, setValues, clearFilters };
 }
 
 export function buildFilterOptions(

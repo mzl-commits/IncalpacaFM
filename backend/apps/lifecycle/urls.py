@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     DiagnosisDetailView,
     DiagnosisListCreateView,
+    RetirementEvaluationRequestView,
     RetirementDetailView,
     RetirementListCreateView,
 )
@@ -10,6 +11,7 @@ from .views import (
 urlpatterns = [
     path("lifecycle/diagnoses/", DiagnosisListCreateView.as_view()),
     path("lifecycle/diagnoses/<uuid:pk>/", DiagnosisDetailView.as_view()),
+    path("lifecycle/diagnoses/<uuid:pk>/request-retirement/", RetirementEvaluationRequestView.as_view()),
     path("lifecycle/retirement-requests/", RetirementListCreateView.as_view()),
     path("lifecycle/retirement-requests/<uuid:pk>/", RetirementDetailView.as_view()),
 ]

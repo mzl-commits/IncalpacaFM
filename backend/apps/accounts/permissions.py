@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from .models import AccountProfile
 
@@ -24,6 +24,16 @@ class IsTechnicianOrAdministrator(BasePermission):
         return user_role(request.user) in {
             AccountProfile.Role.ADMIN,
             AccountProfile.Role.TECHNICIAN,
+        }
+
+
+
+class IsWorkOrderParticipant(BasePermission):
+    def has_permission(self, request, view):
+        return user_role(request.user) in {
+            AccountProfile.Role.ADMIN,
+            AccountProfile.Role.TECHNICIAN,
+            AccountProfile.Role.SUPERVISOR,
         }
 
 

@@ -1,4 +1,4 @@
-export const SPECIALTIES = [
+﻿export const SPECIALTIES = [
   "ELECTRICIDAD",
   "CARPINTERIA",
   "SOLDADURA",
@@ -26,6 +26,9 @@ export const WORK_ORDER_STATUSES = [
   "ASIGNADA",
   "EN_PROCESO",
   "PENDIENTE_DE_SUPERVISION",
+  "PENDIENTE_DE_VALIDACION",
+  "PENDIENTE_DE_CONFORMIDAD",
+  "DEVUELTA",
   "REPROCESO",
   "APROBADA_POR_SUPERVISOR",
   "CERRADA",
@@ -58,6 +61,9 @@ export const workOrderStatusLabels: Record<WorkOrderStatus, string> = {
   ASIGNADA: "Asignada",
   EN_PROCESO: "En proceso",
   PENDIENTE_DE_SUPERVISION: "Pendiente de supervisión",
+  PENDIENTE_DE_VALIDACION: "Pendiente de validación administrativa",
+  PENDIENTE_DE_CONFORMIDAD: "Ejecutada, pendiente de conformidad",
+  DEVUELTA: "Devuelta",
   REPROCESO: "Reproceso",
   APROBADA_POR_SUPERVISOR: "Aprobada por supervisor",
   CERRADA: "Cerrada",

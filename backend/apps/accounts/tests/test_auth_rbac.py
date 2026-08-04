@@ -3,6 +3,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from apps.assets.models import Location
 from apps.audit.models import AuditEvent
 
 
@@ -34,8 +35,35 @@ class AuthenticationAndRbacTests(TestCase):
         response = self.client.post("/api/v1/assets/", {}, format="json")
         self.assertEqual(response.status_code, 403)
 
+    def test_administrator_can_manage_technician_profiles(self):
+        administrator = get_user_model().objects.get(username="admin")
+        self.client.force_authenticate(administrator)
+        created = self.client.post(
+            "/api/v1/technicians/",
+            {
+                "full_name": "Marco Flores",
+                "worker_code": "TEC-MF-01",
+                "email": "marco.flores@example.com",
+                "specialty": "Soldador",
+                "active": True,
+                "temporary_password": "TemporalSegura3",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.json())
+        self.assertEqual(created.json()["specialty"], "Soldador")
+
+        updated = self.client.patch(
+            f"/api/v1/technicians/{created.json()['id']}/",
+            {"active": False},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200, updated.json())
+        self.assertFalse(updated.json()["active"])
+
     def test_incident_creation_uses_session_actor_and_audits(self):
         administrator = get_user_model().objects.get(username="admin")
+        location = Location.objects.get(room="Taller eléctrico")
         self.client.force_authenticate(administrator)
         response = self.client.post(
             "/api/v1/incidents/",
@@ -44,6 +72,7 @@ class AuthenticationAndRbacTests(TestCase):
                 "description": "Incidencia creada para comprobar autoría y auditoría.",
                 "requesterPriority": "MEDIA",
                 "project": False,
+                "locationId": str(location.id),
                 "zone": "Zona Industrial",
                 "building": "Planta Principal",
                 "area": "Mantenimiento",

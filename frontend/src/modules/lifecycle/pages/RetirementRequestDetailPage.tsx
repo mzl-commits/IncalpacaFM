@@ -24,7 +24,7 @@ export function RetirementRequestDetailPage() {
   }, [id]);
 
   if (loading) return <section><p>Cargando solicitud…</p></section>;
-  if (!request) return <section><h1>Solicitud no encontrada</h1><Link to="/ciclo-vida/bajas">Volver</Link></section>;
+  if (!request) return <section><h1>Solicitud no encontrada</h1><Link to="/bienes/ciclo-vida/bajas">Volver</Link></section>;
   const canDecide = ["PENDIENTE", "EN_EVALUACION", "SUBSANACION"].includes(request.status);
   const critical = request.estimatedRepairCost > request.estimatedCurrentValue;
 
@@ -48,7 +48,7 @@ export function RetirementRequestDetailPage() {
     });
     setRequest(updated);
     setError("");
-    if (decision === "APROBAR") navigate(`/ciclo-vida/bajas/${updated.id}/disposicion`);
+    if (decision === "APROBAR") navigate(`/bienes/ciclo-vida/bajas/${updated.id}/disposicion`);
     } catch {
       setError("No se pudo registrar la decisión. Revisa los datos obligatorios.");
     }
@@ -58,7 +58,7 @@ export function RetirementRequestDetailPage() {
     <section className="lifecycle-page decision-page">
       <div className="page-heading">
         <div><p className="breadcrumb">Ciclo de vida / Solicitudes de baja / Detalle</p><h1>Evaluación de baja</h1><p>{request.code}</p></div>
-        <Link className="button button-secondary" to="/ciclo-vida/bajas"><ArrowLeft />Volver</Link>
+        <Link className="button button-secondary" to="/bienes/ciclo-vida/bajas"><ArrowLeft />Volver</Link>
       </div>
       {critical && <div className="criticality-banner"><Warning weight="fill" /><p><strong>Revisión prioritaria</strong><span>El costo estimado de reparación supera el valor actual del bien. Verifica cuidadosamente el sustento antes de decidir.</span></p></div>}
       <div className="decision-layout">
@@ -75,7 +75,7 @@ export function RetirementRequestDetailPage() {
         </div>
         <aside className="data-panel decision-panel">
           <div className="lifecycle-section-heading"><ShieldCheck /><div><h2>Decisión de FM</h2><p>La aprobación habilita la disposición, pero aún no cierra el bien.</p></div></div>
-          {!canDecide ? <div className="decision-locked"><CheckCircle /><strong>Decisión registrada</strong><p>{request.decisionReason}</p>{request.status === "PENDIENTE_DISPOSICION" && <Link className="button button-primary" to={`/ciclo-vida/bajas/${request.id}/disposicion`}>Registrar disposición</Link>}</div> : <>
+          {!canDecide ? <div className="decision-locked"><CheckCircle /><strong>Decisión registrada</strong><p>{request.decisionReason}</p>{request.status === "PENDIENTE_DISPOSICION" && <Link className="button button-primary" to={`/bienes/ciclo-vida/bajas/${request.id}/disposicion`}>Registrar disposición</Link>}</div> : <>
             <div className="decision-tabs">{(["APROBAR", "RECHAZAR", "SUBSANAR"] as const).map((value) => <button type="button" className={decision === value ? "is-active" : ""} onClick={() => setDecision(value)} key={value}>{value === "APROBAR" ? "Aprobar" : value === "RECHAZAR" ? "Rechazar" : "Subsanar"}</button>)}</div>
             {decision === "APROBAR" && <label className="field"><span>Disposición autorizada *</span><select value={method} onChange={(event) => setMethod(event.target.value as DisposalMethod)}>{(Object.keys(disposalLabels) as DisposalMethod[]).map((value) => <option value={value} key={value}>{disposalLabels[value]}</option>)}</select></label>}
             <label className="field"><span>Justificación de la decisión *</span><textarea rows={5} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Fundamenta la decisión administrativa." /></label>

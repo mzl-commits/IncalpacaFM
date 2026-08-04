@@ -11,6 +11,7 @@ import { type ChangeEvent, type PointerEvent, useEffect, useId, useRef, useState
 import { Link, useNavigate } from "react-router-dom";
 import {
   deliverAsset,
+  getAssignmentAssetDisplayCode,
   getAssignmentCatalog,
   type AssignmentCatalog,
   type DeliveryPayload,
@@ -293,7 +294,7 @@ export function AssignmentWizardPage() {
         <div className="delivery-summary">
           <div>
             <small>Bien</small>
-            <strong>{result.asset.code}</strong>
+            <strong>{getAssignmentAssetDisplayCode(result.asset)}</strong>
             <span>{result.asset.name}</span>
           </div>
           <div>
@@ -378,7 +379,7 @@ export function AssignmentWizardPage() {
                   <option value="">Seleccionar bien</option>
                   {assets.map((x) => (
                     <option key={x.id} value={x.id}>
-                      {x.code} — {x.name} ({x.assignment_status})
+                      {getAssignmentAssetDisplayCode(x)} — {x.name} ({x.assignment_status})
                     </option>
                   ))}
                 </select>
@@ -389,7 +390,7 @@ export function AssignmentWizardPage() {
                     .filter((x) => x.id === draft.asset_id)
                     .map((x) => (
                       <div key={x.id}>
-                        <strong>{x.code}</strong>
+                        <strong>{getAssignmentAssetDisplayCode(x)}</strong>
                         <h3>{x.name}</h3>
                         <p>
                           {x.brand} {x.model} · Condición {x.condition}

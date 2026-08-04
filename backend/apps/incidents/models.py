@@ -30,8 +30,13 @@ class Incident(models.Model):
     project = models.BooleanField(default=False)
     location_snapshot = models.JSONField(default=dict)
     evidence = models.JSONField(default=list)
+    reporter_name = models.CharField(max_length=160, blank=True)
+    reporter_email = models.EmailField(blank=True)
+    public_submission = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.RECEIVED)
     rejection_reason = models.TextField(blank=True)
+    requester_contact = models.JSONField(blank=True, default=dict)
+    impact_assessment = models.JSONField(blank=True, default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

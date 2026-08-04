@@ -1,7 +1,8 @@
-import {
+﻿import {
   ArrowLeft,
   Camera,
   FloppyDisk,
+  Pause,
   Play,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
@@ -11,14 +12,29 @@ import {
   useParams,
 } from "react-router-dom";
 
-import { currentUser } from "@/modules/accounts/currentUser";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
 import {
   getWorkOrderById,
+  pauseWorkOrder,
   registerWorkOrderProgress,
   startWorkOrder,
 } from "@/modules/workorders/workOrderRepository";
 
+function formatMinutesDuration(minutes?: number) {
+  if (minutes === undefined || minutes === null || minutes <= 0) return "0 min";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} min`;
+  if (rest === 0) return `${hours} h`;
+  return `${hours} h ${rest} min`;
+}
+
+function formatTimer(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
+  return [hours, minutes, rest].map((value) => String(value).padStart(2, "0")).join(":");
+}
 export function WorkOrderExecutionPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -29,7 +45,7 @@ export function WorkOrderExecutionPage() {
     if (!id) return;
     void getWorkOrderById(id).then(async (order) => {
       setWorkOrder(order);
-      setPercentage(order.progressPercentage);
+      setPercentage(Math.min(order.progressPercentage + 5, 100));
       setRequest(await getWorkRequestById(order.requestId));
     });
   }, [id]);
@@ -40,11 +56,18 @@ export function WorkOrderExecutionPage() {
 
   const [observation, setObservation] =
     useState("");
+  const [timerNow, setTimerNow] = useState(() => Date.now());
 
   const [evidenceNames, setEvidenceNames] =
     useState<string[]>([]);
 
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!workOrder?.activeWorkSession?.startAt) return undefined;
+    const interval = window.setInterval(() => setTimerNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [workOrder?.activeWorkSession?.startAt]);
 
   async function handleStart() {
     if (!workOrder) {
@@ -58,6 +81,18 @@ export function WorkOrderExecutionPage() {
     }
   }
 
+
+  async function handlePause() {
+    if (!workOrder) {
+      return;
+    }
+
+    const updated = await pauseWorkOrder(workOrder.id);
+
+    if (updated) {
+      setWorkOrder(updated);
+    }
+  }
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
   ) {
@@ -67,9 +102,9 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    if (workOrder.status !== "EN_PROCESO") {
+    if (workOrder.status !== "EN_PROCESO" || !workOrder.activeWorkSession) {
       setError(
-        "Primero debes iniciar la orden de trabajo.",
+        "Inicia o reanuda el trabajo antes de registrar avance.",
       );
       return;
     }
@@ -91,19 +126,10 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    if (observation.trim().length < 10) {
-      setError(
-        "La observación debe tener al menos 10 caracteres.",
-      );
-      return;
-    }
-
     const updated =
       await registerWorkOrderProgress(
         workOrder.id,
         {
-          operatorId: currentUser.id,
-          operatorName: currentUser.fullName,
           percentage,
           observation,
           evidenceNames,
@@ -160,8 +186,16 @@ export function WorkOrderExecutionPage() {
       "PENDIENTE_DE_SUPERVISION" ||
     workOrder.status ===
       "APROBADA_POR_SUPERVISOR" ||
+    workOrder.status === "PENDIENTE_DE_VALIDACION" ||
+    workOrder.status === "PENDIENTE_DE_CONFORMIDAD" ||
     workOrder.status === "CERRADA" ||
     workOrder.status === "CANCELADA";
+
+  const hasActiveSession = Boolean(workOrder.activeWorkSession);
+  const canStartSession = workOrder.status !== "EN_PROCESO" || !hasActiveSession;
+  const activeSessionSeconds = workOrder.activeWorkSession?.startAt
+    ? Math.max(0, Math.floor((timerNow - new Date(workOrder.activeWorkSession.startAt).getTime()) / 1000))
+    : 0;
 
   return (
     <section>
@@ -224,15 +258,13 @@ export function WorkOrderExecutionPage() {
         </article>
       ) : (
         <>
-          {workOrder.status !==
-            "EN_PROCESO" && (
+          {canStartSession && (
             <article className="data-panel execution-start-card">
               <div>
                 <h2>Iniciar ejecución</h2>
 
                 <p>
-                  Al iniciar se registrará
-                  automáticamente la fecha y hora.
+                  Usa este boton cada vez que empieces o retomes el trabajo.
                 </p>
               </div>
 
@@ -245,11 +277,35 @@ export function WorkOrderExecutionPage() {
                   size={18}
                   weight="fill"
                 />
-                Iniciar orden
+                {workOrder.progressPercentage > 0 ? "Reanudar trabajo" : "Iniciar trabajo"}
               </button>
             </article>
           )}
 
+
+          {hasActiveSession && (
+            <article className="data-panel execution-start-card work-session-card">
+              <div>
+                <h2>Sesión activa</h2>
+                <p>
+                  El tiempo efectivo está corriendo. Pausa cuando dejes de trabajar en esta OT.
+                </p>
+                <strong className="work-session-timer" aria-label={`Sesión activa: ${formatTimer(activeSessionSeconds)}`}>
+                  {formatTimer(activeSessionSeconds)}
+                </strong>
+                <small>Tiempo efectivo acumulado: {formatMinutesDuration(workOrder.effectiveWorkMinutes)}</small>
+              </div>
+
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={handlePause}
+              >
+                <Pause size={18} weight="fill" />
+                Pausar trabajo
+              </button>
+            </article>
+          )}
           <form
             className="data-panel"
             onSubmit={handleSubmit}
@@ -264,47 +320,28 @@ export function WorkOrderExecutionPage() {
                   <div>
                     <h2>Avance del trabajo</h2>
 
-                    <p>
-                      Registra el porcentaje y
-                      describe lo realizado.
-                    </p>
+                    <p>Actualiza el avance. El tiempo se registra únicamente con la sesión activa.</p>
                   </div>
                 </div>
               </div>
 
               <div className="form-grid">
-                <label className="field">
-                  <span>
-                    Porcentaje de avance *
-                  </span>
-
+                <label className="field field-wide progress-range-field">
+                  <span>Porcentaje de avance <output>{percentage} %</output></span>
                   <input
-                    type="number"
-                    min={0}
+                    type="range"
+                    min={Math.min(workOrder.progressPercentage + 1, 100)}
                     max={100}
+                    step={5}
                     value={percentage}
-                    onChange={(event) =>
-                      setPercentage(
-                        Number(
-                          event.target.value,
-                        ),
-                      )
-                    }
+                    onChange={(event) => setPercentage(Number(event.target.value))}
+                    aria-valuetext={`${percentage} por ciento de avance`}
                   />
-
-                  <small>
-                    Avance anterior:{" "}
-                    {
-                      workOrder.progressPercentage
-                    }{" "}
-                    %
-                  </small>
+                  <div className="progress-range-scale"><small>Anterior: {workOrder.progressPercentage} %</small><small>Finalizado: 100 %</small></div>
                 </label>
 
                 <label className="field field-wide">
-                  <span>
-                    Observación del operario *
-                  </span>
+                  <span>Nota para la solicitud <em>Opcional</em></span>
 
                   <textarea
                     value={observation}
@@ -315,12 +352,11 @@ export function WorkOrderExecutionPage() {
                     }
                     rows={5}
                     maxLength={1000}
-                    placeholder="Describe las tareas ejecutadas, dificultades y resultados."
+                    placeholder="Comparte una actualización, hallazgo o dificultad si es necesario."
                   />
 
                   <small>
-                    {observation.length} / 1000
-                    caracteres
+                    Se enviará junto al avance. {observation.length} / 1000 caracteres
                   </small>
                 </label>
               </div>
@@ -406,10 +442,7 @@ export function WorkOrderExecutionPage() {
               <button
                 className="button button-primary"
                 type="submit"
-                disabled={
-                  workOrder.status !==
-                  "EN_PROCESO"
-                }
+                disabled={workOrder.status !== "EN_PROCESO" || !hasActiveSession}
               >
                 <FloppyDisk
                   size={18}

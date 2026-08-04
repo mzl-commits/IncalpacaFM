@@ -4,6 +4,7 @@ import {
   CalendarBlank,
   EnvelopeSimple,
   MapPin,
+  Paperclip,
   User,
   Warning,
 } from "@phosphor-icons/react";
@@ -18,6 +19,7 @@ import {
   type RequestStatus,
 } from "@/modules/incidents/incidentModel";
 import {
+  getWorkRequestAssetDisplayCode,
   getWorkRequestById,
   updateWorkRequest,
 } from "@/modules/incidents/incidentRepository";
@@ -40,6 +42,17 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+const impactAnswerLabels: Record<string, string> = {
+  SI: "Si",
+  NO: "No",
+  SOLO_YO: "Solo yo",
+  VARIAS_PERSONAS: "Varias personas",
+  TODA_EL_AREA: "Toda el area",
+};
+
+function labelImpactAnswer(value?: string) {
+  return value ? impactAnswerLabels[value] ?? value : "No indicado";
+}
 export function IncidentDetailPage() {
   const { id } = useParams();
 
@@ -278,6 +291,12 @@ export function IncidentDetailPage() {
           </div>
 
           <dl className="detail-list">
+            {getWorkRequestAssetDisplayCode(request) && (
+              <div>
+                <dt>Bien asociado</dt>
+                <dd>{getWorkRequestAssetDisplayCode(request)}</dd>
+              </div>
+            )}
             <div>
               <dt>Nombre</dt>
               <dd>{request.requesterName}</dd>
@@ -290,6 +309,20 @@ export function IncidentDetailPage() {
                 {request.requesterEmail}
               </dd>
             </div>
+
+            {request.requesterPhone && (
+              <div>
+                <dt>Telefono</dt>
+                <dd>{request.requesterPhone}</dd>
+              </div>
+            )}
+
+            {request.requesterContact?.workerCode && (
+              <div>
+                <dt>Codigo de trabajador</dt>
+                <dd>{request.requesterContact.workerCode}</dd>
+              </div>
+            )}
 
             <div>
               <dt>Fecha de reporte</dt>
@@ -361,12 +394,21 @@ export function IncidentDetailPage() {
           </div>
 
           {request.workOrderId ? (
-            <dl className="detail-list">
-              <div>
-                <dt>Orden relacionada</dt>
-                <dd>{request.workOrderId}</dd>
-              </div>
-            </dl>
+            <>
+              <dl className="detail-list">
+                <div>
+                  <dt>Orden relacionada</dt>
+                  <dd>{request.workOrderId}</dd>
+                </div>
+              </dl>
+
+              <Link
+                className="button button-primary"
+                to={`/incidencias/${request.id}/seguimiento`}
+              >
+                Ver seguimiento
+              </Link>
+            </>
           ) : (
             <p className="detail-empty">
               Esta solicitud todavía no tiene una orden de trabajo asociada.
@@ -375,8 +417,65 @@ export function IncidentDetailPage() {
         </article>
       </div>
 
+
+      {request.impactAssessment && (
+        <article className="data-panel detail-card public-impact-review">
+          <div className="detail-card-heading">
+            <Warning size={22} />
+            <h2>Evaluacion del impacto</h2>
+          </div>
+
+          <dl className="detail-list">
+            <div>
+              <dt>Prioridad sugerida</dt>
+              <dd>
+                {request.impactAssessment.suggestedPriority
+                  ? requestPriorityLabels[request.impactAssessment.suggestedPriority]
+                  : "No indicada"}
+              </dd>
+            </div>
+
+            <div>
+              <dt>Impide trabajar normalmente</dt>
+              <dd>{labelImpactAnswer(request.impactAssessment.answers?.stopsWork)}</dd>
+            </div>
+
+            <div>
+              <dt>Riesgo para seguridad o salud</dt>
+              <dd>{labelImpactAnswer(request.impactAssessment.answers?.safetyRisk)}</dd>
+            </div>
+
+            <div>
+              <dt>Afecta equipo o servicio indispensable</dt>
+              <dd>{labelImpactAnswer(request.impactAssessment.answers?.essentialService)}</dd>
+            </div>
+
+            <div>
+              <dt>Puede generar danos mayores</dt>
+              <dd>{labelImpactAnswer(request.impactAssessment.answers?.biggerDamageRisk)}</dd>
+            </div>
+
+            <div>
+              <dt>Personas afectadas</dt>
+              <dd>{labelImpactAnswer(request.impactAssessment.answers?.affectedPeople)}</dd>
+            </div>
+          </dl>
+
+          {request.impactAssessment.priorityReasons?.length ? (
+            <div className="impact-reasons">
+              <strong>Motivos</strong>
+              <ul>
+                {request.impactAssessment.priorityReasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </article>
+      )}
       <article className="data-panel detail-card detail-evidence">
         <div className="detail-card-heading">
+          <Paperclip size={22} />
           <h2>Evidencias adjuntas</h2>
         </div>
 
@@ -389,9 +488,14 @@ export function IncidentDetailPage() {
               </li>
             ))}
           </ul>
+        ) : request.impactAssessment?.noPhotoReason ? (
+          <div className="detail-empty evidence-empty-note">
+            <span>No adjunto fotografia</span>
+            <p>Motivo: {request.impactAssessment.noPhotoReason}</p>
+          </div>
         ) : (
           <p className="detail-empty">
-            La solicitud no tiene fotografías o archivos adjuntos.
+            La solicitud no tiene fotografias o archivos adjuntos.
           </p>
         )}
       </article>

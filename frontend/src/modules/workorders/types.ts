@@ -1,9 +1,15 @@
-import type {
+﻿import type {
   AdminPriority,
   Specialty,
   WorkOrderStatus,
 } from "./workOrderModel";
 
+export interface WorkOrderSession {
+  id: string;
+  startAt: string;
+  endAt?: string | null;
+  operatorName?: string;
+}
 export interface WorkOrderEvidence {
   id: string;
   name: string;
@@ -19,6 +25,7 @@ export interface WorkOrderProgress {
   operatorName: string;
 
   percentage: number;
+  workedMinutes?: number;
   observation: string;
   evidence: WorkOrderEvidence[];
 
@@ -31,6 +38,9 @@ export interface WorkOrder {
 
   requestId: string;
   requestCode: string;
+  assetId?: string | null;
+  assetCode?: string | null;
+  assetDisplayCode?: string | null;
 
   operatorId: string;
   operatorName: string;
@@ -43,6 +53,8 @@ export interface WorkOrder {
   status: WorkOrderStatus;
 
   scheduledDate: string;
+  scheduledStartTime?: string;
+  plannedHours: number;
   startedAt?: string;
   finishedAt?: string;
   closedAt?: string;
@@ -51,6 +63,20 @@ export interface WorkOrder {
   progressPercentage: number;
 
   advances?: WorkOrderProgress[];
+  workSessions?: WorkOrderSession[];
+  effectiveWorkMinutes?: number;
+  activeWorkSession?: WorkOrderSession | null;
+  satisfaction?: {
+    accepted: boolean;
+    rating: number | null;
+    comment: string;
+    submittedAt: string;
+  } | null;
+  diagnosis?: Record<string, unknown>;
+  supervisor_validation?: Record<string, unknown>;
+  administrator_validation?: Record<string, unknown>;
+  conformity?: Record<string, unknown>;
+  recommendation_snapshot?: Record<string, unknown>;
 
   createdAt: string;
   updatedAt: string;

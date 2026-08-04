@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getAssignment,
+  getAssignmentAssetDisplayCode,
   getAssignmentCatalog,
   registerAssignmentOperation,
   type AssignmentCatalog,
@@ -90,7 +91,7 @@ export function AssignmentDetailPage() {
         <div>
           <p className="breadcrumb">Asignaciones / Detalle</p>
           <h1>{item.asset.name}</h1>
-          <p>{item.asset.code}</p>
+          <p>{getAssignmentAssetDisplayCode(item.asset)}</p>
         </div>
         <div className="detail-actions">
           <span
