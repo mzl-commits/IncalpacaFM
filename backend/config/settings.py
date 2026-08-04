@@ -18,6 +18,10 @@ from corsheaders.defaults import default_headers
 
 from .database import build_database_config
 
+
+def env_list(name: str, default: str = "") -> list[str]:
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,16 +29,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-local-only-change-before-production",
-)
+DJANGO_ENV = os.environ.get("DJANGO_ENV", "development").strip().lower()
+IS_PRODUCTION = DJANGO_ENV in {"production", "prod"}
+DEBUG = os.environ.get("DJANGO_DEBUG", "0" if IS_PRODUCTION else "1") == "1"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-local-only-change-before-production")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+_local_hosts = ["localhost", "127.0.0.1", "testserver"]
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", ",".join(_local_hosts) if DEBUG else "")
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+if IS_PRODUCTION:
+    if DEBUG:
+        raise RuntimeError("DJANGO_DEBUG debe ser 0 en producción.")
+    if SECRET_KEY.startswith("django-insecure-") or len(SECRET_KEY) < 50:
+        raise RuntimeError("Define un DJANGO_SECRET_KEY aleatorio de al menos 50 caracteres en producción.")
+    if not ALLOWED_HOSTS or any(host in _local_hosts for host in ALLOWED_HOSTS):
+        raise RuntimeError("Define DJANGO_ALLOWED_HOSTS con los dominios reales de producción.")
+    if not CSRF_TRUSTED_ORIGINS:
+        raise RuntimeError("Define CSRF_TRUSTED_ORIGINS con las URL HTTPS públicas.")
 
 
 # Application definition
@@ -61,11 +73,13 @@ INSTALLED_APPS = [
     "apps.workorders",
     "apps.maintenance",
     "apps.lifecycle",
+    "apps.privacy",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "config.security.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -155,14 +169,48 @@ CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_UR
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TIMEZONE = TIME_ZONE
+HEALTH_CHECK_TOKEN = os.environ.get("HEALTH_CHECK_TOKEN", "")
+HEALTH_DISK_WARNING_PERCENT = int(os.environ.get("HEALTH_DISK_WARNING_PERCENT", "80"))
+HEALTH_DISK_CRITICAL_PERCENT = int(os.environ.get("HEALTH_DISK_CRITICAL_PERCENT", "90"))
+MONITORING_TLS_HOST = os.environ.get("MONITORING_TLS_HOST", "").strip()
+MONITORING_TLS_PORT = int(os.environ.get("MONITORING_TLS_PORT", "443"))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173" if DEBUG else "",
+)
 CORS_ALLOW_HEADERS = (*default_headers, "x-frontend-origin", "idempotency-key")
+
+# HTTPS y cookies: en desarrollo se mantienen desactivadas para 127.0.0.1.
+SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "1" if IS_PRODUCTION else "0") == "1"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if IS_PRODUCTION else None
+SESSION_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SECURE = IS_PRODUCTION
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000" if IS_PRODUCTION else "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = IS_PRODUCTION
+SECURE_HSTS_PRELOAD = IS_PRODUCTION
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+CONTENT_SECURITY_POLICY = os.environ.get(
+    "CONTENT_SECURITY_POLICY",
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; "
+    "img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5173 http://127.0.0.1:5173; "
+    "worker-src 'self' blob:" if DEBUG else
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; "
+    "img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self' blob:",
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -178,6 +226,7 @@ REST_FRAMEWORK = {
         "anon": "120/hour",
         "login": "10/minute",
         "public_report": "20/hour",
+        "public_privacy": "10/hour",
     },
 }
 
