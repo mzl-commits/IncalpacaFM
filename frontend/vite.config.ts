@@ -1,10 +1,11 @@
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  cacheDir: ".vite/cache",
   plugins: [
     react(),
     tailwindcss(),
@@ -14,11 +15,19 @@ export default defineConfig({
         name: "SGTB Incalpaca",
         short_name: "SGTB",
         description: "Sistema de Gestión y Trazabilidad de Bienes",
-        theme_color: "#003366",
-        background_color: "#f8f9ff",
+        theme_color: "#071f38",
+        background_color: "#f3f6fa",
         display: "standalone",
         start_url: "/",
         lang: "es",
+        icons: [
+          {
+            src: "/favicon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any maskable",
+          },
+        ],
       },
       workbox: {
         navigateFallback: "/index.html",
@@ -27,7 +36,24 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor",
+              test: /[\\/]node_modules[\\/]/,
+              minSize: 20_000,
+              maxSize: 250_000,
+              priority: 10,
+            },
+          ],
+        },
+      },
     },
   },
   server: {
