@@ -7,6 +7,7 @@ import type { SystemUser } from "./types";
 type LoginInput = { workerCode: string; password: string };
 type ApiUser = {
   id: string;
+  user_id: number;
   worker_code: string;
   full_name: string;
   email: string;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function mapUser(user: ApiUser): SystemUser {
   return {
     id: user.id,
+    userId: user.user_id,
     workerCode: user.worker_code,
     fullName: user.full_name,
     email: user.email,

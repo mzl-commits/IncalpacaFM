@@ -87,7 +87,16 @@ class Material(models.Model):
     cantidad_total = models.PositiveIntegerField(default=0)
 
     activo = models.BooleanField(default=True)
+    es_componente = models.BooleanField(
+        default=False,
+        help_text=(
+            "True si este material es un tipo de pieza componente de un estuche "
+            "(creado autom\u00e1ticamente al registrar piezas hijas inline). "
+            "Los componentes no aparecen en el cat\u00e1logo general."
+        ),
+    )
     creado_en = models.DateTimeField(auto_now_add=True)
+
 
     class Meta:
         ordering = ["codigo"]

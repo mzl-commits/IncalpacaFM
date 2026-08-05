@@ -64,3 +64,21 @@ def crear_estuche_con_piezas(material_contenedor, piezas_hijas_spec, num_estuche
         m.recalcular_cantidad()
 
     return creadas
+
+def ajustar_stock(material, cantidad):
+    """
+    Aumenta (o disminuye, si cantidad es negativa) el stock manual de un
+    material sin control individual. No aplica a materiales con
+    control_individual=True, cuyo cantidad_total se recalcula solo desde las piezas.
+    """
+    if material.control_individual:
+        raise ValueError(
+            "Este material tiene control individual; el stock se calcula "
+            "automáticamente a partir de sus piezas."
+        )
+    nuevo_total = material.cantidad_total + cantidad
+    if nuevo_total < 0:
+        raise ValueError("El stock no puede quedar en negativo.")
+    Material.objects.filter(pk=material.pk).update(cantidad_total=nuevo_total)
+    material.refresh_from_db(fields=["cantidad_total"])
+    return material

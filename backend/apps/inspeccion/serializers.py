@@ -106,13 +106,23 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     )
                 })
 
-        # La pieza debe pertenecer al material especificado
+        # La pieza debe pertenecer al material especificado,
+        # o ser una pieza hija cuyo estuche padre sí pertenece al material.
         pieza = data.get("pieza")
         material = data.get("material")
-        if pieza and material and pieza.material_id != material.id:
-            raise serializers.ValidationError({
-                "pieza": f"La pieza {pieza.codigo} no pertenece al material especificado."
-            })
+        if pieza and material:
+            pieza_material_ok = pieza.material_id == material.id
+            # Caso estuche: se inspeccionan las hijas → el material es el del contenedor
+            hija_de_este_material = (
+                pieza.padre is not None and pieza.padre.material_id == material.id
+            )
+            if not pieza_material_ok and not hija_de_este_material:
+                raise serializers.ValidationError({
+                    "pieza": (
+                        f"La pieza {pieza.codigo} no pertenece al material especificado "
+                        "ni es hija de un estuche de ese material."
+                    )
+                })
 
         return data
 
