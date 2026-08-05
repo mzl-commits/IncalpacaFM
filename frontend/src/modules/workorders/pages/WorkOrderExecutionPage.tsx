@@ -77,7 +77,7 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    if (!startPhoto) {
+    if (!startPhoto && !workOrder.startPhoto) {
       setError("Adjunta una foto del estado inicial antes de iniciar la orden.");
       return;
     }
@@ -276,7 +276,7 @@ export function WorkOrderExecutionPage() {
       ) : (
         <>
           {canStartSession && (
-            <article className="data-panel execution-start-card">
+            <article id="work-session-start" className="data-panel execution-start-card">
               <div>
                 <h2>Iniciar ejecución</h2>
 
@@ -494,20 +494,23 @@ export function WorkOrderExecutionPage() {
                 Cancelar
               </Link>
 
-              <button
-                className="button button-primary"
-                type="submit"
-                disabled={workOrder.status !== "EN_PROCESO" || !hasActiveSession}
-              >
-                <FloppyDisk
-                  size={18}
-                  weight="bold"
-                />
-
-                {percentage === 100
-                  ? "Finalizar y enviar a supervisión"
-                  : "Guardar avance"}
-              </button>
+              {hasActiveSession ? (
+                <button className="button button-primary" type="submit">
+                  <FloppyDisk size={18} weight="bold" />
+                  {percentage === 100
+                    ? "Finalizar y enviar a supervisión"
+                    : "Guardar avance"}
+                </button>
+              ) : (
+                <button
+                  className="button button-primary"
+                  type="button"
+                  onClick={() => document.getElementById("work-session-start")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                >
+                  <Play size={18} weight="fill" />
+                  {workOrder.startPhoto ? "Reanudar trabajo para continuar" : "Iniciar trabajo para continuar"}
+                </button>
+              )}
             </div>
           </form>
         </>
