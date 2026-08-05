@@ -13,7 +13,6 @@ export function validateEntryStep(step: number, draft: AssetEntryDraft): EntryEr
     if (draft.entryType === "purchase") {
       required(draft.purchaseOrder, "Ingresa la orden de compra.", errors, "purchaseOrder");
       required(draft.supplier, "Selecciona o ingresa el proveedor.", errors, "supplier");
-      required(draft.voucherNumber, "Ingresa el comprobante.", errors, "voucherNumber");
       required(draft.acquisitionDate, "Selecciona la fecha de adquisición.", errors, "acquisitionDate");
       if (!draft.cost || Number(draft.cost) <= 0) errors.cost = "El costo debe ser mayor que cero.";
     }
@@ -35,9 +34,6 @@ export function validateEntryStep(step: number, draft: AssetEntryDraft): EntryEr
       if (draft.rentalStartDate && draft.rentalEndDate && draft.rentalEndDate <= draft.rentalStartDate) {
         errors.rentalEndDate = "La fecha de término debe ser posterior al inicio.";
       }
-    }
-    if (!draft.evidence.some((item) => item.category === "origin")) {
-      errors.originDocument = "Adjunta el documento que sustenta el ingreso.";
     }
   }
 
@@ -84,7 +80,6 @@ export function validateEntryStep(step: number, draft: AssetEntryDraft): EntryEr
   }
 
   if (step === 4) {
-    if (!draft.evidence.some((item) => item.category === "origin")) errors.originDocument = "Falta el documento de origen.";
     if (!draft.evidence.some((item) => item.category === "photo")) errors.photo = "Falta una fotografía.";
   }
 

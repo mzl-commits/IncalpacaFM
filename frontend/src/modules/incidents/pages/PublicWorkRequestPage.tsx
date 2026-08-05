@@ -19,6 +19,12 @@ interface PublicLocationOption {
   displayName: string;
 }
 
+interface PublicAssetContext {
+  displayCode: string;
+  name: string;
+  photoUrl: string | null;
+  generalLocation: string;
+}
 interface PublicRequestFormState {
   requesterName: string;
   requesterEmail: string;
@@ -122,12 +128,15 @@ function getSubmitErrorMessage(error: unknown) {
   return "No se pudo registrar la solicitud. Intenta nuevamente.";
 }
 export function PublicWorkRequestPage() {
+  const [assetToken] = useState(() => new URLSearchParams(window.location.search).get("asset")?.trim() ?? "");
   const [form, setForm] = useState<PublicRequestFormState>(initialForm);
   const [submittedCode, setSubmittedCode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [locations, setLocations] = useState<PublicLocationOption[]>([]);
   const [locationsLoaded, setLocationsLoaded] = useState(false);
+  const [asset, setAsset] = useState<PublicAssetContext | null>(null);
+  const [assetLoadError, setAssetLoadError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -145,6 +154,20 @@ export function PublicWorkRequestPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!assetToken) {
+      setAsset(null);
+      setAssetLoadError(false);
+      return;
+    }
+    let active = true;
+    setAssetLoadError(false);
+    api.get<PublicAssetContext>(`/public/assets/${encodeURIComponent(assetToken)}/report/`)
+      .then(({ data }) => { if (active) setAsset(data); })
+      .catch(() => { if (active) { setAsset(null); setAssetLoadError(true); } });
+    return () => { active = false; };
+  }, [assetToken]);
 
   function updateField<K extends keyof PublicRequestFormState>(
     field: K,
@@ -242,6 +265,7 @@ export function PublicWorkRequestPage() {
         requesterPhone: form.requesterPhone.trim(),
         requesterDni: form.requesterDni.trim(),
         requesterWorkerCode: form.requesterWorkerCode.trim(),
+        assetToken: assetToken || undefined,
         zone: form.zone,
         building: form.building.trim(),
         area: form.area.trim(),
@@ -263,6 +287,7 @@ export function PublicWorkRequestPage() {
         impactAnswers: {
           issueCategory: form.issueCategory,
           otherIssueCategoryDetail: form.issueCategory === "OTRO" ? form.otherIssueCategoryDetail.trim() : "",
+          otherRequestDetail: form.issueCategory === "OTRO" ? form.otherIssueCategoryDetail.trim() : "",
           assetCondition: form.assetCondition,
           startedWhen: form.startedWhen,
           stopsWork: form.stopsWork,
@@ -294,7 +319,23 @@ export function PublicWorkRequestPage() {
             </p>
           </div>
         </div>
+        {asset && (
+          <aside className="public-request-linked-asset">
+            {asset.photoUrl ? <img src={asset.photoUrl} alt="" /> : <span>{asset.displayCode.slice(0, 2)}</span>}
+            <div>
+              <small>Solicitud vinculada al bien identificado por QR</small>
+              <strong>{asset.name}</strong>
+              <p>{asset.displayCode} · {asset.generalLocation}</p>
+            </div>
+            <Link to={`/q/${encodeURIComponent(assetToken)}`}>Ver ficha del bien</Link>
+          </aside>
+        )}
 
+        {assetLoadError && (
+          <p className="public-request-linked-asset-error" role="alert">
+            No se pudo vincular el bien del QR. Puedes enviar una solicitud general o volver a escanearlo.
+          </p>
+        )}
         {submittedCode && (
           <div className="public-request-success" role="status">
             <CheckCircle size={24} weight="fill" />
