@@ -206,6 +206,10 @@ export function WorkOrderExecutionPage() {
     );
   }
 
+  const returnInfo = getWorkOrderReturnInfo(workOrder);
+  const isCorrectionScheduledForFuture = Boolean(
+    returnInfo && workOrder.scheduledDate > new Date().toISOString().slice(0, 10),
+  );
   const cannotExecute =
     workOrder.status ===
       "PENDIENTE_DE_SUPERVISION" ||
@@ -214,10 +218,10 @@ export function WorkOrderExecutionPage() {
     workOrder.status === "PENDIENTE_DE_VALIDACION" ||
     workOrder.status === "PENDIENTE_DE_CONFORMIDAD" ||
     workOrder.status === "CERRADA" ||
-    workOrder.status === "CANCELADA";
+    workOrder.status === "CANCELADA" ||
+    isCorrectionScheduledForFuture;
 
   const hasActiveSession = Boolean(workOrder.activeWorkSession);
-  const returnInfo = getWorkOrderReturnInfo(workOrder);
   const isReturnedForCorrection = Boolean(returnInfo);
   const returnComment = getReviewText(returnInfo?.comment);
   const minimumProgress = isReturnedForCorrection ? workOrder.progressPercentage : Math.min(workOrder.progressPercentage + 1, 100);
@@ -277,12 +281,13 @@ export function WorkOrderExecutionPage() {
       {cannotExecute ? (
         <article className="data-panel detail-card">
           <h2>
-            La orden no admite nuevos avances
+            {isCorrectionScheduledForFuture ? "Corrección programada" : "La orden no admite nuevos avances"}
           </h2>
 
           <p className="detail-empty">
-            Su estado actual ya no permite que
-            el operario registre modificaciones.
+            {isCorrectionScheduledForFuture
+              ? `Esta corrección está programada para ${workOrder.scheduledDate} a las ${workOrder.scheduledStartTime?.slice(0, 5) || "08:00"}.`
+              : "Su estado actual ya no permite que el operario registre modificaciones."}
           </p>
         </article>
       ) : (
@@ -292,7 +297,7 @@ export function WorkOrderExecutionPage() {
               <div>
                 <WarningCircle size={28} weight="duotone" />
                 <div>
-                  <h2>Orden devuelta por supervisión</h2>
+                  <h2>{returnInfo.title}</h2>
                   <p>{returnComment}</p>
                   <small>{returnInfo.nextStep}</small>
                 </div>
@@ -398,7 +403,7 @@ export function WorkOrderExecutionPage() {
                   <div className="progress-range-scale"><small>Anterior: {workOrder.progressPercentage} %</small><small>Finalizado: 100 %</small></div>
                   {percentage < 100 && (
                     <button className="progress-complete-button" type="button" onClick={() => setPercentage(100)}>
-                      Marcar 100 %
+                      Marcar como terminado
                     </button>
                   )}
                 </label>
@@ -545,7 +550,3 @@ export function WorkOrderExecutionPage() {
     </section>
   );
 }
-
-
-
-

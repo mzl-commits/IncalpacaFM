@@ -21,6 +21,8 @@ export interface WorkRequestImpactAssessment {
     essentialService?: "SI" | "NO";
     biggerDamageRisk?: "SI" | "NO";
     affectedPeople?: "SOLO_YO" | "VARIAS_PERSONAS" | "TODA_EL_AREA";
+    issueCategory?: string;
+    otherIssueCategoryDetail?: string;
   };
   noPhotoReason?: string;
 }
