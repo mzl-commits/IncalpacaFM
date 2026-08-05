@@ -488,7 +488,6 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
     workerName = serializers.SerializerMethodField()
     workerSpecialty = serializers.SerializerMethodField()
     workOrderCode = serializers.SerializerMethodField()
-    workEvidence = serializers.SerializerMethodField()
     progressPercentage = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     reportedAt = serializers.DateTimeField(source="created_at", read_only=True)
@@ -508,7 +507,6 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
             "workerName",
             "workerSpecialty",
             "workOrderCode",
-            "workEvidence",
             "progressPercentage",
             "location",
             "reportedAt",
@@ -564,23 +562,6 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
     def get_workOrderCode(self, obj):
         order = self._work_order(obj)
         return order.code if order else ""
-
-    def get_workEvidence(self, obj):
-        order = self._work_order(obj)
-        if not order:
-            return []
-
-        evidence_items = []
-        for advance in order.advances or []:
-            for evidence in advance.get("evidence") or []:
-                evidence_items.append({
-                    "id": evidence.get("id") or f"{advance.get('id')}-{len(evidence_items)}",
-                    "name": evidence.get("name") or "Evidencia registrada",
-                    "mimeType": evidence.get("mimeType") or "image/*",
-                    "createdAt": evidence.get("createdAt") or advance.get("createdAt") or order.updated_at.isoformat(),
-                    "progressPercentage": advance.get("percentage", order.progress_percentage),
-                })
-        return evidence_items
 
     def get_progressPercentage(self, obj):
         order = self._work_order(obj)

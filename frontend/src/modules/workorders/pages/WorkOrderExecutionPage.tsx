@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Camera,
   FloppyDisk,
@@ -31,15 +31,15 @@ function formatMinutesDuration(minutes?: number) {
   return `${hours} h ${rest} min`;
 }
 
+function getReviewText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "Sin motivo registrado.";
+}
+
 function formatTimer(seconds: number) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const rest = seconds % 60;
   return [hours, minutes, rest].map((value) => String(value).padStart(2, "0")).join(":");
-}
-
-function getReviewText(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : "Sin motivo registrado.";
 }
 export function WorkOrderExecutionPage() {
   const { id } = useParams();
@@ -125,12 +125,10 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    const canResendReturnedWork =
-      Boolean(getWorkOrderReturnInfo(workOrder)) &&
-      workOrder.progressPercentage === 100 &&
-      percentage === 100;
-
-    if (percentage <= workOrder.progressPercentage && !canResendReturnedWork) {
+    if (
+      percentage <=
+      workOrder.progressPercentage
+    ) {
       setError(
         `El avance debe ser mayor al ${workOrder.progressPercentage} % registrado.`,
       );
@@ -311,7 +309,7 @@ export function WorkOrderExecutionPage() {
                 <h2>Iniciar ejecución</h2>
 
                 <p>
-                  Usa este botón cada vez que empieces o retomes el trabajo.
+                  Usa este boton cada vez que empieces o retomes el trabajo.
                 </p>
               </div>
 
@@ -393,7 +391,7 @@ export function WorkOrderExecutionPage() {
                   <span>Porcentaje de avance <output>{percentage} %</output></span>
                   <input
                     type="range"
-                    min={minimumProgress}
+                    min={Math.min(workOrder.progressPercentage + 1, 100)}
                     max={100}
                     step={1}
                     value={percentage}
