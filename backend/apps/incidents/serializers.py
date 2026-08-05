@@ -516,7 +516,11 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
 
     def get_canSubmitConformity(self, obj):
         order = self._work_order(obj)
-        return bool(order and order.status == "PENDIENTE_DE_CONFORMIDAD")
+        return bool(
+            order
+            and order.status in {"CERRADA", "PENDIENTE_DE_CONFORMIDAD"}
+            and not getattr(order, "satisfaction", None)
+        )
 
     def get_conformity(self, obj):
         order = self._work_order(obj)
@@ -607,8 +611,8 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                 events.append(
                     {
                         "id": f"{order.id}-conformity-pending",
-                        "status": "PENDIENTE_CONFORMIDAD",
-                        "description": "El trabajo fue ejecutado y espera tu conformidad.",
+                        "status": "FINALIZADO",
+                        "description": "La atención fue finalizada y puedes evaluarla de forma opcional.",
                         "date": order.updated_at.isoformat(),
                     }
                 )
