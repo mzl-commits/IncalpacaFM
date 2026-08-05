@@ -1,4 +1,4 @@
-﻿import { Camera, CheckCircle, PaperPlaneTilt } from "@phosphor-icons/react";
+import { Camera, CheckCircle, PaperPlaneTilt } from "@phosphor-icons/react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
@@ -389,8 +389,10 @@ export function PublicWorkRequestPage() {
                 <span>¿Desde cuándo lo notas? *</span>
                 <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Durante esta semana</option><option value="MAS_TIEMPO">Hace más de una semana</option></select>
               </label>
-              <label className="field field-wide">
-                <span>Ambiente oficial</span>
+              {!asset && (
+                <>
+                  <label className="field field-wide">
+                    <span>Ambiente oficial</span>
                 <select
                   value={form.locationId}
                   onChange={(event) => {
@@ -459,6 +461,8 @@ export function PublicWorkRequestPage() {
                   placeholder="Ej. Oficina 204"
                 />
               </label>
+                </>
+              )}
             </div>
           </div>
 
