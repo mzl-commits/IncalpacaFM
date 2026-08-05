@@ -7,7 +7,7 @@
   XCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import {
   adminPriorityLabels,
@@ -72,6 +72,8 @@ function getReviewComment(order?: WorkOrder) {
 }
 
 export function SupervisorWorkOrderReviewPage() {
+  const [searchParams] = useSearchParams();
+  const requestedOrderId = searchParams.get("workOrder");
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [comment, setComment] = useState("");
@@ -85,7 +87,15 @@ export function SupervisorWorkOrderReviewPage() {
       const nextOrders = await listWorkOrders();
       if (!active) return;
       setOrders(nextOrders);
-      setSelectedId((current) => current || nextOrders[0]?.id || "");
+      const requestedOrder = requestedOrderId
+        ? nextOrders.find((order) => order.id === requestedOrderId)
+        : undefined;
+      if (requestedOrder) {
+        setSelectedId(requestedOrder.id);
+        setActiveTab(requestedOrder.status === "PENDIENTE_DE_SUPERVISION" ? "pending" : "reviewed");
+      } else {
+        setSelectedId((current) => current || nextOrders[0]?.id || "");
+      }
     }
 
     void refresh();
@@ -94,7 +104,7 @@ export function SupervisorWorkOrderReviewPage() {
       active = false;
       window.removeEventListener(WORK_ORDERS_UPDATED_EVENT, refresh);
     };
-  }, []);
+  }, [requestedOrderId]);
 
   const pendingOrders = useMemo(
     () => orders.filter((order) => order.status === "PENDIENTE_DE_SUPERVISION"),
@@ -180,32 +190,36 @@ export function SupervisorWorkOrderReviewPage() {
         </article>
       </div>
 
-      <article className="data-panel detail-card supervisor-review-table">
-        <div className="detail-card-heading supervisor-review-heading">
-          <div>
-            <SealCheck size={22} />
-            <h2>Órdenes de supervisión</h2>
+      <div className="supervisor-review-workspace">
+        <article className="data-panel detail-card supervisor-review-table">
+          <div className="detail-card-heading supervisor-review-heading">
+            <div>
+              <SealCheck size={22} />
+              <div>
+                <h2>Cola de supervisión</h2>
+                <p>Selecciona una OT para revisar evidencias y registrar tu decisión.</p>
+              </div>
+            </div>
+            <div className="supervisor-tabs" role="tablist" aria-label="Filtro de supervisión">
+              <button
+                className={activeTab === "pending" ? "is-active" : ""}
+                type="button"
+                onClick={() => changeTab("pending")}
+              >
+                Pendientes <span>{pendingOrders.length}</span>
+              </button>
+              <button
+                className={activeTab === "reviewed" ? "is-active" : ""}
+                type="button"
+                onClick={() => changeTab("reviewed")}
+              >
+                Revisadas <span>{reviewedOrders.length}</span>
+              </button>
+            </div>
           </div>
-          <div className="supervisor-tabs" role="tablist" aria-label="Filtro de supervisión">
-            <button
-              className={activeTab === "pending" ? "is-active" : ""}
-              type="button"
-              onClick={() => changeTab("pending")}
-            >
-              Pendientes
-            </button>
-            <button
-              className={activeTab === "reviewed" ? "is-active" : ""}
-              type="button"
-              onClick={() => changeTab("reviewed")}
-            >
-              Revisadas
-            </button>
-          </div>
-        </div>
 
-        <div className="table-scroll">
-          <table>
+          <div className="table-scroll">
+            <table>
             <thead>
               <tr>
                 <th>Orden</th>
@@ -220,7 +234,7 @@ export function SupervisorWorkOrderReviewPage() {
             </thead>
             <tbody>
               {visibleOrders.map((order) => (
-                <tr key={order.id}>
+                <tr className={selectedOrder?.id === order.id ? "is-selected" : ""} key={order.id}>
                   <td><strong>{order.code}</strong></td>
                   <td>
                     {order.requestCode}
@@ -262,12 +276,35 @@ export function SupervisorWorkOrderReviewPage() {
                   </td>
                 </tr>
               )}
-            </tbody>
-          </table>
-        </div>
-      </article>
+              </tbody>
+            </table>
+          </div>
 
-      <article className="data-panel detail-card supervisor-review-detail">
+          <div className="supervisor-order-cards" aria-label="Órdenes de supervisión">
+            {visibleOrders.map((order) => (
+              <button
+                className={selectedOrder?.id === order.id ? "is-selected" : ""}
+                key={order.id}
+                type="button"
+                onClick={() => {
+                  setSelectedId(order.id);
+                  setComment("");
+                  setError("");
+                }}
+              >
+                <span className="supervisor-card-topline">
+                  <strong>{order.code}</strong>
+                  <span className={`status ${statusClass[order.status]}`}>{workOrderStatusLabels[order.status]}</span>
+                </span>
+                <span>{getWorkOrderAssetDisplayCode(order) || order.requestCode}</span>
+                <small>{order.operatorName} · {formatDuration(order.startedAt, order.finishedAt)}</small>
+              </button>
+            ))}
+            {!visibleOrders.length && <div className="supervisor-empty-state"><SealCheck size={24} /><strong>{activeTab === "pending" ? "Bandeja despejada" : "Sin revisiones registradas"}</strong><span>{activeTab === "pending" ? "Las OT terminadas aparecerán aquí para tu revisión." : "Las decisiones que registres quedarán disponibles aquí."}</span></div>}
+          </div>
+        </article>
+
+        <article className="data-panel detail-card supervisor-review-detail">
         <div className="detail-card-heading">
           <NotePencil size={22} />
           <h2>Detalle de la orden</h2>
@@ -360,7 +397,8 @@ export function SupervisorWorkOrderReviewPage() {
             <p>Cuando un operario termine una orden, aparecerá aqui para revisión.</p>
           </div>
         )}
-      </article>
+        </article>
+      </div>
     </section>
   );
 }
