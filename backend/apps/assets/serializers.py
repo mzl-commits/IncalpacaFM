@@ -345,7 +345,7 @@ class PublicAssetSerializer(serializers.ModelSerializer):
     def get_report_url(self, obj) -> str:
         request = self.context.get('request')
         origin = request.headers.get('X-Frontend-Origin', 'http://localhost:5173') if request else 'http://localhost:5173'
-        return f'{origin.rstrip("/")}/reportar/{obj.public_token}'
+        return f'{origin.rstrip("/")}/solicitud-trabajo?asset={obj.public_token}'
 
     def get_service_tracking(self, obj) -> dict | None:
         request = self.context.get('request')
