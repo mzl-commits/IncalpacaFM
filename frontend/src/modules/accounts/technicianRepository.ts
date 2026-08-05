@@ -26,7 +26,7 @@ export async function updateTechnician(id: string, input: Partial<TechnicianInpu
   return data;
 }
 
-export async function notifyTechnician(id: string, input: { template: "REMINDER" | "TRACEABILITY" | "SCHEDULE" | "CUSTOM"; subject?: string; body?: string }) {
+export async function notifyTechnician(id: string, input: { template: "REMINDER" | "TRACEABILITY" | "SCHEDULE" | "CUSTOM"; deliveryChannel: "SISTEMA" | "CORREO"; subject?: string; body?: string }) {
   const { data } = await api.post<{ detail: string }>(`/technicians/${id}/notifications/`, input);
   return data;
 }

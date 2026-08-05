@@ -5,6 +5,7 @@ import {
   type EmailNotification,
   listNotifications,
   markNotificationRead,
+  notificationActionPath,
 } from "@/modules/notifications/notificationRepository";
 
 const POLL_INTERVAL_MS = 45_000;
@@ -85,9 +86,11 @@ export function NotificationCenter() {
         const updated = await markNotificationRead(item.id);
         setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry));
       } catch {
-        // Abrir el centro completo sigue disponible si la marca de lectura no se completa.
+        // La acción sigue disponible si la marca de lectura no se completa.
       }
     }
+    setOpen(false);
+    navigate(notificationActionPath(item) ?? "/notificaciones");
   }
 
   async function enableBrowserNotifications() {
@@ -128,10 +131,10 @@ export function NotificationCenter() {
           )}
 
           <div className="notification-popover-list">
-            {!unread.length ? (
-              <div className="notification-popover-empty"><CheckCircle size={24} weight="duotone" /><span>No tienes avisos pendientes.</span></div>
-            ) : unread.slice(0, 5).map((item) => (
-              <button className="notification-popover-item" type="button" key={item.id} onClick={() => void openItem(item)}>
+            {!items.length ? (
+              <div className="notification-popover-empty"><CheckCircle size={24} weight="duotone" /><span>No tienes avisos registrados.</span></div>
+            ) : items.slice(0, 5).map((item) => (
+              <button className={`notification-popover-item ${item.readAt ? "is-read" : ""}`} type="button" key={item.id} onClick={() => void openItem(item)}>
                 <span className={item.status === "ERROR" ? "notification-item-icon is-error" : "notification-item-icon"}>
                   {item.status === "ERROR" ? <WarningCircle size={18} /> : <Bell size={18} weight="duotone" />}
                 </span>
@@ -157,7 +160,7 @@ export function NotificationCenter() {
         <button
           className="notification-toast"
           type="button"
-          onClick={() => { setOpen(true); void openItem(toastItem); setToastItem(null); }}
+          onClick={() => { void openItem(toastItem); setToastItem(null); }}
         >
           <BellRinging size={20} weight="duotone" />
           <span><strong>{toastItem.subject}</strong><small>{toastItem.body}</small></span>

@@ -1,6 +1,7 @@
 
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics, permissions, response, serializers, status, views
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -89,6 +90,9 @@ class TechnicianManualNotificationView(views.APIView):
     def post(self, request, pk):
         technician = get_object_or_404(TechnicianDetailView.queryset, account_profile__id=pk)
         template = str(request.data.get('template') or 'CUSTOM').upper()
+        delivery_channel = str(request.data.get('deliveryChannel') or 'SISTEMA').upper()
+        if delivery_channel not in {'SISTEMA', 'CORREO'}:
+            return response.Response({'detail': 'Selecciona Sistema o Correo como canal de envío.'}, status=status.HTTP_400_BAD_REQUEST)
         templates = {
             'REMINDER': ('Recordatorio de jornada', 'Recuerda revisar tu agenda, iniciar el temporizador al comenzar y actualizar el avance de cada OT.'),
             'TRACEABILITY': ('Actualiza la trazabilidad de tus OT', 'Registra el inicio, tiempo trabajado y avance de las órdenes asignadas para mantener la trazabilidad al día.'),
@@ -106,10 +110,12 @@ class TechnicianManualNotificationView(views.APIView):
         notification = queue_notification(
             event='TECHNICIAN_MANUAL_NOTIFICATION', recipient=technician,
             subject=subject, body=body, discriminator=f'manual:{template}:{timezone.now().isoformat()}',
+            delivery_channel=delivery_channel,
         )
         if not notification:
-            return response.Response({'detail': 'El técnico necesita un correo activo para recibir la notificación.'}, status=status.HTTP_400_BAD_REQUEST)
-        return response.Response({'detail': 'Notificación enviada a la bandeja y programada para correo.'}, status=status.HTTP_201_CREATED)
+            return response.Response({'detail': 'El técnico necesita un correo activo para recibir avisos por correo.'}, status=status.HTTP_400_BAD_REQUEST)
+        detail = 'Aviso publicado en la bandeja del técnico.' if delivery_channel == 'SISTEMA' else 'Correo programado para el técnico.'
+        return response.Response({'detail': detail}, status=status.HTTP_201_CREATED)
 
 
 __all__ = [

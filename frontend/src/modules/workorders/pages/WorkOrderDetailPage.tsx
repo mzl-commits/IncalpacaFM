@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Briefcase,
   CalendarBlank,
@@ -20,7 +20,6 @@ import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
 import {
   adminPriorityLabels,
   getWorkOrderReturnInfo,
-  getWorkOrderStatusLabel,
   specialtyLabels,
   workOrderStatusLabels,
   type WorkOrderStatus,
@@ -132,7 +131,7 @@ function getCorrectionSchedule(workOrder: WorkOrder): CorrectionSchedule | undef
 }
 function getValidationLabel(data: Record<string, unknown> | undefined, returnedLabel = "Devuelta") {
   if (!data || typeof data.approved !== "boolean") return "Sin validar";
-  return data.approved ? "Aprobada" : returnedLabel;
+  return data.approved ? "Aprobada" : "Devuelta";
 }
 
 export function WorkOrderDetailPage() {
@@ -289,7 +288,7 @@ export function WorkOrderDetailPage() {
           </p>
         </div>
         <span className={`status ${statusClass[workOrder.status]}`}>
-          {getWorkOrderStatusLabel(workOrder)}
+          {workOrderStatusLabels[workOrder.status]}
         </span>
       </div>
 
@@ -323,12 +322,12 @@ export function WorkOrderDetailPage() {
           </div>
           <div>
             <span>2. Supervisor</span>
-            <strong>{getValidationLabel(workOrder.supervisor_validation, "Devuelta por supervisor")}</strong>
+            <strong>{getValidationLabel(workOrder.supervisor_validation)}</strong>
             <small>{supervisorComment}</small>
           </div>
           <div>
             <span>3. Administrador</span>
-            <strong>{needsAdminReview ? "Pendiente de decisión" : getValidationLabel(workOrder.administrator_validation, "Devuelta por administración")}</strong>
+            <strong>{needsAdminReview ? "Pendiente de decision" : getValidationLabel(workOrder.administrator_validation)}</strong>
             <small>{needsAdminReview ? "Debe aprobar o devolver la ejecución" : adminRegisteredComment}</small>
           </div>
           <div>
@@ -461,7 +460,7 @@ export function WorkOrderDetailPage() {
           <dl className="detail-list">
             <div><dt>Especialidad</dt><dd>{specialtyLabels[workOrder.specialty]}</dd></div>
             <div><dt>Prioridad administrativa</dt><dd>{adminPriorityLabels[workOrder.adminPriority]}</dd></div>
-            <div><dt>Estado actual</dt><dd>{getWorkOrderStatusLabel(workOrder)}</dd></div>
+            <div><dt>Estado actual</dt><dd>{workOrderStatusLabels[workOrder.status]}</dd></div>
             <div><dt>Solicitud de origen</dt><dd>{workOrder.requestCode}</dd></div>
             {getWorkOrderAssetDisplayCode(workOrder) && (
               <div><dt>Bien asociado</dt><dd>{workOrder.assetId ? <Link className="detail-link" to={`/bienes/${workOrder.assetId}`}>{getWorkOrderAssetDisplayCode(workOrder)}</Link> : getWorkOrderAssetDisplayCode(workOrder)}</dd></div>

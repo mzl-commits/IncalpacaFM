@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.assets.models import Location
 from apps.audit.models import AuditEvent
+from apps.notifications.models import Notification
 
 
 class AuthenticationAndRbacTests(TestCase):
@@ -60,6 +61,46 @@ class AuthenticationAndRbacTests(TestCase):
         )
         self.assertEqual(updated.status_code, 200, updated.json())
         self.assertFalse(updated.json()["active"])
+
+    def test_administrator_can_choose_manual_notification_channel(self):
+        administrator = get_user_model().objects.get(username="admin")
+        technician = get_user_model().objects.get(username="tecnico")
+        self.client.force_authenticate(administrator)
+        technician_id = technician.account_profile.id
+
+        system_response = self.client.post(
+            f"/api/v1/technicians/{technician_id}/notifications/",
+            {"template": "REMINDER", "deliveryChannel": "SISTEMA"},
+            format="json",
+        )
+        self.assertEqual(system_response.status_code, 201, system_response.json())
+        system_notification = Notification.objects.get(event="TECHNICIAN_MANUAL_NOTIFICATION")
+        self.assertEqual(system_notification.delivery_channel, Notification.DeliveryChannel.SYSTEM)
+        self.assertEqual(system_notification.status, Notification.Status.SENT)
+
+        email_response = self.client.post(
+            f"/api/v1/technicians/{technician_id}/notifications/",
+            {"template": "SCHEDULE", "deliveryChannel": "CORREO"},
+            format="json",
+        )
+        self.assertEqual(email_response.status_code, 201, email_response.json())
+        self.assertEqual(
+            Notification.objects.filter(
+                event="TECHNICIAN_MANUAL_NOTIFICATION",
+                delivery_channel=Notification.DeliveryChannel.EMAIL,
+            ).count(),
+            1,
+        )
+
+        self.client.force_authenticate(technician)
+        inbox = self.client.get("/api/v1/notifications/")
+        self.assertEqual(inbox.status_code, 200, inbox.json())
+        visible_ids = {item["id"] for item in inbox.json()}
+        self.assertIn(str(system_notification.id), visible_ids)
+        self.assertNotIn(
+            str(Notification.objects.get(delivery_channel=Notification.DeliveryChannel.EMAIL).id),
+            visible_ids,
+        )
 
     def test_incident_creation_uses_session_actor_and_audits(self):
         administrator = get_user_model().objects.get(username="admin")

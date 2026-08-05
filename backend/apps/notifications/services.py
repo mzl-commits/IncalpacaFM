@@ -23,17 +23,22 @@ def _dedupe_key(event, recipient, entity, discriminator):
 
 
 def queue_notification(
-    *, event, recipient, subject, body, entity=None, context=None, discriminator='', recipient_email=None
+    *, event, recipient, subject, body, entity=None, context=None, discriminator='', recipient_email=None,
+    delivery_channel=Notification.DeliveryChannel.BOTH,
 ):
     email = (recipient_email if recipient_email is not None else recipient.email or '').strip()
-    if not email or not recipient.is_active:
+    if not recipient.is_active:
         return None
+    if delivery_channel in {Notification.DeliveryChannel.EMAIL, Notification.DeliveryChannel.BOTH} and not email:
+        return None
+    system_only = delivery_channel == Notification.DeliveryChannel.SYSTEM
     notification, created = Notification.objects.get_or_create(
         dedupe_key=_dedupe_key(event, recipient, entity, discriminator),
         defaults={
             'recipient': recipient,
             'recipient_email': email,
             'event': event,
+            'delivery_channel': delivery_channel,
             'subject': subject,
             'body': body,
             'html_body': f'<p>{escape(body)}</p>',
@@ -41,9 +46,11 @@ def queue_notification(
             'entity_type': entity.__class__.__name__ if entity else '',
             'entity_id': str(entity.pk) if entity else '',
             'available_at': timezone.now(),
+            'status': Notification.Status.SENT if system_only else Notification.Status.PENDING,
+            'sent_at': timezone.now() if system_only else None,
         },
     )
-    if created and settings.NOTIFICATION_DISPATCH_ENABLED:
+    if created and not system_only and settings.NOTIFICATION_DISPATCH_ENABLED:
         transaction.on_commit(lambda: _dispatch_async(notification.id))
     return notification
 
