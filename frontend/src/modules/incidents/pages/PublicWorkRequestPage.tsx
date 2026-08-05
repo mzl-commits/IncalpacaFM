@@ -508,104 +508,108 @@ export function PublicWorkRequestPage() {
                 <span>¿Cuándo empezó? *</span>
                 <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Esta semana</option><option value="MAS_TIEMPO">Hace más de una semana</option></select>
               </label>
-              <label className="field">
-                <span>Zona *</span>
-                <select
-                  required
-                  value={form.zone}
-                  onChange={(event) => {
-                    setForm((current) => ({
-                      ...current,
-                      locationId: "",
-                      zone: event.target.value,
-                      building: "",
-                      area: "",
-                      room: "",
-                    }));
-                    setError("");
-                  }}
-                  disabled={!locationsLoaded}
-                >
-                  <option value="">{locationsLoaded ? "Seleccionar zona" : "Cargando ubicaciones..."}</option>
-                  {zoneOptions.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
-                </select>
-              </label>
+              {!asset && (
+                <>
+                  <label className="field">
+                    <span>Zona *</span>
+                    <select
+                      required
+                      value={form.zone}
+                      onChange={(event) => {
+                        setForm((current) => ({
+                          ...current,
+                          locationId: "",
+                          zone: event.target.value,
+                          building: "",
+                          area: "",
+                          room: "",
+                        }));
+                        setError("");
+                      }}
+                      disabled={!locationsLoaded}
+                    >
+                      <option value="">{locationsLoaded ? "Seleccionar zona" : "Cargando ubicaciones..."}</option>
+                      {zoneOptions.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                    </select>
+                  </label>
 
-              <label className="field">
-                <span>Edificio *</span>
-                <select
-                  required
-                  value={form.building}
-                  onChange={(event) => {
-                    setForm((current) => ({
-                      ...current,
-                      locationId: "",
-                      building: event.target.value,
-                      area: "",
-                      room: "",
-                    }));
-                    setError("");
-                  }}
-                  disabled={!form.zone}
-                >
-                  <option value="">{form.zone ? "Seleccionar edificio" : "Primero selecciona una zona"}</option>
-                  {buildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
-                </select>
-              </label>
+                  <label className="field">
+                    <span>Edificio *</span>
+                    <select
+                      required
+                      value={form.building}
+                      onChange={(event) => {
+                        setForm((current) => ({
+                          ...current,
+                          locationId: "",
+                          building: event.target.value,
+                          area: "",
+                          room: "",
+                        }));
+                        setError("");
+                      }}
+                      disabled={!form.zone}
+                    >
+                      <option value="">{form.zone ? "Seleccionar edificio" : "Primero selecciona una zona"}</option>
+                      {buildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
+                    </select>
+                  </label>
 
-              <label className="field">
-                <span>Área *</span>
-                <select
-                  required
-                  value={form.area}
-                  onChange={(event) => {
-                    setForm((current) => ({
-                      ...current,
-                      locationId: "",
-                      area: event.target.value,
-                      room: "",
-                    }));
-                    setError("");
-                  }}
-                  disabled={!form.building}
-                >
-                  <option value="">{form.building ? "Seleccionar área" : "Primero selecciona un edificio"}</option>
-                  {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
-                </select>
-              </label>
+                  <label className="field">
+                    <span>Área *</span>
+                    <select
+                      required
+                      value={form.area}
+                      onChange={(event) => {
+                        setForm((current) => ({
+                          ...current,
+                          locationId: "",
+                          area: event.target.value,
+                          room: "",
+                        }));
+                        setError("");
+                      }}
+                      disabled={!form.building}
+                    >
+                      <option value="">{form.building ? "Seleccionar área" : "Primero selecciona un edificio"}</option>
+                      {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
+                    </select>
+                  </label>
 
-              <label className="field">
-                <span>Ambiente *</span>
-                <select
-                  required
-                  value={form.locationId}
-                  onChange={(event) => {
-                    const selected = locations.find((location) => location.id === event.target.value);
-                    if (!selected) {
-                      updateField("locationId", "");
-                      return;
-                    }
-                    setForm((current) => ({
-                      ...current,
-                      locationId: selected.id,
-                      zone: selected.zone,
-                      building: selected.building,
-                      area: selected.area,
-                      room: selected.room,
-                    }));
-                    setError("");
-                  }}
-                  disabled={!form.area}
-                >
-                  <option value="">{form.area ? "Seleccionar ambiente" : "Primero selecciona un área"}</option>
-                  {roomOptions.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.room}{location.specificLocation ? ` - ${location.specificLocation}` : ""} ({location.code})
-                    </option>
-                  ))}
-                </select>
-                <small>Las opciones se van reduciendo según lo que elijas.</small>
-              </label>
+                  <label className="field">
+                    <span>Ambiente *</span>
+                    <select
+                      required
+                      value={form.locationId}
+                      onChange={(event) => {
+                        const selected = locations.find((location) => location.id === event.target.value);
+                        if (!selected) {
+                          updateField("locationId", "");
+                          return;
+                        }
+                        setForm((current) => ({
+                          ...current,
+                          locationId: selected.id,
+                          zone: selected.zone,
+                          building: selected.building,
+                          area: selected.area,
+                          room: selected.room,
+                        }));
+                        setError("");
+                      }}
+                      disabled={!form.area}
+                    >
+                      <option value="">{form.area ? "Seleccionar ambiente" : "Primero selecciona un área"}</option>
+                      {roomOptions.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.room}{location.specificLocation ? ` - ${location.specificLocation}` : ""} ({location.code})
+                        </option>
+                      ))}
+                    </select>
+                    <small>Las opciones se van reduciendo según lo que elijas.</small>
+                  </label>
+                </>
+              )}
             </div>
           </div>
 

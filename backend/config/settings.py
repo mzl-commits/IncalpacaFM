@@ -75,7 +75,12 @@ INSTALLED_APPS = [
     "apps.lifecycle",
     "apps.privacy",
     "apps.organization",
+    "apps.catalogo",
+    "apps.inspeccion",
+    "apps.inventario",
 ]
+
+
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -176,7 +181,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173" if DEBUG else "",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174" if DEBUG else "",
 )
 CORS_ALLOW_HEADERS = (*default_headers, "x-frontend-origin", "idempotency-key")
 
