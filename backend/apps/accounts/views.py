@@ -7,8 +7,10 @@ from rest_framework import generics, permissions, response, serializers, status,
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth import get_user_model
 
-from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginSerializer, UserListSerializer
-
+from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginSerializer, UserListSerializer, TechnicianSerializer
+from .models import AccountProfile
+from .permissions import IsAdministrator
+from apps.notifications.services import queue_notification
 
 class LoginView(views.APIView):
     permission_classes = [permissions.AllowAny]
