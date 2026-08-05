@@ -46,6 +46,11 @@ export interface SalidaPiezaInput {
   responsable_id: number;
   referencia_externa?: string;
   observaciones?: string;
+  /** Opcional: IDs de las piezas hijas a incluir en la salida.
+   *  Si se omite → todas las hijas disponibles (comportamiento por defecto).
+   *  Si se envía [] → solo sale el contenedor, sin hijas.
+   *  Si se envía [id1, id2, …] → solo esas hijas específicas. */
+  piezas_hijas_ids?: number[];
 }
 
 export async function registrarSalidaPieza(

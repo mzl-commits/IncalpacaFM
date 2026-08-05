@@ -51,6 +51,15 @@ class SalidaPiezaSerializer(serializers.Serializer):
     responsable_id = serializers.IntegerField()
     referencia_externa = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+    # Opcional: lista de IDs de piezas hijas a incluir en la salida.
+    # None = comportamiento por defecto (todas las disponibles).
+    # Lista vacía [] = solo sale el contenedor, sin hijas.
+    piezas_hijas_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+        default=None,
+    )
 
     def validate_pieza_id(self, value):
         if not Pieza.objects.filter(pk=value).exists():

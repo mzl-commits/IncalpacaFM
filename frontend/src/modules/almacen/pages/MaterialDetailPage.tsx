@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
-import { deleteMaterial, deleteMaterialForzado, deletePieza, desvinculaPieza, getMaterialDetalle } from "@/modules/almacen/catalogoRepository";
+import { deleteMaterial, deleteMaterialForzado, deletePieza, desvinculaPieza, getMaterialDetalle, agregarHijaInline } from "@/modules/almacen/catalogoRepository";
 import { listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
 import { STOCK_MINIMO, tipoControlLabels } from "@/modules/almacen/types";
@@ -482,6 +482,12 @@ function PiezaTreeRow({
   const esContenedor = pieza.total_hijas > 0;
   // "idle" | "confirming" | "confirmed"
   const [delStep, setDelStep] = useState<"idle" | "confirming" | "confirmed">("idle");
+  // F1: formulario inline para agregar pieza hija
+  const [mostrarFormHija, setMostrarFormHija] = useState(false);
+  const [hijaNombre, setHijaNombre] = useState("");
+  const [hijaMedida, setHijaMedida] = useState("");
+  const [hijaCantidad, setHijaCantidad] = useState(1);
+  const [hijaError, setHijaError] = useState("");
 
   const delMut = useMutation({
     mutationFn: () => deletePieza(pieza.id),
@@ -492,6 +498,26 @@ function PiezaTreeRow({
     onError: () => {
       setDelStep("idle");
       alert("No se pudo eliminar. Intenta de nuevo.");
+    },
+  });
+
+  const agregarMut = useMutation({
+    mutationFn: () => agregarHijaInline(pieza.id, {
+      nombre: hijaNombre.trim(),
+      medida: hijaMedida.trim() || undefined,
+      cantidad: hijaCantidad,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["material", materialId] });
+      setMostrarFormHija(false);
+      setHijaNombre("");
+      setHijaMedida("");
+      setHijaCantidad(1);
+      setHijaError("");
+    },
+    onError: (e: { response?: { data?: Record<string, string[]> } }) => {
+      const data = e?.response?.data;
+      setHijaError(data ? Object.values(data).flat().join(" ") : "Error al agregar pieza.");
     },
   });
 
@@ -510,12 +536,29 @@ function PiezaTreeRow({
           <TrimestreBadge fecha={mostrarTrimestre} />
         )}
 
-        {/* Contador estuche + botón eliminar */}
+        {/* Contador estuche + botón agregar hija + botón eliminar */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           {esContenedor && delStep === "idle" && (
             <small style={{ color: "var(--muted)", fontSize: 11 }}>
               Estuche · {pieza.hijas_disponibles}/{pieza.total_hijas} disponibles
             </small>
+          )}
+
+          {/* Botón + Pieza (solo en estuches) */}
+          {delStep === "idle" && (
+            <button
+              type="button"
+              title="Agregar pieza hija a este estuche"
+              style={{
+                background: "transparent", border: 0,
+                color: "var(--accent, #6366f1)", cursor: "pointer",
+                padding: 2, display: "flex", alignItems: "center", gap: 3,
+                fontSize: 11, opacity: 0.8,
+              }}
+              onClick={() => { setMostrarFormHija((v) => !v); setHijaError(""); }}
+            >
+              <Plus size={13} /> Pieza
+            </button>
           )}
 
           {delStep === "idle" && (
@@ -610,6 +653,74 @@ function PiezaTreeRow({
           )}
         </div>
       </div>
+
+      {/* F1: formulario inline para agregar pieza hija */}
+      {mostrarFormHija && (
+        <div style={{
+          marginLeft: 24, marginTop: 6, padding: "10px 14px",
+          background: "var(--surface-2, rgba(99,102,241,.06))",
+          borderRadius: 8, border: "1px dashed var(--accent, #6366f1)",
+        }}>
+          <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: "var(--accent, #6366f1)" }}>
+            + Agregar pieza hija al estuche
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "end" }}>
+            <label style={{ fontSize: 12 }}>
+              Nombre *
+              <input
+                type="text"
+                value={hijaNombre}
+                onChange={(e) => setHijaNombre(e.target.value)}
+                placeholder="Ej. Llave allen 5mm"
+                style={{ display: "block", width: "100%", marginTop: 3, padding: "4px 8px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #d1d5db)" }}
+              />
+            </label>
+            <label style={{ fontSize: 12 }}>
+              Medida (opcional)
+              <input
+                type="text"
+                value={hijaMedida}
+                onChange={(e) => setHijaMedida(e.target.value)}
+                placeholder="Ej. 5mm"
+                style={{ display: "block", width: "100%", marginTop: 3, padding: "4px 8px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #d1d5db)" }}
+              />
+            </label>
+            <label style={{ fontSize: 12 }}>
+              Cant.
+              <input
+                type="number"
+                min={1}
+                value={hijaCantidad}
+                onChange={(e) => setHijaCantidad(Number(e.target.value))}
+                style={{ display: "block", width: 56, marginTop: 3, padding: "4px 8px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #d1d5db)" }}
+              />
+            </label>
+          </div>
+          {hijaError && (
+            <p style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{hijaError}</p>
+          )}
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              className="button button-primary"
+              style={{ fontSize: 12, padding: "4px 14px" }}
+              onClick={() => { setHijaError(""); agregarMut.mutate(); }}
+              disabled={agregarMut.isPending || !hijaNombre.trim()}
+            >
+              {agregarMut.isPending ? "Agregando…" : "Agregar"}
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              style={{ fontSize: 12, padding: "4px 14px" }}
+              onClick={() => { setMostrarFormHija(false); setHijaError(""); }}
+              disabled={agregarMut.isPending}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {pieza.piezas_hijas.length > 0 && (
         <div className="pieza-tree-children">

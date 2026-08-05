@@ -326,3 +326,66 @@ class ReemplazarHijaSerializer(serializers.Serializer):
             # Asignar el padre de la hija rota a la pieza suelta
             Pieza.objects.filter(pk=suelta.pk).update(padre=padre)
         return suelta
+
+
+# ─── Feature: Agregar pieza hija a estuche existente ──────────────────────────
+
+class AgregarHijaInlineSerializer(serializers.Serializer):
+    """
+    Agrega una o más piezas hijas a un estuche ya existente (pieza contenedora).
+    Reutiliza la misma lógica de lookup/creación de AltaEstucheInlineSerializer:
+    si el material hijo ya existe en la misma subcategoría, lo reutiliza;
+    si no, lo crea marcado como es_componente=True.
+    POST /piezas/{id}/agregar-hija-inline/
+    Body: { "nombre": "...", "medida": "...", "cantidad": 1 }
+    """
+    nombre   = serializers.CharField(max_length=150)
+    medida   = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    cantidad = serializers.IntegerField(min_value=1, default=1)
+
+    def create(self, validated_data):
+        from django.db import transaction
+        contenedor = self.context["contenedor"]   # Pieza padre (estuche)
+        subcategoria = contenedor.material.subcategoria
+
+        nombre  = validated_data["nombre"].strip()
+        medida  = validated_data.get("medida", "").strip()
+        cantidad = validated_data["cantidad"]
+
+        with transaction.atomic():
+            # Buscar material existente con mismo nombre/medida en la subcategoría
+            qs = Material.objects.filter(
+                nombre__iexact=nombre,
+                subcategoria=subcategoria,
+                control_individual=True,
+            )
+            if medida:
+                qs = qs.filter(medida__iexact=medida)
+            else:
+                qs = qs.filter(medida="")
+
+            mat_hija = qs.first()
+            if not mat_hija:
+                mat_hija = Material.objects.create(
+                    subcategoria=subcategoria,
+                    nombre=nombre,
+                    medida=medida,
+                    tipo_control=contenedor.material.tipo_control,
+                    control_individual=True,
+                    ubicacion_fisica=contenedor.material.ubicacion_fisica,
+                    es_componente=True,
+                )
+            elif not mat_hija.es_componente:
+                mat_hija.es_componente = True
+                mat_hija.save(update_fields=["es_componente"])
+
+            # Crear N piezas hijas vinculadas al contenedor
+            creadas = []
+            for _ in range(cantidad):
+                hija = Pieza.objects.create(material=mat_hija, padre=contenedor)
+                creadas.append(hija)
+
+            mat_hija.recalcular_cantidad()
+            contenedor.material.recalcular_cantidad()
+
+        return creadas

@@ -65,23 +65,41 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
     return mov
 
 
-def registrar_salida_pieza(pieza: Pieza, responsable, referencia_externa="", observaciones=""):
+def registrar_salida_pieza(pieza: Pieza, responsable, referencia_externa="", observaciones="", piezas_hijas_ids=None):
     """
     Si la pieza es un contenedor (estuche) con hijas activas, la salida se
-    propaga en cascada a todas sus hijas, vinculadas por un lote_id común.
+    propaga en cascada a sus hijas, vinculadas por un lote_id común.
     Si es una pieza suelta o una hija individual, solo afecta a esa pieza.
+
+    piezas_hijas_ids:
+      - None  → comportamiento por defecto: salen todas las hijas disponibles.
+      - []    → solo sale el contenedor; ninguna hija incluida.
+      - [id1, id2, ...] → solo salen las hijas con esos IDs (si están disponibles).
     """
     if pieza.estado != "Disponible":
         raise ValidationError(f"La pieza {pieza.codigo} no está disponible (estado: {pieza.estado}).")
 
     lote = str(uuid.uuid4())[:8]
     hijas = list(pieza.piezas_hijas.all())
-    piezas_a_mover = [pieza] + [h for h in hijas if h.estado == "Disponible"]
-    # Hijas que quedaron fuera de la salida por no estar disponibles (para avisar al usuario)
-    hijas_excluidas = [
-        {"id": h.id, "codigo": h.codigo, "estado": h.estado}
-        for h in hijas if h.estado != "Disponible"
-    ]
+
+    if piezas_hijas_ids is None:
+        # Comportamiento original: todas las hijas disponibles
+        hijas_a_mover = [h for h in hijas if h.estado == "Disponible"]
+        hijas_excluidas = [
+            {"id": h.id, "codigo": h.codigo, "estado": h.estado}
+            for h in hijas if h.estado != "Disponible"
+        ]
+    else:
+        # El usuario especificó qué hijas incluir
+        ids_set = set(piezas_hijas_ids)
+        hijas_a_mover = [h for h in hijas if h.id in ids_set and h.estado == "Disponible"]
+        hijas_excluidas = [
+            {"id": h.id, "codigo": h.codigo, "estado": h.estado}
+            for h in hijas
+            if h.id in ids_set and h.estado != "Disponible"
+        ]
+
+    piezas_a_mover = [pieza] + hijas_a_mover
 
     movimientos = []
     with transaction.atomic():

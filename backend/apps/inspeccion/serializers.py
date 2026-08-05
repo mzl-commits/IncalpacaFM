@@ -140,6 +140,11 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     "inspector": "Se requiere un inspector (no hay usuario autenticado)."
                 })
 
+        # Si no se asigna proxima_inspeccion, calcular automáticamente: hoy + 90 días
+        if not validated_data.get("proxima_inspeccion"):
+            from datetime import date, timedelta
+            validated_data["proxima_inspeccion"] = date.today() + timedelta(days=90)
+
         with transaction.atomic():
             inspeccion = Inspeccion.objects.create(**validated_data)
             if piezas_lote_data:
