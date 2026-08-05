@@ -4,7 +4,6 @@ from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import connections
 from django.test import TestCase, override_settings
 from PIL import Image
 from rest_framework.test import APIClient
@@ -21,9 +20,6 @@ def uploaded_photo():
 
 class AssetPhotoApiTests(TestCase):
     def setUp(self):
-        # Algunos tests de migración cierran conexiones PostgreSQL explícitamente.
-        # Reabre la conexión de esta prueba para conservar aislamiento de la suite.
-        connections["default"].close()
         self.media_directory = tempfile.TemporaryDirectory()
         self.settings_override = override_settings(
             PRIVATE_MEDIA_ROOT=self.media_directory.name
@@ -66,7 +62,6 @@ class AssetPhotoApiTests(TestCase):
         self.assertIsNotNone(summary.json()['photo_url'])
         self.assertEqual(photo.status_code, 200)
         self.assertEqual(photo['Content-Type'], 'image/jpeg')
-        photo.close()
 
     def test_rejects_too_small_photo(self):
         stream = BytesIO()
