@@ -29,6 +29,7 @@ import {
   adminReviewWorkOrder,
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
+  scheduleWorkOrderCorrection,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 
@@ -52,6 +53,10 @@ function formatDate(value: string) {
     month: "long",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function formatDateTime(value?: string) {
@@ -103,6 +108,28 @@ function getRatingLabel(data: Record<string, unknown> | { rating?: unknown } | n
   return "Sin puntuación";
 }
 
+
+
+type CorrectionSchedule = {
+  scheduledDate: string;
+  scheduledStartTime: string;
+  plannedHours: string;
+  administratorNotes: string;
+};
+
+function getCorrectionSchedule(workOrder: WorkOrder): CorrectionSchedule | undefined {
+  const raw = workOrder.recommendation_snapshot?.correctionSchedule;
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  const scheduledDate = typeof value.scheduledDate === "string" ? value.scheduledDate : "";
+  if (!scheduledDate) return undefined;
+  return {
+    scheduledDate,
+    scheduledStartTime: typeof value.scheduledStartTime === "string" ? value.scheduledStartTime : "08:00",
+    plannedHours: typeof value.plannedHours === "number" || typeof value.plannedHours === "string" ? String(value.plannedHours) : "-",
+    administratorNotes: typeof value.administratorNotes === "string" && value.administratorNotes.trim() ? value.administratorNotes : "Sin indicaciones adicionales.",
+  };
+}
 function getValidationLabel(data: Record<string, unknown> | undefined, returnedLabel = "Devuelta") {
   if (!data || typeof data.approved !== "boolean") return "Sin validar";
   return data.approved ? "Aprobada" : returnedLabel;
@@ -116,11 +143,22 @@ export function WorkOrderDetailPage() {
   const [adminComment, setAdminComment] = useState("");
   const [adminError, setAdminError] = useState("");
   const [savingAdminReview, setSavingAdminReview] = useState(false);
+  const [correctionDate, setCorrectionDate] = useState(todayKey());
+  const [correctionTime, setCorrectionTime] = useState("08:00");
+  const [correctionHours, setCorrectionHours] = useState(2);
+  const [correctionNotes, setCorrectionNotes] = useState("");
+  const [correctionError, setCorrectionError] = useState("");
+  const [correctionSuccess, setCorrectionSuccess] = useState("");
+  const [savingCorrection, setSavingCorrection] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     void getWorkOrderById(id).then(async (order) => {
       setWorkOrder(order);
+      setCorrectionDate(order.scheduledDate || todayKey());
+      setCorrectionTime(order.scheduledStartTime?.slice(0, 5) || "08:00");
+      setCorrectionHours(order.plannedHours || 2);
+      setCorrectionNotes(order.administratorNotes || "");
       setRequest(await getWorkRequestById(order.requestId));
     });
   }, [id]);
@@ -142,6 +180,38 @@ export function WorkOrderDetailPage() {
       setAdminError("No se pudo registrar la validación administrativa.");
     } finally {
       setSavingAdminReview(false);
+    }
+  }
+
+
+  async function handleScheduleCorrection(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    if (!workOrder) return;
+    if (!correctionDate) {
+      setCorrectionError("Selecciona la fecha de corrección.");
+      return;
+    }
+    if (correctionHours < 1 || correctionHours > 16) {
+      setCorrectionError("Las horas estimadas deben estar entre 1 y 16.");
+      return;
+    }
+
+    setSavingCorrection(true);
+    setCorrectionError("");
+    setCorrectionSuccess("");
+    try {
+      const updated = await scheduleWorkOrderCorrection(workOrder.id, {
+        scheduledDate: correctionDate,
+        scheduledStartTime: correctionTime,
+        plannedHours: correctionHours,
+        administratorNotes: correctionNotes.trim(),
+      });
+      setWorkOrder(updated);
+      setCorrectionSuccess("Programación guardada. El operario verá la corrección en su agenda.");
+    } catch {
+      setCorrectionError("No se pudo programar la corrección. Revisa los datos e intenta nuevamente.");
+    } finally {
+      setSavingCorrection(false);
     }
   }
 
@@ -189,6 +259,8 @@ export function WorkOrderDetailPage() {
     "La evaluación del solicitante es opcional",
   );
   const returnInfo = getWorkOrderReturnInfo(workOrder);
+  const correctionSchedule = getCorrectionSchedule(workOrder);
+  const canScheduleCorrection = isAdmin && Boolean(returnInfo) && !correctionSchedule;
 
   return (
     <section>
@@ -272,6 +344,79 @@ export function WorkOrderDetailPage() {
             <p>{returnInfo.comment}</p>
             <small>{returnInfo.nextStep}</small>
           </div>
+        )}
+
+        {isAdmin && returnInfo && correctionSchedule && (
+          <div className="correction-scheduled-card">
+            <div>
+              <CheckCircle size={22} />
+              <div>
+                <strong>Corrección programada</strong>
+                <p>El operario ya tiene esta corrección en su agenda.</p>
+              </div>
+            </div>
+            <dl>
+              <div><dt>Fecha</dt><dd>{formatDate(correctionSchedule.scheduledDate)}</dd></div>
+              <div><dt>Hora</dt><dd>{correctionSchedule.scheduledStartTime}</dd></div>
+              <div><dt>Duración estimada</dt><dd>{correctionSchedule.plannedHours} h</dd></div>
+              <div><dt>Indicaciones</dt><dd>{correctionSchedule.administratorNotes}</dd></div>
+            </dl>
+          </div>
+        )}
+
+        {canScheduleCorrection && (
+          <form className="correction-schedule-form" onSubmit={handleScheduleCorrection}>
+            <div>
+              <strong>Programar corrección</strong>
+              <p>Define cuándo debe retomar el trabajo el operario.</p>
+            </div>
+            <div className="form-grid">
+              <label className="field">
+                <span>Fecha de corrección</span>
+                <input
+                  type="date"
+                  min={todayKey()}
+                  value={correctionDate}
+                  onChange={(event) => setCorrectionDate(event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Hora de inicio</span>
+                <input
+                  type="time"
+                  value={correctionTime}
+                  onChange={(event) => setCorrectionTime(event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Horas estimadas</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={correctionHours}
+                  onChange={(event) => setCorrectionHours(Number(event.target.value))}
+                />
+              </label>
+              <label className="field field-wide">
+                <span>Indicaciones para el operario</span>
+                <textarea
+                  rows={3}
+                  value={correctionNotes}
+                  onChange={(event) => setCorrectionNotes(event.target.value)}
+                  placeholder="Ej. Revisar evidencia faltante y corregir el acabado indicado."
+                />
+              </label>
+            </div>
+            {correctionError && <div className="form-error">{correctionError}</div>}
+            {correctionSuccess && <div className="form-success">{correctionSuccess}</div>}
+            <div className="admin-evaluation-actions">
+              <button className="button button-primary" type="button" disabled={savingCorrection} onClick={() => void handleScheduleCorrection()}>
+                <CalendarBlank size={18} />
+                Guardar programación
+              </button>
+            </div>
+          </form>
         )}
 
         {isAdmin && needsAdminReview && (
@@ -411,5 +556,3 @@ export function WorkOrderDetailPage() {
     </section>
   );
 }
-
-

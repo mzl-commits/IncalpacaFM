@@ -125,3 +125,20 @@ export async function generateWorkOrderReport(id: string): Promise<{ id: string;
   const { data } = await api.post<{ id: string; downloadPath: string }>(`/work-orders/${id}/reports/`);
   return data;
 }
+
+export async function scheduleWorkOrderCorrection(
+  id: string,
+  input: {
+    scheduledDate: string;
+    scheduledStartTime: string;
+    plannedHours: number;
+    administratorNotes: string;
+  },
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: "RESCHEDULE_CORRECTION",
+    payload: input,
+  });
+  notifyChanges();
+  return data;
+}

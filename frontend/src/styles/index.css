@@ -643,6 +643,8 @@ tr:hover td { background: #f8faff; }
 .upload-box div { flex: 1; }
 .upload-box p, .selected-file { margin: 4px 0 0; color: #667085; }
 .form-error { margin: 20px 28px 0; padding: 14px 16px; border: 1px solid #efb0b0; border-radius: 8px; background: #fff1f1; color: #9f1d1d; }
+.form-success { margin: 20px 28px 0; padding: 14px 16px; border: 1px solid #9ed6b3; border-radius: 8px; background: #f0fdf4; color: #166534; }
+
 .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 28px; margin-bottom: 20px; }
 .detail-header h2 { margin: 8px 0; color: #10233f; }
 .detail-header p { margin: 0; color: #667085; }
@@ -672,6 +674,18 @@ section:has(.detail-header) .detail-grid { grid-template-columns: repeat(2, minm
 .admin-evaluation-card h2 { margin: 0 0 6px; color: #10233f; font-size: 1.08rem; }
 .admin-evaluation-card p { margin: 0; color: #667085; }
 .admin-evaluation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.request-derivation-panel { width: 100%; display: grid; gap: 14px; }
+.request-derivation-panel > div:first-child strong { display: block; color: var(--primary); font-size: 18px; }
+.request-derivation-panel > div:first-child p { margin: 4px 0 0; color: var(--muted); }
+.request-derivation-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: 100%; }
+.request-derivation-option { min-height: 126px; display: grid; align-content: start; gap: 7px; border: 1px solid #cbd7e6; border-radius: 6px; padding: 14px; background: #fff; color: var(--primary); text-align: left; text-decoration: none; font: inherit; }
+.request-derivation-option span { width: fit-content; min-width: 42px; padding: 4px 8px; border-radius: 4px; background: #e8f1fb; color: var(--primary); font-weight: 800; text-align: center; }
+.request-derivation-option strong { color: #10233f; }
+.request-derivation-option small { color: var(--muted); line-height: 1.35; }
+.request-derivation-option.is-active { border-color: var(--primary); background: #f4f8fd; cursor: pointer; }
+.request-derivation-option.is-active:hover { border-color: var(--accent); box-shadow: 0 8px 18px rgb(12 45 84 / .10); }
+.request-derivation-option:disabled { opacity: .66; cursor: not-allowed; }
+@media (max-width: 900px) { .request-derivation-options { grid-template-columns: 1fr; } }
 .button-danger { border-color: #c63737; background: #c63737; color: #fff; }
 .button-danger:hover { border-color: #a72626; background: #a72626; }
 .rejection-form { grid-column: 1 / -1; width: 100%; padding-top: 22px; border-top: 1px solid #dce4f0; }
@@ -1934,6 +1948,18 @@ td { padding: 13px 14px; }
 .return-observation-card strong { display: block; margin-bottom: 6px; color: #7c2d12; }
 .return-observation-card p { margin: 0 0 6px; color: #4f2d1f; line-height: 1.5; }
 .return-observation-card small { color: #7c4a2d; }
+.correction-scheduled-card { display: grid; gap: 16px; margin-top: 18px; padding: 18px; border: 1px solid #9ed6b3; border-radius: 6px; background: #f0fdf4; }
+.correction-scheduled-card > div:first-child { display: flex; align-items: flex-start; gap: 12px; color: #166534; }
+.correction-scheduled-card > div:first-child svg { flex: none; }
+.correction-scheduled-card strong { display: block; color: #14532d; }
+.correction-scheduled-card p { margin: 4px 0 0; color: #3f6b4f; }
+.correction-scheduled-card dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.correction-scheduled-card dt { color: #667085; font-size: .82rem; font-weight: 700; }
+.correction-scheduled-card dd { margin: 4px 0 0; color: #10233f; font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 780px) { .correction-scheduled-card dl { grid-template-columns: 1fr; } }
+.correction-schedule-form { display: grid; gap: 16px; margin-top: 18px; padding: 18px; border: 1px solid #c9d8ea; border-radius: 6px; background: #f8fbff; }
+.correction-schedule-form > div:first-child strong { display: block; margin-bottom: 4px; color: #17365d; }
+.correction-schedule-form > div:first-child p { margin: 0; color: #667085; }
 .admin-review-form { margin-top: 22px; padding-top: 22px; border-top: 1px solid #dce4f0; }
 .work-order-detail-grid { margin-top: 0 !important; }
 
@@ -1976,6 +2002,4 @@ td { padding: 13px 14px; }
   .public-conformity-actions { flex-direction: column-reverse; }
   .public-conformity-actions .button { width: 100%; }
 }
-
-
 

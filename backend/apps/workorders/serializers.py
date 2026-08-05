@@ -1,4 +1,5 @@
 ﻿import uuid
+from datetime import datetime, time
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -289,6 +290,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
             "ADMIN_RETURN",
             "CONFORM",
             "REOPEN",
+            "RESCHEDULE_CORRECTION",
         )
     )
     percentage = serializers.IntegerField(required=False, min_value=0, max_value=100)
@@ -330,12 +332,15 @@ class WorkOrderActionSerializer(serializers.Serializer):
             if order.technician_id != request.user.id and not order.supporting_technicians.filter(pk=request.user.id).exists():
                 raise PermissionDenied('Solo los técnicos asignados pueden actualizar esta orden.')
             if action not in technical_actions:
-                raise PermissionDenied('Esta accion corresponde a la validación administrativa.')
+                raise PermissionDenied('Esta acción corresponde a la validación administrativa.')
         elif role == AccountProfile.Role.SUPERVISOR:
             if order.supervisor_id != request.user.id:
-                raise PermissionDenied('Solo el supervisor asignado puede revisar está orden.')
+                raise PermissionDenied('Solo el supervisor asignado puede revisar esta orden.')
             if action not in {'SUPERVISOR_APPROVE', 'SUPERVISOR_RETURN'}:
-                raise PermissionDenied('Esta accion corresponde al administrador o al operario.')
+                raise PermissionDenied('Esta acción corresponde al administrador o al operario.')
+        elif role == AccountProfile.Role.ADMIN:
+            if action in technical_actions or action.startswith('SUPERVISOR_') or action in {'CONFORM', 'REOPEN'}:
+                raise PermissionDenied('Esta acción corresponde al operario, supervisor o solicitante.')
         expected_statuses = {
             'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.RETURNED, WorkOrder.Status.IN_PROGRESS},
             'PAUSE': {WorkOrder.Status.IN_PROGRESS},
@@ -346,14 +351,19 @@ class WorkOrderActionSerializer(serializers.Serializer):
             'ADMIN_RETURN': {WorkOrder.Status.ADMIN_REVIEW},
             'CONFORM': {WorkOrder.Status.CONFORMITY},
             'REOPEN': {WorkOrder.Status.CONFORMITY},
+            'RESCHEDULE_CORRECTION': {WorkOrder.Status.RETURNED},
         }
         allowed_statuses = expected_statuses.get(action)
         if allowed_statuses and order.status not in allowed_statuses:
             raise serializers.ValidationError({
-                'action': 'La accion no corresponde al estado actual de la orden.'
+                'action': 'La acción no corresponde al estado actual de la orden.'
             })
 
         if action == "START":
+            if order.status == WorkOrder.Status.RETURNED and order.scheduled_date > timezone.localdate():
+                raise serializers.ValidationError({
+                    'action': 'La corrección aún no está programada para hoy.'
+                })
             if active_work_session(order):
                 raise serializers.ValidationError({
                     'action': 'Ya hay una sesión de trabajo activa.'
@@ -455,6 +465,10 @@ class WorkOrderActionSerializer(serializers.Serializer):
             order.status = (
                 WorkOrder.Status.ADMIN_REVIEW if approved else WorkOrder.Status.RETURNED
             )
+            if not approved:
+                snapshot = {**(order.recommendation_snapshot or {})}
+                snapshot.pop("correctionSchedule", None)
+                order.recommendation_snapshot = snapshot
         elif action.startswith("ADMIN_"):
             approved = action.endswith("APPROVE")
             order.administrator_validation = {
@@ -470,6 +484,60 @@ class WorkOrderActionSerializer(serializers.Serializer):
             if approved:
                 order.incident.status = Incident.Status.CLOSED
                 order.incident.save(update_fields=("status", "updated_at"))
+            else:
+                snapshot = {**(order.recommendation_snapshot or {})}
+                snapshot.pop("correctionSchedule", None)
+                order.recommendation_snapshot = snapshot
+        elif action == "RESCHEDULE_CORRECTION":
+            payload = self.validated_data["payload"]
+            scheduled_date = payload.get("scheduledDate")
+            scheduled_start_time = payload.get("scheduledStartTime") or "08:00"
+            planned_hours = payload.get("plannedHours") or 2
+            notes = str(payload.get("administratorNotes") or "").strip()
+
+            try:
+                parsed_date = datetime.fromisoformat(str(scheduled_date)).date()
+            except (TypeError, ValueError):
+                raise serializers.ValidationError({
+                    'scheduledDate': 'Selecciona una fecha válida para la corrección.'
+                })
+            if parsed_date < timezone.localdate():
+                raise serializers.ValidationError({
+                    'scheduledDate': 'La fecha de corrección no puede estar en el pasado.'
+                })
+            try:
+                parsed_time = time.fromisoformat(str(scheduled_start_time))
+            except ValueError:
+                raise serializers.ValidationError({
+                    'scheduledStartTime': 'Selecciona una hora válida para la corrección.'
+                })
+            try:
+                parsed_hours = int(planned_hours)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError({
+                    'plannedHours': 'Ingresa las horas estimadas.'
+                })
+            if parsed_hours < 1 or parsed_hours > 16:
+                raise serializers.ValidationError({
+                    'plannedHours': 'Las horas estimadas deben estar entre 1 y 16.'
+                })
+
+            order.scheduled_date = parsed_date
+            order.scheduled_start_time = parsed_time
+            order.planned_hours = parsed_hours
+            if notes:
+                order.administrator_notes = notes
+            order.recommendation_snapshot = {
+                **(order.recommendation_snapshot or {}),
+                "correctionSchedule": {
+                    "scheduledDate": parsed_date.isoformat(),
+                    "scheduledStartTime": parsed_time.strftime("%H:%M"),
+                    "plannedHours": parsed_hours,
+                    "administratorNotes": notes,
+                    "scheduledBy": request.user.get_full_name() or request.user.username,
+                    "scheduledAt": now.isoformat(),
+                },
+            }
         elif action in {"CONFORM", "REOPEN"}:
             accepted = action == "CONFORM"
             order.conformity = {
@@ -499,20 +567,33 @@ class WorkOrderActionSerializer(serializers.Serializer):
             )
         elif action.startswith('SUPERVISOR_'):
             outcome = 'aprobó' if action.endswith('APPROVE') else 'devolvió'
-            queue_notification(
-                event='SUPERVISOR_REVIEW',
-                recipient=order.technician,
-                subject=f'Revisión de supervisor para {order.code}',
-                body=f'El supervisor {outcome} la orden {order.code}.',
-                entity=order,
-                discriminator=action,
-            )
+            if action.endswith('APPROVE'):
+                queue_notification(
+                    event='SUPERVISOR_REVIEW',
+                    recipient=order.technician,
+                    subject=f'Revisión de supervisor para {order.code}',
+                    body=f'El supervisor {outcome} la orden {order.code}.',
+                    entity=order,
+                    discriminator=action,
+                )
             queue_for_administrators(
                 event='SUPERVISOR_REVIEW',
                 subject=f'Revisión registrada para {order.code}',
                 body=f'El supervisor {outcome} la orden {order.code}.',
                 entity=order,
                 discriminator=action,
+            )
+        elif action == 'RESCHEDULE_CORRECTION':
+            queue_notification(
+                event='WORK_ORDER_CORRECTION_SCHEDULED',
+                recipient=order.technician,
+                subject=f'Corrección programada para {order.code}',
+                body=(
+                    f'La corrección de la orden {order.code} fue programada para '
+                    f'{order.scheduled_date.isoformat()} a las {order.scheduled_start_time.strftime("%H:%M")}.'
+                ),
+                entity=order,
+                discriminator='correction-scheduled',
             )
         elif action == 'ADMIN_APPROVE':
             queue_incident_requester(

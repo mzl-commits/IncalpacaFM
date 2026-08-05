@@ -1,4 +1,4 @@
-﻿from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -385,6 +385,16 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     priorityReasons = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     impactAnswers = serializers.DictField(required=True)
 
+    def validate(self, attrs):
+        impact_answers = attrs.get("impactAnswers") or {}
+        if (
+            impact_answers.get("issueCategory") == "OTRO"
+            and not str(impact_answers.get("otherIssueCategoryDetail", "")).strip()
+        ):
+            raise serializers.ValidationError(
+                {"impactAnswers": "Indica el detalle cuando el tipo de solicitud es Otro."}
+            )
+        return attrs
     def _public_requester(self):
         user_model = get_user_model()
         user, created = user_model.objects.get_or_create(
