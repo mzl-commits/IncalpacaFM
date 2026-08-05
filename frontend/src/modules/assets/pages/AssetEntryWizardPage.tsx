@@ -311,7 +311,8 @@ export function AssetEntryWizardPage() {
     if (draft.entryType === "purchase") return <>
       <Field label="Orden de compra" error={errors.purchaseOrder} required><input value={draft.purchaseOrder} onChange={(e) => setField("purchaseOrder", e.target.value)} placeholder="Ej. OC-2026-00128" /></Field>
       <Field label="Proveedor" error={errors.supplier} required><input value={draft.supplier} onChange={(e) => setField("supplier", e.target.value)} placeholder="Razón social" /></Field>
-      <Field label="Comprobante" error={errors.voucherNumber} required><input value={draft.voucherNumber} onChange={(e) => setField("voucherNumber", e.target.value)} placeholder="Factura o boleta" /></Field>
+      <Field label="Código de factura o boleta" error={errors.voucherNumber}><input value={draft.voucherNumber} onChange={(e) => setField("voucherNumber", e.target.value)} placeholder="Opcional" /></Field>
+      <Field label="Centro de costo"><input value={draft.costCenter} onChange={(e) => setField("costCenter", e.target.value)} placeholder="Ej. CC-4201" /></Field>
       <Field label="Fecha de adquisición" error={errors.acquisitionDate} required><input type="date" value={draft.acquisitionDate} onChange={(e) => setField("acquisitionDate", e.target.value)} /></Field>
       <Field label="Costo" error={errors.cost} required><input type="number" min="0" step="0.01" value={draft.cost} onChange={(e) => setField("cost", e.target.value)} placeholder="0.00" /></Field>
       <Field label="Moneda"><select value={draft.currency} onChange={(e) => setField("currency", e.target.value as "PEN" | "USD")}><option value="PEN">PEN — Soles</option><option value="USD">USD — Dólares</option></select></Field>
@@ -356,7 +357,7 @@ export function AssetEntryWizardPage() {
         </label>)}
       </fieldset>
       <div className="conditional-fields"><h3>Información del origen</h3><div className="form-grid">{originFields()}</div></div>
-      <div className="conditional-fields">{upload("origin", "Documento que sustenta el ingreso", errors.originDocument)}</div>
+      <div className="conditional-fields">{upload("origin", "Documento que sustenta el ingreso (opcional)", errors.originDocument)}</div>
     </>;
     if (draft.currentStep === 1) return <div className="form-grid section-gap">
       <Field label="Nombre corto" error={errors.name} required><input value={draft.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ej. Laptop Lenovo ThinkPad T14" /></Field>
@@ -415,7 +416,7 @@ export function AssetEntryWizardPage() {
       </>}
     </div>;
     if (draft.currentStep === 4) return <div className="evidence-grid section-gap">
-      {upload("origin", "Documento de origen", errors.originDocument)}
+      {upload("origin", "Documento sustentatorio (opcional)", errors.originDocument)}
       {upload("photo", "Fotografía oficial", errors.photo)}
       {upload("certificate", "Certificados")}
       {upload("manual", "Manuales")}
