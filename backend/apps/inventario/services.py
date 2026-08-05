@@ -107,8 +107,39 @@ def registrar_entrada_pieza(pieza: Pieza, responsable, observaciones=""):
 
 
 def registrar_baja_pieza(pieza: Pieza, responsable, observaciones=""):
-    """Confirma la baja definitiva (daño irreparable/pérdida) de una pieza individual."""
+    """
+    Confirma la baja definitiva (daño irreparable/pérdida) de una pieza individual.
+
+    Si la pieza es un estuche con hijas:
+    - Hijas ya en "Baja" → se ignoran (no se tocan).
+    - Hijas en buen estado (Disponible/Mantenimiento/Prestado) → se "liberan":
+      se les quita el padre (quedan como piezas sueltas) y se registra una entrada
+      informativa para trazabilidad.
+    Solo el estuche/pieza principal pasa a estado "Baja".
+    """
     with transaction.atomic():
+        hijas = list(pieza.piezas_hijas.exclude(estado="Baja"))
+        for hija in hijas:
+            # Liberar la hija: quita el vínculo con el estuche dado de baja
+            Pieza.objects.filter(pk=hija.pk).update(padre=None)
+            # Registrar trazabilidad: si la hija estaba prestada, sigue prestada
+            # pero ahora independiente. Si estaba disponible/mantenimiento, queda igual.
+            # Solo creamos el movimiento de observación si estaba Disponible/Mantenimiento
+            # (evitar registrar "entrada" de una pieza que sigue prestada).
+            if hija.estado in ("Disponible", "Mantenimiento"):
+                Movimiento.objects.create(
+                    material=hija.material,
+                    pieza=hija,
+                    tipo="entrada",
+                    responsable=responsable,
+                    observaciones=(
+                        f"Liberada del estuche {pieza.codigo} dado de baja. "
+                        + (observaciones or "")
+                    ).strip(),
+                )
+                hija.material.recalcular_cantidad()
+
+        # Dar de baja el estuche/pieza principal
         mov = Movimiento.objects.create(
             material=pieza.material, pieza=pieza, tipo="baja",
             responsable=responsable, observaciones=observaciones,

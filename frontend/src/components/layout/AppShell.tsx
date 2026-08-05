@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowRight,
   Barcode,
   Bell,
@@ -68,6 +68,18 @@ const groups: Array<{
       { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
       { to: "/bienes/qr", label: "Códigos QR", icon: Barcode },
       { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: ShieldCheck },
+    ],
+  },
+  {
+    id: "almacen",
+    label: "Almacén",
+    icon: Toolbox,
+    paths: ["/almacen"],
+    items: [
+      { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true },
+      { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
+      { to: "/almacen/checklist", label: "Devolución", icon: ListChecks },
+      { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText },
     ],
   },
   {
@@ -190,6 +202,11 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
   if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];
   if (pathname.startsWith("/auditoria")) return ["Administración", "Auditoría"];
+  if (pathname.startsWith("/almacen/catalogo")) return ["Almacén", "Catálogo"];
+  if (pathname.startsWith("/almacen/movimientos")) return ["Almacén", "Movimientos"];
+  if (pathname.startsWith("/almacen/checklist")) return ["Almacén", "Devolución"];
+  if (pathname.startsWith("/almacen/inspecciones")) return ["Almacén", "Inspecciones"];
+  if (pathname.startsWith("/almacen")) return ["Almacén", "Almacén de herramientas"];
   return ["SGTB", "Facility Management"];
 }
 

@@ -384,6 +384,93 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
+      // ── Almacén ──────────────────────────────────────────────────────────
+      { path: "almacen", element: <Navigate to="/almacen/catalogo" replace /> },
+      {
+        path: "almacen/catalogo",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/CatalogoPage"),
+          "CatalogoPage",
+        ),
+      },
+      {
+        path: "almacen/catalogo/nuevo",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/MaterialFormPage"),
+          "MaterialFormPage",
+        ),
+      },
+      {
+        path: "almacen/catalogo/:id",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/MaterialDetailPage"),
+          "MaterialDetailPage",
+        ),
+      },
+      {
+        path: "almacen/catalogo/:id/editar",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/MaterialFormPage"),
+          "MaterialFormPage",
+        ),
+      },
+      {
+        path: "almacen/catalogo/:id/alta-piezas",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/AltaPiezasPage"),
+          "AltaPiezasPage",
+        ),
+      },
+      {
+        path: "almacen/movimientos",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/MovimientosPage"),
+          "MovimientosPage",
+        ),
+      },
+      {
+        path: "almacen/movimientos/nuevo",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/MovimientoFormPage"),
+          "MovimientoFormPage",
+        ),
+      },
+      {
+        path: "almacen/checklist",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/ChecklistPage"),
+          "ChecklistPage",
+        ),
+      },
+      {
+        path: "almacen/inspecciones",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/InspeccionesPage"),
+          "InspeccionesPage",
+        ),
+      },
+      {
+        path: "almacen/inspecciones/nueva",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/InspeccionFormPage"),
+          "InspeccionFormPage",
+        ),
+      },
+      {
+        path: "almacen/inspecciones/vencidas",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/InspeccionVencidasPage"),
+          "InspeccionVencidasPage",
+        ),
+      },
+      {
+        path: "almacen/inspecciones/:id",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/InspeccionDetailPage"),
+          "InspeccionDetailPage",
+        ),
+      },
+      // ─────────────────────────────────────────────────────────────────────
       ...modules.map(([path, title]) => ({
         path,
         element: <ModulePlaceholderPage title={title} />,
@@ -391,3 +478,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+

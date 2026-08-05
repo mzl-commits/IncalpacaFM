@@ -1,0 +1,193 @@
+/* ─── Componentes compartidos (shared/) ──────────────────────────────────────── */
+
+/* StatCard */
+.stat-card {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  gap: 4px;
+  min-height: 120px;
+  padding: 18px;
+  border: 1px solid #d8e2f2;
+  border-radius: 8px;
+  background: #fff;
+}
+.stat-card[data-variant="warning"] { border-color: #f5c97a; background: #fffbf0; }
+.stat-card[data-variant="error"]   { border-color: #f5a9a9; background: #fff5f5; }
+.stat-card-icon { display: flex; align-items: center; color: var(--accent); font-size: 20px; }
+.stat-card[data-variant="warning"] .stat-card-icon { color: var(--warning); }
+.stat-card[data-variant="error"]   .stat-card-icon { color: var(--error); }
+.stat-card-value { margin: 8px 0 2px; font-size: 30px; font-weight: 700; letter-spacing: -.03em; color: var(--text); }
+.stat-card[data-variant="warning"] .stat-card-value { color: var(--warning); }
+.stat-card[data-variant="error"]   .stat-card-value { color: var(--error); }
+.stat-card-label { color: var(--muted); font-size: 13px; }
+.stat-card-sublabel { color: var(--muted); font-size: 11px; }
+
+/* ─── Grid de stat cards del módulo almacén ────────────────────────────────── */
+.almacen-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 24px 0 20px; }
+@media (max-width: 1050px) { .almacen-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .almacen-stats { grid-template-columns: 1fr 1fr; gap: 10px; } }
+
+/* ─── TrimestreBadge ─────────────────────────────────────────────────────────── */
+.trimestre-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+.trimestre-q1 { background: #fff3cd; color: #856404; }   /* Q1 Ene-Mar: Amarillo */
+.trimestre-q2 { background: #d1e7dd; color: #0f5132; }   /* Q2 Abr-Jun: Verde   */
+.trimestre-q3 { background: #cfe2ff; color: #0a367a; }   /* Q3 Jul-Sep: Azul    */
+.trimestre-q4 { background: #f8d7da; color: #842029; }   /* Q4 Oct-Dic: Rojo    */
+
+/* ─── Filas de tabla con alerta de stock bajo ───────────────────────────────── */
+.stock-alert-row td { background: #fff9ec !important; }
+.stock-alert-row td:first-child { border-left: 3px solid #e6a817; }
+.stock-alert-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--warning); font-size: 12px; font-weight: 700;
+}
+
+/* ─── Banner de alerta (piezas sin devolver) ─────────────────────────────────── */
+.alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+.alert-banner-warning { background: #fff9ec; border-color: #f5c97a; color: #704700; }
+.alert-banner-error   { background: #fff5f5; border-color: #f5a9a9; color: #93000a; }
+.alert-banner svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ─── Árbol de piezas ────────────────────────────────────────────────────────── */
+.pieza-tree { display: grid; gap: 6px; padding: 16px; }
+.pieza-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e3e9f2;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+}
+.pieza-tree-row.is-container { border-color: #c3d0e8; background: #f4f7fd; }
+.pieza-tree-children { padding-left: 28px; display: grid; gap: 4px; margin-top: 4px; }
+.pieza-tree-hija {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #eaf0f9;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 12px;
+}
+.pieza-code { font-family: ui-monospace, monospace; font-weight: 700; color: var(--primary); font-size: 12px; }
+
+/* ─── Checklist de préstamos ─────────────────────────────────────────────────── */
+.checklist-list { display: grid; gap: 8px; padding: 16px; }
+.checklist-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e3e9f2;
+  border-radius: 6px;
+  background: #fff;
+}
+.checklist-row.is-overdue { border-color: #f5c97a; background: #fffbf0; }
+.checklist-row input[type="checkbox"] {
+  width: 18px; height: 18px;
+  accent-color: var(--primary); cursor: pointer;
+}
+.checklist-row-info strong { display: block; font-size: 13px; color: var(--text); }
+.checklist-row-info small  { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.checklist-section-label {
+  padding: 8px 16px 4px;
+  color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
+
+/* ─── Formulario de inspección — fila de criterio ───────────────────────────── */
+.criterio-row {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf1f8;
+}
+.criterio-row:last-child { border-bottom: 0; }
+.criterio-texto { font-size: 13px; color: var(--text); padding-top: 12px; }
+.criterio-controls { display: grid; gap: 6px; }
+.criterio-controls select { width: 100%; min-height: 40px; border: 1px solid #9eabb9; border-radius: 4px; padding: 8px 10px; font: inherit; font-size: 13px; }
+.criterio-controls input[type="text"] { width: 100%; min-height: 36px; border: 1px solid #9eabb9; border-radius: 4px; padding: 6px 10px; font: inherit; font-size: 12px; color: var(--muted); }
+@media (max-width: 600px) { .criterio-row { grid-template-columns: 1fr; } }
+
+/* ─── Card de material vencido ───────────────────────────────────────────────── */
+.vencida-card {
+  border: 1px solid #d8e2f2;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.vencida-card-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 10px; padding: 14px 16px; background: #eff4ff;
+}
+.vencida-card-header h3 { margin: 0; font-size: 15px; color: var(--primary); }
+.vencida-card-body { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.vencida-pieza-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border: 1px solid #c3d0e8; border-radius: 4px;
+  background: #f4f7fd; font-size: 12px; font-weight: 700; color: var(--primary);
+  font-family: ui-monospace, monospace;
+}
+.vencidas-grid { display: grid; gap: 12px; }
+
+/* ─── Detalle de inspección ──────────────────────────────────────────────────── */
+.inspeccion-respuestas { display: grid; gap: 0; border: 1px solid #d8e2f2; border-radius: 6px; overflow: hidden; }
+.respuesta-row { display: grid; grid-template-columns: 1fr 140px auto; align-items: start; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #edf1f8; font-size: 13px; }
+.respuesta-row:last-child { border-bottom: 0; }
+.respuesta-row:nth-child(even) { background: #fafbfd; }
+.respuesta-observacion { color: var(--muted); font-size: 12px; }
+
+/* ─── Upload de foto ─────────────────────────────────────────────────────────── */
+.foto-preview { display: block; width: 100%; max-width: 240px; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; border: 1px solid #d8e2f2; margin: 0 auto 16px; }
+
+
+/* ─── Segmented control 2 cols ───────────────────────────────────────────────── */
+.segmented-2 { grid-template-columns: repeat(2, 1fr); }
+.segmented-3 { grid-template-columns: repeat(3, 1fr); }
+
+/* ─── Aviso de estuche incompleto ────────────────────────────────────────────── */
+.aviso-estuche {
+  padding: 14px 16px; margin-top: 16px;
+  border: 1px solid #f5c97a; border-radius: 6px; background: #fffbf0;
+  color: #704700; font-size: 13px;
+}
+.aviso-estuche strong { display: block; margin-bottom: 4px; }
+
+/* ─── Sección de piezas multi-select ────────────────────────────────────────── */
+.pieza-multiselect { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; padding: 4px 0; }
+.pieza-checkbox-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid #e3e9f2; border-radius: 5px; cursor: pointer;
+}
+.pieza-checkbox-row input { width: 17px; height: 17px; accent-color: var(--primary); }
+.pieza-checkbox-row:has(input:checked) { border-color: var(--accent); background: #f0f6ff; }
+
+/* ─── Exportar botones ───────────────────────────────────────────────────────── */
+.export-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+
+/* ─── Alta estuche — tabla de piezas hijas ───────────────────────────────────── */
+.estuche-hijas-table { display: grid; gap: 8px; margin-top: 12px; }
+.estuche-hija-row { display: grid; grid-template-columns: 1fr 100px 36px; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #dfe6ef; border-radius: 5px; background: #f8faff; }
+.estuche-hija-row input[type="number"] { min-height: 36px; text-align: center; border: 1px solid #9eabb9; border-radius: 4px; font: inherit; }
