@@ -11,6 +11,7 @@ from .models import AccountProfile
 
 class CurrentUserSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source="account_profile.id", read_only=True)
+    user_id = serializers.IntegerField(source="pk", read_only=True)
     worker_code = serializers.CharField(source="account_profile.worker_code", read_only=True)
     full_name = serializers.SerializerMethodField()
     role = serializers.CharField(source="account_profile.role", read_only=True)
@@ -23,6 +24,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = (
             "id",
+            "user_id",
             "worker_code",
             "full_name",
             "email",
@@ -31,7 +33,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "must_change_password",
         )
 
-    def get_full_name(self, obj) -> str:
+    def get_full_name(self, obj):
         return obj.get_full_name() or obj.username
 
 
@@ -97,6 +99,27 @@ class ChangePasswordSerializer(serializers.Serializer):
         profile.save(update_fields=("must_change_password",))
         return user
 
+
+class UserListSerializer(serializers.ModelSerializer):
+    """Serializador ligero para poblar selects de responsable/inspector en otros módulos."""
+    id = serializers.IntegerField(source="pk", read_only=True)
+    worker_code = serializers.CharField(source="account_profile.worker_code", read_only=True, default="")
+    full_name = serializers.SerializerMethodField()
+    role = serializers.CharField(source="account_profile.role", read_only=True, default="")
+    role_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = get_user_model()
+        fields = ("id", "worker_code", "full_name", "role", "role_display")
+
+    def get_full_name(self, obj):
+        return obj.get_full_name() or obj.username
+
+    def get_role_display(self, obj):
+        try:
+            return obj.account_profile.get_role_display()
+        except AccountProfile.DoesNotExist:
+            return ""
 
 class TechnicianSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='account_profile.id', read_only=True)

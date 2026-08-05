@@ -17,6 +17,7 @@ import "@/styles/incident-create.css";
 import "@/styles/registries.css";
 import "@/styles/auth.css";
 import "@/styles/visual-refresh.css";
+import "@/styles/almacen.css";
 
 registerSW({ immediate: true });
 

@@ -5,35 +5,17 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics, permissions, response, serializers, status, views
 from rest_framework_simplejwt.views import TokenRefreshView
+from django.contrib.auth import get_user_model
 
+from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginSerializer, UserListSerializer, TechnicianSerializer
 from .models import AccountProfile
 from .permissions import IsAdministrator
 from apps.notifications.services import queue_notification
-from .serializers import (
-    ChangePasswordSerializer,
-    CurrentUserSerializer,
-    LoginSerializer,
-    TechnicianSerializer,
-)
-
 
 class LoginView(views.APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "login"
 
-    @extend_schema(
-        request=LoginSerializer,
-        responses={
-            200: inline_serializer(
-                name="LoginResponse",
-                fields={
-                    "access": serializers.CharField(),
-                    "refresh": serializers.CharField(),
-                    "user": CurrentUserSerializer(),
-                },
-            )
-        },
-    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -41,21 +23,11 @@ class LoginView(views.APIView):
 
 
 class CurrentUserView(views.APIView):
-    @extend_schema(responses={200: CurrentUserSerializer})
     def get(self, request):
         return response.Response(CurrentUserSerializer(request.user).data)
 
 
 class ChangePasswordView(views.APIView):
-    @extend_schema(
-        request=ChangePasswordSerializer,
-        responses={
-            200: inline_serializer(
-                name="ChangePasswordResponse",
-                fields={"detail": serializers.CharField()},
-            )
-        },
-    )
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -65,12 +37,20 @@ class ChangePasswordView(views.APIView):
         )
 
 
-class TechnicianListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAdministrator]
-    serializer_class = TechnicianSerializer
-    queryset = get_user_model().objects.select_related('account_profile').filter(
-        account_profile__role=AccountProfile.Role.TECHNICIAN
-    ).order_by('first_name', 'last_name', 'username')
+class UserListView(views.APIView):
+    """Lista todos los usuarios activos. Temporal con AllowAny hasta que exista autenticación en el frontend."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        User = get_user_model()
+        users = (
+            User.objects
+            .filter(is_active=True)
+            .select_related("account_profile")
+            .order_by("first_name", "last_name")
+        )
+        serializer = UserListSerializer(users, many=True)
+        return response.Response(serializer.data)
 
 
 class TechnicianDetailView(generics.RetrieveUpdateAPIView):
@@ -118,7 +98,4 @@ class TechnicianManualNotificationView(views.APIView):
         return response.Response({'detail': detail}, status=status.HTTP_201_CREATED)
 
 
-__all__ = [
-    "LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView",
-    "TechnicianListCreateView", "TechnicianDetailView", "TechnicianManualNotificationView",
-]
+__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView", "UserListView"]
