@@ -24,6 +24,11 @@ interface PublicAssetContext {
   name: string;
   photoUrl: string | null;
   generalLocation: string;
+  locationId?: string;
+  zone?: string;
+  building?: string;
+  area?: string;
+  room?: string;
 }
 interface PublicRequestFormState {
   requesterName: string;
@@ -164,7 +169,20 @@ export function PublicWorkRequestPage() {
     let active = true;
     setAssetLoadError(false);
     api.get<PublicAssetContext>(`/public/assets/${encodeURIComponent(assetToken)}/report/`)
-      .then(({ data }) => { if (active) setAsset(data); })
+      .then(({ data }) => {
+        if (!active) return;
+        setAsset(data);
+        if (data.locationId) {
+          setForm((current) => ({
+            ...current,
+            locationId: data.locationId ?? current.locationId,
+            zone: data.zone ?? current.zone,
+            building: data.building ?? current.building,
+            area: data.area ?? current.area,
+            room: data.room ?? current.room,
+          }));
+        }
+      })
       .catch(() => { if (active) { setAsset(null); setAssetLoadError(true); } });
     return () => { active = false; };
   }, [assetToken]);
@@ -207,6 +225,32 @@ export function PublicWorkRequestPage() {
     (!form.building || location.building === form.building) &&
     (!form.area || location.area === form.area),
   ), [locations, form.zone, form.building, form.area]);
+  const assetLocation = useMemo(() => {
+    if (!asset) return null;
+    return locations.find((location) => location.id === asset.locationId) ??
+      locations.find((location) =>
+        location.zone === asset.zone &&
+        location.building === asset.building &&
+        location.area === asset.area &&
+        location.room === asset.room,
+      ) ??
+      null;
+  }, [asset, locations]);
+
+  useEffect(() => {
+    if (!assetLocation) return;
+    setForm((current) => {
+      if (current.locationId === assetLocation.id) return current;
+      return {
+        ...current,
+        locationId: assetLocation.id,
+        zone: assetLocation.zone,
+        building: assetLocation.building,
+        area: assetLocation.area,
+        room: assetLocation.room,
+      };
+    });
+  }, [assetLocation]);
 
   useEffect(() => {
     if (!form.zone && zoneOptions.length === 1) {
