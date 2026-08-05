@@ -463,9 +463,13 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 "at": now.isoformat(),
                 "by": request.user.get_full_name(),
             }
-            order.status = (
-                WorkOrder.Status.CONFORMITY if approved else WorkOrder.Status.RETURNED
-            )
+            # La aprobación administrativa cierra la OT. La encuesta posterior
+            # es opcional y no bloquea la entrega del bien.
+            order.status = WorkOrder.Status.CLOSED if approved else WorkOrder.Status.RETURNED
+            order.closed_at = now if approved else None
+            if approved:
+                order.incident.status = Incident.Status.CLOSED
+                order.incident.save(update_fields=("status", "updated_at"))
         elif action in {"CONFORM", "REOPEN"}:
             accepted = action == "CONFORM"
             order.conformity = {
@@ -517,7 +521,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 subject=f'Tu atención está lista · {order.incident.code}',
                 body=(
                     f'La atención de tu reporte {order.incident.code} está lista para entrega o uso. '
-                    f'Confirma el resultado y califica el servicio en '
+                    f'Si lo deseas, puedes calificar el servicio en '
                     f'{settings.PUBLIC_FRONTEND_URL}/seguimiento-solicitud/{order.incident.code}.'
                 ),
                 discriminator=order.code,

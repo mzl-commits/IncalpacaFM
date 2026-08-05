@@ -47,19 +47,14 @@ export function RequestTrackingPage() {
     navigate(`/seguimiento-solicitud/${encodeURIComponent(cleanCode)}`);
   }
 
-  async function handleConformity(accepted: boolean) {
+  async function handleSatisfaction() {
     if (!tracking) return;
-    if (!accepted && conformityComment.trim().length < 10) {
-      setConformityError("Cuéntanos brevemente que falta revisar.");
-      return;
-    }
 
     setSendingConformity(true);
     setConformityError("");
     try {
       const updated = await submitPublicConformity(tracking.code, {
-        accepted,
-        rating: accepted ? rating : undefined,
+        rating,
         comment: conformityComment.trim(),
       });
       setTracking(updated);
@@ -152,9 +147,9 @@ export function RequestTrackingPage() {
                 <div className="public-conformity-heading">
                   <CheckCircle size={30} weight="duotone" />
                   <div>
-                    <span>Trabajo ejecutado</span>
-                    <h2>¿Todo quedó conforme?</h2>
-                    <p>Tu respuestá ayuda a cerrar la atención o devolverla para revisión.</p>
+                    <span>Atención finalizada</span>
+                    <h2>¿Cómo fue la atención?</h2>
+                    <p>Tu evaluación es opcional y nos ayuda a mejorar el servicio.</p>
                   </div>
                 </div>
 
@@ -178,7 +173,7 @@ export function RequestTrackingPage() {
                     rows={4}
                     value={conformityComment}
                     onChange={(event) => setConformityComment(event.target.value)}
-                    placeholder="Ej. Quedó bien, gracias. Si falta algo, cuéntanos qué debemos revisar."
+                    placeholder="Cuéntanos brevemente cómo fue la atención (opcional)."
                   />
                 </label>
 
@@ -189,19 +184,19 @@ export function RequestTrackingPage() {
                     className="button button-danger"
                     type="button"
                     disabled={sendingConformity}
-                    onClick={() => void handleConformity(false)}
+                    onClick={() => setConformityError("")}
                   >
                     <XCircle size={18} />
-                    Aún falta revisar
+                    Omitir por ahora
                   </button>
                   <button
                     className="button button-primary"
                     type="button"
                     disabled={sendingConformity}
-                    onClick={() => void handleConformity(true)}
+                    onClick={() => void handleSatisfaction()}
                   >
                     <CheckCircle size={18} />
-                    Sí, quedó conforme
+                    Enviar evaluación
                   </button>
                 </div>
               </article>
@@ -212,9 +207,9 @@ export function RequestTrackingPage() {
                 <div className="public-conformity-heading">
                   <CheckCircle size={30} weight="duotone" />
                   <div>
-                    <span>Respuestá registrada</span>
-                    <h2>{tracking.conformity.accepted ? "Gracias por confirmar" : "Revisión solicitada"}</h2>
-                    <p>{tracking.conformity.comment || "Tu respuestá quedó guardada correctamente."}</p>
+                    <span>Evaluación registrada</span>
+                    <h2>Gracias por tu evaluación</h2>
+                    <p>{tracking.conformity.comment || "Tu evaluación quedó guardada correctamente."}</p>
                   </div>
                 </div>
               </article>
