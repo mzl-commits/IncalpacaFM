@@ -34,10 +34,10 @@ export async function getWorkOrderById(id: string): Promise<WorkOrder> {
   return data;
 }
 
-export async function startWorkOrder(id: string, startPhoto: File): Promise<WorkOrder> {
+export async function startWorkOrder(id: string, startPhoto?: File | null): Promise<WorkOrder> {
   const payload = new FormData();
   payload.append("action", "START");
-  payload.append("startPhoto", startPhoto);
+  if (startPhoto) payload.append("startPhoto", startPhoto);
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, payload, {
     headers: { "Content-Type": "multipart/form-data" },
   });
