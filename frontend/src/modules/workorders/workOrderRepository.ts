@@ -34,9 +34,12 @@ export async function getWorkOrderById(id: string): Promise<WorkOrder> {
   return data;
 }
 
-export async function startWorkOrder(id: string): Promise<WorkOrder> {
-  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
-    action: "START",
+export async function startWorkOrder(id: string, startPhoto?: File | null): Promise<WorkOrder> {
+  const payload = new FormData();
+  payload.append("action", "START");
+  if (startPhoto) payload.append("startPhoto", startPhoto);
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, payload, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
   notifyChanges();
   return data;
@@ -46,24 +49,34 @@ export interface RegisterProgressInput {
   percentage: number;
   observation: string;
   evidenceNames: string[];
+  finishPhoto?: File | null;
 }
 
 export async function registerWorkOrderProgress(
   id: string,
   input: RegisterProgressInput,
 ): Promise<WorkOrder> {
-  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
-    action: "PROGRESS",
-    percentage: input.percentage,
-    observation: input.observation,
-    evidence: input.evidenceNames.map((name) => ({
-      id: crypto.randomUUID(),
-      name,
-      mimeType: "image/*",
-      size: 0,
-      createdAt: new Date().toISOString(),
-    })),
-  });
+  const evidence = input.evidenceNames.map((name) => ({
+    id: crypto.randomUUID(),
+    name,
+    mimeType: "image/*",
+    size: 0,
+    createdAt: new Date().toISOString(),
+  }));
+  const payload = input.finishPhoto
+    ? (() => {
+        const form = new FormData();
+        form.append("action", "PROGRESS");
+        form.append("percentage", String(input.percentage));
+        form.append("observation", input.observation);
+        form.append("finishPhoto", input.finishPhoto);
+        return form;
+      })()
+    : { action: "PROGRESS", percentage: input.percentage, observation: input.observation, evidence };
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, payload, input.finishPhoto
+    ? { headers: { "Content-Type": "multipart/form-data" } }
+    : undefined,
+  );
   notifyChanges();
   return data;
 }
@@ -96,5 +109,19 @@ export async function pauseWorkOrder(id: string): Promise<WorkOrder> {
     action: "PAUSE",
   });
   notifyChanges();
+  return data;
+}
+
+export type WorkOrderCost = { id: string; category: string; categoryLabel: string; description: string; amount: string; createdAt: string };
+export async function listWorkOrderCosts(id: string): Promise<WorkOrderCost[]> {
+  const { data } = await api.get<WorkOrderCost[]>(`/work-orders/${id}/costs/`);
+  return data;
+}
+export async function addWorkOrderCost(id: string, input: { category: string; description: string; amount: number }): Promise<WorkOrderCost> {
+  const { data } = await api.post<WorkOrderCost>(`/work-orders/${id}/costs/`, input);
+  return data;
+}
+export async function generateWorkOrderReport(id: string): Promise<{ id: string; downloadPath: string }> {
+  const { data } = await api.post<{ id: string; downloadPath: string }>(`/work-orders/${id}/reports/`);
   return data;
 }

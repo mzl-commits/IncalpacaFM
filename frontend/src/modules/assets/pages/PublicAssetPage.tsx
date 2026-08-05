@@ -36,6 +36,10 @@ export function PublicAssetPage() {
         {asset.service_tracking.steps.map((step) => <li className={`is-${step.state}`} key={step.id}><span aria-hidden="true">{step.state === "complete" ? "✓" : ""}</span><div><strong>{step.label}</strong>{step.at && <small>{new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(step.at))}</small>}</div></li>)}
       </ol>
       <small className="public-tracking-note">Aquí puedes ver el avance general. No compartimos datos personales ni notas internas.</small>
+      {asset.service_tracking.satisfaction?.available && <Link className="button button-secondary" to={asset.service_tracking.satisfaction.url}>
+        <CheckCircle size={18} /> Evaluar atención (opcional)
+      </Link>}
+      {asset.service_tracking.satisfaction?.completed && <small className="public-tracking-note">Gracias, tu evaluación del servicio fue registrada.</small>}
     </section>}
     <aside className="public-privacy"><ShieldCheck size={20} /><p><strong>Consulta segura</strong><span>Esta página no muestra responsables, costos, documentos, números de serie ni ubicaciones específicas.</span></p></aside>
     <div className="public-actions"><Link className="button button-primary" to={`/reportar/${token}`}><Siren size={19} />Reportar una incidencia</Link><small>No necesitas iniciar sesión. El reporte quedará asociado a este bien.</small></div>

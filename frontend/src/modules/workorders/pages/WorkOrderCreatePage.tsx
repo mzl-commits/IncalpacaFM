@@ -44,21 +44,6 @@ interface WorkOrderFormState {
   administratorNotes: string;
 }
 
-const operators = [
-  {
-    id: "USR-OPE-001",
-    name: "Carlos Mamani",
-  },
-  {
-    id: "USR-OPE-002",
-    name: "Luis Quispe",
-  },
-  {
-    id: "USR-OPE-003",
-    name: "Miguel Condori",
-  },
-];
-
 const supervisors = [
   {
     id: "USR-SUP-001",

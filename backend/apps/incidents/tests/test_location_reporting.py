@@ -147,6 +147,8 @@ class PublicIncidentReportingTests(TestCase):
             {
                 'reporterName': 'Visitante de planta',
                 'reporterEmail': 'visitante@example.com',
+                'reporterDni': '12345678',
+                'reporterWorkerCode': 'VIS-001',
                 'requestType': 'FALLA',
                 'requesterPriority': 'ALTA',
                 'description': 'El equipo emite un ruido inusual al encender.',
@@ -158,6 +160,8 @@ class PublicIncidentReportingTests(TestCase):
         self.assertEqual(incident.asset, self.asset)
         self.assertTrue(incident.public_submission)
         self.assertEqual(incident.reporter_name, 'Visitante de planta')
+        self.assertEqual(incident.reporter_profile.dni, '12345678')
+        self.assertEqual(incident.reporter_profile.worker_codes.get().worker_code, 'VIS-001')
         self.assertEqual(incident.location_snapshot['room'], 'Oficina FM')
 
         tracking = self.client.get(

@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.assets.models import Asset, AssetAssignment, AssignableResponsible, Location
+from apps.privacy.services import record_privacy_event
 
 from .models import AssignmentOperation, DeliveryAct, DeliveryEvidence, DeliverySignature
 
@@ -173,6 +174,8 @@ class DeliveryCreateSerializer(serializers.Serializer):
                 act=act, hash_sha256=hashlib.sha256(content.encode()).hexdigest(), **item)
         for item in signatures:
             DeliverySignature.objects.create(act=act, session_reference=str(self.context.get('request_id', '')), **item)
+        record_privacy_event(request=request, context="EVIDENCIA", subject_reference=act.code)
+        record_privacy_event(request=request, context="FIRMA", subject_reference=act.code)
 
         canonical = {
             'act': act.code, 'assignment': str(assignment.id), 'asset': asset.code,

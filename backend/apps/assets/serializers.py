@@ -1,8 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q
 from rest_framework import serializers
 
 from apps.audit.services import record_audit
+from .file_validation import validate_uploaded_file
 from apps.taxonomy.services import (
     allocate_fm_identifier,
     allocate_internal_code,
@@ -15,6 +17,9 @@ from .models import Asset, Location, LocationMap, Taxonomy
 class AssetSerializer(serializers.ModelSerializer):
     entry_type_label = serializers.CharField(source='get_entry_type_display', read_only=True)
     photo = serializers.ImageField(write_only=True, required=False, allow_null=True)
+
+    def validate_photo(self, value):
+        return validate_uploaded_file(value) if value else value
     registered_by_name = serializers.SerializerMethodField()
     public_url = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()
@@ -343,10 +348,10 @@ class PublicAssetSerializer(serializers.ModelSerializer):
         return f'{origin.rstrip("/")}/reportar/{obj.public_token}'
 
     def get_service_tracking(self, obj) -> dict | None:
+        request = self.context.get('request')
         incident = (
-            obj.incidents.exclude(
-                status__in=['CERRADA', 'RECHAZADA'],
-            )
+            obj.incidents.exclude(status='RECHAZADA')
+            .filter(~Q(status='CERRADA') | Q(work_order__isnull=False))
             .select_related('work_order')
             .order_by('-updated_at')
             .first()
@@ -372,6 +377,10 @@ class PublicAssetSerializer(serializers.ModelSerializer):
                 'PENDIENTE_DE_CONFORMIDAD': ('review', 'Esperamos la confirmación final'),
                 'DEVUELTA': ('repair', 'Se solicitó una corrección'),
             }
+            work_state_labels.update({
+                'CERRADA': ('completed', 'La atención fue finalizada'),
+                'PENDIENTE_DE_CONFORMIDAD': ('completed', 'La atención fue finalizada'),
+            })
             current_stage, current_label = work_state_labels.get(
                 work_status,
                 ('assigned', 'La atención fue programada'),
@@ -379,7 +388,7 @@ class PublicAssetSerializer(serializers.ModelSerializer):
         elif incident.status == 'APROBADA':
             current_stage, current_label = 'assigned', 'La atención fue aprobada'
 
-        stage_order = ['sent', 'received', 'evaluation', 'assigned', 'repair', 'review']
+        stage_order = ['sent', 'received', 'evaluation', 'assigned', 'repair', 'review', 'completed']
         current_index = stage_order.index(current_stage)
         labels = {
             'sent': 'Reporte enviado',
@@ -389,6 +398,8 @@ class PublicAssetSerializer(serializers.ModelSerializer):
             'repair': 'Trabajo en curso',
             'review': 'Revisión final',
         }
+        labels['review'] = 'Validación administrativa'
+        labels['completed'] = 'Atención finalizada'
         steps = []
         for index, stage in enumerate(stage_order):
             state = 'complete' if index < current_index else 'current' if index == current_index else 'pending'
@@ -399,6 +410,8 @@ class PublicAssetSerializer(serializers.ModelSerializer):
                 timestamp = order.started_at.isoformat()
             elif stage == 'review' and order and order.finished_at and index <= current_index:
                 timestamp = order.finished_at.isoformat()
+            elif stage == 'completed' and order and order.closed_at and index <= current_index:
+                timestamp = order.closed_at.isoformat()
             elif stage in {'evaluation', 'assigned'} and index <= current_index:
                 timestamp = incident.updated_at.isoformat()
             steps.append({
@@ -414,6 +427,11 @@ class PublicAssetSerializer(serializers.ModelSerializer):
             'current_label': current_label,
             'updated_at': (order.updated_at if order else incident.updated_at).isoformat(),
             'steps': steps,
+            'satisfaction': {
+                'available': bool(order and order.status in {'CERRADA', 'PENDIENTE_DE_CONFORMIDAD'} and not getattr(order, 'satisfaction', None)),
+                'completed': bool(order and getattr(order, 'satisfaction', None)),
+                'url': f'{request.headers.get("X-Frontend-Origin", "http://localhost:5173").rstrip("/")}/seguimiento-solicitud/{incident.code}' if request else f'/seguimiento-solicitud/{incident.code}',
+            },
         }
 
 
