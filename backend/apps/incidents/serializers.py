@@ -12,6 +12,7 @@ from apps.privacy.services import record_privacy_event
 from apps.organization.services import register_reporter
 
 from .models import Incident
+from .services import build_tracking_url
 
 
 class IncidentSerializer(serializers.ModelSerializer):
@@ -274,6 +275,19 @@ class IncidentSerializer(serializers.ModelSerializer):
             before=before,
             after={"status": instance.status, "rejection_reason": instance.rejection_reason},
         )
+        if before["status"] != Incident.Status.REJECTED and instance.status == Incident.Status.REJECTED:
+            reason = instance.rejection_reason.strip() or "No se registró un motivo específico."
+            queue_incident_requester(
+                event="INCIDENT_REJECTED",
+                incident=instance,
+                subject=f"Solicitud no aprobada {instance.code}",
+                body=(
+                    f"Tu solicitud {instance.code} fue revisada y no fue aprobada para atención.\n\n"
+                    f"Motivo: {reason}\n\n"
+                    f"Puedes revisar el seguimiento aquí: {build_tracking_url(instance)}"
+                ),
+                discriminator=instance.status,
+            )
         return instance
 
 
