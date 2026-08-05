@@ -180,3 +180,34 @@ class PublicIncidentReportingTests(TestCase):
         )
         self.assertIsNone(completed.json()['service_tracking'])
 
+    def test_general_public_form_links_the_qr_asset_to_the_request(self):
+        response = self.client.post(
+            '/api/v1/incidents/public/',
+            {
+                'reporterName': 'Solicitante QR',
+                'reporterEmail': 'solicitante.qr@example.com',
+                'reporterDni': '87654321',
+                'reporterWorkerCode': 'QR-001',
+                'assetToken': self.asset.public_token,
+                'zone': 'Texto no confiable',
+                'building': 'Texto no confiable',
+                'area': 'Texto no confiable',
+                'room': 'Texto no confiable',
+                'description': 'Se requiere revisar el funcionamiento del bien registrado.',
+                'noPhotoReason': 'No es posible tomar una fotografía desde el lugar actual.',
+                'suggestedPriority': 'NORMAL',
+                'impactAnswers': {
+                    'issueCategory': 'DISPENSADOR_AGUA',
+                    'assetCondition': 'NO_FUNCIONA',
+                    'startedWhen': 'SEMANA',
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201, response.json())
+        incident = Incident.objects.get(pk=response.json()['id'])
+        self.assertEqual(incident.asset, self.asset)
+        self.assertEqual(incident.request_type, 'DISPENSADOR_AGUA')
+        self.assertEqual(incident.location_snapshot['room'], 'Oficina FM')
+

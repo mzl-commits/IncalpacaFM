@@ -16,13 +16,16 @@ export interface WorkRequestImpactAssessment {
   suggestedPriority?: RequestPriority;
   priorityReasons?: string[];
   answers?: {
+    issueCategory?: string;
+    otherRequestDetail?: string;
+    otherIssueCategoryDetail?: string;
+    assetCondition?: string;
+    startedWhen?: string;
     stopsWork?: "SI" | "NO";
     safetyRisk?: "SI" | "NO";
     essentialService?: "SI" | "NO";
     biggerDamageRisk?: "SI" | "NO";
     affectedPeople?: "SOLO_YO" | "VARIAS_PERSONAS" | "TODA_EL_AREA";
-    issueCategory?: string;
-    otherIssueCategoryDetail?: string;
   };
   noPhotoReason?: string;
 }

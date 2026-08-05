@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.accounts.models import AccountProfile
-from apps.assets.models import Location, LocationMap
+from apps.assets.models import Asset, Location, LocationMap
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
 from apps.privacy.services import record_privacy_event
@@ -373,6 +373,7 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     requesterPhone = serializers.CharField(max_length=40, required=False, allow_blank=True)
     requesterWorkerCode = serializers.CharField(max_length=40)
     requesterDni = serializers.CharField(max_length=12)
+    assetToken = serializers.CharField(required=False, allow_blank=True, max_length=100)
     locationId = serializers.CharField(required=False, allow_blank=True)
     zone = serializers.CharField(max_length=120)
     building = serializers.CharField(max_length=160)
@@ -389,12 +390,13 @@ class PublicWorkRequestSerializer(serializers.Serializer):
         impact_answers = attrs.get("impactAnswers") or {}
         if (
             impact_answers.get("issueCategory") == "OTRO"
-            and not str(impact_answers.get("otherIssueCategoryDetail", "")).strip()
+            and not (str(impact_answers.get("otherIssueCategoryDetail", "")).strip() or str(impact_answers.get("otherRequestDetail", "")).strip())
         ):
             raise serializers.ValidationError(
                 {"impactAnswers": "Indica el detalle cuando el tipo de solicitud es Otro."}
             )
         return attrs
+
     def _public_requester(self):
         user_model = get_user_model()
         user, created = user_model.objects.get_or_create(
@@ -423,6 +425,13 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     @transaction.atomic
     def create(self, validated_data):
         requester = self._public_requester()
+        asset_token = validated_data.pop("assetToken", "").strip()
+        asset = None
+        if asset_token:
+            try:
+                asset = Asset.objects.select_related("location").get(public_token=asset_token)
+            except Asset.DoesNotExist as exc:
+                raise serializers.ValidationError({"assetToken": "El QR del bien no es válido o ya no está disponible."}) from exc
         try:
             reporter_profile = register_reporter(
                 dni=validated_data["requesterDni"],
@@ -447,6 +456,14 @@ class PublicWorkRequestSerializer(serializers.Serializer):
             "area": validated_data["area"],
             "room": validated_data["room"],
         }
+        if asset and asset.location:
+            location = {
+                "locationId": str(asset.location.id),
+                "zone": asset.location.zone,
+                "building": asset.location.building,
+                "area": asset.location.area,
+                "room": asset.location.room,
+            }
         incident = Incident.objects.create(
             code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
             requester=requester,
@@ -457,8 +474,9 @@ class PublicWorkRequestSerializer(serializers.Serializer):
                 "phone": validated_data.get("requesterPhone", ""),
                 "workerCode": validated_data.get("requesterWorkerCode", ""),
             },
+            asset=asset,
             location_snapshot=location,
-            request_type="OTRO",
+            request_type=validated_data["impactAnswers"].get("issueCategory") or "OTRO",
             description=validated_data["description"],
             requester_priority=validated_data["suggestedPriority"],
             project=False,

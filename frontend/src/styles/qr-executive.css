@@ -369,6 +369,70 @@
   display: none;
 }
 
+.qr-inventory-print-settings {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(170px, .62fr) minmax(130px, .42fr) minmax(165px, .55fr);
+  align-items: end;
+  gap: 14px;
+  padding: 15px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: #f8fbff;
+}
+
+.qr-inventory-print-settings h2 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 15px;
+}
+
+.qr-inventory-print-settings p {
+  max-width: 46ch;
+  margin: 4px 0 0;
+  color: #52657a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.qr-inventory-print-settings label {
+  display: grid;
+  gap: 6px;
+  color: #344b64;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.qr-inventory-print-settings select,
+.qr-inventory-print-settings input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #aebdce;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.qr-inventory-print-settings select:focus-visible,
+.qr-inventory-print-settings input:focus-visible {
+  outline: 3px solid rgb(36 104 197 / .26);
+  outline-offset: 1px;
+}
+
+.qr-inventory-print-settings output {
+  display: grid;
+  gap: 3px;
+  min-height: 42px;
+  align-content: center;
+  padding-left: 12px;
+  border-left: 1px solid #cbd8e5;
+}
+
+.qr-inventory-print-settings output strong { color: #0b5e75; font-size: 13px; }
+.qr-inventory-print-settings output span { color: #52657a; font-size: 11px; line-height: 1.35; }
+
 .qr-inventory-selection-bar {
   display: flex;
   min-height: 58px;
@@ -726,6 +790,21 @@
 }
 
 @media (max-width: 900px) {
+  .qr-inventory-print-settings {
+    grid-template-columns: minmax(0, 1fr) minmax(160px, .7fr);
+  }
+
+  .qr-inventory-print-settings > div,
+  .qr-inventory-print-settings output {
+    grid-column: 1 / -1;
+  }
+
+  .qr-inventory-print-settings output {
+    padding: 9px 0 0;
+    border-top: 1px solid #cbd8e5;
+    border-left: 0;
+  }
+
   .qr-inventory-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -740,6 +819,10 @@
 }
 
 @media (max-width: 720px) {
+  .qr-inventory-print-settings { grid-template-columns: 1fr; gap: 11px; padding: 14px; }
+  .qr-inventory-print-settings > div,
+  .qr-inventory-print-settings output { grid-column: auto; }
+
   .qr-inventory-page {
     gap: 12px;
   }
@@ -943,6 +1026,7 @@
   .qr-inventory-heading-actions,
   .qr-inventory-message,
   .qr-inventory-action-message,
+  .qr-inventory-print-settings,
   .qr-inventory-filters,
   .qr-inventory-selection-bar,
   .qr-inventory-card-actions {
