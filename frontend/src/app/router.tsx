@@ -66,10 +66,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/reportar/:token",
-    lazy: lazyRoute(
-      () => import("@/modules/incidents/pages/PublicIncidentCreatePage"),
-      "PublicIncidentCreatePage",
-    ),
+    element: <LegacyPublicReportRedirect />,
   },
   {
     path: "/seguimiento-solicitud",
@@ -410,3 +407,8 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+
+function LegacyPublicReportRedirect() {
+  const token = window.location.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  return <Navigate to={`/solicitud-trabajo?asset=${encodeURIComponent(token)}`} replace />;
+}

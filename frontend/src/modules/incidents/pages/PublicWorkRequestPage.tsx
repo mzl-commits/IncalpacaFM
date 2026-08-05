@@ -19,6 +19,13 @@ interface PublicLocationOption {
   displayName: string;
 }
 
+interface PublicAssetContext {
+  displayCode: string;
+  name: string;
+  photoUrl: string | null;
+  generalLocation: string;
+}
+
 interface PublicRequestFormState {
   requesterName: string;
   requesterEmail: string;
@@ -32,6 +39,7 @@ interface PublicRequestFormState {
   room: string;
   description: string;
   issueCategory: string;
+  otherRequestDetail: string;
   assetCondition: string;
   startedWhen: string;
   photoName: string;
@@ -57,6 +65,7 @@ const initialForm: PublicRequestFormState = {
   room: "",
   description: "",
   issueCategory: "",
+  otherRequestDetail: "",
   assetCondition: "",
   startedWhen: "",
   photoName: "",
@@ -98,22 +107,25 @@ function calculateSuggestedPriority(form: PublicRequestFormState): SuggestedPrio
 
 function getPriorityReasons(form: PublicRequestFormState) {
   const reasons: string[] = [];
-  if (form.stopsWork === "SI") reasons.push("Impide realizar actividades normalmente");
-  if (form.safetyRisk === "SI") reasons.push("Existe riesgo para seguridad o salud");
-  if (form.essentialService === "SI") reasons.push("Afecta un equipo o servicio indispensable");
-  if (form.biggerDamageRisk === "SI") reasons.push("Puede generar danos mayores");
+  if (form.stopsWork === "SI") reasons.push("Dificulta trabajar o usar el espacio");
+  if (form.safetyRisk === "SI") reasons.push("Puede implicar un riesgo para las personas");
+  if (form.essentialService === "SI") reasons.push("Afecta un servicio importante");
+  if (form.biggerDamageRisk === "SI") reasons.push("Podría empeorar si esperamos");
   if (form.affectedPeople === "VARIAS_PERSONAS") reasons.push("Afecta a varias personas");
   if (form.affectedPeople === "TODA_EL_AREA") reasons.push("Afecta a toda el area");
 
   return reasons;
 }
 export function PublicWorkRequestPage() {
+  const [assetToken] = useState(() => new URLSearchParams(window.location.search).get("asset")?.trim() ?? "");
   const [form, setForm] = useState<PublicRequestFormState>(initialForm);
   const [submittedCode, setSubmittedCode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [locations, setLocations] = useState<PublicLocationOption[]>([]);
   const [locationsLoaded, setLocationsLoaded] = useState(false);
+  const [asset, setAsset] = useState<PublicAssetContext | null>(null);
+  const [assetLoadError, setAssetLoadError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -131,6 +143,20 @@ export function PublicWorkRequestPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!assetToken) {
+      setAsset(null);
+      setAssetLoadError(false);
+      return;
+    }
+    let active = true;
+    setAssetLoadError(false);
+    api.get<PublicAssetContext>(`/public/assets/${encodeURIComponent(assetToken)}/report/`)
+      .then(({ data }) => { if (active) setAsset(data); })
+      .catch(() => { if (active) { setAsset(null); setAssetLoadError(true); } });
+    return () => { active = false; };
+  }, [assetToken]);
 
   function updateField<K extends keyof PublicRequestFormState>(
     field: K,
@@ -167,8 +193,8 @@ export function PublicWorkRequestPage() {
       setError("Responde todas las preguntas de impacto antes de continuar.");
       return;
     }
-    if (!form.issueCategory || !form.assetCondition || !form.startedWhen) {
-      setError("Completa la clasificación del problema antes de continuar.");
+    if (!form.issueCategory || !form.assetCondition || !form.startedWhen || (form.issueCategory === "OTRO" && form.otherRequestDetail.trim().length < 5)) {
+      setError("Completa los datos de la solicitud antes de continuar.");
       return;
     }
 
@@ -182,6 +208,7 @@ export function PublicWorkRequestPage() {
         requesterPhone: form.requesterPhone.trim(),
         requesterDni: form.requesterDni.trim(),
         requesterWorkerCode: form.requesterWorkerCode.trim(),
+        assetToken: assetToken || undefined,
         zone: form.zone,
         building: form.building.trim(),
         area: form.area.trim(),
@@ -202,6 +229,7 @@ export function PublicWorkRequestPage() {
         priorityReasons,
         impactAnswers: {
           issueCategory: form.issueCategory,
+          otherRequestDetail: form.otherRequestDetail.trim(),
           assetCondition: form.assetCondition,
           startedWhen: form.startedWhen,
           stopsWork: form.stopsWork,
@@ -229,10 +257,28 @@ export function PublicWorkRequestPage() {
             <p className="breadcrumb">Solicitud de trabajo</p>
             <h1>Reportar una solicitud de mantenimiento</h1>
             <p>
-              Completa los datos del problema para que el equipo pueda revisarlo y priorizarlo.
+              Cuéntanos qué necesitas para que el equipo pueda revisarlo y organizar la atención.
             </p>
           </div>
         </div>
+
+        {asset && (
+          <aside className="public-request-linked-asset">
+            {asset.photoUrl ? <img src={asset.photoUrl} alt="" /> : <span>{asset.displayCode.slice(0, 2)}</span>}
+            <div>
+              <small>Reporte vinculado al bien identificado por QR</small>
+              <strong>{asset.name}</strong>
+              <p>{asset.displayCode} · {asset.generalLocation}</p>
+            </div>
+            <Link to={`/q/${encodeURIComponent(assetToken)}`}>Ver ficha del bien</Link>
+          </aside>
+        )}
+
+        {assetLoadError && (
+          <p className="public-request-linked-asset-error" role="alert">
+            No se pudo vincular el bien del QR. Puedes enviar una solicitud general o volver a escanearlo.
+          </p>
+        )}
 
         {submittedCode && (
           <div className="public-request-success" role="status">
@@ -321,7 +367,7 @@ export function PublicWorkRequestPage() {
               <div>
                 <span className="section-number">2</span>
                 <div>
-                  <h2>Ubicación del problema</h2>
+                  <h2>Ubicación de la solicitud</h2>
                   <p>Ayudanos a ubicar exactamente donde se necesita la atención.</p>
                 </div>
               </div>
@@ -329,18 +375,19 @@ export function PublicWorkRequestPage() {
 
             <div className="form-grid">
               <label className="field">
-                <span>¿Qué tipo de problema es? *</span>
+                <span>¿Qué solicitud necesitas registrar? *</span>
                 <select required value={form.issueCategory} onChange={(event) => updateField("issueCategory", event.target.value)}>
-                  <option value="">Seleccionar tipo</option><option value="ELECTRICO">Eléctrico o iluminación</option><option value="GASFITERIA">Agua, desagüe o gas</option><option value="CLIMATIZACION">Climatización</option><option value="MOBILIARIO">Mobiliario, puertas o ventanas</option><option value="INFRAESTRUCTURA">Infraestructura o acabados</option><option value="EQUIPO">Equipo o dispositivo</option><option value="OTRO">Otro</option>
+                  <option value="">Seleccionar solicitud</option><option value="ELECTRICO">Iluminación o electricidad</option><option value="GASFITERIA">Agua, desagüe o gas</option><option value="CLIMATIZACION">Climatización</option><option value="MOBILIARIO">Mobiliario, puertas o ventanas</option><option value="ACABADOS">Paredes, pisos o acabados</option><option value="DISPENSADOR_AGUA">Dispensador de agua</option><option value="OTRO">Otra solicitud</option>
                 </select>
               </label>
+              {form.issueCategory === "OTRO" && <label className="field"><span>Cuéntanos qué necesitas *</span><input required minLength={5} value={form.otherRequestDetail} onChange={(event) => updateField("otherRequestDetail", event.target.value)} placeholder="Ej. Revisión de señalización" /></label>}
               <label className="field">
                 <span>Estado actual *</span>
                 <select required value={form.assetCondition} onChange={(event) => updateField("assetCondition", event.target.value)}><option value="">Seleccionar estado</option><option value="NO_FUNCIONA">No funciona</option><option value="FUNCIONA_PARCIALMENTE">Funciona parcialmente</option><option value="DANADO">Está dañado o deteriorado</option><option value="RIESGO">Presenta una condición de riesgo</option></select>
               </label>
               <label className="field">
-                <span>¿Cuándo empezó? *</span>
-                <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Esta semana</option><option value="MAS_TIEMPO">Hace más tiempo</option></select>
+                <span>¿Desde cuándo lo notas? *</span>
+                <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Durante esta semana</option><option value="MAS_TIEMPO">Hace más de una semana</option></select>
               </label>
               <label className="field field-wide">
                 <span>Ambiente oficial</span>
@@ -421,14 +468,14 @@ export function PublicWorkRequestPage() {
                 <span className="section-number">3</span>
                 <div>
                   <h2>Descripcion y evidencia</h2>
-                  <p>Describe el problema y adjunta una foto para facilitar la revisión.</p>
+                  <p>Describe lo que necesitas y adjunta una foto para facilitar la revisión.</p>
                 </div>
               </div>
             </div>
 
             <div className="form-grid">
               <label className="field field-wide">
-                <span>Que problema deseas reportar? *</span>
+                <span>¿Qué necesitas que revisemos? *</span>
                 <textarea
                   required
                   value={form.description}
@@ -436,7 +483,7 @@ export function PublicWorkRequestPage() {
                   maxLength={1000}
                   rows={5}
                   onChange={(event) => updateField("description", event.target.value)}
-                  placeholder="Cuenta que ocurre, desde cuando y cualquier detalle importante."
+                  placeholder="Cuéntanos qué ocurre, desde cuándo y cualquier detalle que nos ayude a atenderte."
                 />
                 <small>{form.description.length} / 1000 caracteres</small>
               </label>
@@ -494,7 +541,7 @@ export function PublicWorkRequestPage() {
                   maxLength={300}
                   rows={3}
                   onChange={(event) => updateField("noPhotoReason", event.target.value)}
-                  placeholder="Ej. El problema está dentro del equipo y no es visible desde fuera."
+                  placeholder="Ej. Lo que necesito revisar no es visible desde fuera."
                 />
                 <small>{form.noPhotoReason.length} / 300 caracteres</small>
               </label>
@@ -512,15 +559,15 @@ export function PublicWorkRequestPage() {
               <div>
                 <span className="section-number">4</span>
                 <div>
-                  <h2>Evaluacion del impacto</h2>
-                  <p>Responde estas preguntas para ayudarnos a dar la prioridad correcta.</p>
+                  <h2>Para atenderte mejor</h2>
+                  <p>Estas preguntas nos ayudan a entender qué tan pronto necesitas apoyo.</p>
                 </div>
               </div>
             </div>
 
             <div className="public-impact-grid">
               <fieldset className="impact-question">
-                <legend>El problema impide realizar tus actividades normalmente? *</legend>
+                <legend>¿Esto te impide trabajar o usar el espacio con normalidad? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
@@ -541,7 +588,7 @@ export function PublicWorkRequestPage() {
               </fieldset>
 
               <fieldset className="impact-question">
-                <legend>Existe riesgo para la seguridad o salud de las personas? *</legend>
+                <legend>¿Ves algún riesgo para las personas? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
@@ -562,7 +609,7 @@ export function PublicWorkRequestPage() {
               </fieldset>
 
               <fieldset className="impact-question">
-                <legend>Afecta un equipo o servicio indispensable? *</legend>
+                <legend>¿Afecta un servicio importante para tu área? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
@@ -583,7 +630,7 @@ export function PublicWorkRequestPage() {
               </fieldset>
 
               <fieldset className="impact-question">
-                <legend>Puede generar danos mayores si no se atiende pronto? *</legend>
+                <legend>¿Crees que podría empeorar si esperamos? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
