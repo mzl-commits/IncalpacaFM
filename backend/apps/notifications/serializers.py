@@ -8,6 +8,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     recipientEmail = serializers.CharField(source='recipient_email', read_only=True)
     entityType = serializers.CharField(source='entity_type', read_only=True)
     entityId = serializers.CharField(source='entity_id', read_only=True)
+    deliveryChannel = serializers.CharField(source='delivery_channel', read_only=True)
     availableAt = serializers.DateTimeField(source='available_at', read_only=True)
     sentAt = serializers.DateTimeField(source='sent_at', read_only=True)
     readAt = serializers.DateTimeField(source='read_at', read_only=True)
@@ -17,7 +18,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = (
             'id', 'event', 'subject', 'body', 'recipientName', 'recipientEmail',
-            'entityType', 'entityId', 'status', 'attempts', 'max_attempts',
+            'entityType', 'entityId', 'deliveryChannel', 'status', 'attempts', 'max_attempts',
             'availableAt', 'sentAt', 'readAt', 'last_error', 'createdAt',
         )
 
