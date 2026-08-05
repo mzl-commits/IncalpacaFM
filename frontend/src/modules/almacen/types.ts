@@ -104,6 +104,8 @@ export interface PiezaAnidada {
   codigo: string;
   estado: EstadoPieza;
   foto: string | null;
+  material_nombre?: string;
+  material_medida?: string;
   total_hijas: number;
   hijas_disponibles: number;
   piezas_hijas: PiezaBase[];
