@@ -10,13 +10,18 @@ from apps.notifications.models import Notification
 
 class IncidentLocationReportingTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="reporter", first_name="Ana", last_name="Ríos")
+        self.user = get_user_model().objects.create_user(
+            username="reporter",
+            first_name="Ana",
+            last_name="Ríos",
+            email="ana.rios@example.com",
+        )
         AccountProfile.objects.create(user=self.user, worker_code="REPORTER-01", role=AccountProfile.Role.REQUESTER, must_change_password=False)
-        planner = get_user_model().objects.create_user(
+        self.planner = get_user_model().objects.create_user(
             username='planner-incidents', email='planner@incalpaca.test'
         )
         AccountProfile.objects.create(
-            user=planner,
+            user=self.planner,
             worker_code='PLANNER-INCIDENTS',
             role=AccountProfile.Role.ADMIN,
             must_change_password=False,
@@ -56,6 +61,38 @@ class IncidentLocationReportingTests(TestCase):
         }, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("locationId", response.json())
+
+    def test_rejection_notifies_requester_with_reason(self):
+        incident = Incident.objects.create(
+            code="SOL-2026-RECHAZO",
+            requester=self.user,
+            request_type="INSPECCION",
+            description="Solicitud para revisar una luminaria duplicada.",
+            location_snapshot={
+                "locationId": str(self.location.id),
+                "zone": self.location.zone,
+                "building": self.location.building,
+                "area": self.location.area,
+                "room": self.location.room,
+            },
+        )
+        self.client.force_authenticate(self.planner)
+
+        response = self.client.patch(
+            f"/api/v1/incidents/{incident.id}/",
+            {
+                "status": "RECHAZADA",
+                "rejectionReason": "La solicitud ya fue registrada previamente.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        notification = Notification.objects.get(event="INCIDENT_REJECTED")
+        self.assertEqual(notification.recipient_email, self.user.email)
+        self.assertIn("La solicitud ya fue registrada previamente.", notification.body)
+        self.assertIn("/seguimiento-solicitud/SOL-2026-RECHAZO", notification.body)
+
 
     def test_list_tolerates_legacy_blank_location_markers(self):
         Incident.objects.create(
@@ -142,3 +179,4 @@ class PublicIncidentReportingTests(TestCase):
             f'/api/v1/public/assets/{self.asset.public_token}/'
         )
         self.assertIsNone(completed.json()['service_tracking'])
+
