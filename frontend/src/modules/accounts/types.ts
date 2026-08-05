@@ -9,6 +9,7 @@ export type UserRole = (typeof USER_ROLES)[number];
 
 export interface SystemUser {
   id: string;
+  userId: number;
   fullName: string;
   email: string;
   role: UserRole;
