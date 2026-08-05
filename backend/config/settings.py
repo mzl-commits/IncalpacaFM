@@ -154,13 +154,6 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
 
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = os.environ.get('BREVO_SMTP_HOST', 'smtp-relay.brevo.com')
-EMAIL_PORT = int(os.environ.get('BREVO_SMTP_PORT', '587'))
-EMAIL_HOST_USER = os.environ.get('BREVO_SMTP_USERNAME', '')
-EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_PASSWORD', '')
-EMAIL_USE_TLS = os.environ.get('BREVO_SMTP_USE_TLS', '1') == '1'
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'SGTB Incalpaca <noreply@localhost>')
 NOTIFICATION_MESSAGE_ID_DOMAIN = os.environ.get('NOTIFICATION_MESSAGE_ID_DOMAIN', 'incalpaca.local')
 NOTIFICATION_DISPATCH_ENABLED = os.environ.get(
     'NOTIFICATION_DISPATCH_ENABLED', '0' if DEBUG else '1'
@@ -263,3 +256,4 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", os.environ.get("BREVO_SMTP_PORT", 
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", os.environ.get("BREVO_SMTP_USE_TLS", "1")) == "1"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", os.environ.get("BREVO_SMTP_USERNAME", ""))
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", os.environ.get("BREVO_SMTP_PASSWORD", ""))
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "15"))
