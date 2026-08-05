@@ -87,6 +87,7 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
                 responsable=responsable,
                 referencia_externa=data.get("referencia_externa", ""),
                 observaciones=data.get("observaciones", ""),
+                piezas_hijas_ids=data.get("piezas_hijas_ids"),  # None si no se envía
             )
             respuesta = {
                 "movimientos": MovimientoSerializer(movimientos, many=True).data,
@@ -99,6 +100,7 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
         
         except ValidationError as e:
             return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+
 
     @action(detail=False, methods=["post"], url_path="entrada-material")
     def entrada_material(self, request):

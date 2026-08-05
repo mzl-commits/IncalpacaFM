@@ -17,6 +17,7 @@ from apps.catalogo.serializers import (
     AltaEstucheInlineSerializer,
     AjustarStockSerializer,
     ReemplazarHijaSerializer,
+    AgregarHijaInlineSerializer,
 )
 
 
@@ -185,6 +186,7 @@ class PiezaViewSet(viewsets.ModelViewSet):
         material_id = self.request.query_params.get("material")
         estado = self.request.query_params.get("estado")
         sin_padre = self.request.query_params.get("sin_padre")
+        padre_id = self.request.query_params.get("padre")
 
         if material_id:
             qs = qs.filter(material_id=material_id)
@@ -192,6 +194,8 @@ class PiezaViewSet(viewsets.ModelViewSet):
             qs = qs.filter(estado=estado)
         if sin_padre is not None and sin_padre.lower() == "true":
             qs = qs.filter(padre__isnull=True)
+        if padre_id:
+            qs = qs.filter(padre_id=padre_id)
         return qs
 
     @action(detail=True, methods=["post"], url_path="reemplazar-hija")
@@ -210,6 +214,23 @@ class PiezaViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         nueva_hija = serializer.save()
         return Response(PiezaSerializer(nueva_hija).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="agregar-hija-inline")
+    def agregar_hija_inline(self, request, pk=None):
+        """
+        Agrega una o más piezas hijas a un estuche ya existente.
+        Si el material hijo no existe en la subcategoría, se crea automáticamente.
+        URL: POST /piezas/{id}/agregar-hija-inline/
+        Body: { "nombre": "...", "medida": "...", "cantidad": 1 }
+        """
+        contenedor = self.get_object()
+        serializer = AgregarHijaInlineSerializer(
+            data=request.data,
+            context={"contenedor": contenedor},
+        )
+        serializer.is_valid(raise_exception=True)
+        nuevas = serializer.save()
+        return Response(PiezaSerializer(nuevas, many=True).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"], url_path="desvincular")
     def desvincular(self, request, pk=None):

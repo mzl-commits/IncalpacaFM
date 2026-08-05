@@ -147,6 +147,8 @@ export interface PiezasParams {
   material?: number;
   estado?: string;
   sin_padre?: boolean;
+  /** Filtrar hijas de un estuche específico (ID de la pieza padre) */
+  padre?: number;
 }
 
 export async function listPiezas(params: PiezasParams = {}): Promise<PiezaBase[]> {
@@ -154,6 +156,7 @@ export async function listPiezas(params: PiezasParams = {}): Promise<PiezaBase[]
   if (params.material) query.material = params.material;
   if (params.estado) query.estado = params.estado;
   if (params.sin_padre !== undefined) query.sin_padre = params.sin_padre;
+  if (params.padre !== undefined) query.padre = params.padre;
   const { data } = await api.get<PiezaBase[]>("/piezas/", { params: query });
   return data;
 }
@@ -249,4 +252,29 @@ export async function desvinculaPieza(piezaId: number): Promise<PiezaBase> {
  */
 export async function deletePieza(piezaId: number): Promise<void> {
   await api.delete(`/piezas/${piezaId}/`);
+}
+
+// ─── Agregar pieza hija a estuche existente ──────────────────────────────────────────
+
+export interface AgregarHijaInlineInput {
+  nombre: string;
+  medida?: string;
+  cantidad: number;
+}
+
+/**
+ * Agrega una o más piezas hijas a un estuche ya existente.
+ * Si el material hijo no existe en la subcategoría, el backend lo crea automáticamente.
+ * @param contenedorId  ID de la pieza contenedora (estuche)
+ * @param payload       { nombre, medida?, cantidad }
+ */
+export async function agregarHijaInline(
+  contenedorId: number,
+  payload: AgregarHijaInlineInput,
+): Promise<PiezaBase[]> {
+  const { data } = await api.post<PiezaBase[]>(
+    `/piezas/${contenedorId}/agregar-hija-inline/`,
+    payload,
+  );
+  return data;
 }

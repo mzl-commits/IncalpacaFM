@@ -336,7 +336,7 @@ export function InspeccionFormPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Próxima inspección" hint="Opcional">
+              <Field label="Próxima inspección" hint="Opcional — si no se asigna, se calculará automáticamente como fecha actual + 90 días">
                 <input type="date" value={proximaInspeccion} onChange={(e) => setProximaInspeccion(e.target.value)} />
               </Field>
             </div>
