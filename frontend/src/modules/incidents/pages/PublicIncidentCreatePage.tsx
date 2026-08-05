@@ -33,6 +33,8 @@ export function PublicIncidentCreatePage() {
       const { data } = await api.post<{ code: string }>(`/public/assets/${token}/report/`, {
         reporterName: values.get("reporterName"),
         reporterEmail: values.get("reporterEmail"),
+        reporterDni: values.get("reporterDni"),
+        reporterWorkerCode: values.get("reporterWorkerCode"),
         requestType: values.get("requestType"),
         requesterPriority: values.get("requesterPriority"),
         description: values.get("description"),
@@ -57,6 +59,8 @@ export function PublicIncidentCreatePage() {
       <div className="form-grid">
         <label className="field"><span>Tu nombre <b>*</b></span><input name="reporterName" required maxLength={160} autoComplete="name" /></label>
         <label className="field"><span>Correo para seguimiento</span><input name="reporterEmail" type="email" autoComplete="email" placeholder="Opcional" /></label>
+        <label className="field"><span>DNI <b>*</b></span><input name="reporterDni" required inputMode="numeric" pattern="[0-9]{8}" minLength={8} maxLength={8} autoComplete="off" placeholder="8 dígitos" /></label>
+        <label className="field"><span>Código de trabajador <b>*</b></span><input name="reporterWorkerCode" required maxLength={40} autoComplete="off" placeholder="Ej. K4F89J" /></label>
         <label className="field"><span>Tipo de incidencia <b>*</b></span><select name="requestType" required defaultValue=""><option value="" disabled>Selecciona una opción</option><option value="FALLA">Falla o avería</option><option value="DANO">Daño visible</option><option value="SEGURIDAD">Riesgo de seguridad</option><option value="OTRO">Otro</option></select></label>
         <label className="field"><span>Prioridad percibida</span><select name="requesterPriority" defaultValue="MEDIA"><option value="BAJA">Baja</option><option value="MEDIA">Media</option><option value="ALTA">Alta</option></select></label>
         <label className="field field-wide"><span>Describe lo ocurrido <b>*</b></span><textarea name="description" required minLength={10} maxLength={3000} rows={5} placeholder="Indica qué observaste y desde cuándo…" /></label>

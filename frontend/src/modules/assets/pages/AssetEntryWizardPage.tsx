@@ -214,7 +214,12 @@ export function AssetEntryWizardPage() {
           setErrors({ locationMarker: "La imagen del ambiente cambió o falta ubicar el bien. Revisa el marcador." });
           setSubmitError("La ubicación visual debe revisarse antes de registrar el bien.");
         } else {
-          setSubmitError("No se pudo registrar el bien. Verifica que el backend esté disponible e inténtalo nuevamente.");
+          const detail = responseData
+            ? Object.entries(responseData)
+              .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(" ") : String(value)}`)
+              .join(" · ")
+            : "";
+          setSubmitError(detail || "No se pudo registrar el bien. Verifica que el backend esté disponible e inténtalo nuevamente.");
         }
       } finally { setSubmitting(false); }
       return;

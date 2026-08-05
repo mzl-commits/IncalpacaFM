@@ -1,9 +1,8 @@
 import { ArrowLeft, Bell, CalendarBlank, Clock, PaperPlaneTilt, Star, WarningCircle, Wrench } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { listTechnicians, notifyTechnician, type Technician } from "@/modules/accounts/technicianRepository";
 import { listWorkOrders } from "@/modules/workorders/workOrderRepository";
-import { workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
 import type { WorkOrder } from "@/modules/workorders/types";
 
 const FINAL = new Set(["CERRADA", "CANCELADA"]); const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];

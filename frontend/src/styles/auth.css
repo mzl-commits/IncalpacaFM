@@ -160,6 +160,15 @@
   color: #123b65;
 }
 
+.login-privacy-copy {
+  margin: 0;
+  color: #506784;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.login-privacy-copy a { color: #0d5cab; font-weight: 700; }
+
 .sidebar-account > button {
   display: grid;
   width: 40px;

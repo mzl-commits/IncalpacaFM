@@ -91,22 +91,18 @@ function formatMinutesDuration(minutes?: number) {
   if (rest === 0) return `${hours} h`;
   return `${hours} h ${rest} min`;
 }
-function getTextValue(data: Record<string, unknown> | undefined, key: string, fallback: string) {
-  const value = data?.[key];
+function getTextValue(data: Record<string, unknown> | { comment?: unknown } | null | undefined, key: string, fallback: string) {
+  const value = data && key === "comment" ? data.comment : (data as Record<string, unknown> | undefined)?.[key];
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
-function getRatingLabel(data: Record<string, unknown> | undefined) {
-  const value = data?.rating;
+function getRatingLabel(data: Record<string, unknown> | { rating?: unknown } | null | undefined) {
+  const value = data && "rating" in data ? data.rating : undefined;
   if (typeof value === "number") return `${value} de 5`;
   if (typeof value === "string" && value.trim()) return `${value} de 5`;
   return "Sin puntuación";
 }
 
-function getConformityLabel(data: Record<string, unknown> | undefined) {
-  if (!data || typeof data.accepted !== "boolean") return "Pendiente";
-  return data.accepted ? "Conforme" : "Pidió revisión";
-}
 function getValidationLabel(data: Record<string, unknown> | undefined, returnedLabel = "Devuelta") {
   if (!data || typeof data.approved !== "boolean") return "Sin validar";
   return data.approved ? "Aprobada" : returnedLabel;
@@ -188,9 +184,9 @@ export function WorkOrderDetailPage() {
   );
 
   const requesterComment = getTextValue(
-    workOrder.conformity,
+    workOrder.satisfaction,
     "comment",
-    "Sin comentario del solicitante",
+    "La evaluación del solicitante es opcional",
   );
   const returnInfo = getWorkOrderReturnInfo(workOrder);
 
@@ -264,9 +260,9 @@ export function WorkOrderDetailPage() {
             <small>{needsAdminReview ? "Debe aprobar o devolver la ejecución" : adminRegisteredComment}</small>
           </div>
           <div>
-            <span>4. Solicitante</span>
-            <strong>{getConformityLabel(workOrder.conformity)}</strong>
-            <small>{getRatingLabel(workOrder.conformity)} - {requesterComment}</small>
+            <span>4. Solicitante · opcional</span>
+            <strong>{workOrder.satisfaction ? "Evaluación registrada" : "Sin evaluación"}</strong>
+            <small>{getRatingLabel(workOrder.satisfaction)} - {requesterComment}</small>
           </div>
         </div>
 
@@ -415,3 +411,5 @@ export function WorkOrderDetailPage() {
     </section>
   );
 }
+
+

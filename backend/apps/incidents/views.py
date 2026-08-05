@@ -15,6 +15,7 @@ from apps.accounts.permissions import IsAuthenticatedReadAdministratorWrite, use
 from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
+from apps.privacy.services import record_privacy_event
 from apps.workorders.models import TechnicianSatisfaction, WorkOrder
 
 from .models import Incident
@@ -71,6 +72,7 @@ class PublicWorkRequestCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         incident = serializer.save()
+        record_privacy_event(request=request, context="REPORTE", subject_reference=incident.code)
         queue_for_administrators(
             event="INCIDENT_CREATED",
             subject=f"Nueva solicitud {incident.code}",
@@ -198,27 +200,20 @@ class PublicIncidentConformityView(APIView):
             incident = get_object_or_404(queryset, code__iexact=token)
 
         order = getattr(incident, "work_order", None)
-        if not order or order.status != WorkOrder.Status.CONFORMITY:
+        if not order or order.status not in {WorkOrder.Status.CLOSED, WorkOrder.Status.CONFORMITY}:
             return Response(
-                {"detail": "La solicitud aún no está lista para conformidad."},
+                {"detail": "La atención aún no está lista para ser evaluada."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        raw_rating = request.data.get("rating")
-        try:
-            rating = int(raw_rating)
-        except (TypeError, ValueError):
-            return Response(
-                {"rating": "Selecciona una calificación del 1 al 5."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if rating < 1 or rating > 5:
-            return Response(
-                {"rating": "Selecciona una calificación del 1 al 5."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        rating = request.data.get("rating")
         comment = str(request.data.get("comment") or "").strip()
+        try:
+            rating = int(rating)
+        except (TypeError, ValueError):
+            return Response({"rating": "Selecciona una calificación de 1 a 5."}, status=status.HTTP_400_BAD_REQUEST)
+        if not 1 <= rating <= 5:
+            return Response({"rating": "La calificación debe estar entre 1 y 5."}, status=status.HTTP_400_BAD_REQUEST)
         now = timezone.now()
         order.conformity = {
             "accepted": True,
@@ -226,12 +221,14 @@ class PublicIncidentConformityView(APIView):
             "comment": comment,
             "at": now.isoformat(),
             "by": "Solicitante",
-            "source": "public_tracking",
+            "source": "public_satisfaction",
         }
-        order.status = WorkOrder.Status.CLOSED
-        order.closed_at = now
-        incident.status = Incident.Status.CLOSED
-        incident.save(update_fields=("status", "updated_at"))
+        # Compatibilidad con las OT creadas antes del cierre administrativo.
+        if order.status == WorkOrder.Status.CONFORMITY:
+            order.status = WorkOrder.Status.CLOSED
+            order.closed_at = now
+            incident.status = Incident.Status.CLOSED
+            incident.save(update_fields=("status", "updated_at"))
         order.save(update_fields=("conformity", "status", "closed_at", "updated_at"))
         TechnicianSatisfaction.objects.update_or_create(
             work_order=order,
@@ -245,19 +242,16 @@ class PublicIncidentConformityView(APIView):
         queue_for_administrators(
             event='SERVICE_SATISFACTION_RECEIVED',
             subject=f'Satisfacción registrada · {incident.code}',
-            body=(
-                f'El solicitante calificó la atención {incident.code} '
-                f'con {rating}/5.'
-            ),
+            body=f'El solicitante calificó la atención {incident.code} con {rating}/5.',
             entity=incident,
-            discriminator='rating',
+            discriminator='satisfaction',
         )
         queue_incident_requester(
             event='SERVICE_SATISFACTION_THANK_YOU',
             incident=incident,
             subject=f'Gracias por tu evaluación · {incident.code}',
-            body='Tu calificación fue registrada. Gracias por ayudarnos a mejorar el servicio.',
-            discriminator='rating-thank-you',
+            body='Tu evaluación fue registrada. Gracias por ayudarnos a mejorar el servicio.',
+            discriminator='satisfaction-thank-you',
         )
 
         return Response(PublicIncidentTrackingSerializer(incident).data)

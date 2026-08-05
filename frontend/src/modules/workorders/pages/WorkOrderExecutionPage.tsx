@@ -52,7 +52,7 @@ export function WorkOrderExecutionPage() {
     void getWorkOrderById(id).then(async (order) => {
       setWorkOrder(order);
       const returnedForCorrection = Boolean(getWorkOrderReturnInfo(order));
-      setPercentage(returnedForCorrection ? order.progressPercentage : Math.min(order.progressPercentage + 5, 100));
+      setPercentage(returnedForCorrection ? order.progressPercentage : Math.min(order.progressPercentage + 1, 100));
       setRequest(await getWorkRequestById(order.requestId));
     });
   }, [id]);
@@ -67,6 +67,8 @@ export function WorkOrderExecutionPage() {
 
   const [evidenceNames, setEvidenceNames] =
     useState<string[]>([]);
+  const [startPhoto, setStartPhoto] = useState<File | null>(null);
+  const [finishPhoto, setFinishPhoto] = useState<File | null>(null);
 
   const [error, setError] = useState("");
 
@@ -81,10 +83,17 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    const updated = await startWorkOrder(workOrder.id);
+    if (!startPhoto && !workOrder.startPhoto) {
+      setError("Adjunta una foto del estado inicial antes de iniciar la orden.");
+      return;
+    }
+
+    const updated = await startWorkOrder(workOrder.id, startPhoto);
 
     if (updated) {
       setWorkOrder(updated);
+      setStartPhoto(null);
+      setError("");
     }
   }
 
@@ -135,6 +144,11 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
+    if (percentage === 100 && !finishPhoto && !workOrder.finishPhoto) {
+      setError("Adjunta una foto del trabajo terminado antes de finalizar la orden.");
+      return;
+    }
+
     const updated =
       await registerWorkOrderProgress(
         workOrder.id,
@@ -142,6 +156,7 @@ export function WorkOrderExecutionPage() {
           percentage,
           observation,
           evidenceNames,
+          finishPhoto,
         },
       );
 
@@ -155,6 +170,7 @@ export function WorkOrderExecutionPage() {
     setWorkOrder(updated);
     setObservation("");
     setEvidenceNames([]);
+    setFinishPhoto(null);
     setError("");
 
     navigate(
@@ -285,7 +301,7 @@ export function WorkOrderExecutionPage() {
           )}
 
           {canStartSession && (
-            <article className="data-panel execution-start-card">
+            <article id="work-session-start" className="data-panel execution-start-card">
               <div>
                 <h2>Iniciar ejecución</h2>
 
@@ -294,17 +310,33 @@ export function WorkOrderExecutionPage() {
                 </p>
               </div>
 
-              <button
-                className="button button-primary"
-                type="button"
-                onClick={handleStart}
-              >
-                <Play
-                  size={18}
-                  weight="fill"
-                />
-                {workOrder.progressPercentage > 0 ? "Reanudar trabajo" : "Iniciar trabajo"}
-              </button>
+              <div className="execution-start-actions">
+                {!workOrder.startPhoto && (
+                  <label className="button button-secondary execution-photo-picker">
+                    <Camera size={18} />
+                    {startPhoto ? "Cambiar foto inicial" : "Tomar foto inicial"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="environment"
+                      hidden
+                      onChange={(event) => setStartPhoto(event.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                )}
+                {startPhoto && <small className="execution-photo-name">Foto inicial: {startPhoto.name}</small>}
+                <button
+                  className="button button-primary"
+                  type="button"
+                  onClick={() => void handleStart()}
+                >
+                  <Play
+                    size={18}
+                    weight="fill"
+                  />
+                  {workOrder.progressPercentage > 0 ? "Reanudar trabajo" : "Iniciar trabajo"}
+                </button>
+              </div>
             </article>
           )}
 
@@ -358,12 +390,17 @@ export function WorkOrderExecutionPage() {
                     type="range"
                     min={minimumProgress}
                     max={100}
-                    step={5}
+                    step={1}
                     value={percentage}
                     onChange={(event) => setPercentage(Number(event.target.value))}
                     aria-valuetext={`${percentage} por ciento de avance`}
                   />
                   <div className="progress-range-scale"><small>Anterior: {workOrder.progressPercentage} %</small><small>Finalizado: 100 %</small></div>
+                  {percentage < 100 && (
+                    <button className="progress-complete-button" type="button" onClick={() => setPercentage(100)}>
+                      Marcar 100 %
+                    </button>
+                  )}
                 </label>
 
                 <label className="field field-wide">
@@ -449,6 +486,23 @@ export function WorkOrderExecutionPage() {
                   ))}
                 </ul>
               )}
+
+              {percentage === 100 && !workOrder.finishPhoto && (
+                <div className="completion-photo-field">
+                  <div><Camera size={24} /><span><strong>Foto de finalización obligatoria</strong><small>Registra el resultado final antes de enviar la OT a supervisión.</small></span></div>
+                  <label className="button button-secondary execution-photo-picker">
+                    {finishPhoto ? "Cambiar foto final" : "Tomar foto final"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="environment"
+                      hidden
+                      onChange={(event) => setFinishPhoto(event.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  {finishPhoto && <small className="execution-photo-name">Foto final: {finishPhoto.name}</small>}
+                </div>
+              )}
             </div>
 
             {error && (
@@ -465,22 +519,25 @@ export function WorkOrderExecutionPage() {
                 Cancelar
               </Link>
 
-              <button
-                className="button button-primary"
-                type="submit"
-                disabled={workOrder.status !== "EN_PROCESO" || !hasActiveSession}
-              >
-                <FloppyDisk
-                  size={18}
-                  weight="bold"
-                />
-
-                {percentage === 100
-                  ? isReturnedForCorrection
-                    ? "Reenviar a supervisión"
-                    : "Finalizar y enviar a supervisión"
-                  : "Guardar avance"}
-              </button>
+              {hasActiveSession ? (
+                <button className="button button-primary" type="submit">
+                  <FloppyDisk size={18} weight="bold" />
+                  {percentage === 100
+                    ? isReturnedForCorrection
+                      ? "Reenviar a supervisión"
+                      : "Finalizar y enviar a supervisión"
+                    : "Guardar avance"}
+                </button>
+              ) : (
+                <button
+                  className="button button-primary"
+                  type="button"
+                  onClick={() => document.getElementById("work-session-start")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                >
+                  <Play size={18} weight="fill" />
+                  {workOrder.startPhoto ? "Reanudar trabajo para continuar" : "Iniciar trabajo para continuar"}
+                </button>
+              )}
             </div>
           </form>
         </>
@@ -488,3 +545,7 @@ export function WorkOrderExecutionPage() {
     </section>
   );
 }
+
+
+
+
