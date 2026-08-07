@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   SquaresFour,
   TreeStructure,
+  Tag,
   Toolbox,
   UserCircle,
   UsersThree,
@@ -135,6 +136,11 @@ const groups: Array<{
         to: "/administracion/taxonomia/codigos",
         label: "Códigos FM",
         icon: Barcode,
+      },
+      {
+        to: "/administracion/modelos",
+        label: "Modelos de Bienes",
+        icon: Tag,
       },
       {
         to: "/administracion/mapas-ambientes",
@@ -289,7 +295,7 @@ export function AppShell() {
   return (
     <div className="app-frame">
       <aside className="sidebar" aria-label="Navegación principal">
-        <div className="brand" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 0" }}>
+        <div className="brand">
           <img src="/logo-incalpaca.png" alt="Incalpaca Logo" style={{ maxHeight: "32px", width: "auto" }} />
           <span className="brand-copy">
             <strong style={{ fontFamily: "var(--font-heading)" }}>FM Incalpaca</strong>
@@ -426,18 +432,32 @@ export function AppShell() {
               <X />
             </button>
           </header>
-          <div>
-            {visibleMobileSecondary.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                onClick={closeMobileMenu}
-                className={({ isActive }) => `mobile-more-link ${isActive ? "is-active" : ""}`}
-              >
-                <Icon size={21} weight="duotone" />
-                <span>{label}</span>
-              </NavLink>
-            ))}
+          <div className="mobile-more-groups">
+            {visibleGroups.map((group) => {
+              const groupItems = group.items.filter(
+                (item) => !visibleMobilePrimary.some((primary) => primary.to === item.to)
+              );
+              if (groupItems.length === 0) return null;
+
+              return (
+                <div key={group.id} className="mobile-more-group">
+                  <h3>{group.label}</h3>
+                  <div className="mobile-more-items">
+                    {groupItems.map(({ to, label, icon: Icon }) => (
+                      <NavLink
+                        key={to}
+                        to={to}
+                        onClick={closeMobileMenu}
+                        className={({ isActive }) => `mobile-more-link ${isActive ? "is-active" : ""}`}
+                      >
+                        <Icon size={21} weight="duotone" />
+                        <span>{label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       </dialog>

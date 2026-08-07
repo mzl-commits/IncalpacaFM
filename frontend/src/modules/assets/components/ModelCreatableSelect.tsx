@@ -1,7 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import { useId } from "react";
 import { WarningCircle } from "@phosphor-icons/react";
+import { useModelList } from "@/modules/taxonomy/modelQueries";
 
 interface ModelCreatableSelectProps {
   taxonomyId: string;
@@ -13,42 +12,33 @@ interface ModelCreatableSelectProps {
 }
 
 export function ModelCreatableSelect({
-  taxonomyId,
+  taxonomyId, // Retenido por compatibilidad con Props, aunque la nueva tabla es global
   value,
   onChange,
   error,
-  placeholder = "Escribe o selecciona un modelo...",
+  placeholder = "Selecciona un modelo...",
   disabled = false,
 }: ModelCreatableSelectProps) {
-  const datalistId = useId();
-
-  const query = useQuery({
-    queryKey: ["taxonomy-models", taxonomyId],
-    queryFn: async () => {
-      if (!taxonomyId) return [];
-      const { data } = await axios.get<string[]>(`/api/assets/taxonomy-models/?taxonomy_id=${taxonomyId}`);
-      return data;
-    },
-    enabled: Boolean(taxonomyId),
-    staleTime: 60000,
-  });
+  const query = useModelList();
+  const models = query.data?.filter(m => m.isActive) ?? [];
 
   return (
     <>
-      <input
+      <select
         className={error ? "has-error" : ""}
-        list={datalistId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={query.isLoading ? "Cargando modelos..." : placeholder}
-        disabled={disabled || query.isLoading || !taxonomyId}
-        autoComplete="off"
-      />
-      <datalist id={datalistId}>
-        {query.data?.map((model) => (
-          <option key={model} value={model} />
+        disabled={disabled || query.isLoading}
+      >
+        <option value="" disabled>
+          {query.isLoading ? "Cargando modelos..." : placeholder}
+        </option>
+        {models.map((model) => (
+          <option key={model.id} value={model.name}>
+            {model.brand} - {model.name}
+          </option>
         ))}
-      </datalist>
+      </select>
       {error && (
         <small className="field-error">
           <WarningCircle size={15} />
