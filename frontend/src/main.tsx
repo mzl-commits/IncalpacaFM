@@ -18,6 +18,7 @@ import "@/styles/registries.css";
 import "@/styles/auth.css";
 import "@/styles/visual-refresh.css";
 import "@/styles/almacen.css";
+import "@/styles/theme-monochromatic.css";
 
 if (import.meta.env.PROD) {
   registerSW({ immediate: true });
