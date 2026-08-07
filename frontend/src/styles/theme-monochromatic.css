@@ -2,6 +2,12 @@
  * Enforces a monochromatic, premium UI across all views (Admin, Executive, Tech)
  */
 :root {
+  /* Fonts */
+  --font-ui: "Montserrat", sans-serif !important;
+  --font-heading: "Playfair Display", serif !important;
+  --font-sans: "Montserrat", sans-serif !important;
+  --font-serif: "Playfair Display", serif !important;
+  
   /* Brand / Primary */
   --primary: #222222 !important;
   --primary-strong: #000000 !important;
@@ -45,6 +51,10 @@
 }
 
 /* Base structural overrides to enforce glassmorphism across all layouts */
+body {
+  font-family: var(--font-ui) !important;
+}
+
 .sidebar, .executive-sidebar, .admin-sidebar, .layout-sidebar {
   background: rgba(18, 18, 18, 0.85) !important;
   backdrop-filter: blur(12px) !important;
@@ -113,6 +123,7 @@
 }
 
 .button, .button-primary, .button-secondary {
+  font-family: var(--font-sans) !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
 }
 .button-primary:hover {
@@ -135,4 +146,19 @@
   outline: 3px solid rgba(0, 0, 0, 0.08) !important;
   border-color: var(--primary) !important;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Dashboard Alerts Overrides */
+.dashboard-alert { border-color: var(--border) !important; }
+.dashboard-alert.is-critical > svg:first-child {
+  background: var(--error-soft) !important;
+  color: var(--error) !important;
+}
+.dashboard-alert.is-warning > svg:first-child {
+  background: var(--surface-muted) !important;
+  color: var(--primary) !important;
+}
+.dashboard-alert.is-info > svg:first-child {
+  background: var(--surface-strong) !important;
+  color: var(--muted) !important;
 }
