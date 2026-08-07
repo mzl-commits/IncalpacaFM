@@ -24,6 +24,25 @@ from apps.privacy.services import record_privacy_event
 from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderPhoto
 
 
+def root_work_order(order):
+    current = order
+    seen = set()
+    while current.correction_of_id and current.correction_of_id not in seen:
+        seen.add(current.id)
+        current = current.correction_of
+    return current
+
+
+def next_correction_code(order):
+    root = root_work_order(order)
+    prefix = f"{root.code}-C"
+    index = WorkOrder.objects.filter(code__startswith=prefix).count() + 1
+    while True:
+        code = f"{prefix}{index}"
+        if not WorkOrder.objects.filter(code=code).exists():
+            return code
+        index += 1
+
 def active_work_session(order):
     for session in reversed(order.work_sessions or []):
         if not session.get("endAt"):
@@ -73,6 +92,10 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     technicianWorkerCode = serializers.CharField(write_only=True, required=False)
     technicianWorkerCodes = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
     supervisorWorkerCode = serializers.CharField(write_only=True, required=False)
+    correctionOfId = serializers.SerializerMethodField()
+    correctionOfCode = serializers.SerializerMethodField()
+    correctionWorkOrderId = serializers.SerializerMethodField()
+    correctionWorkOrderCode = serializers.SerializerMethodField()
 
     class Meta:
         model = WorkOrder
@@ -114,11 +137,31 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "technicianWorkerCode",
             "technicianWorkerCodes",
             "supervisorWorkerCode",
+            "correctionOfId",
+            "correctionOfCode",
+            "correctionWorkOrderId",
+            "correctionWorkOrderCode",
             "createdAt",
             "updatedAt",
         )
         read_only_fields = ("id", "code", "status", "advances", "workSessions")
 
+    def _latest_correction_order(self, obj):
+        return obj.correction_orders.order_by("-created_at").first()
+
+    def get_correctionOfId(self, obj) -> str | None:
+        return str(obj.correction_of_id) if obj.correction_of_id else None
+
+    def get_correctionOfCode(self, obj) -> str | None:
+        return obj.correction_of.code if obj.correction_of_id else None
+
+    def get_correctionWorkOrderId(self, obj) -> str | None:
+        order = self._latest_correction_order(obj)
+        return str(order.id) if order else None
+
+    def get_correctionWorkOrderCode(self, obj) -> str | None:
+        order = self._latest_correction_order(obj)
+        return order.code if order else None
     def get_effectiveWorkMinutes(self, obj) -> int:
         return effective_work_minutes(obj)
 
@@ -360,6 +403,10 @@ class WorkOrderActionSerializer(serializers.Serializer):
             })
 
         if action == "START":
+            if order.status == WorkOrder.Status.RETURNED and order.correction_orders.exists():
+                raise serializers.ValidationError({
+                    "action": "Esta orden ya tiene una OT de corrección vinculada. Abre la nueva OT para continuar."
+                })
             if order.status == WorkOrder.Status.RETURNED and order.scheduled_date > timezone.localdate():
                 raise serializers.ValidationError({
                     'action': 'La corrección aún no está programada para hoy.'
@@ -522,13 +569,43 @@ class WorkOrderActionSerializer(serializers.Serializer):
                     'plannedHours': 'Las horas estimadas deben estar entre 1 y 16.'
                 })
 
-            order.scheduled_date = parsed_date
-            order.scheduled_start_time = parsed_time
-            order.planned_hours = parsed_hours
-            if notes:
-                order.administrator_notes = notes
+            existing_correction = order.correction_orders.order_by("-created_at").first()
+            if existing_correction:
+                raise serializers.ValidationError({
+                    "action": f"Esta orden ya tiene una corrección vinculada: {existing_correction.code}."
+                })
+
+            correction_order = WorkOrder.objects.create(
+                code=next_correction_code(order),
+                incident=order.incident,
+                correction_of=order,
+                technician=order.technician,
+                supervisor=order.supervisor,
+                specialty=order.specialty,
+                admin_priority=order.admin_priority,
+                status=WorkOrder.Status.SCHEDULED,
+                scheduled_date=parsed_date,
+                scheduled_start_time=parsed_time,
+                planned_hours=parsed_hours,
+                administrator_notes=notes,
+                created_by=request.user,
+                recommendation_snapshot={
+                    "correctionOfId": str(order.id),
+                    "correctionOfCode": order.code,
+                    "correctionReason": (
+                        order.administrator_validation.get("comment")
+                        or order.supervisor_validation.get("comment")
+                        or "Corrección solicitada."
+                    ),
+                    "scheduledBy": request.user.get_full_name() or request.user.username,
+                    "scheduledAt": now.isoformat(),
+                },
+            )
+            correction_order.supporting_technicians.set(order.supporting_technicians.all())
             order.recommendation_snapshot = {
                 **(order.recommendation_snapshot or {}),
+                "correctionWorkOrderId": str(correction_order.id),
+                "correctionWorkOrderCode": correction_order.code,
                 "correctionSchedule": {
                     "scheduledDate": parsed_date.isoformat(),
                     "scheduledStartTime": parsed_time.strftime("%H:%M"),
@@ -538,6 +615,8 @@ class WorkOrderActionSerializer(serializers.Serializer):
                     "scheduledAt": now.isoformat(),
                 },
             }
+            order.incident.status = Incident.Status.IN_PROGRESS
+            order.incident.save(update_fields=("status", "updated_at"))
         elif action in {"CONFORM", "REOPEN"}:
             accepted = action == "CONFORM"
             order.conformity = {
@@ -584,15 +663,16 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 discriminator=action,
             )
         elif action == 'RESCHEDULE_CORRECTION':
+            correction_order = order.correction_orders.order_by("-created_at").first() or order
             queue_notification(
                 event='WORK_ORDER_CORRECTION_SCHEDULED',
-                recipient=order.technician,
-                subject=f'Corrección programada para {order.code}',
+                recipient=correction_order.technician,
+                subject=f'Corrección programada para {correction_order.code}',
                 body=(
-                    f'La corrección de la orden {order.code} fue programada para '
-                    f'{order.scheduled_date.isoformat()} a las {order.scheduled_start_time.strftime("%H:%M")}.'
+                    f'La corrección {correction_order.code} vinculada a {order.code} fue programada para '
+                    f'{correction_order.scheduled_date.isoformat()} a las {correction_order.scheduled_start_time.strftime("%H:%M")}.'
                 ),
-                entity=order,
+                entity=correction_order,
                 discriminator='correction-scheduled',
             )
         elif action == 'ADMIN_APPROVE':

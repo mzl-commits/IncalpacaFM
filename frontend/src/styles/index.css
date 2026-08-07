@@ -2090,3 +2090,7 @@ td { padding: 13px 14px; }
   .public-conformity-actions .button { width: 100%; }
 }
 
+.linked-work-order-card { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 16px 18px; border-color: #bfdbfe; background: #eff6ff; }
+.linked-work-order-card svg { flex: none; color: #1d4ed8; }
+.linked-work-order-card div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.linked-work-order-card strong { color: #17365d; }

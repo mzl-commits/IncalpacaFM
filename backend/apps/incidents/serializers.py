@@ -138,7 +138,8 @@ class IncidentSerializer(serializers.ModelSerializer):
         return self._location_float(obj, "locationMarkerY")
 
     def get_workOrderId(self, obj) -> str | None:
-        return str(obj.work_order.id) if hasattr(obj, "work_order") else None
+        order = obj.work_order
+        return str(order.id) if order else None
 
     def validate_status(self, value):
         aliases = {

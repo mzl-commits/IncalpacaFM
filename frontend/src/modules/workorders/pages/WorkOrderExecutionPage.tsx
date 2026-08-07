@@ -205,6 +205,7 @@ export function WorkOrderExecutionPage() {
   }
 
   const returnInfo = getWorkOrderReturnInfo(workOrder);
+  const hasLinkedCorrection = Boolean(workOrder.correctionWorkOrderId);
   const isCorrectionScheduledForFuture = Boolean(
     returnInfo && workOrder.scheduledDate > new Date().toISOString().slice(0, 10),
   );
@@ -217,7 +218,8 @@ export function WorkOrderExecutionPage() {
     workOrder.status === "PENDIENTE_DE_CONFORMIDAD" ||
     workOrder.status === "CERRADA" ||
     workOrder.status === "CANCELADA" ||
-    isCorrectionScheduledForFuture;
+    isCorrectionScheduledForFuture ||
+    hasLinkedCorrection;
 
   const hasActiveSession = Boolean(workOrder.activeWorkSession);
   const isReturnedForCorrection = Boolean(returnInfo);
@@ -283,9 +285,13 @@ export function WorkOrderExecutionPage() {
           </h2>
 
           <p className="detail-empty">
-            {isCorrectionScheduledForFuture
-              ? `Esta corrección está programada para ${workOrder.scheduledDate} a las ${workOrder.scheduledStartTime?.slice(0, 5) || "08:00"}.`
-              : "Su estado actual ya no permite que el operario registre modificaciones."}
+            {hasLinkedCorrection ? (
+              <>Esta OT tiene una corrección vinculada: <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>{workOrder.correctionWorkOrderCode}</Link>.</>
+            ) : isCorrectionScheduledForFuture ? (
+              `Esta corrección está programada para ${workOrder.scheduledDate} a las ${workOrder.scheduledStartTime?.slice(0, 5) || "08:00"}.`
+            ) : (
+              "Su estado actual ya no permite que el operario registre modificaciones."
+            )}
           </p>
         </article>
       ) : (
