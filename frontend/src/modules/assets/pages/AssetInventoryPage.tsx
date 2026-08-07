@@ -253,9 +253,7 @@ export function AssetInventoryPage() {
 
         <div className="asset-master-list">
           {isLoading && (
-            <div className="dashboard-loading" aria-label="Cargando inventario" style={{ gridColumn: "1 / -1", minHeight: "200px" }}>
-              <div /><div /><div />
-            </div>
+            <div className="skeleton skeleton-block" style={{ gridColumn: "1 / -1", minHeight: "200px", borderRadius: "8px", border: "none" }} aria-label="Cargando inventario" />
           )}
           {!isLoading && filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((asset) => (
             <Link to={`/bienes/${asset.id}`} key={asset.id} className="asset-master-row">

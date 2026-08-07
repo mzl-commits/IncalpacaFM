@@ -6,11 +6,11 @@
 
 :root {
   --font-ui:
-    Aptos, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system,
+    "Montserrat", Aptos, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, sans-serif;
   --font-heading:
-    "Aptos Display", Aptos, "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI",
-    ui-sans-serif, system-ui, sans-serif;
+    "Playfair Display", "Aptos Display", Aptos, "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI",
+    ui-serif, serif;
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   --type-caption: 0.75rem;

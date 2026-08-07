@@ -40,7 +40,7 @@ const routeMap: Array<{ match: RegExp; crumbs: RouteCrumb[] }> = [
 
 export function RouteBreadcrumbs() {
   const { pathname } = useLocation();
-  const crumbs = routeMap.find((route) => route.match.test(pathname))?.crumbs ?? [{ label: "SGTB" }];
+  const crumbs = routeMap.find((route) => route.match.test(pathname))?.crumbs ?? [{ label: "FM Incalpaca" }];
   const entries: RouteCrumb[] = pathname === "/" ? crumbs : [{ label: "Inicio", to: "/" }, ...crumbs];
 
   return (

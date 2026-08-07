@@ -51,7 +51,7 @@ export function LoginPage() {
       <section className="login-form-panel">
         <form onSubmit={handleSubmit}>
           <header>
-            <span>SGTB Incalpaca</span>
+            <span>FM Incalpaca</span>
             <h2>Iniciar sesión</h2>
             <p>Ingresa con el código de trabajador asignado.</p>
           </header>

@@ -206,7 +206,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/almacen/checklist")) return ["Almacén", "Devolución"];
   if (pathname.startsWith("/almacen/inspecciones")) return ["Almacén", "Inspecciones"];
   if (pathname.startsWith("/almacen")) return ["Almacén", "Almacén de herramientas"];
-  return ["SGTB", "Facility Management"];
+  return ["FM Incalpaca", "Facility Management"];
 }
 
 export function AppShell() {
@@ -289,10 +289,10 @@ export function AppShell() {
   return (
     <div className="app-frame">
       <aside className="sidebar" aria-label="Navegación principal">
-        <div className="brand">
-          <span className="brand-mark">SG</span>
+        <div className="brand" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 0" }}>
+          <img src="/logo-incalpaca.png" alt="Incalpaca Logo" style={{ maxHeight: "32px", width: "auto" }} />
           <span className="brand-copy">
-            <strong>SGTB</strong>
+            <strong style={{ fontFamily: "var(--font-heading)" }}>FM Incalpaca</strong>
             <small>Facility Management</small>
           </span>
         </div>
