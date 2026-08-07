@@ -53,6 +53,15 @@ class UserListView(views.APIView):
         return response.Response(serializer.data)
 
 
+class TechnicianListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = TechnicianSerializer
+
+    def get_queryset(self):
+        return get_user_model().objects.select_related('account_profile').filter(
+            account_profile__role=AccountProfile.Role.TECHNICIAN
+        ).order_by('first_name', 'last_name', 'username')
+
 class TechnicianDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = TechnicianSerializer
@@ -98,4 +107,4 @@ class TechnicianManualNotificationView(views.APIView):
         return response.Response({'detail': detail}, status=status.HTTP_201_CREATED)
 
 
-__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView", "UserListView"]
+__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView", "UserListView", "TechnicianListCreateView", "TechnicianDetailView", "TechnicianManualNotificationView"]

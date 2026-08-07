@@ -234,7 +234,8 @@ export function WorkOrderDetailPage() {
 
   const isAdmin = user?.role === "ADMINISTRADOR";
   const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
-  const canRegisterProgress = ![
+  const isAssignedTechnician = user?.id === workOrder.operatorId;
+  const canRegisterProgress = isAssignedTechnician && ![
     "CERRADA",
     "CANCELADA",
     "PENDIENTE_DE_SUPERVISION",
