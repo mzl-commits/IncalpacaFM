@@ -308,7 +308,15 @@ export function IncidentDetailPage() {
             {getWorkRequestAssetDisplayCode(request) && (
               <div>
                 <dt>Bien asociado</dt>
-                <dd>{getWorkRequestAssetDisplayCode(request)}</dd>
+                <dd>
+                  {request.assetId ? (
+                    <Link to={`/bienes/${request.assetId}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>
+                      {getWorkRequestAssetDisplayCode(request)}
+                    </Link>
+                  ) : (
+                    getWorkRequestAssetDisplayCode(request)
+                  )}
+                </dd>
               </div>
             )}
             <div>
@@ -412,7 +420,11 @@ export function IncidentDetailPage() {
               <dl className="detail-list">
                 <div>
                   <dt>Orden relacionada</dt>
-                  <dd>{request.workOrderId}</dd>
+                  <dd>
+                    <Link to={`/ordenes-trabajo/${request.workOrderId}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>
+                      {request.workOrderId}
+                    </Link>
+                  </dd>
                 </div>
               </dl>
 

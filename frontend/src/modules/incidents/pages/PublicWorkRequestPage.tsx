@@ -126,6 +126,7 @@ export function PublicWorkRequestPage() {
   const [locationsLoaded, setLocationsLoaded] = useState(false);
   const [asset, setAsset] = useState<PublicAssetContext | null>(null);
   const [assetLoadError, setAssetLoadError] = useState(false);
+  const [isAssetLoading, setIsAssetLoading] = useState(!!assetToken);
 
   useEffect(() => {
     let active = true;
@@ -148,13 +149,16 @@ export function PublicWorkRequestPage() {
     if (!assetToken) {
       setAsset(null);
       setAssetLoadError(false);
+      setIsAssetLoading(false);
       return;
     }
     let active = true;
+    setIsAssetLoading(true);
     setAssetLoadError(false);
     api.get<PublicAssetContext>(`/public/assets/${encodeURIComponent(assetToken)}/report/`)
       .then(({ data }) => { if (active) setAsset(data); })
-      .catch(() => { if (active) { setAsset(null); setAssetLoadError(true); } });
+      .catch(() => { if (active) { setAsset(null); setAssetLoadError(true); } })
+      .finally(() => { if (active) setIsAssetLoading(false); });
     return () => { active = false; };
   }, [assetToken]);
 
@@ -262,7 +266,18 @@ export function PublicWorkRequestPage() {
           </div>
         </div>
 
-        {asset && (
+        {isAssetLoading && (
+          <aside className="public-request-linked-asset skeleton-asset" style={{ display: 'flex', gap: '16px', padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+            <div style={{ width: '48px', height: '48px', backgroundColor: '#e2e8f0', borderRadius: '8px', flexShrink: 0, animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}></div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
+              <div style={{ width: '60%', height: '12px', backgroundColor: '#e2e8f0', borderRadius: '4px', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}></div>
+              <div style={{ width: '80%', height: '16px', backgroundColor: '#e2e8f0', borderRadius: '4px', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}></div>
+              <div style={{ width: '40%', height: '12px', backgroundColor: '#e2e8f0', borderRadius: '4px', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}></div>
+            </div>
+          </aside>
+        )}
+
+        {!isAssetLoading && asset && (
           <aside className="public-request-linked-asset">
             {asset.photoUrl ? <img src={asset.photoUrl} alt="" /> : <span>{asset.displayCode.slice(0, 2)}</span>}
             <div>
@@ -389,7 +404,7 @@ export function PublicWorkRequestPage() {
                 <span>¿Desde cuándo lo notas? *</span>
                 <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Durante esta semana</option><option value="MAS_TIEMPO">Hace más de una semana</option></select>
               </label>
-              {!asset && (
+              {!asset && !isAssetLoading && (
                 <>
                   <label className="field field-wide">
                     <span>Ambiente oficial</span>

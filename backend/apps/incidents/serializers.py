@@ -1,4 +1,4 @@
-﻿from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -375,16 +375,23 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     requesterDni = serializers.CharField(max_length=12)
     assetToken = serializers.CharField(required=False, allow_blank=True, max_length=100)
     locationId = serializers.CharField(required=False, allow_blank=True)
-    zone = serializers.CharField(max_length=120)
-    building = serializers.CharField(max_length=160)
-    area = serializers.CharField(max_length=160)
-    room = serializers.CharField(max_length=160)
+    zone = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    building = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    area = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    room = serializers.CharField(max_length=160, required=False, allow_blank=True)
     description = serializers.CharField(min_length=10, max_length=1000)
     evidence = serializers.ListField(required=False, default=list)
     noPhotoReason = serializers.CharField(required=False, allow_blank=True, max_length=300)
     suggestedPriority = serializers.ChoiceField(choices=("NORMAL", "URGENTE", "EMERGENCIA"))
     priorityReasons = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     impactAnswers = serializers.DictField(required=True)
+
+    def validate(self, attrs):
+        asset_token = attrs.get('assetToken', '').strip()
+        zone = attrs.get('zone', '').strip()
+        if not asset_token and not zone:
+            raise serializers.ValidationError({"zone": "Debe indicar la ubicación o escanear un código QR válido."})
+        return attrs
 
     def _public_requester(self):
         user_model = get_user_model()

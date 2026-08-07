@@ -2,7 +2,7 @@
   min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(340px, 0.9fr) minmax(420px, 1.1fr);
-  background: #f4f7fb;
+  background: #f6f6f6;
 }
 
 .login-brand-panel {
@@ -10,9 +10,9 @@
   align-content: center;
   padding: clamp(36px, 7vw, 96px);
   background:
-    radial-gradient(circle at 15% 20%, rgb(69 142 211 / 0.24), transparent 34%),
-    linear-gradient(145deg, #08294b, #001b35);
-  color: #fff;
+    radial-gradient(circle at 15% 20%, rgb(128 128 128 / 0.24), transparent 34%),
+    linear-gradient(145deg, #232323, #151515);
+  color: #ffffff;
 }
 
 .login-brand-mark {
@@ -22,13 +22,13 @@
   place-items: center;
   margin-bottom: 22px;
   border-radius: 10px;
-  background: #fff;
-  color: #073b70;
+  background: #ffffff;
+  color: #313131;
   font-weight: 850;
 }
 
 .login-brand-panel > span {
-  color: #bcd3ea;
+  color: #cecece;
   font-size: 13px;
   font-weight: 650;
 }
@@ -43,7 +43,7 @@
 
 .login-brand-panel > p {
   max-width: 46ch;
-  color: #d3e2f1;
+  color: #dfdfdf;
   line-height: 1.6;
 }
 
@@ -64,7 +64,7 @@
 
 .login-security-note small {
   margin-top: 3px;
-  color: #bcd3ea;
+  color: #cecece;
 }
 
 .login-form-panel {
@@ -78,10 +78,10 @@
   display: grid;
   gap: 20px;
   padding: clamp(26px, 4vw, 42px);
-  border: 1px solid #ccd7e4;
+  border: 1px solid #d5d5d5;
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 22px 60px rgb(15 47 80 / 0.1);
+  background: #ffffff;
+  box-shadow: 0 22px 60px rgb(41 41 41 / 0.1);
 }
 
 .login-form-panel header > span {
@@ -104,7 +104,7 @@
 .login-field {
   display: grid;
   gap: 8px;
-  color: #26384c;
+  color: #343434;
   font-size: 13px;
   font-weight: 650;
 }
@@ -115,13 +115,13 @@
   align-items: center;
   gap: 10px;
   padding: 0 13px;
-  border: 1px solid #9eabb9;
+  border: 1px solid #a8a8a8;
   border-radius: 6px;
 }
 
 .login-field > div:focus-within {
   border-color: var(--accent);
-  outline: 3px solid rgb(0 92 186 / 0.16);
+  outline: 3px solid rgb(75 75 75 / 0.16);
 }
 
 .login-field input {
@@ -138,10 +138,10 @@
 
 .login-error {
   padding: 11px 13px;
-  border: 1px solid #e4aaa5;
+  border: 1px solid #bababa;
   border-radius: 5px;
-  background: #fff0ef;
-  color: #8b2420;
+  background: #f4f4f4;
+  color: #424242;
   font-size: 13px;
 }
 
@@ -150,24 +150,24 @@
   gap: 4px;
   padding: 13px;
   border-radius: 5px;
-  background: #edf4fc;
-  color: #405469;
+  background: #f2f2f2;
+  color: #505050;
   font-size: 12px;
 }
 
 .login-demo-accounts strong {
   margin-bottom: 3px;
-  color: #123b65;
+  color: #333333;
 }
 
 .login-privacy-copy {
   margin: 0;
-  color: #506784;
+  color: #636363;
   font-size: 12px;
   line-height: 1.5;
 }
 
-.login-privacy-copy a { color: #0d5cab; font-weight: 700; }
+.login-privacy-copy a { color: #4d4d4d; font-weight: 700; }
 
 .sidebar-account > button {
   display: grid;

@@ -1,6 +1,7 @@
-import { MagnifyingGlass, UsersThree } from "@phosphor-icons/react";
+import { UsersThree } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
+import { ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { api } from "@/services/api";
 
 interface ReporterProfile {
@@ -29,11 +30,66 @@ export function ReporterRegistryPage() {
     return () => window.clearTimeout(handle);
   }, [query]);
 
-  return <section className="registry-page">
-    <header className="page-heading"><div><p className="breadcrumb">Administración / Personas</p><h1>Historial de reportantes</h1><p>Personas identificadas al emitir solicitudes sin crear una cuenta de acceso.</p></div></header>
-    <article className="data-panel"><header className="data-panel-header"><div><UsersThree size={24} /><div><h2>Registro de reportantes</h2><p>El DNI y el código de trabajador se conservan solo para trazabilidad administrativa.</p></div></div></header>
-      <label className="filter-search"><MagnifyingGlass size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, DNI o código" /></label>
-      {loading ? <div className="loading-panel">Cargando registro…</div> : !items.length ? <div className="empty-state">No hay reportantes que coincidan con la búsqueda.</div> : <div className="responsive-table"><table><thead><tr><th>Reportante</th><th>DNI</th><th>Códigos registrados</th><th>Reportes</th><th>Último reporte</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><strong>{item.full_name}</strong><small>{item.email || "Sin correo"}</small></td><td>{item.dni}</td><td>{item.workerCodes.join(", ")}</td><td>{item.reportsCount}</td><td>{new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" }).format(new Date(item.lastReportedAt))}</td></tr>)}</tbody></table></div>}
-    </article>
-  </section>;
+  return (
+    <section className="registry-page">
+      <header className="page-heading">
+        <div>
+          <p className="breadcrumb">Administración / Personas</p>
+          <h1>Historial de reportantes</h1>
+          <p>Personas identificadas al emitir solicitudes sin crear una cuenta de acceso.</p>
+        </div>
+      </header>
+      
+      <ListFilterPanel
+        title="Registro de reportantes"
+        description="El DNI y el código de trabajador se conservan solo para trazabilidad administrativa."
+        searchLabel="Búsqueda"
+        searchPlaceholder="Buscar por nombre, DNI o código"
+        searchValue={query}
+        onSearchChange={setQuery}
+        resultCount={items.length}
+        totalCount={items.length}
+        activeFilters={[]}
+        onClear={() => setQuery("")}
+      >
+        <></>
+      </ListFilterPanel>
+
+      <article className="data-panel">
+        {loading ? (
+          <div className="loading-panel">Cargando registro…</div>
+        ) : !items.length ? (
+          <div className="empty-state">No hay reportantes que coincidan con la búsqueda.</div>
+        ) : (
+          <div className="responsive-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Reportante</th>
+                  <th>DNI</th>
+                  <th>Códigos registrados</th>
+                  <th>Reportes</th>
+                  <th>Último reporte</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.full_name}</strong>
+                      <small>{item.email || "Sin correo"}</small>
+                    </td>
+                    <td>{item.dni}</td>
+                    <td>{item.workerCodes.join(", ")}</td>
+                    <td>{item.reportsCount}</td>
+                    <td>{new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" }).format(new Date(item.lastReportedAt))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
+    </section>
+  );
 }
