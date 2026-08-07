@@ -171,3 +171,25 @@ class AssetClassificationView(APIView):
                 after=after,
             )
         return Response(AssetDetailSerializer(asset, context={'request': request}).data)
+
+
+class TaxonomyModelListView(APIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+
+    @extend_schema(responses={200: list})
+    def get(self, request):
+        taxonomy_id = request.query_params.get('taxonomy_id')
+        if not taxonomy_id:
+            return Response([])
+        try:
+            taxonomy_id = uuid.UUID(taxonomy_id.strip())
+        except ValueError:
+            return Response([])
+            
+        models = Asset.objects.filter(
+            taxonomy_id=taxonomy_id
+        ).exclude(
+            model__exact=''
+        ).values_list('model', flat=True).distinct()
+        
+        return Response(sorted(list(models)))

@@ -16,6 +16,7 @@ import {
 } from "@/modules/assets/assetEntryRepository";
 import { type EntryErrors, validateEntryStep } from "@/modules/assets/entryValidation";
 import { LocationMarkerPicker } from "@/modules/assets/components/LocationMarkerPicker";
+import { ModelCreatableSelect } from "@/modules/assets/components/ModelCreatableSelect";
 import { useLocations } from "@/modules/assets/locationMapQueries";
 import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
 import type { TaxonomyOption } from "@/modules/taxonomy/types";
@@ -363,8 +364,6 @@ export function AssetEntryWizardPage() {
       <Field label="Nombre corto" error={errors.name} required><input value={draft.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ej. Laptop Lenovo ThinkPad T14" /></Field>
       <Field label="Fecha efectiva de ingreso" error={errors.effectiveEntryDate} required><input type="date" value={draft.effectiveEntryDate} onChange={(e) => setField("effectiveEntryDate", e.target.value)} /></Field>
       <Field label="Descripción detallada" error={errors.description} required wide><textarea value={draft.description} onChange={(e) => setField("description", e.target.value)} rows={3} /></Field>
-      <Field label="Marca"><input value={draft.brand} onChange={(e) => setField("brand", e.target.value)} /></Field>
-      <Field label="Modelo"><input value={draft.model} onChange={(e) => setField("model", e.target.value)} /></Field>
       <Field label="Número de serie" error={errors.serialNumber} hint="Se verificará que no exista otro bien con el mismo número."><input value={draft.serialNumber} onChange={(e) => setField("serialNumber", e.target.value)} /></Field>
       <Field label="Color"><input value={draft.color} onChange={(e) => setField("color", e.target.value)} /></Field>
       <Field label="Año de fabricación" error={errors.manufactureYear}><input type="number" value={draft.manufactureYear} onChange={(e) => setField("manufactureYear", e.target.value)} /></Field>
@@ -377,7 +376,22 @@ export function AssetEntryWizardPage() {
       {draft.classificationPending
         ? <div className="form-grid"><Field label="Justificación" error={errors.classificationPendingReason} required wide><textarea rows={3} value={draft.classificationPendingReason} onChange={(e) => setField("classificationPendingReason", e.target.value)} /></Field></div>
         : <TaxonomyPicker selectedId={draft.taxonomyId} onSelect={applyTaxonomy} error={errors.taxonomyId} />}
-      <div className="conditional-fields"><h3>Gestión del ciclo de vida</h3><div className="form-grid">
+      <div className="conditional-fields">
+        <h3>Gestión del catálogo</h3>
+        <div className="form-grid">
+          <Field label="Marca"><input value={draft.brand} onChange={(e) => setField("brand", e.target.value)} /></Field>
+          <Field label="Modelo">
+            <ModelCreatableSelect
+              taxonomyId={draft.taxonomyId}
+              value={draft.model}
+              onChange={(v) => setField("model", v)}
+              disabled={draft.classificationPending}
+              placeholder={draft.classificationPending ? "Requiere clasificación..." : undefined}
+            />
+          </Field>
+        </div>
+        <h3>Gestión del ciclo de vida</h3>
+        <div className="form-grid">
         <Field label="Criticidad"><select value={draft.criticality} onChange={(e) => setField("criticality", e.target.value as AssetEntryDraft["criticality"])}>{CRITICALITIES.map((x) => <option key={x}>{x}</option>)}</select></Field>
         <Field label="Vida útil estimada (años)" error={errors.usefulLifeYears}><input type="number" min="1" value={draft.usefulLifeYears} onChange={(e) => setField("usefulLifeYears", e.target.value)} /></Field>
         <label className="switch-row"><input type="checkbox" checked={draft.requiresMaintenance} onChange={(e) => setField("requiresMaintenance", e.target.checked)} /><span><strong>Requiere mantenimiento</strong><small>Activa la planificación preventiva.</small></span></label>
@@ -438,7 +452,7 @@ export function AssetEntryWizardPage() {
     return <div className="success-panel">
       <div className="success-hero"><CheckCircle size={46} weight="fill" /><h2>Bien registrado correctamente</h2><p>El activo ingresó al sistema de gestión y se generó su identificador único.</p></div>
       <div className="asset-result-stats"><div><small>Código FM</small><strong>{registered.fmCode ?? "Pendiente"}</strong></div><div><small>Identificador técnico</small><strong>{registered.code}</strong></div><div><small>Estado administrativo</small><span className="status status-success">Registrado</span></div><div><small>Asignación</small><strong>{registered.assignmentStatus}</strong></div></div>
-      <section className="asset-credentials"><h3>Credenciales del activo</h3><div className="qr-card"><div className="qr-visual"><img src={registered.qrDataUrl} alt={`QR público del bien ${registered.fmCode ?? registered.code}`} /><small>El QR no contiene información personal ni identificadores internos sensibles.</small></div><div className="label-preview"><small>Vista previa de etiqueta</small><div><span>SGTB INCALPACA</span><strong>{registered.fmCode ?? registered.code}</strong><p>{draft.name}</p><small>{registered.code}</small></div><p>El código FM identifica el bien en operación; el identificador técnico preserva la trazabilidad interna.</p></div></div></section>
+      <section className="asset-credentials"><h3>Credenciales del activo</h3><div className="qr-card"><div className="qr-visual"><img src={registered.qrDataUrl} alt={`QR público del bien ${registered.fmCode ?? registered.code}`} /><small>El QR no contiene información personal ni identificadores internos sensibles.</small></div><div className="label-preview"><small>Vista previa de etiqueta</small><div><span>FM INCALPACA</span><strong>{registered.fmCode ?? registered.code}</strong><p>{draft.name}</p><small>{registered.code}</small></div><p>El código FM identifica el bien en operación; el identificador técnico preserva la trazabilidad interna.</p></div></div></section>
       <div className="success-actions">
         <button className="button button-secondary" type="button" onClick={downloadQr}><DownloadSimple /> Descargar PNG</button>
         <button className="button button-secondary" type="button" onClick={() => navigator.clipboard.writeText(registered.publicUrl)}><LinkSimple /> Copiar enlace</button>

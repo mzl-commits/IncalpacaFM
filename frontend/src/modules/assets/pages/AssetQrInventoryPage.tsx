@@ -357,16 +357,15 @@ export function AssetQrInventoryPage() {
 
         image.src = dataUrl;
         image.alt = "";
-        organization.textContent = "SGTB · INCALPACA";
+        organization.textContent = "FM INCALPACA";
         code.textContent = getAssetDisplayCode(asset);
         name.textContent = asset.draft.name;
         technicalCode.textContent = asset.fmCode ? `ID técnico: ${asset.code}` : "";
-        categoryText.textContent = getCategory(asset);
-        instruction.textContent = "Escanea para consultar la ficha pública autorizada.";
+        instruction.textContent = "Escanea para más información";
 
         copy.append(organization, code, name);
         if (asset.fmCode) copy.append(technicalCode);
-        copy.append(categoryText, instruction);
+        copy.append(instruction);
         label.append(image, copy);
         main.append(label);
       });

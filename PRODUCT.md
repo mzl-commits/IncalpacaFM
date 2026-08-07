@@ -6,7 +6,7 @@ product
 
 ## Users
 
-El SGTB es utilizado por Facility Management, administradores, responsables de bienes, Planner, técnicos, supervisores y trabajadores reportantes de Incalpaca. Los usuarios trabajan desde computadoras, tablets y teléfonos, en oficinas y ubicaciones operativas, y necesitan registrar o consultar información con rapidez y sin ambigüedades.
+El sistema FM Incalpaca es utilizado por Facility Management, administradores, responsables de bienes, Planner, técnicos, supervisores y trabajadores reportantes de Incalpaca. Los usuarios trabajan desde computadoras, tablets y teléfonos, en oficinas y ubicaciones operativas, y necesitan registrar o consultar información con rapidez y sin ambigüedades.
 
 ## Product Purpose
 
