@@ -111,10 +111,16 @@ class Material(models.Model):
         super().save(*args, **kwargs)
 
     def recalcular_cantidad(self):
-        """Recalcula cantidad_total contando piezas activas (no 'Baja')."""
+        """Recalcula cantidad_total contando piezas activas (no 'Baja').
+        Incluye piezas sueltas de este material + items dentro de estuches de este material."""
         if self.control_individual:
-            total = self.piezas.exclude(estado="Baja").count()
+            directas = self.piezas.exclude(estado="Baja").filter(piezas_hijas__isnull=True).count()
+            hijas_en_estuches = Pieza.objects.filter(
+                padre__material=self
+            ).exclude(estado="Baja").exclude(padre__estado="Baja").count()
+            total = directas + hijas_en_estuches
             Material.objects.filter(pk=self.pk).update(cantidad_total=total)
+
 
 class Pieza(models.Model):
     ESTADO_CHOICES = [
@@ -127,7 +133,7 @@ class Pieza(models.Model):
     material = models.ForeignKey(
         Material, on_delete=models.PROTECT, related_name="piezas"
     )
-    codigo = models.CharField(max_length=5, unique=True, blank=True)
+    codigo = models.CharField(max_length=5, unique=True, blank=True, null=True, default=None)
     estado = models.CharField(
         max_length=15, choices=ESTADO_CHOICES, default="Disponible"
     )
@@ -152,7 +158,7 @@ class Pieza(models.Model):
         ordering = ["codigo"]
 
     def __str__(self):
-        return f"{self.codigo} ({self.material.nombre})"
+        return f"{self.codigo or '—'} ({self.material.nombre})"
 
     def save(self, *args, **kwargs):
         if not self.codigo:

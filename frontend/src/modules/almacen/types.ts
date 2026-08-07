@@ -92,7 +92,7 @@ export interface PiezaBase {
   material: number;
   material_nombre: string;
   material_medida: string;
-  codigo: string;
+  codigo: string | null;
   estado: EstadoPieza;
   foto: string | null;
   padre: number | null;
@@ -101,7 +101,7 @@ export interface PiezaBase {
 
 export interface PiezaAnidada {
   id: number;
-  codigo: string;
+  codigo: string | null;
   estado: EstadoPieza;
   foto: string | null;
   material_nombre?: string;
@@ -192,7 +192,7 @@ export interface Movimiento {
 
 export interface PiezaPrestada {
   id: number;
-  codigo: string;
+  codigo: string | null;
   estado: EstadoPieza;
   material: number;
   material_codigo: string;
