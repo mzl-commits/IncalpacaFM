@@ -2,6 +2,7 @@ import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { labelPieza } from "@/utils/pieza";
 
 import {
   listMateriales,
@@ -257,7 +258,7 @@ export function MovimientoFormPage() {
                     {/* F4: muestra nombre del material junto al código */}
                     {piezas.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.codigo} — {p.material_nombre}{p.material_medida ? ` (${p.material_medida})` : ""} · {p.estado}
+                        {labelPieza(p)}{p.material_nombre ? ` — ${p.material_nombre}${p.material_medida ? ` (${p.material_medida})` : ""}` : ""} · {p.estado}
                         {p.padre === null ? " [estuche]" : ""}
                       </option>
                     ))}
@@ -281,12 +282,12 @@ export function MovimientoFormPage() {
               <div style={{ marginTop: 16 }}>
                 <div className="aviso-estuche">
                   <strong>Este es un estuche contenedor.</strong>
-                  {" "}Elige qué piezas hijas incluir en la salida:
+                  {" "}Elige qué items incluir en la salida:
                 </div>
 
                 {hijasDisponibles.length === 0 ? (
                   <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
-                    No hay piezas hijas disponibles en este estuche.
+                    No hay items disponibles en este estuche.
                   </p>
                 ) : (
                   <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
@@ -312,7 +313,7 @@ export function MovimientoFormPage() {
                           onChange={() => toggleHija(h.id)}
                         />
                         <span>
-                          <b>{h.codigo}</b>
+                          <b>{labelPieza(h)}</b>
                           {h.material_nombre && (
                             <span style={{ color: "var(--muted)", marginLeft: 6 }}>
                               {h.material_nombre}{h.material_medida ? ` (${h.material_medida})` : ""}
@@ -396,7 +397,7 @@ export function MovimientoFormPage() {
           {material?.control_individual ? (
             <div className="help-note">
               Selecciona la pieza física específica (por código y nombre).
-              {tipo === "salida" && <><br />Si es un estuche, puedes elegir cuáles piezas hijas incluir.</>}
+              {tipo === "salida" && <><br />Si es un estuche, puedes elegir cuáles items incluir.</>}
             </div>
           ) : material ? (
             <div className="help-note">Este material es consumible. Indica la cantidad a mover.</div>

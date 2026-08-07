@@ -189,7 +189,7 @@ class PiezaViewSet(viewsets.ModelViewSet):
         padre_id = self.request.query_params.get("padre")
 
         if material_id:
-            qs = qs.filter(material_id=material_id)
+            qs = qs.filter(Q(material_id=material_id) | Q(padre__material_id=material_id))
         if estado:
             qs = qs.filter(estado=estado)
         if sin_padre is not None and sin_padre.lower() == "true":

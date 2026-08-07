@@ -2,6 +2,7 @@ import { ArrowLeft, Package, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { labelPieza } from "@/utils/pieza";
 
 import {
   listMateriales,
@@ -263,7 +264,7 @@ export function InspeccionFormPage() {
                   <option value="">Seleccionar pieza…</option>
                   {piezas.filter((p) => p.padre === null || p.padre === undefined).map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.codigo}{p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}
+                      {labelPieza(p)}{p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}
                     </option>
                   ))}
                 </select>
@@ -276,7 +277,7 @@ export function InspeccionFormPage() {
                 <Package size={15} />
                 <span>
                   Estuche detectado — se inspeccionan junto al estuche sus{" "}
-                  <strong>{hijasActivas.length}</strong> pieza{hijasActivas.length !== 1 ? "s" : ""} hija{hijasActivas.length !== 1 ? "s" : ""} activa{hijasActivas.length !== 1 ? "s" : ""}.
+                  <strong>{hijasActivas.length}</strong> item{hijasActivas.length !== 1 ? "s" : ""} activo{hijasActivas.length !== 1 ? "s" : ""}.
                 </span>
               </div>
             )}
@@ -296,8 +297,11 @@ export function InspeccionFormPage() {
                         checked={piezasLote.has(p.id)}
                         onChange={() => togglePieza(p.id)}
                       />
-                      <span className="pieza-code">{p.codigo}</span>
-                      <span style={{ fontSize: 12, color: "var(--muted)" }}>{p.estado}</span>
+                      <span className="pieza-code">{labelPieza(p)}</span>
+                      <span style={{ fontSize: 13 }}>
+                        {p.material_nombre}{p.material_medida ? ` (${p.material_medida})` : ""}
+                      </span>
+                      <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>{p.estado}</span>
                     </label>
                   ))}
                   {piezas.length === 0 && materialId > 0 && (
@@ -440,7 +444,7 @@ export function InspeccionFormPage() {
                 <WarningCircle size={16} />
                 <span>
                   Al dar de baja este estuche, sus{" "}
-                  <strong>{hijasActivas.length}</strong> pieza{hijasActivas.length !== 1 ? "s" : ""} hija{hijasActivas.length !== 1 ? "s" : ""} activa{hijasActivas.length !== 1 ? "s" : ""} se{" "}
+                  <strong>{hijasActivas.length}</strong> item{hijasActivas.length !== 1 ? "s" : ""} activo{hijasActivas.length !== 1 ? "s" : ""} se{" "}
                   <strong>liberarán</strong> y quedarán disponibles como piezas sueltas.
                 </span>
               </div>

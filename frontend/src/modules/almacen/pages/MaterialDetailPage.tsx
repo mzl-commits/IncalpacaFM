@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { deleteMaterial, deleteMaterialForzado, deletePieza, desvinculaPieza, getMaterialDetalle, agregarHijaInline } from "@/modules/almacen/catalogoRepository";
+import { labelPieza } from "@/utils/pieza";
 import { listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
 import { STOCK_MINIMO, tipoControlLabels } from "@/modules/almacen/types";
@@ -548,7 +549,7 @@ function PiezaTreeRow({
           {delStep === "idle" && (
             <button
               type="button"
-              title="Agregar pieza hija a este estuche"
+              title="Agregar item a este estuche"
               style={{
                 background: "transparent", border: 0,
                 color: "var(--accent, #6366f1)", cursor: "pointer",
@@ -557,7 +558,7 @@ function PiezaTreeRow({
               }}
               onClick={() => { setMostrarFormHija((v) => !v); setHijaError(""); }}
             >
-              <Plus size={13} /> Pieza
+              <Plus size={13} /> Item
             </button>
           )}
 
@@ -580,7 +581,7 @@ function PiezaTreeRow({
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>
                 {esContenedor
-                  ? `¿Eliminar estuche + ${pieza.total_hijas} piezas hijas?`
+                  ? `¿Eliminar estuche + ${pieza.total_hijas} items?`
                   : "¿Eliminar pieza?"}
               </span>
               {esContenedor && (
@@ -625,7 +626,7 @@ function PiezaTreeRow({
           {delStep === "confirmed" && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>
-                ⚠️ Se borrarán {pieza.total_hijas} piezas hijas también.
+                ⚠️ Se borrarán {pieza.total_hijas} items también.
               </span>
               <button
                 style={{
@@ -662,7 +663,7 @@ function PiezaTreeRow({
           borderRadius: 8, border: "1px dashed var(--accent, #6366f1)",
         }}>
           <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: "var(--accent, #6366f1)" }}>
-            + Agregar pieza hija al estuche
+            + Agregar item al estuche
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "end" }}>
             <label style={{ fontSize: 12 }}>
@@ -754,7 +755,7 @@ function PiezaHijaRow({
   return (
     <div className="pieza-tree-hija" style={{ alignItems: "center" }}>
       <Package size={12} style={{ color: "var(--muted)", flexShrink: 0 }} />
-      <span className="pieza-code">{pieza.codigo}</span>
+      <span className="pieza-code">{labelPieza(pieza)}</span>
       {(pieza.material_nombre || pieza.material_medida) && (
         <span style={{ fontSize: 11, color: "var(--muted)" }}>
           {[pieza.material_nombre, pieza.material_medida].filter(Boolean).join(" · ")}
