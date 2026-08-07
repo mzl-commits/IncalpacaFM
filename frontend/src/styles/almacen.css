@@ -8,12 +8,12 @@
   gap: 4px;
   min-height: 120px;
   padding: 18px;
-  border: 1px solid #d8e2f2;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
-  background: #fff;
+  background: #ffffff;
 }
-.stat-card[data-variant="warning"] { border-color: #f5c97a; background: #fffbf0; }
-.stat-card[data-variant="error"]   { border-color: #f5a9a9; background: #fff5f5; }
+.stat-card[data-variant="warning"] { border-color: #cdcdcd; background: #fafafa; }
+.stat-card[data-variant="error"]   { border-color: #bfbfbf; background: #f7f7f7; }
 .stat-card-icon { display: flex; align-items: center; color: var(--accent); font-size: 20px; }
 .stat-card[data-variant="warning"] .stat-card-icon { color: var(--warning); }
 .stat-card[data-variant="error"]   .stat-card-icon { color: var(--error); }
@@ -40,14 +40,14 @@
   letter-spacing: .03em;
   white-space: nowrap;
 }
-.trimestre-q1 { background: #fff3cd; color: #856404; }   /* Q1 Ene-Mar: Amarillo */
-.trimestre-q2 { background: #d1e7dd; color: #0f5132; }   /* Q2 Abr-Jun: Verde   */
-.trimestre-q3 { background: #cfe2ff; color: #0a367a; }   /* Q3 Jul-Sep: Azul    */
-.trimestre-q4 { background: #f8d7da; color: #842029; }   /* Q4 Oct-Dic: Rojo    */
+.trimestre-q1 { background: #f2f2f2; color: #626262; }   /* Q1 Ene-Mar: Amarillo */
+.trimestre-q2 { background: #dfdfdf; color: #393939; }   /* Q2 Abr-Jun: Verde   */
+.trimestre-q3 { background: #dfdfdf; color: #303030; }   /* Q3 Jul-Sep: Azul    */
+.trimestre-q4 { background: #e1e1e1; color: #3e3e3e; }   /* Q4 Oct-Dic: Rojo    */
 
 /* ─── Filas de tabla con alerta de stock bajo ───────────────────────────────── */
-.stock-alert-row td { background: #fff9ec !important; }
-.stock-alert-row td:first-child { border-left: 3px solid #e6a817; }
+.stock-alert-row td { background: #f9f9f9 !important; }
+.stock-alert-row td:first-child { border-left: 3px solid #aaaaaa; }
 .stock-alert-badge {
   display: inline-flex; align-items: center; gap: 4px;
   color: var(--warning); font-size: 12px; font-weight: 700;
@@ -63,8 +63,8 @@
   border-radius: 6px;
   border: 1px solid;
 }
-.alert-banner-warning { background: #fff9ec; border-color: #f5c97a; color: #704700; }
-.alert-banner-error   { background: #fff5f5; border-color: #f5a9a9; color: #93000a; }
+.alert-banner-warning { background: #f9f9f9; border-color: #cdcdcd; color: #4b4b4b; }
+.alert-banner-error   { background: #f7f7f7; border-color: #bfbfbf; color: #2d2d2d; }
 .alert-banner svg { flex-shrink: 0; margin-top: 2px; }
 
 /* ─── Árbol de piezas ────────────────────────────────────────────────────────── */
@@ -74,19 +74,19 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #e3e9f2;
+  border: 1px solid #e8e8e8;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
   font-size: 13px;
 }
-.pieza-tree-row.is-container { border-color: #c3d0e8; background: #f4f7fd; }
+.pieza-tree-row.is-container { border-color: #cecece; background: #f6f6f6; }
 .pieza-tree-children { padding-left: 28px; display: grid; gap: 4px; margin-top: 4px; }
 .pieza-tree-hija {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px;
-  border: 1px solid #eaf0f9;
+  border: 1px solid #efefef;
   border-radius: 5px;
-  background: #fff;
+  background: #ffffff;
   font-size: 12px;
 }
 .pieza-code { font-family: ui-monospace, monospace; font-weight: 700; color: var(--primary); font-size: 12px; }
@@ -99,11 +99,11 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid #e3e9f2;
+  border: 1px solid #e8e8e8;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
 }
-.checklist-row.is-overdue { border-color: #f5c97a; background: #fffbf0; }
+.checklist-row.is-overdue { border-color: #cdcdcd; background: #fafafa; }
 .checklist-row input[type="checkbox"] {
   width: 18px; height: 18px;
   accent-color: var(--primary); cursor: pointer;
@@ -122,45 +122,45 @@
   align-items: start;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid #edf1f8;
+  border-bottom: 1px solid #f0f0f0;
 }
 .criterio-row:last-child { border-bottom: 0; }
 .criterio-texto { font-size: 13px; color: var(--text); padding-top: 12px; }
 .criterio-controls { display: grid; gap: 6px; }
-.criterio-controls select { width: 100%; min-height: 40px; border: 1px solid #9eabb9; border-radius: 4px; padding: 8px 10px; font: inherit; font-size: 13px; }
-.criterio-controls input[type="text"] { width: 100%; min-height: 36px; border: 1px solid #9eabb9; border-radius: 4px; padding: 6px 10px; font: inherit; font-size: 12px; color: var(--muted); }
+.criterio-controls select { width: 100%; min-height: 40px; border: 1px solid #a8a8a8; border-radius: 4px; padding: 8px 10px; font: inherit; font-size: 13px; }
+.criterio-controls input[type="text"] { width: 100%; min-height: 36px; border: 1px solid #a8a8a8; border-radius: 4px; padding: 6px 10px; font: inherit; font-size: 12px; color: var(--muted); }
 @media (max-width: 600px) { .criterio-row { grid-template-columns: 1fr; } }
 
 /* ─── Card de material vencido ───────────────────────────────────────────────── */
 .vencida-card {
-  border: 1px solid #d8e2f2;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
   overflow: hidden;
-  background: #fff;
+  background: #ffffff;
 }
 .vencida-card-header {
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
-  gap: 10px; padding: 14px 16px; background: #eff4ff;
+  gap: 10px; padding: 14px 16px; background: #f3f3f3;
 }
 .vencida-card-header h3 { margin: 0; font-size: 15px; color: var(--primary); }
 .vencida-card-body { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; }
 .vencida-pieza-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border: 1px solid #c3d0e8; border-radius: 4px;
-  background: #f4f7fd; font-size: 12px; font-weight: 700; color: var(--primary);
+  padding: 4px 10px; border: 1px solid #cecece; border-radius: 4px;
+  background: #f6f6f6; font-size: 12px; font-weight: 700; color: var(--primary);
   font-family: ui-monospace, monospace;
 }
 .vencidas-grid { display: grid; gap: 12px; }
 
 /* ─── Detalle de inspección ──────────────────────────────────────────────────── */
-.inspeccion-respuestas { display: grid; gap: 0; border: 1px solid #d8e2f2; border-radius: 6px; overflow: hidden; }
-.respuesta-row { display: grid; grid-template-columns: 1fr 140px auto; align-items: start; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #edf1f8; font-size: 13px; }
+.inspeccion-respuestas { display: grid; gap: 0; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; }
+.respuesta-row { display: grid; grid-template-columns: 1fr 140px auto; align-items: start; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
 .respuesta-row:last-child { border-bottom: 0; }
-.respuesta-row:nth-child(even) { background: #fafbfd; }
+.respuesta-row:nth-child(even) { background: #fafafa; }
 .respuesta-observacion { color: var(--muted); font-size: 12px; }
 
 /* ─── Upload de foto ─────────────────────────────────────────────────────────── */
-.foto-preview { display: block; width: 100%; max-width: 240px; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; border: 1px solid #d8e2f2; margin: 0 auto 16px; }
+.foto-preview { display: block; width: 100%; max-width: 240px; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; border: 1px solid #e0e0e0; margin: 0 auto 16px; }
 
 
 /* ─── Segmented control 2 cols ───────────────────────────────────────────────── */
@@ -170,8 +170,8 @@
 /* ─── Aviso de estuche incompleto ────────────────────────────────────────────── */
 .aviso-estuche {
   padding: 14px 16px; margin-top: 16px;
-  border: 1px solid #f5c97a; border-radius: 6px; background: #fffbf0;
-  color: #704700; font-size: 13px;
+  border: 1px solid #cdcdcd; border-radius: 6px; background: #fafafa;
+  color: #4b4b4b; font-size: 13px;
 }
 .aviso-estuche strong { display: block; margin-bottom: 4px; }
 
@@ -179,15 +179,15 @@
 .pieza-multiselect { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; padding: 4px 0; }
 .pieza-checkbox-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border: 1px solid #e3e9f2; border-radius: 5px; cursor: pointer;
+  padding: 8px 10px; border: 1px solid #e8e8e8; border-radius: 5px; cursor: pointer;
 }
 .pieza-checkbox-row input { width: 17px; height: 17px; accent-color: var(--primary); }
-.pieza-checkbox-row:has(input:checked) { border-color: var(--accent); background: #f0f6ff; }
+.pieza-checkbox-row:has(input:checked) { border-color: var(--accent); background: #f5f5f5; }
 
 /* ─── Exportar botones ───────────────────────────────────────────────────────── */
 .export-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
 
 /* ─── Alta estuche — tabla de piezas hijas ───────────────────────────────────── */
 .estuche-hijas-table { display: grid; gap: 8px; margin-top: 12px; }
-.estuche-hija-row { display: grid; grid-template-columns: 1fr 100px 36px; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #dfe6ef; border-radius: 5px; background: #f8faff; }
-.estuche-hija-row input[type="number"] { min-height: 36px; text-align: center; border: 1px solid #9eabb9; border-radius: 4px; font: inherit; }
+.estuche-hija-row { display: grid; grid-template-columns: 1fr 100px 36px; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #e4e4e4; border-radius: 5px; background: #f9f9f9; }
+.estuche-hija-row input[type="number"] { min-height: 36px; text-align: center; border: 1px solid #a8a8a8; border-radius: 4px; font: inherit; }

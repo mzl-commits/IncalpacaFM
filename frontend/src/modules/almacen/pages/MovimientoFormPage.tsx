@@ -354,12 +354,13 @@ export function MovimientoFormPage() {
                   />
                 </Field>
               )}
-              <Field label="Observaciones" wide>
+              <Field label="Observaciones">
                 <textarea
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
                   rows={3}
                   placeholder="Detalles adicionales (opcional)"
+                  style={{width: "100%"}}
                 />
               </Field>
             </div>

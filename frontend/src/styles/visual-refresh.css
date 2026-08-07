@@ -5,25 +5,25 @@
  */
 
 :root {
-  --canvas: #f3f6fa;
+  --canvas: #f5f5f5;
   --surface-raised: #ffffff;
-  --surface-subtle: #f8fafc;
-  --surface-inset: #eef3f8;
-  --surface-hover: #f2f6fb;
-  --surface-selected: #eaf3ff;
-  --surface-border: #c7d5e3;
-  --surface-border-strong: #8fa7be;
-  --surface-divider: #dfe7ef;
-  --text: #13263a;
-  --muted: #52677c;
-  --primary: #07345f;
-  --primary-strong: #052746;
-  --accent: #1769b0;
-  --accent-soft: #eaf3ff;
+  --surface-subtle: #f9f9f9;
+  --surface-inset: #f2f2f2;
+  --surface-hover: #f5f5f5;
+  --surface-selected: #f1f1f1;
+  --surface-border: #d2d2d2;
+  --surface-border-strong: #a2a2a2;
+  --surface-divider: #e5e5e5;
+  --text: #222222;
+  --muted: #636363;
+  --primary: #2b2b2b;
+  --primary-strong: #202020;
+  --accent: #585858;
+  --accent-soft: #f1f1f1;
   --surface-radius: 12px;
   --surface-radius-inner: 8px;
-  --surface-shadow: 0 1px 2px rgb(12 38 65 / 0.05), 0 3px 8px rgb(12 38 65 / 0.04);
-  --surface-shadow-hover: 0 3px 8px rgb(12 38 65 / 0.07), 0 8px 14px rgb(12 38 65 / 0.045);
+  --surface-shadow: 0 1px 2px rgb(33 33 33 / 0.05), 0 3px 8px rgb(33 33 33 / 0.04);
+  --surface-shadow-hover: 0 3px 8px rgb(33 33 33 / 0.07), 0 8px 14px rgb(33 33 33 / 0.045);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -53,7 +53,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid rgb(23 105 176 / 0.34);
+  outline: 3px solid rgb(88 88 88 / 0.34);
   outline-offset: 2px;
 }
 
@@ -64,7 +64,7 @@ textarea {
 .sidebar {
   gap: var(--space-6);
   padding: 22px 14px 18px;
-  background: #062d52;
+  background: #252525;
 }
 
 .brand { padding: 2px 8px 20px; }
@@ -81,7 +81,7 @@ textarea {
   height: 68px;
   padding-inline: clamp(18px, 3vw, 36px);
   background: rgb(255 255 255 / 0.96);
-  box-shadow: 0 1px 0 rgb(12 38 65 / 0.06);
+  box-shadow: 0 1px 0 rgb(33 33 33 / 0.06);
 }
 
 .main-content { width: min(100%, 1480px); padding: clamp(22px, 3vw, 40px); }
@@ -128,7 +128,7 @@ textarea {
 .breadcrumb,
 .reports-breadcrumb,
 .qr-inventory-breadcrumb {
-  color: #386991 !important;
+  color: #5e5e5e !important;
   font-weight: 700;
 }
 
@@ -220,15 +220,15 @@ textarea {
 
 th {
   padding: 14px 18px;
-  background: #f1f5f9;
-  color: #46617b;
+  background: #f4f4f4;
+  color: #5b5b5b;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
-td { padding: 17px 18px; color: #24394e; }
-tbody tr:hover td { background: #f6f9fc; }
+td { padding: 17px 18px; color: #353535; }
+tbody tr:hover td { background: #f8f8f8; }
 
 .button,
 .topbar-quick-action,
@@ -246,7 +246,7 @@ tbody tr:hover td { background: #f6f9fc; }
 .button-secondary { border-color: var(--surface-border-strong); color: var(--primary); }
 
 .field,
-.login-field { color: #24394e; font-weight: 650; }
+.login-field { color: #353535; font-weight: 650; }
 
 .field input,
 .field select,
@@ -262,12 +262,12 @@ tbody tr:hover td { background: #f6f9fc; }
   min-height: 46px;
   border-color: var(--surface-border-strong);
   border-radius: 8px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .field input::placeholder,
 .field textarea::placeholder,
-.search-field input::placeholder { color: #63798f; opacity: 1; }
+.search-field input::placeholder { color: #747474; opacity: 1; }
 
 .field input:focus,
 .field select:focus,
@@ -281,7 +281,7 @@ tbody tr:hover td { background: #f6f9fc; }
 .qr-inventory-filter-field select:focus,
 .login-field > div:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgb(23 105 176 / 0.16);
+  box-shadow: 0 0 0 3px rgb(88 88 88 / 0.16);
   outline: 0;
 }
 
@@ -290,14 +290,14 @@ tbody tr:hover td { background: #f6f9fc; }
 /* Auth surface keeps the same operational language without decorative effects. */
 
 .login-page { background: var(--canvas); }
-.login-brand-panel { background: #062d52; }
+.login-brand-panel { background: #252525; }
 .login-brand-panel h1 { letter-spacing: -0.035em; }
 .login-form-panel form {
   border-color: var(--surface-border);
   border-radius: 14px;
-  box-shadow: 0 8px 18px rgb(12 38 65 / 0.08);
+  box-shadow: 0 8px 18px rgb(33 33 33 / 0.08);
 }
-.login-demo-accounts { border: 1px solid #d4e0ec; background: #f2f7fc; }
+.login-demo-accounts { border: 1px solid #dddddd; background: #f6f6f6; }
 
 @media (max-width: 1050px) {
   .app-frame { grid-template-columns: 232px minmax(0, 1fr); }

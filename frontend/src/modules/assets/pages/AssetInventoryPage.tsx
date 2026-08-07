@@ -23,13 +23,22 @@ const FILTER_KEYS = ["q", "assignment", "entryType", "condition", "criticality",
 
 export function AssetInventoryPage() {
   const [assets, setAssets] = useState<RegisteredAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [values]);
+
+  useEffect(() => {
+    setIsLoading(true);
     listRegisteredAssets()
       .then(setAssets)
-      .catch(() => setError("No se pudo cargar el inventario."));
+      .catch(() => setError("No se pudo cargar el inventario."))
+      .finally(() => setIsLoading(false));
   }, []);
 
   const assignmentOptions = useMemo(
@@ -243,7 +252,12 @@ export function AssetInventoryPage() {
         </ListFilterPanel>
 
         <div className="asset-master-list">
-          {filtered.map((asset) => (
+          {isLoading && (
+            <div className="dashboard-loading" aria-label="Cargando inventario" style={{ gridColumn: "1 / -1", minHeight: "200px" }}>
+              <div /><div /><div />
+            </div>
+          )}
+          {!isLoading && filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((asset) => (
             <Link to={`/bienes/${asset.id}`} key={asset.id} className="asset-master-row">
               <div className="asset-master-icon">
                 <Package />
@@ -270,10 +284,34 @@ export function AssetInventoryPage() {
               <CaretRight className="asset-master-caret" />
             </Link>
           ))}
-          {!filtered.length && (
+          {!isLoading && !filtered.length && (
             <p className="empty-row">{error || "No encontramos bienes con esos criterios."}</p>
           )}
         </div>
+
+        {!isLoading && Math.ceil(filtered.length / ITEMS_PER_PAGE) > 1 && (
+          <div style={{ display: "flex", justifyContent: "center", gap: "12px", padding: "24px 0", borderTop: "1px solid var(--border)" }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+            >
+              Anterior
+            </button>
+            <span style={{ display: "flex", alignItems: "center", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Página {currentPage} de {Math.ceil(filtered.length / ITEMS_PER_PAGE)}
+            </span>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={currentPage === Math.ceil(filtered.length / ITEMS_PER_PAGE)}
+              onClick={() => setCurrentPage((p) => p + 1)}
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

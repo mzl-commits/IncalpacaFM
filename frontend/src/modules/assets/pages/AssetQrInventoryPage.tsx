@@ -59,7 +59,6 @@ function getCategory(asset: RegisteredAsset) {
 
 function getLocation(asset: RegisteredAsset) {
   if (asset.draft.locationPending) return "Ubicación por confirmar";
-
   const path = [
     asset.draft.zone,
     asset.draft.building,
@@ -93,7 +92,7 @@ async function createQrDataUrl(publicUrl: string, width = 320) {
     width,
     margin: 2,
     errorCorrectionLevel: "M",
-    color: { dark: "#002b58", light: "#ffffff" },
+    color: { dark: "#000000", light: "#ffffff" },
   });
 }
 
@@ -148,7 +147,6 @@ function AssetQrPreview({ asset }: { asset: RegisteredAsset }) {
     />
   );
 }
-
 export function AssetQrInventoryPage() {
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -300,19 +298,6 @@ export function AssetQrInventoryPage() {
     const normalizedCopies = Math.min(20, Math.max(1, copies));
 
     setActionMessage("");
-    const printWindow = window.open("", "sgtb-qr-print", "width=960,height=720");
-
-    if (!printWindow) {
-      setActionMessage(
-        "El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.",
-      );
-      return;
-    }
-
-    printWindow.opener = null;
-    printWindow.document.title = "Etiquetas QR · SGTB Incalpaca";
-    printWindow.document.body.textContent = "Preparando etiquetas QR…";
-
     try {
       const labels = await Promise.all(
         items.flatMap((asset) => Array.from({ length: normalizedCopies }, async () => ({
@@ -320,7 +305,7 @@ export function AssetQrInventoryPage() {
           dataUrl: await createQrDataUrl(asset.publicUrl, Math.max(240, format.qrMm * 8)),
         }))),
       );
-      const document = printWindow.document;
+      
       const style = document.createElement("style");
       style.textContent = `
         @page { size: A4; margin: 12mm; }
@@ -386,18 +371,40 @@ export function AssetQrInventoryPage() {
         main.append(label);
       });
 
-      document.head.replaceChildren(style);
-      document.body.replaceChildren(main);
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+      
+      const printWindow = iframe.contentWindow;
+      if (!printWindow) return;
+      
+      printWindow.document.open();
+      printWindow.document.write("<!DOCTYPE html><html><head></head><body></body></html>");
+      printWindow.document.close();
+      
+      printWindow.document.head.append(style);
+      printWindow.document.body.append(main);
+      
       await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, 120);
+        window.setTimeout(resolve, 200);
       });
+      
       printWindow.focus();
       printWindow.print();
+      
+      window.setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+
       setActionMessage(
         `${labels.length} ${labels.length === 1 ? "etiqueta preparada" : "etiquetas preparadas"} en formato ${format.label.toLocaleLowerCase("es")}.`,
       );
     } catch {
-      printWindow.close();
       setActionMessage(
         "No se pudieron preparar las etiquetas seleccionadas. Inténtalo nuevamente.",
       );

@@ -376,10 +376,10 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     requesterDni = serializers.CharField(max_length=12)
     assetToken = serializers.CharField(required=False, allow_blank=True, max_length=100)
     locationId = serializers.CharField(required=False, allow_blank=True)
-    zone = serializers.CharField(max_length=120)
-    building = serializers.CharField(max_length=160)
-    area = serializers.CharField(max_length=160)
-    room = serializers.CharField(max_length=160)
+    zone = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    building = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    area = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    room = serializers.CharField(max_length=160, required=False, allow_blank=True)
     description = serializers.CharField(min_length=10, max_length=1000)
     evidence = serializers.ListField(required=False, default=list)
     noPhotoReason = serializers.CharField(required=False, allow_blank=True, max_length=300)
@@ -396,6 +396,10 @@ class PublicWorkRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"impactAnswers": "Indica el detalle cuando el tipo de solicitud es Otro."}
             )
+        asset_token = attrs.get('assetToken', '').strip()
+        zone = attrs.get('zone', '').strip()
+        if not asset_token and not zone:
+            raise serializers.ValidationError({"zone": "Debe indicar la ubicación o escanear un código QR válido."})
         return attrs
 
     def _public_requester(self):
