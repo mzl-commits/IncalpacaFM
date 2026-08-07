@@ -6,8 +6,8 @@
 .location-map-principle,
 .location-map-unavailable {
   align-items: center;
-  background: color-mix(in srgb, var(--color-primary, #075e54) 6%, white);
-  border: 1px solid color-mix(in srgb, var(--color-primary, #075e54) 28%, white);
+  background: color-mix(in srgb, var(--color-primary, #424242) 6%, white);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #424242) 28%, white);
   display: flex;
   gap: 0.85rem;
   padding: 0.9rem 1rem;
@@ -15,7 +15,7 @@
 
 .location-map-principle > svg,
 .location-map-unavailable > svg {
-  color: var(--color-primary, #075e54);
+  color: var(--color-primary, #424242);
   flex: 0 0 auto;
   height: 1.6rem;
   width: 1.6rem;
@@ -31,20 +31,20 @@
 
 .location-map-principle span,
 .location-map-unavailable span {
-  color: var(--text-muted, #5b6776);
+  color: var(--text-muted, #656565);
   font-size: 0.875rem;
 }
 
 .location-map-unavailable a {
-  color: var(--color-primary, #075e54);
+  color: var(--color-primary, #424242);
   font-size: 0.875rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .location-map-admin-summary {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #dfe4ea);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e3e3e3);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin: 0;
@@ -57,11 +57,11 @@
 }
 
 .location-map-admin-summary > div + div {
-  border-left: 1px solid var(--border, #dfe4ea);
+  border-left: 1px solid var(--border, #e3e3e3);
 }
 
 .location-map-admin-summary dt {
-  color: var(--text-muted, #5b6776);
+  color: var(--text-muted, #656565);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -83,8 +83,8 @@
 
 .location-map-catalog,
 .location-map-editor {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #dfe4ea);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e3e3e3);
 }
 
 .location-map-catalog {
@@ -93,7 +93,7 @@
 }
 
 .location-map-catalog-filters {
-  border-bottom: 1px solid var(--border, #dfe4ea);
+  border-bottom: 1px solid var(--border, #e3e3e3);
   display: grid;
   gap: 0.65rem;
   padding: 0.85rem;
@@ -101,15 +101,15 @@
 
 .location-map-catalog-filters label {
   align-items: center;
-  border: 1px solid var(--border, #dfe4ea);
+  border: 1px solid var(--border, #e3e3e3);
   display: flex;
   gap: 0.55rem;
   padding: 0 0.7rem;
 }
 
 .location-map-catalog-filters label:focus-within {
-  border-color: var(--color-primary, #075e54);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #075e54) 16%, transparent);
+  border-color: var(--color-primary, #424242);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #424242) 16%, transparent);
 }
 
 .location-map-catalog-filters input {
@@ -128,7 +128,7 @@
   align-items: flex-start;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid var(--border, #dfe4ea);
+  border-bottom: 1px solid var(--border, #e3e3e3);
   color: inherit;
   cursor: pointer;
   display: grid;
@@ -142,16 +142,16 @@
 
 .location-map-location-list > button:hover,
 .location-map-location-list > button.is-selected {
-  background: color-mix(in srgb, var(--color-primary, #075e54) 6%, white);
+  background: color-mix(in srgb, var(--color-primary, #424242) 6%, white);
 }
 
 .location-map-location-list > button.is-selected {
-  outline: 2px solid color-mix(in srgb, var(--color-primary, #075e54) 45%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--color-primary, #424242) 45%, transparent);
   outline-offset: -2px;
 }
 
 .location-map-location-list button > svg:first-child {
-  color: var(--color-primary, #075e54);
+  color: var(--color-primary, #424242);
   height: 1.3rem;
   margin-top: 0.1rem;
   width: 1.3rem;
@@ -163,16 +163,16 @@
 }
 
 .location-map-location-list button small {
-  color: var(--text-muted, #5b6776);
+  color: var(--text-muted, #656565);
   line-height: 1.4;
 }
 
 .location-map-location-list .has-map {
-  color: #168451;
+  color: #5d5d5d;
 }
 
 .location-map-location-list i {
-  border: 1px solid var(--border, #dfe4ea);
+  border: 1px solid var(--border, #e3e3e3);
   border-radius: 50%;
   height: 0.7rem;
   margin-top: 0.25rem;
@@ -193,7 +193,7 @@
 }
 
 .location-map-editor > header span:first-child {
-  color: var(--text-muted, #5b6776);
+  color: var(--text-muted, #656565);
   font-size: 0.78rem;
 }
 
@@ -204,10 +204,10 @@
 
 .location-map-preview {
   align-items: center;
-  background-color: #f4f7f7;
-  background-image: linear-gradient(#dfe8e7 1px, transparent 1px), linear-gradient(90deg, #dfe8e7 1px, transparent 1px);
+  background-color: #f6f6f6;
+  background-image: linear-gradient(#e5e5e5 1px, transparent 1px), linear-gradient(90deg, #e5e5e5 1px, transparent 1px);
   background-size: 1.5rem 1.5rem;
-  border: 1px solid var(--border, #dfe4ea);
+  border: 1px solid var(--border, #e3e3e3);
   display: flex;
   justify-content: center;
   min-height: 19rem;
@@ -225,7 +225,7 @@
 .location-map-editor-empty,
 .location-map-list-empty {
   align-items: center;
-  color: var(--text-muted, #5b6776);
+  color: var(--text-muted, #656565);
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -236,13 +236,13 @@
 
 .location-map-preview-empty svg,
 .location-map-editor-empty svg {
-  color: var(--color-primary, #075e54);
+  color: var(--color-primary, #424242);
   height: 2.2rem;
   width: 2.2rem;
 }
 
 .location-map-upload-panel {
-  border-top: 1px solid var(--border, #dfe4ea);
+  border-top: 1px solid var(--border, #e3e3e3);
   display: grid;
   gap: 0.9rem;
   padding-top: 1rem;
@@ -250,7 +250,7 @@
 
 .location-map-upload-panel > div:first-child p,
 .location-map-version-note {
-  color: var(--text-muted, #5b6776);
+  color: var(--text-muted, #656565);
   font-size: 0.85rem;
   margin: 0.25rem 0 0;
 }
@@ -268,8 +268,8 @@
 }
 
 .location-map-file {
-  background: #f7f9fa;
-  border: 1px solid var(--border, #dfe4ea);
+  background: #f8f8f8;
+  border: 1px solid var(--border, #e3e3e3);
   padding: 0.7rem 0.8rem;
 }
 
@@ -285,14 +285,14 @@
 }
 
 .location-map-message {
-  color: #117344;
+  color: #505050;
   font-size: 0.875rem;
   font-weight: 650;
   margin: 0;
 }
 
 .location-map-message.is-error {
-  color: #b42318;
+  color: #4d4d4d;
 }
 
 .location-map-actions {
@@ -304,13 +304,13 @@
 }
 
 .location-map-remove {
-  color: #9f2d25;
+  color: #4e4e4e;
   margin-right: auto;
 }
 
 .location-map-remove-confirm {
-  background: #fff7f6;
-  border: 1px solid #e7aaa5;
+  background: #f9f9f9;
+  border: 1px solid #bbbbbb;
   display: grid;
   gap: 0.85rem;
   padding: 0.9rem;
@@ -328,7 +328,7 @@
 }
 
 .location-map-remove-confirm svg {
-  color: #b42318;
+  color: #4d4d4d;
   flex: 0 0 auto;
   height: 1.35rem;
   width: 1.35rem;
@@ -341,25 +341,25 @@
 }
 
 .location-map-remove-confirm span {
-  color: #6e3935;
+  color: #484848;
   font-size: 0.84rem;
 }
 
 .location-map-picker,
 .location-marker-picker {
-  border: 1px solid var(--border, #dfe4ea);
+  border: 1px solid var(--border, #e3e3e3);
   grid-column: 1 / -1;
   overflow: hidden;
 }
 
 .location-marker-picker.has-error {
-  border-color: #c73a31;
+  border-color: #636363;
 }
 
 .location-marker-picker > header,
 .location-marker-picker > footer {
   align-items: center;
-  background: #f8faf9;
+  background: #f9f9f9;
   display: flex;
   gap: 0.75rem;
   justify-content: space-between;
@@ -373,7 +373,7 @@
 
 .location-marker-picker > header span,
 .location-marker-picker > footer {
-  color: var(--text-muted, #5b6776);
+  color: var(--text-muted, #656565);
   font-size: 0.8rem;
 }
 
@@ -381,14 +381,14 @@
 .location-map-load-error button {
   background: transparent;
   border: 0;
-  color: var(--color-primary, #075e54);
+  color: var(--color-primary, #424242);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
 }
 
 .location-marker-stage {
-  background: #e9efee;
+  background: #ededed;
   border: 0;
   cursor: crosshair;
   display: block;
@@ -399,7 +399,7 @@
 }
 
 .location-marker-stage:focus-visible {
-  box-shadow: inset 0 0 0 4px var(--color-primary, #075e54);
+  box-shadow: inset 0 0 0 4px var(--color-primary, #424242);
   outline: 0;
 }
 
@@ -412,7 +412,7 @@
 }
 
 .location-asset-pin {
-  color: #b42318;
+  color: #4d4d4d;
   filter: drop-shadow(0 2px 2px rgb(0 0 0 / 35%));
   left: var(--location-marker-x);
   line-height: 1;
@@ -429,7 +429,7 @@
 }
 
 .location-asset-pin i {
-  background: rgb(180 35 24 / 25%);
+  background: rgb(77 77 77 / 25%);
   border: 2px solid white;
   border-radius: 50%;
   bottom: -0.3rem;
@@ -452,8 +452,8 @@
 
 .location-map-load-error {
   align-items: center;
-  background: #fff7f6;
-  color: #8f2018;
+  background: #f9f9f9;
+  color: #404040;
   display: flex;
   gap: 0.6rem;
   justify-content: center;
@@ -464,7 +464,7 @@
 .location-map-skeleton,
 .location-map-list-skeleton {
   animation: location-map-pulse 1.4s ease-in-out infinite;
-  background: linear-gradient(90deg, #edf1f1 25%, #f8fafa 50%, #edf1f1 75%);
+  background: linear-gradient(90deg, #efefef 25%, #f9f9f9 50%, #efefef 75%);
   background-size: 200% 100%;
   min-height: 18rem;
 }
@@ -494,7 +494,7 @@
 
   .location-map-admin-summary > div + div {
     border-left: 0;
-    border-top: 1px solid var(--border, #dfe4ea);
+    border-top: 1px solid var(--border, #e3e3e3);
   }
 
   .location-map-editor > header,

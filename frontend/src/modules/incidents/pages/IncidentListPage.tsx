@@ -392,7 +392,7 @@ export function IncidentListPage() {
               {requests.map((request) => (
                 <tr key={request.id}>
                   <td>
-                    <strong>{request.code}</strong>
+                    <Link to={`/incidencias/${request.id}`}><strong>{request.code}</strong></Link>
                   </td>
                   <td>{request.requesterName}</td>
                   <td>
@@ -450,7 +450,7 @@ export function IncidentListPage() {
             <Link
               key={request.id}
               to={`/incidencias/${request.id}`}
-              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
             >
               <span className="flex items-start justify-between gap-3">
                 <strong className="text-sm">{request.code}</strong>
@@ -475,7 +475,7 @@ export function IncidentListPage() {
                   {requestPriorityLabels[request.requesterPriority]}
                 </span>
               </span>
-              <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-blue-700">
+              <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-zinc-800">
                 Ver detalle
                 <CaretRight size={18} aria-hidden="true" />
               </span>

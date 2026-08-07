@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowSquareOut,
   CheckCircle,
   NotePencil,
@@ -236,7 +236,9 @@ export function SupervisorWorkOrderReviewPage() {
             <tbody>
               {visibleOrders.map((order) => (
                 <tr className={selectedOrder?.id === order.id ? "is-selected" : ""} key={order.id}>
-                  <td><strong>{order.code}</strong></td>
+                  <td>
+                    <Link to={`/ordenes-trabajo/${order.id}`}><strong>{order.code}</strong></Link>
+                  </td>
                   <td>
                     {order.requestCode}
                     {getWorkOrderAssetDisplayCode(order) && (

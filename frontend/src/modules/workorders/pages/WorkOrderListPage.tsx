@@ -494,7 +494,7 @@ export function WorkOrderListPage() {
             <Link
               key={workOrder.id}
               to={`/ordenes-trabajo/${workOrder.id}`}
-              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
             >
               <span className="flex items-start justify-between gap-3">
                 <strong className="text-sm">{workOrder.code}</strong>
@@ -529,7 +529,7 @@ export function WorkOrderListPage() {
                   {workOrder.progressPercentage} %
                 </span>
               </span>
-              <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-blue-700">
+              <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-zinc-800">
                 Ver detalle
                 <CaretRight size={18} aria-hidden="true" />
               </span>
