@@ -259,7 +259,8 @@ export function WorkOrderDetailPage() {
   );
   const returnInfo = getWorkOrderReturnInfo(workOrder);
   const correctionSchedule = getCorrectionSchedule(workOrder);
-  const canScheduleCorrection = isAdmin && Boolean(returnInfo) && !correctionSchedule;
+  const hasLinkedCorrection = Boolean(workOrder.correctionWorkOrderId);
+  const canScheduleCorrection = isAdmin && Boolean(returnInfo) && !correctionSchedule && !hasLinkedCorrection;
 
   return (
     <section>
@@ -292,6 +293,29 @@ export function WorkOrderDetailPage() {
         </span>
       </div>
 
+
+      {(workOrder.correctionOfId || workOrder.correctionWorkOrderId) && (
+        <article className="data-panel linked-work-order-card">
+          <Briefcase size={22} />
+          <div>
+            {workOrder.correctionOfId ? (
+              <>
+                <strong>Esta OT corrige a:</strong>
+                <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionOfId}`}>
+                  {workOrder.correctionOfCode}
+                </Link>
+              </>
+            ) : (
+              <>
+                <strong>Tiene corrección vinculada:</strong>
+                <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>
+                  {workOrder.correctionWorkOrderCode}
+                </Link>
+              </>
+            )}
+          </div>
+        </article>
+      )}
       <div className="work-order-progress data-panel">
         <div className="work-order-progress-heading">
           <div>
@@ -351,7 +375,7 @@ export function WorkOrderDetailPage() {
               <CheckCircle size={22} />
               <div>
                 <strong>Corrección programada</strong>
-                <p>El operario ya tiene esta corrección en su agenda.</p>
+                <p>Se creó una nueva OT para que el operario atienda la corrección.</p>
               </div>
             </div>
             <dl>
@@ -359,6 +383,9 @@ export function WorkOrderDetailPage() {
               <div><dt>Hora</dt><dd>{correctionSchedule.scheduledStartTime}</dd></div>
               <div><dt>Duración estimada</dt><dd>{correctionSchedule.plannedHours} h</dd></div>
               <div><dt>Indicaciones</dt><dd>{correctionSchedule.administratorNotes}</dd></div>
+              {workOrder.correctionWorkOrderId && (
+                <div><dt>OT de corrección</dt><dd><Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>{workOrder.correctionWorkOrderCode}</Link></dd></div>
+              )}
             </dl>
           </div>
         )}

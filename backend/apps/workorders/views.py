@@ -27,7 +27,8 @@ def participant_queryset(request):
         "supervisor",
         "supervisor__account_profile",
         "satisfaction",
-    ).prefetch_related("traceability_photos")
+        "correction_of",
+    ).prefetch_related("traceability_photos", "correction_orders")
     role = user_role(request.user)
     if role == AccountProfile.Role.TECHNICIAN:
         queryset = queryset.filter(Q(technician=request.user) | Q(supporting_technicians=request.user)).distinct()

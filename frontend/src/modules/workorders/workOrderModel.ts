@@ -1,4 +1,4 @@
-﻿export const SPECIALTIES = [
+export const SPECIALTIES = [
   "ELECTRICIDAD",
   "CARPINTERIA",
   "SOLDADURA",
@@ -89,7 +89,7 @@ export function getWorkOrderReturnInfo(workOrder: WorkOrderReturnFields) {
       statusLabel: "Devuelta por administración",
       title: "Orden devuelta por administración",
       comment: getComment(workOrder.administrator_validation.comment, "Sin motivo administrativo registrado."),
-      nextStep: "Corrige lo indicado y vuelve a enviar la orden a supervisión.",
+      nextStep: "Programa o abre la OT de corrección vinculada para atender lo observado.",
     };
   }
 
@@ -99,7 +99,7 @@ export function getWorkOrderReturnInfo(workOrder: WorkOrderReturnFields) {
       statusLabel: "Devuelta por supervisión",
       title: "Orden devuelta por supervisión",
       comment: getComment(workOrder.supervisor_validation.comment, "Sin motivo del supervisor registrado."),
-      nextStep: "Corrige lo indicado, registra la evidencia y vuelve a enviarla a supervisión.",
+      nextStep: "Programa o abre la OT de corrección vinculada para atender lo observado.",
     };
   }
 
@@ -108,7 +108,7 @@ export function getWorkOrderReturnInfo(workOrder: WorkOrderReturnFields) {
     statusLabel: "Devuelta para corrección",
     title: "Orden devuelta para corrección",
     comment: "Revisa las observaciones registradas antes de continuar.",
-    nextStep: "Corrige lo indicado y vuelve a enviar la orden a supervisión.",
+    nextStep: "Programa o abre la OT de corrección vinculada para atender lo observado.",
   };
 }
 

@@ -1,4 +1,4 @@
-﻿from uuid import UUID
+from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
@@ -185,9 +185,7 @@ class PublicIncidentTrackingView(generics.RetrieveAPIView):
         queryset = Incident.objects.select_related(
             "requester",
             "asset",
-            "work_order",
-            "work_order__technician",
-        )
+        ).prefetch_related("work_orders__technician", "work_orders__satisfaction")
         try:
             UUID(token)
             return get_object_or_404(queryset, pk=token)
@@ -198,7 +196,7 @@ class PublicIncidentConformityView(APIView):
 
     @transaction.atomic
     def post(self, request, token):
-        queryset = Incident.objects.select_related("work_order")
+        queryset = Incident.objects.prefetch_related("work_orders__satisfaction")
         try:
             UUID(token)
             incident = get_object_or_404(queryset, pk=token)

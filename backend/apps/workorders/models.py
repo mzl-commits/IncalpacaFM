@@ -1,4 +1,4 @@
-﻿
+
 import uuid
 
 from django.conf import settings
@@ -21,8 +21,15 @@ class WorkOrder(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.CharField(max_length=24, unique=True)
-    incident = models.OneToOneField(
-        Incident, related_name="work_order", on_delete=models.PROTECT
+    incident = models.ForeignKey(
+        Incident, related_name="work_orders", on_delete=models.PROTECT
+    )
+    correction_of = models.ForeignKey(
+        "self",
+        related_name="correction_orders",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
     )
     technician = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="technical_orders", on_delete=models.PROTECT
