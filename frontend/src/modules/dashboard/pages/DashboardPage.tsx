@@ -132,7 +132,19 @@ function TechnicianDashboard() {
         <button className="button button-secondary" type="button" onClick={() => void refresh()} disabled={loading}><ArrowClockwise size={18} className={loading ? "is-spinning" : ""} />Actualizar</button>
       </header>
 
-      {loading ? <div className="dashboard-loading technician-dashboard-loading" aria-label="Cargando mi jornada"><div /><div /><div /></div> : <>
+      {loading ? (
+        <>
+          <section className="technician-dashboard-focus data-panel" aria-label="Cargando estado">
+            <div className="skeleton skeleton-block" style={{ height: "180px", borderRadius: "12px", border: "none" }} />
+          </section>
+          <section className="technician-dashboard-hours data-panel" aria-label="Cargando horas">
+            <div className="skeleton skeleton-block" style={{ height: "160px", borderRadius: "12px", border: "none" }} />
+          </section>
+          <section className="technician-dashboard-orders data-panel" aria-label="Cargando órdenes">
+            <div className="skeleton skeleton-block" style={{ height: "300px", borderRadius: "12px", border: "none" }} />
+          </section>
+        </>
+      ) : <>
         <section className="technician-dashboard-focus" aria-labelledby="next-task-title">
           <div className="technician-dashboard-focus-copy">
             <span>{activeOrder ? "Sesión en curso" : "Siguiente acción"}</span>
@@ -344,11 +356,23 @@ function AdministrativeDashboard() {
       )}
 
       {loading ? (
-        <div className="dashboard-loading" aria-label="Cargando panel">
-          <div />
-          <div />
-          <div />
-        </div>
+        <>
+          <section className="dashboard-overview">
+            <div className="dashboard-overview-intro data-panel skeleton" style={{ minHeight: "140px", border: "none" }}></div>
+            <dl className="dashboard-stat-list">
+               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
+               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
+               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
+            </dl>
+          </section>
+          
+          <div className="dashboard-main-grid">
+            <section className="dashboard-priorities data-panel skeleton" style={{ minHeight: "300px", border: "none" }}></section>
+            <aside className="dashboard-quick-actions data-panel skeleton" style={{ minHeight: "300px", border: "none" }}></aside>
+          </div>
+          
+          <section className="dashboard-activity data-panel skeleton" style={{ minHeight: "240px", marginTop: "24px", border: "none" }}></section>
+        </>
       ) : (
         <>
           <section

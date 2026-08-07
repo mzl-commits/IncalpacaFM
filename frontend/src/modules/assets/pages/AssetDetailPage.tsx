@@ -23,6 +23,7 @@ import {
   type AssetDetailRecord,
   type AssetDetailUpdate,
 } from "@/modules/assets/assetDetailRepository";
+import { ModelCreatableSelect } from "@/modules/assets/components/ModelCreatableSelect";
 import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
 
 type DetailTab = "overview" | "responsibles" | "repairs" | "qr";
@@ -542,9 +543,11 @@ export function AssetDetailPage() {
                 </label>
                 <label className="field">
                   <span>Modelo</span>
-                  <input
+                  <ModelCreatableSelect
+                    taxonomyId={asset?.taxonomy_detail?.id ?? ""}
                     value={editForm.model}
-                    onChange={(event) => updateEditField("model", event.target.value)}
+                    onChange={(val) => updateEditField("model", val)}
+                    disabled={!asset?.taxonomy_detail?.id}
                   />
                 </label>
                 <label className="field">
