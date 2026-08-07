@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from datetime import datetime, time
 
 from django.conf import settings
@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import AccountProfile
 from apps.assets.file_validation import validate_uploaded_file
+from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
 from apps.incidents.models import Incident
 from apps.notifications.services import (
@@ -61,8 +62,13 @@ def effective_work_minutes(order):
     return round(total_seconds / 60)
 
 class WorkOrderSerializer(serializers.ModelSerializer):
-    requestId = serializers.UUIDField(source="incident_id")
+    requestId = serializers.UUIDField(source="incident_id", required=False, allow_null=True)
     requestCode = serializers.CharField(source="incident.code", read_only=True)
+    orderType = serializers.CharField(source="order_type", required=False)
+    directRequestDescription = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    directRequestType = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    directAssetId = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    directLocationId = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     assetId = serializers.SerializerMethodField()
     assetCode = serializers.SerializerMethodField()
     assetDisplayCode = serializers.SerializerMethodField()
@@ -104,6 +110,11 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "code",
             "requestId",
             "requestCode",
+            "orderType",
+            "directRequestDescription",
+            "directRequestType",
+            "directAssetId",
+            "directLocationId",
             "assetId",
             "assetCode",
             "assetDisplayCode",
@@ -215,7 +226,13 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         request = self.context["request"]
-        incident_id = validated_data.pop("incident_id")
+        incident_id = validated_data.pop("incident_id", None)
+        direct_order = not incident_id
+        direct_description = validated_data.pop("directRequestDescription", "").strip()
+        order_type = validated_data.get("order_type") or WorkOrder.OrderType.WORK
+        direct_request_type = validated_data.pop("directRequestType", "").strip() or ("OL directa" if order_type == WorkOrder.OrderType.CLEANING else "OT directa")
+        direct_asset_id = validated_data.pop("directAssetId", None)
+        direct_location_id = validated_data.pop("directLocationId", None)
         technician_code = validated_data.pop("technicianWorkerCode", "tecnico")
         technician_codes = validated_data.pop("technicianWorkerCodes", [])
         supervisor_code = validated_data.pop("supervisorWorkerCode", "supervisor")
@@ -225,10 +242,69 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             account_profile__role=AccountProfile.Role.TECHNICIAN,
         )
         supervisor = users.get(account_profile__worker_code=supervisor_code)
-        incident = Incident.objects.select_for_update().get(pk=incident_id)
-        sequence = WorkOrder.objects.select_for_update().count() + 1
+        if incident_id:
+            incident = Incident.objects.select_for_update().get(pk=incident_id)
+        else:
+            if not direct_description:
+                raise serializers.ValidationError({"directRequestDescription": "Describe la orden que se va a ejecutar."})
+            asset = None
+            if direct_asset_id:
+                asset = Asset.objects.select_related("location", "location_map").filter(pk=direct_asset_id).first()
+                if not asset:
+                    raise serializers.ValidationError({"directAssetId": "Selecciona un bien valido."})
+                direct_location_id = direct_location_id or asset.location_id
+            if not direct_location_id:
+                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicacion para la orden."})
+            location = Location.objects.filter(pk=direct_location_id, active=True).first()
+            if not location:
+                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicacion valida."})
+            location_map = None
+            if asset and asset.location_map_id and asset.location_id == location.id:
+                location_map = asset.location_map
+            if not location_map:
+                location_map = location.reference_maps.filter(active=True).first()
+            location_snapshot = {
+                "locationId": str(location.id),
+                "zone": location.zone,
+                "building": location.building,
+                "area": location.area,
+                "room": location.room,
+                "locationMapId": str(location_map.id) if location_map else None,
+                "locationMarkerX": float(asset.location_marker_x) if asset and asset.location_marker_x is not None else None,
+                "locationMarkerY": float(asset.location_marker_y) if asset and asset.location_marker_y is not None else None,
+            }
+            incident_sequence = Incident.objects.select_for_update().count() + 1
+            incident = Incident.objects.create(
+                code=f"SOL-{timezone.localdate().year}-{incident_sequence:04d}",
+                requester=request.user,
+                asset=asset,
+                request_type=direct_request_type,
+                description=direct_description,
+                requester_priority=validated_data.get("admin_priority", "MEDIA"),
+                status=Incident.Status.IN_PROGRESS,
+                location_snapshot=location_snapshot,
+                requester_contact={
+                    "name": request.user.get_full_name() or request.user.username,
+                    "email": request.user.email,
+                    "source": "ADMIN_DIRECT_ORDER",
+                },
+                impact_assessment={
+                    "createdByAdmin": True,
+                    "source": "ADMIN_DIRECT_ORDER",
+                    "orderType": order_type,
+                    "specialty": validated_data.get("specialty", ""),
+                },
+            )
+            record_audit(
+                request=request,
+                action="INCIDENT_CREATED_BY_ADMIN_FOR_WORK_ORDER",
+                entity="Incident",
+                entity_id=incident.id,
+                after={"code": incident.code, "status": incident.status},
+            )
+        sequence = WorkOrder.objects.select_for_update().filter(order_type=order_type).count() + 1
         order = WorkOrder.objects.create(
-            code=f"OT-{timezone.localdate().year}-{sequence:04d}",
+            code=f"{order_type}-{timezone.localdate().year}-{sequence:04d}",
             incident=incident,
             technician=technician,
             supervisor=supervisor,
@@ -287,17 +363,18 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             entity=order,
             discriminator='planner',
         )
-        queue_incident_requester(
-            event='INCIDENT_REVIEW_SCHEDULED',
-            incident=incident,
-            subject=f'Revisión programada para tu reporte {incident.code}',
-            body=(
-                f'Programamos la revisión de tu reporte {incident.code} para el '
-                f'{order.scheduled_date.strftime("%d/%m/%Y")}. '
-                'Te avisaremos cuando la revisión haya sido aprobada.'
-            ),
-            discriminator=order.code,
-        )
+        if not direct_order:
+            queue_incident_requester(
+                event='INCIDENT_REVIEW_SCHEDULED',
+                incident=incident,
+                subject=f'Revisión programada para tu reporte {incident.code}',
+                body=(
+                    f'Programamos la revisión de tu reporte {incident.code} para el '
+                    f'{order.scheduled_date.strftime("%d/%m/%Y")}. '
+                    'Te avisaremos cuando la revisión haya sido aprobada.'
+                ),
+                discriminator=order.code,
+            )
         return order
 
 

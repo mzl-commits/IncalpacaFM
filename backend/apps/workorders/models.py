@@ -9,6 +9,11 @@ from apps.assets.storage import private_asset_photo_storage
 
 
 class WorkOrder(models.Model):
+    class OrderType(models.TextChoices):
+        WORK = "OT", "Orden de trabajo"
+        CLEANING = "OL", "Orden de limpieza"
+        SERVICE = "OS", "Orden de servicio"
+
     class Status(models.TextChoices):
         SCHEDULED = "PROGRAMADA", "Programada"
         IN_PROGRESS = "EN_PROCESO", "En proceso"
@@ -21,6 +26,7 @@ class WorkOrder(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.CharField(max_length=24, unique=True)
+    order_type = models.CharField(max_length=2, choices=OrderType.choices, default=OrderType.WORK)
     incident = models.ForeignKey(
         Incident, related_name="work_orders", on_delete=models.PROTECT
     )

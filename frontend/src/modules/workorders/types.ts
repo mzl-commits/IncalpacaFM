@@ -2,6 +2,7 @@ import type {
   AdminPriority,
   Specialty,
   WorkOrderStatus,
+  WorkOrderType,
 } from "./workOrderModel";
 
 export interface WorkOrderSession {
@@ -38,6 +39,7 @@ export interface WorkOrder {
 
   requestId: string;
   requestCode: string;
+  orderType?: WorkOrderType;
   assetId?: string | null;
   assetCode?: string | null;
   assetDisplayCode?: string | null;

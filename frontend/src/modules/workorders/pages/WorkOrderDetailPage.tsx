@@ -219,8 +219,8 @@ export function WorkOrderDetailPage() {
       <section>
         <div className="page-heading">
           <div>
-            <p className="breadcrumb">Mantenimiento / Órdenes de trabajo / Detalle</p>
-            <h1>Orden de trabajo no encontrada</h1>
+            <p className="breadcrumb">Mantenimiento / Ordenes operativas / Detalle</p>
+            <h1>Orden no encontrada</h1>
             <p>La orden indicada no existe o ya no está disponible.</p>
           </div>
           <Link className="button button-secondary" to="/ordenes-trabajo">
@@ -232,6 +232,39 @@ export function WorkOrderDetailPage() {
     );
   }
 
+  const isCleaningOrder = workOrder.orderType === "OL" || workOrder.code.startsWith("OL-");
+  const orderCopy = {
+    singular: isCleaningOrder ? "orden de limpieza" : "orden de trabajo",
+    singularTitle: isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
+    detailTitle: isCleaningOrder ? "Detalle de orden de limpieza" : "Detalle de orden de trabajo",
+    detailDescription: isCleaningOrder ? "Revisa limpieza, supervisión y validación administrativa." : "Revisa ejecución, supervisión y validación administrativa.",
+    defaultDescription: isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
+    linkedPrefix: isCleaningOrder ? "Esta OL corrige a:" : "Esta OT corrige a:",
+    linkedCorrectionLabel: isCleaningOrder ? "OL de corrección" : "OT de corrección",
+    progressLabel: isCleaningOrder ? "Avance de la limpieza" : "Avance de la orden",
+    validationTitle: isCleaningOrder ? "Validación de la limpieza" : "Validación del trabajo",
+    operatorStep: isCleaningOrder ? "1. Responsable" : "1. Operario",
+    doneLabel: isCleaningOrder ? "Limpieza terminada" : "Trabajo terminado",
+    runningLabel: isCleaningOrder ? "En limpieza" : "En ejecución",
+    adminPendingHelp: isCleaningOrder ? "Debe aprobar o devolver la limpieza" : "Debe aprobar o devolver la ejecución",
+    correctionCreated: isCleaningOrder ? "Se creó una nueva OL para que el responsable atienda la corrección." : "Se creó una nueva OT para que el operario atienda la corrección.",
+    correctionHelp: isCleaningOrder ? "Define cuándo debe retomar la limpieza el responsable." : "Define cuándo debe retomar el trabajo el operario.",
+    correctionNotesLabel: isCleaningOrder ? "Indicaciones para limpieza" : "Indicaciones para el operario",
+    correctionPlaceholder: isCleaningOrder ? "Ej. Repetir limpieza del ambiente y adjuntar foto final." : "Ej. Revisar evidencia faltante y corregir el acabado indicado.",
+    adminCommentPlaceholder: isCleaningOrder ? "Observaciones finales, conformidad o motivo de devolución de la limpieza." : "Observaciones finales, conformidad o motivo de devolución.",
+    dataTitle: isCleaningOrder ? "Datos de la OL" : "Datos de la orden",
+    operatorLabel: isCleaningOrder ? "Responsable de limpieza" : "Operario asignado",
+    scheduleTitle: isCleaningOrder ? "Programación de limpieza" : "Programación",
+    durationTitle: isCleaningOrder ? "Tiempo de limpieza" : "Tiempo de ejecución",
+    startLabel: isCleaningOrder ? "Inicio del responsable" : "Inicio del operario",
+    endLabel: isCleaningOrder ? "Fin del responsable" : "Fin del operario",
+    effectiveTimeLabel: isCleaningOrder ? "Tiempo efectivo de limpieza" : "Tiempo efectivo trabajado",
+    locationTitle: isCleaningOrder ? "Ubicación de limpieza" : "Ubicación del trabajo",
+    executionTitle: isCleaningOrder ? "Ejecución de la limpieza" : "Ejecución de la orden",
+    executionEmpty: isCleaningOrder ? "Los avances y evidencias del responsable aparecerán en esta sección." : "Los avances, materiales, herramientas y evidencias del operario aparecerán en esta sección.",
+    progressButton: isCleaningOrder ? "Registrar avance de limpieza" : "Registrar avance",
+    diagnosisButton: isCleaningOrder ? "Observación inicial" : "Diagnóstico técnico",
+  };
   const isAdmin = user?.role === "ADMINISTRADOR";
   const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
   const isAssignedTechnician = user?.id === workOrder.operatorId;
@@ -267,9 +300,9 @@ export function WorkOrderDetailPage() {
     <section>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Mantenimiento / Órdenes de trabajo / {workOrder.code}</p>
-          <h1>Detalle de orden de trabajo</h1>
-          <p>Revisa ejecución, supervisión y validación administrativa.</p>
+          <p className="breadcrumb">Mantenimiento / Ordenes operativas / {workOrder.code}</p>
+          <h1>{orderCopy.detailTitle}</h1>
+          <p>{orderCopy.detailDescription}</p>
         </div>
 
         <Link className="button button-secondary" to="/ordenes-trabajo">
@@ -281,7 +314,7 @@ export function WorkOrderDetailPage() {
       <div className="detail-header data-panel">
         <div>
           <span className="detail-code">{workOrder.code}</span>
-          <h2>{request?.description ?? "Orden de trabajo"}</h2>
+          <h2>{request?.description ?? orderCopy.defaultDescription}</h2>
           <p>
             Solicitud de origen:{" "}
             <Link className="detail-link" to={`/incidencias/${workOrder.requestId}`}>
@@ -301,7 +334,7 @@ export function WorkOrderDetailPage() {
           <div>
             {workOrder.correctionOfId ? (
               <>
-                <strong>Esta OT corrige a:</strong>
+                <strong>{orderCopy.linkedPrefix}</strong>
                 <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionOfId}`}>
                   {workOrder.correctionOfCode}
                 </Link>
@@ -320,7 +353,7 @@ export function WorkOrderDetailPage() {
       <div className="work-order-progress data-panel">
         <div className="work-order-progress-heading">
           <div>
-            <span>Avance de la orden</span>
+            <span>{orderCopy.progressLabel}</span>
             <strong>{workOrder.progressPercentage} %</strong>
           </div>
           <small>Ultima actualizacion: {formatDateTime(workOrder.updatedAt)}</small>
@@ -336,13 +369,13 @@ export function WorkOrderDetailPage() {
       <article className="data-panel detail-card work-order-validation-card">
         <div className="detail-card-heading">
           <ShieldCheck size={22} />
-          <h2>Validación del trabajo</h2>
+          <h2>{orderCopy.validationTitle}</h2>
         </div>
 
         <div className="validation-flow-grid">
           <div>
-            <span>1. Operario</span>
-            <strong>{workOrder.progressPercentage === 100 ? "Trabajo terminado" : "En ejecución"}</strong>
+            <span>{orderCopy.operatorStep}</span>
+            <strong>{workOrder.progressPercentage === 100 ? orderCopy.doneLabel : orderCopy.runningLabel}</strong>
             <small>{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</small>
           </div>
           <div>
@@ -353,10 +386,10 @@ export function WorkOrderDetailPage() {
           <div>
             <span>3. Administrador</span>
             <strong>{needsAdminReview ? "Pendiente de decision" : getValidationLabel(workOrder.administrator_validation)}</strong>
-            <small>{needsAdminReview ? "Debe aprobar o devolver la ejecución" : adminRegisteredComment}</small>
+            <small>{needsAdminReview ? orderCopy.adminPendingHelp : adminRegisteredComment}</small>
           </div>
           <div>
-            <span>4. Solicitante · opcional</span>
+            <span>4. Solicitante - opcional</span>
             <strong>{workOrder.satisfaction ? "Evaluación registrada" : "Sin evaluación"}</strong>
             <small>{getRatingLabel(workOrder.satisfaction)} - {requesterComment}</small>
           </div>
@@ -376,7 +409,7 @@ export function WorkOrderDetailPage() {
               <CheckCircle size={22} />
               <div>
                 <strong>Corrección programada</strong>
-                <p>Se creó una nueva OT para que el operario atienda la corrección.</p>
+                <p>{orderCopy.correctionCreated}</p>
               </div>
             </div>
             <dl>
@@ -385,7 +418,7 @@ export function WorkOrderDetailPage() {
               <div><dt>Duración estimada</dt><dd>{correctionSchedule.plannedHours} h</dd></div>
               <div><dt>Indicaciones</dt><dd>{correctionSchedule.administratorNotes}</dd></div>
               {workOrder.correctionWorkOrderId && (
-                <div><dt>OT de corrección</dt><dd><Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>{workOrder.correctionWorkOrderCode}</Link></dd></div>
+                <div><dt>{orderCopy.linkedCorrectionLabel}</dt><dd><Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>{workOrder.correctionWorkOrderCode}</Link></dd></div>
               )}
             </dl>
           </div>
@@ -395,7 +428,7 @@ export function WorkOrderDetailPage() {
           <form className="correction-schedule-form" onSubmit={handleScheduleCorrection}>
             <div>
               <strong>Programar corrección</strong>
-              <p>Define cuándo debe retomar el trabajo el operario.</p>
+              <p>{orderCopy.correctionHelp}</p>
             </div>
             <div className="form-grid">
               <label className="field">
@@ -426,12 +459,12 @@ export function WorkOrderDetailPage() {
                 />
               </label>
               <label className="field field-wide">
-                <span>Indicaciones para el operario</span>
+                <span>{orderCopy.correctionNotesLabel}</span>
                 <textarea
                   rows={3}
                   value={correctionNotes}
                   onChange={(event) => setCorrectionNotes(event.target.value)}
-                  placeholder="Ej. Revisar evidencia faltante y corregir el acabado indicado."
+                  placeholder={orderCopy.correctionPlaceholder}
                 />
               </label>
             </div>
@@ -454,7 +487,7 @@ export function WorkOrderDetailPage() {
                 rows={4}
                 value={adminComment}
                 onChange={(event) => setAdminComment(event.target.value)}
-                placeholder="Observaciones finales, conformidad o motivo de devolución."
+                placeholder={orderCopy.adminCommentPlaceholder}
               />
             </label>
 
@@ -483,7 +516,7 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <Briefcase size={22} />
-            <h2>Datos de la orden</h2>
+            <h2>{orderCopy.dataTitle}</h2>
           </div>
           <dl className="detail-list">
             <div><dt>Especialidad</dt><dd>{specialtyLabels[workOrder.specialty]}</dd></div>
@@ -502,7 +535,7 @@ export function WorkOrderDetailPage() {
             <h2>Responsables</h2>
           </div>
           <dl className="detail-list">
-            <div><dt>Operario asignado</dt><dd>{workOrder.operatorName}</dd></div>
+            <div><dt>{orderCopy.operatorLabel}</dt><dd>{workOrder.operatorName}</dd></div>
             <div><dt>Supervisor asignado</dt><dd>{workOrder.supervisorName}</dd></div>
           </dl>
         </article>
@@ -510,7 +543,7 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <CalendarBlank size={22} />
-            <h2>Programación</h2>
+            <h2>{orderCopy.scheduleTitle}</h2>
           </div>
           <dl className="detail-list">
             <div><dt>Fecha programada</dt><dd>{formatDate(workOrder.scheduledDate)}</dd></div>
@@ -523,12 +556,12 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card work-order-duration-card">
           <div className="detail-card-heading">
             <ClockCounterClockwise size={22} />
-            <h2>Tiempo de ejecución</h2>
+            <h2>{orderCopy.durationTitle}</h2>
           </div>
           <dl className="detail-list">
-            <div><dt>Inicio del operario</dt><dd>{formatDateTime(workOrder.startedAt)}</dd></div>
-            <div><dt>Fin del operario</dt><dd>{formatDateTime(workOrder.finishedAt)}</dd></div>
-            <div><dt>Tiempo efectivo trabajado</dt><dd>{formatMinutesDuration(workOrder.effectiveWorkMinutes)}</dd></div>
+            <div><dt>{orderCopy.startLabel}</dt><dd>{formatDateTime(workOrder.startedAt)}</dd></div>
+            <div><dt>{orderCopy.endLabel}</dt><dd>{formatDateTime(workOrder.finishedAt)}</dd></div>
+            <div><dt>{orderCopy.effectiveTimeLabel}</dt><dd>{formatMinutesDuration(workOrder.effectiveWorkMinutes)}</dd></div>
             <div><dt>Tiempo calendario</dt><dd>{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</dd></div>
           </dl>
         </article>
@@ -536,13 +569,13 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <MapPin size={22} />
-            <h2>Ubicación del trabajo</h2>
+            <h2>{orderCopy.locationTitle}</h2>
           </div>
           {request ? (
             <dl className="detail-list">
               <div><dt>Zona</dt><dd>{request.zone}</dd></div>
               <div><dt>Edificio</dt><dd>{request.building}</dd></div>
-              <div><dt>Área</dt><dd>{request.area}</dd></div>
+              <div><dt>Area</dt><dd>{request.area}</dd></div>
               <div><dt>Ambiente</dt><dd>{request.room}</dd></div>
             </dl>
           ) : (
@@ -562,20 +595,20 @@ export function WorkOrderDetailPage() {
       <article className="data-panel detail-card work-order-actions-card">
         <div className="detail-card-heading">
           <Wrench size={22} />
-          <h2>Ejecución de la orden</h2>
+          <h2>{orderCopy.executionTitle}</h2>
         </div>
         <p className="detail-empty">
-          Los avances, materiales, herramientas y evidencias del operario aparecerán en está seccion.
+          {orderCopy.executionEmpty}
         </p>
 
         {canRegisterProgress && (
           <div className="work-order-detail-actions">
             <Link className="button button-primary" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
-              Registrar avance
+              {orderCopy.progressButton}
             </Link>
             <Link className="button button-secondary" to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}>
               <Stethoscope size={18} />
-              Diagnóstico técnico
+              {orderCopy.diagnosisButton}
             </Link>
           </div>
         )}

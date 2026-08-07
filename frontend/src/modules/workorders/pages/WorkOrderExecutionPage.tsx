@@ -84,7 +84,7 @@ export function WorkOrderExecutionPage() {
     }
 
     if (!startPhoto && !workOrder.startPhoto) {
-      setError("Adjunta una foto del estado inicial antes de iniciar la orden.");
+      setError(executionCopy.initialPhotoError);
       return;
     }
 
@@ -143,7 +143,7 @@ export function WorkOrderExecutionPage() {
     }
 
     if (percentage === 100 && !finishPhoto && !workOrder.finishPhoto) {
-      setError("Adjunta una foto del trabajo terminado antes de finalizar la orden.");
+      setError(executionCopy.finishPhotoError);
       return;
     }
 
@@ -182,7 +182,7 @@ export function WorkOrderExecutionPage() {
         <div className="page-heading">
           <div>
             <p className="breadcrumb">
-              Mantenimiento / Órdenes / Ejecución
+              Mantenimiento / Órdenes operativas / Ejecución
             </p>
 
             <h1>Orden no encontrada</h1>
@@ -204,6 +204,33 @@ export function WorkOrderExecutionPage() {
     );
   }
 
+  const isCleaningOrder = workOrder.orderType === "OL" || workOrder.code.startsWith("OL-");
+  const executionCopy = {
+    pageTitle: isCleaningOrder ? "Ejecutar limpieza" : "Ejecutar orden de trabajo",
+    pageDescription: isCleaningOrder ? "Registra el avance y las evidencias de la limpieza realizada." : "Registra el avance y las evidencias del trabajo realizado.",
+    defaultDescription: isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
+    assignedLabel: isCleaningOrder ? "Responsable de limpieza" : "Operario asignado",
+    cannotAdvance: isCleaningOrder ? "La OL no admite nuevos avances" : "La orden no admite nuevos avances",
+    startTitle: isCleaningOrder ? "Iniciar limpieza" : "Iniciar ejecución",
+    startHelp: isCleaningOrder ? "Usa este botón cada vez que empieces o retomes la limpieza." : "Usa este botón cada vez que empieces o retomes el trabajo.",
+    initialPhotoError: isCleaningOrder ? "Adjunta una foto del ambiente antes de iniciar la limpieza." : "Adjunta una foto del estado inicial antes de iniciar la orden.",
+    finishPhotoError: isCleaningOrder ? "Adjunta una foto del ambiente limpio antes de finalizar la OL." : "Adjunta una foto del trabajo terminado antes de finalizar la orden.",
+    activeHelp: isCleaningOrder ? "El tiempo efectivo está corriendo. Pausa cuando dejes de trabajar en esta OL." : "El tiempo efectivo está corriendo. Pausa cuando dejes de trabajar en esta OT.",
+    progressTitle: isCleaningOrder ? "Avance de la limpieza" : "Avance del trabajo",
+    progressHelp: isCleaningOrder ? "Actualiza el avance. El tiempo solo cuenta mientras la sesión está activa." : "Actualiza el avance. El tiempo se registra únicamente con la sesión activa.",
+    noteLabel: isCleaningOrder ? "Observación de limpieza" : "Nota para la solicitud",
+    notePlaceholder: isCleaningOrder ? "Agrega una observación si encontraste algo pendiente o fuera de lo normal." : "Comparte una actualización, hallazgo o dificultad si es necesario.",
+    evidenceHelp: isCleaningOrder ? "Adjunta fotos del avance o del ambiente limpio." : "Adjunta fotografías del avance o trabajo terminado.",
+    finishPhotoTitle: isCleaningOrder ? "Foto final obligatoria" : "Foto de finalización obligatoria",
+    finishPhotoHelp: isCleaningOrder ? "Registra cómo quedó el ambiente antes de enviar la OL a supervisión." : "Registra el resultado final antes de enviar la OT a supervisión.",
+    resumeButton: isCleaningOrder ? "Reanudar limpieza" : "Reanudar trabajo",
+    startButton: isCleaningOrder ? "Iniciar limpieza" : "Iniciar trabajo",
+    pauseButton: isCleaningOrder ? "Pausar limpieza" : "Pausar trabajo",
+    finishButton: isCleaningOrder ? "Finalizar limpieza y enviar a supervisión" : "Finalizar y enviar a supervisión",
+    resendButton: isCleaningOrder ? "Reenviar limpieza a supervisión" : "Reenviar a supervisión",
+    continueButton: isCleaningOrder ? "Iniciar limpieza para continuar" : "Iniciar trabajo para continuar",
+    resumeContinueButton: isCleaningOrder ? "Reanudar limpieza para continuar" : "Reanudar trabajo para continuar",
+  };
   const returnInfo = getWorkOrderReturnInfo(workOrder);
   const hasLinkedCorrection = Boolean(workOrder.correctionWorkOrderId);
   const isCorrectionScheduledForFuture = Boolean(
@@ -235,16 +262,13 @@ export function WorkOrderExecutionPage() {
       <div className="page-heading">
         <div>
           <p className="breadcrumb">
-            Mantenimiento / Órdenes /{" "}
+            Mantenimiento / Órdenes operativas /{" "}
             {workOrder.code} / Ejecución
           </p>
 
-          <h1>Ejecutar orden de trabajo</h1>
+          <h1>{executionCopy.pageTitle}</h1>
 
-          <p>
-            Registra el avance y las evidencias
-            del trabajo realizado.
-          </p>
+          <p>{executionCopy.pageDescription}</p>
         </div>
 
         <Link
@@ -264,11 +288,11 @@ export function WorkOrderExecutionPage() {
 
           <h2>
             {request?.description ??
-              "Orden de trabajo"}
+              executionCopy.defaultDescription}
           </h2>
 
           <p>
-            Operario asignado:{" "}
+            {executionCopy.assignedLabel}:{" "}
             {workOrder.operatorName}
           </p>
         </div>
@@ -280,13 +304,11 @@ export function WorkOrderExecutionPage() {
 
       {cannotExecute ? (
         <article className="data-panel detail-card">
-          <h2>
-            {isCorrectionScheduledForFuture ? "Corrección programada" : "La orden no admite nuevos avances"}
-          </h2>
+          <h2>{isCorrectionScheduledForFuture ? "Corrección programada" : executionCopy.cannotAdvance}</h2>
 
           <p className="detail-empty">
             {hasLinkedCorrection ? (
-              <>Esta OT tiene una corrección vinculada: <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>{workOrder.correctionWorkOrderCode}</Link>.</>
+              <>Esta orden tiene una corrección vinculada: <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>{workOrder.correctionWorkOrderCode}</Link>.</>
             ) : isCorrectionScheduledForFuture ? (
               `Esta corrección está programada para ${workOrder.scheduledDate} a las ${workOrder.scheduledStartTime?.slice(0, 5) || "08:00"}.`
             ) : (
@@ -312,10 +334,10 @@ export function WorkOrderExecutionPage() {
           {canStartSession && (
             <article id="work-session-start" className="data-panel execution-start-card">
               <div>
-                <h2>Iniciar ejecución</h2>
+                <h2>{executionCopy.startTitle}</h2>
 
                 <p>
-                  Usa este boton cada vez que empieces o retomes el trabajo.
+                  {executionCopy.startHelp}
                 </p>
               </div>
 
@@ -343,7 +365,7 @@ export function WorkOrderExecutionPage() {
                     size={18}
                     weight="fill"
                   />
-                  {workOrder.progressPercentage > 0 ? "Reanudar trabajo" : "Iniciar trabajo"}
+                  {workOrder.progressPercentage > 0 ? executionCopy.resumeButton : executionCopy.startButton}
                 </button>
               </div>
             </article>
@@ -354,9 +376,7 @@ export function WorkOrderExecutionPage() {
             <article className="data-panel execution-start-card work-session-card">
               <div>
                 <h2>Sesión activa</h2>
-                <p>
-                  El tiempo efectivo está corriendo. Pausa cuando dejes de trabajar en esta OT.
-                </p>
+                <p>{executionCopy.activeHelp}</p>
                 <strong className="work-session-timer" aria-label={`Sesión activa: ${formatTimer(activeSessionSeconds)}`}>
                   {formatTimer(activeSessionSeconds)}
                 </strong>
@@ -369,7 +389,7 @@ export function WorkOrderExecutionPage() {
                 onClick={handlePause}
               >
                 <Pause size={18} weight="fill" />
-                Pausar trabajo
+                {executionCopy.pauseButton}
               </button>
             </article>
           )}
@@ -385,9 +405,9 @@ export function WorkOrderExecutionPage() {
                   </span>
 
                   <div>
-                    <h2>Avance del trabajo</h2>
+                    <h2>{executionCopy.progressTitle}</h2>
 
-                    <p>Actualiza el avance. El tiempo se registra únicamente con la sesión activa.</p>
+                    <p>{executionCopy.progressHelp}</p>
                   </div>
                 </div>
               </div>
@@ -397,7 +417,7 @@ export function WorkOrderExecutionPage() {
                   <span>Porcentaje de avance <output>{percentage} %</output></span>
                   <input
                     type="range"
-                    min={Math.min(workOrder.progressPercentage + 1, 100)}
+                    min={minimumProgress}
                     max={100}
                     step={1}
                     value={percentage}
@@ -413,7 +433,7 @@ export function WorkOrderExecutionPage() {
                 </label>
 
                 <label className="field field-wide">
-                  <span>Nota para la solicitud <em>Opcional</em></span>
+                  <span>{executionCopy.noteLabel} <em>Opcional</em></span>
 
                   <textarea
                     value={observation}
@@ -424,7 +444,7 @@ export function WorkOrderExecutionPage() {
                     }
                     rows={5}
                     maxLength={1000}
-                    placeholder="Comparte una actualización, hallazgo o dificultad si es necesario."
+                    placeholder={executionCopy.notePlaceholder}
                   />
 
                   <small>
@@ -444,10 +464,7 @@ export function WorkOrderExecutionPage() {
                   <div>
                     <h2>Evidencias</h2>
 
-                    <p>
-                      Adjunta fotografías del
-                      avance o trabajo terminado.
-                    </p>
+                    <p>{executionCopy.evidenceHelp}</p>
                   </div>
                 </div>
               </div>
@@ -498,7 +515,7 @@ export function WorkOrderExecutionPage() {
 
               {percentage === 100 && !workOrder.finishPhoto && (
                 <div className="completion-photo-field">
-                  <div><Camera size={24} /><span><strong>Foto de finalización obligatoria</strong><small>Registra el resultado final antes de enviar la OT a supervisión.</small></span></div>
+                  <div><Camera size={24} /><span><strong>{executionCopy.finishPhotoTitle}</strong><small>{executionCopy.finishPhotoHelp}</small></span></div>
                   <label className="button button-secondary execution-photo-picker">
                     {finishPhoto ? "Cambiar foto final" : "Tomar foto final"}
                     <input
@@ -533,8 +550,8 @@ export function WorkOrderExecutionPage() {
                   <FloppyDisk size={18} weight="bold" />
                   {percentage === 100
                     ? isReturnedForCorrection
-                      ? "Reenviar a supervisión"
-                      : "Finalizar y enviar a supervisión"
+                      ? executionCopy.resendButton
+                      : executionCopy.finishButton
                     : "Guardar avance"}
                 </button>
               ) : (
@@ -544,7 +561,7 @@ export function WorkOrderExecutionPage() {
                   onClick={() => document.getElementById("work-session-start")?.scrollIntoView({ behavior: "smooth", block: "center" })}
                 >
                   <Play size={18} weight="fill" />
-                  {workOrder.startPhoto ? "Reanudar trabajo para continuar" : "Iniciar trabajo para continuar"}
+                  {workOrder.startPhoto ? executionCopy.resumeContinueButton : executionCopy.continueButton}
                 </button>
               )}
             </div>

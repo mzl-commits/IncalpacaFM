@@ -37,6 +37,14 @@ export const WORK_ORDER_STATUSES = [
 
 export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
 
+export type WorkOrderType = "OT" | "OL" | "OS";
+
+export const workOrderTypeLabels: Record<WorkOrderType, string> = {
+  OT: "Orden de trabajo",
+  OL: "Orden de limpieza",
+  OS: "Orden de servicio",
+};
+
 export const specialtyLabels: Record<Specialty, string> = {
   ELECTRICIDAD: "Electricidad",
   CARPINTERIA: "Carpintería",

@@ -214,6 +214,34 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "ordenes-trabajo/nueva",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/WorkOrderTypeSelectorPage"),
+          "WorkOrderTypeSelectorPage",
+        ),
+      },
+      {
+        path: "ordenes-trabajo/nueva/ot",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/DirectWorkOrderCreatePage"),
+          "DirectWorkOrderCreatePage",
+        ),
+      },
+      {
+        path: "ordenes-trabajo/nueva/ol",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/DirectWorkOrderCreatePage"),
+          "DirectWorkOrderCreatePage",
+        ),
+      },
+      {
+        path: "ordenes-trabajo/nueva/ol-rutinaria",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/RoutineCleaningOrderCreatePage"),
+          "RoutineCleaningOrderCreatePage",
+        ),
+      },
+      {
         path: "ordenes-trabajo/nueva/:requestId",
         lazy: lazyRoute(
           () => import("@/modules/workorders/pages/WorkOrderCreatePage"),

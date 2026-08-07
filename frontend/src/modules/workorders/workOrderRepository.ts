@@ -1,4 +1,4 @@
-﻿import { api } from "@/services/api";
+import { api } from "@/services/api";
 import type { WorkOrder } from "./types";
 
 export const WORK_ORDERS_UPDATED_EVENT = "sgtb:work-orders-updated";
@@ -16,8 +16,18 @@ export async function listWorkOrders(): Promise<WorkOrder[]> {
   return data;
 }
 
+export type WorkOrderCreatePayload = Partial<Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">> & {
+  technicianWorkerCode?: string;
+  technicianWorkerCodes?: string[];
+  directRequestDescription?: string;
+  directRequestType?: string;
+  directAssetId?: string | null;
+  directLocationId?: string | null;
+  orderType?: "OT" | "OL" | "OS";
+};
+
 export async function createWorkOrder(
-  workOrder: Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt"> & { technicianWorkerCode?: string; technicianWorkerCodes?: string[] },
+  workOrder: WorkOrderCreatePayload,
 ): Promise<WorkOrder> {
   const { data } = await api.post<WorkOrder>("/work-orders/", {
     ...workOrder,
