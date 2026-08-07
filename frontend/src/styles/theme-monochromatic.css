@@ -3,9 +3,9 @@
  */
 :root {
   /* Brand / Primary */
-  --primary: #121212 !important;
+  --primary: #222222 !important;
   --primary-strong: #000000 !important;
-  --primary-soft: #272727 !important;
+  --primary-soft: #3f3f3f !important;
   
   /* Accent */
   --accent: #3f3f3f !important;
@@ -13,10 +13,10 @@
   --accent-soft: #e4e4e4 !important;
   
   /* Canvas & Surfaces */
-  --canvas: #fafafa !important;
+  --canvas: #f5f5f5 !important;
   --surface: #ffffff !important;
   --surface-raised: #ffffff !important;
-  --surface-subtle: #fafafa !important;
+  --surface-subtle: #f5f5f5 !important;
   --surface-inset: #f4f4f4 !important;
   --surface-hover: #f4f4f4 !important;
   --surface-selected: #e4e4e4 !important;
@@ -31,16 +31,16 @@
   --surface-divider: #e4e4e4 !important;
   
   /* Text */
-  --text: #181818 !important;
-  --muted: #727272 !important;
+  --text: #222222 !important;
+  --muted: #666666 !important;
   
-  /* Semantic (Monochromatic versions) */
+  /* Semantic */
   --success: #272727 !important;
   --success-soft: #f4f4f4 !important;
   --warning: #535353 !important;
   --warning-soft: #f4f4f4 !important;
-  --error: #181818 !important;
-  --error-soft: #e4e4e4 !important;
+  --error: #da3f3f !important;
+  --error-soft: #fbeaea !important;
   --info-soft: #f4f4f4 !important;
 }
 

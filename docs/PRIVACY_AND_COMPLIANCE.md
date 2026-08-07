@@ -1,6 +1,6 @@
 # Privacidad y cumplimiento
 
-Este módulo aporta controles operativos para el tratamiento de datos del SGTB. Antes de producción, el responsable legal debe revisar textos, plazos y destinatarios conforme a la normativa peruana aplicable y a las políticas de Incalpaca.
+Este módulo aporta controles operativos para el tratamiento de datos de FM Incalpaca. Antes de producción, el responsable legal debe revisar textos, plazos y destinatarios conforme a la normativa peruana aplicable y a las políticas de Incalpaca.
 
 ## Avisos y trazabilidad
 
