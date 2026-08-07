@@ -19,7 +19,9 @@ import "@/styles/auth.css";
 import "@/styles/visual-refresh.css";
 import "@/styles/almacen.css";
 
-registerSW({ immediate: true });
+if (import.meta.env.PROD) {
+  registerSW({ immediate: true });
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
