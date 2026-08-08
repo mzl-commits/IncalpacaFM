@@ -166,6 +166,11 @@ export async function getPublicAsset(token: string) {
         state: "complete" | "current" | "pending";
         at: string | null;
       }>;
+      satisfaction?: {
+        available: boolean;
+        completed: boolean;
+        url: string;
+      };
     } | null;
     updated_at: string;
   };
@@ -183,6 +188,7 @@ export async function registerAsset(draft: AssetEntryDraft): Promise<RegisteredA
   form.append("model", draft.model);
   if (draft.serialNumber) form.append("serial_number", draft.serialNumber);
   form.append("condition", draft.condition);
+  form.append("criticality", draft.criticality);
   if (!draft.classificationPending && draft.taxonomyId) form.append("taxonomy_id", draft.taxonomyId);
   if (!draft.locationPending && draft.locationId) form.append("location_id", draft.locationId);
   if (!draft.locationPending && draft.locationMapId) form.append("location_map_id", draft.locationMapId);
@@ -209,7 +215,11 @@ export async function registerAsset(draft: AssetEntryDraft): Promise<RegisteredA
   const { data } = await api.post<AssetApiRecord>(
     "/assets/",
     form,
-    { headers: { "X-Frontend-Origin": window.location.origin } },
+    {
+      headers: {
+        "X-Frontend-Origin": window.location.origin,
+      },
+    },
   );
   const registered = mapAsset(data);
   registered.qrDataUrl = await QRCode.toDataURL(registered.publicUrl, {

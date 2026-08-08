@@ -6,6 +6,11 @@ from django.db import models
 
 
 class Notification(models.Model):
+    class DeliveryChannel(models.TextChoices):
+        SYSTEM = 'SISTEMA', 'Sistema'
+        EMAIL = 'CORREO', 'Correo'
+        BOTH = 'AMBOS', 'Correo y sistema'
+
     class Status(models.TextChoices):
         PENDING = 'PENDIENTE', 'Pendiente'
         SENT = 'ENVIADA', 'Enviada'
@@ -20,6 +25,11 @@ class Notification(models.Model):
     )
     recipient_email = models.EmailField()
     event = models.CharField(max_length=80, db_index=True)
+    delivery_channel = models.CharField(
+        max_length=12,
+        choices=DeliveryChannel.choices,
+        default=DeliveryChannel.BOTH,
+    )
     subject = models.CharField(max_length=200)
     body = models.TextField()
     html_body = models.TextField(blank=True)

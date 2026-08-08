@@ -16,6 +16,7 @@ import {
 } from "@/modules/assets/assetEntryRepository";
 import { type EntryErrors, validateEntryStep } from "@/modules/assets/entryValidation";
 import { LocationMarkerPicker } from "@/modules/assets/components/LocationMarkerPicker";
+import { ModelCreatableSelect } from "@/modules/assets/components/ModelCreatableSelect";
 import { useLocations } from "@/modules/assets/locationMapQueries";
 import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
 import type { TaxonomyOption } from "@/modules/taxonomy/types";
@@ -51,12 +52,50 @@ function Field({ label, error, hint, required, children, wide }: {
   );
 }
 
+function createEvidenceId(): string {
+  if (
+    typeof globalThis.crypto !== "undefined" &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  if (
+    typeof globalThis.crypto !== "undefined" &&
+    typeof globalThis.crypto.getRandomValues === "function"
+  ) {
+    const bytes = globalThis.crypto.getRandomValues(
+      new Uint8Array(16),
+    );
+
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    const hex = Array.from(
+      bytes,
+      (byte) => byte.toString(16).padStart(2, "0"),
+    ).join("");
+
+    return [
+      hex.slice(0, 8),
+      hex.slice(8, 12),
+      hex.slice(12, 16),
+      hex.slice(16, 20),
+      hex.slice(20),
+    ].join("-");
+  }
+
+  return `evidence-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
 function fileToEvidence(file: File, category: EvidenceItem["category"]): Promise<EvidenceItem> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
     reader.onload = () => resolve({
-      id: crypto.randomUUID(), name: file.name, category, mimeType: file.type, size: file.size,
+      id: createEvidenceId(), name: file.name, category, mimeType: file.type, size: file.size,
       dataUrl: typeof reader.result === "string" ? reader.result : undefined,
     });
     reader.readAsDataURL(file);
@@ -214,7 +253,12 @@ export function AssetEntryWizardPage() {
           setErrors({ locationMarker: "La imagen del ambiente cambió o falta ubicar el bien. Revisa el marcador." });
           setSubmitError("La ubicación visual debe revisarse antes de registrar el bien.");
         } else {
-          setSubmitError("No se pudo registrar el bien. Verifica que el backend esté disponible e inténtalo nuevamente.");
+          const detail = responseData
+            ? Object.entries(responseData)
+              .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(" ") : String(value)}`)
+              .join(" · ")
+            : "";
+          setSubmitError(detail || "No se pudo registrar el bien. Verifica que el backend esté disponible e inténtalo nuevamente.");
         }
       } finally { setSubmitting(false); }
       return;
@@ -306,7 +350,8 @@ export function AssetEntryWizardPage() {
     if (draft.entryType === "purchase") return <>
       <Field label="Orden de compra" error={errors.purchaseOrder} required><input value={draft.purchaseOrder} onChange={(e) => setField("purchaseOrder", e.target.value)} placeholder="Ej. OC-2026-00128" /></Field>
       <Field label="Proveedor" error={errors.supplier} required><input value={draft.supplier} onChange={(e) => setField("supplier", e.target.value)} placeholder="Razón social" /></Field>
-      <Field label="Comprobante" error={errors.voucherNumber} required><input value={draft.voucherNumber} onChange={(e) => setField("voucherNumber", e.target.value)} placeholder="Factura o boleta" /></Field>
+      <Field label="Código de factura o boleta" error={errors.voucherNumber}><input value={draft.voucherNumber} onChange={(e) => setField("voucherNumber", e.target.value)} placeholder="Opcional" /></Field>
+      <Field label="Centro de costo"><input value={draft.costCenter} onChange={(e) => setField("costCenter", e.target.value)} placeholder="Ej. CC-4201" /></Field>
       <Field label="Fecha de adquisición" error={errors.acquisitionDate} required><input type="date" value={draft.acquisitionDate} onChange={(e) => setField("acquisitionDate", e.target.value)} /></Field>
       <Field label="Costo" error={errors.cost} required><input type="number" min="0" step="0.01" value={draft.cost} onChange={(e) => setField("cost", e.target.value)} placeholder="0.00" /></Field>
       <Field label="Moneda"><select value={draft.currency} onChange={(e) => setField("currency", e.target.value as "PEN" | "USD")}><option value="PEN">PEN — Soles</option><option value="USD">USD — Dólares</option></select></Field>
@@ -351,14 +396,12 @@ export function AssetEntryWizardPage() {
         </label>)}
       </fieldset>
       <div className="conditional-fields"><h3>Información del origen</h3><div className="form-grid">{originFields()}</div></div>
-      <div className="conditional-fields">{upload("origin", "Documento que sustenta el ingreso", errors.originDocument)}</div>
+      <div className="conditional-fields">{upload("origin", "Documento que sustenta el ingreso (opcional)", errors.originDocument)}</div>
     </>;
     if (draft.currentStep === 1) return <div className="form-grid section-gap">
       <Field label="Nombre corto" error={errors.name} required><input value={draft.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ej. Laptop Lenovo ThinkPad T14" /></Field>
       <Field label="Fecha efectiva de ingreso" error={errors.effectiveEntryDate} required><input type="date" value={draft.effectiveEntryDate} onChange={(e) => setField("effectiveEntryDate", e.target.value)} /></Field>
       <Field label="Descripción detallada" error={errors.description} required wide><textarea value={draft.description} onChange={(e) => setField("description", e.target.value)} rows={3} /></Field>
-      <Field label="Marca"><input value={draft.brand} onChange={(e) => setField("brand", e.target.value)} /></Field>
-      <Field label="Modelo"><input value={draft.model} onChange={(e) => setField("model", e.target.value)} /></Field>
       <Field label="Número de serie" error={errors.serialNumber} hint="Se verificará que no exista otro bien con el mismo número."><input value={draft.serialNumber} onChange={(e) => setField("serialNumber", e.target.value)} /></Field>
       <Field label="Color"><input value={draft.color} onChange={(e) => setField("color", e.target.value)} /></Field>
       <Field label="Año de fabricación" error={errors.manufactureYear}><input type="number" value={draft.manufactureYear} onChange={(e) => setField("manufactureYear", e.target.value)} /></Field>
@@ -371,7 +414,22 @@ export function AssetEntryWizardPage() {
       {draft.classificationPending
         ? <div className="form-grid"><Field label="Justificación" error={errors.classificationPendingReason} required wide><textarea rows={3} value={draft.classificationPendingReason} onChange={(e) => setField("classificationPendingReason", e.target.value)} /></Field></div>
         : <TaxonomyPicker selectedId={draft.taxonomyId} onSelect={applyTaxonomy} error={errors.taxonomyId} />}
-      <div className="conditional-fields"><h3>Gestión del ciclo de vida</h3><div className="form-grid">
+      <div className="conditional-fields">
+        <h3>Gestión del catálogo</h3>
+        <div className="form-grid">
+          <Field label="Marca"><input value={draft.brand} onChange={(e) => setField("brand", e.target.value)} /></Field>
+          <Field label="Modelo">
+            <ModelCreatableSelect
+              taxonomyId={draft.taxonomyId}
+              value={draft.model}
+              onChange={(v) => setField("model", v)}
+              disabled={draft.classificationPending}
+              placeholder={draft.classificationPending ? "Requiere clasificación..." : undefined}
+            />
+          </Field>
+        </div>
+        <h3>Gestión del ciclo de vida</h3>
+        <div className="form-grid">
         <Field label="Criticidad"><select value={draft.criticality} onChange={(e) => setField("criticality", e.target.value as AssetEntryDraft["criticality"])}>{CRITICALITIES.map((x) => <option key={x}>{x}</option>)}</select></Field>
         <Field label="Vida útil estimada (años)" error={errors.usefulLifeYears}><input type="number" min="1" value={draft.usefulLifeYears} onChange={(e) => setField("usefulLifeYears", e.target.value)} /></Field>
         <label className="switch-row"><input type="checkbox" checked={draft.requiresMaintenance} onChange={(e) => setField("requiresMaintenance", e.target.checked)} /><span><strong>Requiere mantenimiento</strong><small>Activa la planificación preventiva.</small></span></label>
@@ -410,7 +468,7 @@ export function AssetEntryWizardPage() {
       </>}
     </div>;
     if (draft.currentStep === 4) return <div className="evidence-grid section-gap">
-      {upload("origin", "Documento de origen", errors.originDocument)}
+      {upload("origin", "Documento sustentatorio (opcional)", errors.originDocument)}
       {upload("photo", "Fotografía oficial", errors.photo)}
       {upload("certificate", "Certificados")}
       {upload("manual", "Manuales")}
@@ -432,7 +490,7 @@ export function AssetEntryWizardPage() {
     return <div className="success-panel">
       <div className="success-hero"><CheckCircle size={46} weight="fill" /><h2>Bien registrado correctamente</h2><p>El activo ingresó al sistema de gestión y se generó su identificador único.</p></div>
       <div className="asset-result-stats"><div><small>Código FM</small><strong>{registered.fmCode ?? "Pendiente"}</strong></div><div><small>Identificador técnico</small><strong>{registered.code}</strong></div><div><small>Estado administrativo</small><span className="status status-success">Registrado</span></div><div><small>Asignación</small><strong>{registered.assignmentStatus}</strong></div></div>
-      <section className="asset-credentials"><h3>Credenciales del activo</h3><div className="qr-card"><div className="qr-visual"><img src={registered.qrDataUrl} alt={`QR público del bien ${registered.fmCode ?? registered.code}`} /><small>El QR no contiene información personal ni identificadores internos sensibles.</small></div><div className="label-preview"><small>Vista previa de etiqueta</small><div><span>SGTB INCALPACA</span><strong>{registered.fmCode ?? registered.code}</strong><p>{draft.name}</p><small>{registered.code}</small></div><p>El código FM identifica el bien en operación; el identificador técnico preserva la trazabilidad interna.</p></div></div></section>
+      <section className="asset-credentials"><h3>Credenciales del activo</h3><div className="qr-card"><div className="qr-visual"><img src={registered.qrDataUrl} alt={`QR público del bien ${registered.fmCode ?? registered.code}`} /><small>El QR no contiene información personal ni identificadores internos sensibles.</small></div><div className="label-preview"><small>Vista previa de etiqueta</small><div><span>FM INCALPACA</span><strong>{registered.fmCode ?? registered.code}</strong><p>{draft.name}</p><small>{registered.code}</small></div><p>El código FM identifica el bien en operación; el identificador técnico preserva la trazabilidad interna.</p></div></div></section>
       <div className="success-actions">
         <button className="button button-secondary" type="button" onClick={downloadQr}><DownloadSimple /> Descargar PNG</button>
         <button className="button button-secondary" type="button" onClick={() => navigator.clipboard.writeText(registered.publicUrl)}><LinkSimple /> Copiar enlace</button>

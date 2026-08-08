@@ -16,6 +16,10 @@ export interface WorkRequestImpactAssessment {
   suggestedPriority?: RequestPriority;
   priorityReasons?: string[];
   answers?: {
+    issueCategory?: string;
+    otherRequestDetail?: string;
+    assetCondition?: string;
+    startedWhen?: string;
     stopsWork?: "SI" | "NO";
     safetyRisk?: "SI" | "NO";
     essentialService?: "SI" | "NO";

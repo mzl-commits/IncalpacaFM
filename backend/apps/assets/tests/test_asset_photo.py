@@ -62,7 +62,6 @@ class AssetPhotoApiTests(TestCase):
         self.assertIsNotNone(summary.json()['photo_url'])
         self.assertEqual(photo.status_code, 200)
         self.assertEqual(photo['Content-Type'], 'image/jpeg')
-        photo.close()
 
     def test_rejects_too_small_photo(self):
         stream = BytesIO()
