@@ -8,7 +8,17 @@ class Categoria(models.Model):
         help_text="Prefijo de letras usado en el código de catálogo (ej. H, G, C)."
     )
     descripcion = models.TextField(blank=True)
-    activo = models.BooleanField(default=True)
+    activo = models.BooleanField(
+        default=True,
+        help_text="Si se desactiva, los materiales de esta categoría dejarán de aparecer en préstamos, inspecciones y demás procesos operativos.",
+    )
+
+    requiere_inspeccion = models.BooleanField(
+        default=False,
+        help_text="Si está activo, los materiales de esta categoría pueden ser "
+                   "inspeccionados (ej. Herramientas). Categorías como consumibles "
+                   "o eléctricos no retornables deben dejarlo desactivado.",
+    )
 
     class Meta:
         verbose_name_plural = "Categorías"
@@ -78,6 +88,10 @@ class Material(models.Model):
         max_length=100, blank=True,
         help_text="Dónde encontrar este material físicamente, ej. 'Caja de brocas, Estante 3'."
     )
+    precio = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Precio de referencia de este material. Para estuches, es el precio del conjunto completo (no de piezas hijas individuales)."
+    )
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
     control_individual = models.BooleanField(default=False)
 
@@ -105,9 +119,15 @@ class Material(models.Model):
         return f"{self.codigo} - {self.nombre}"
 
     def save(self, *args, **kwargs):
+        if not self.pk:
+            self.activo = True
         if not self.codigo:
-            from apps.catalogo.services import generar_codigo_material
-            self.codigo = generar_codigo_material(self.subcategoria.categoria)
+            if self.es_componente:
+                from apps.catalogo.services import generar_codigo_material_componente
+                self.codigo = generar_codigo_material_componente()
+            else:
+                from apps.catalogo.services import generar_codigo_material
+                self.codigo = generar_codigo_material(self.subcategoria.categoria)
         super().save(*args, **kwargs)
 
     def recalcular_cantidad(self):

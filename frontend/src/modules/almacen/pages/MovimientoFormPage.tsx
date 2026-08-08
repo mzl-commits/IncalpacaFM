@@ -18,6 +18,7 @@ import {
 } from "@/modules/almacen/inventarioRepository";
 import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
+import { Combobox } from "../components/shared/Combobox";
 
 function Field({ label, required, error, hint, children }: {
   label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode;
@@ -77,7 +78,7 @@ export function MovimientoFormPage() {
   });
 
   const pieza = piezas.find((p) => p.id === piezaId);
-  const esContenedor = pieza && pieza.padre === null;
+  const esContenedor = pieza && pieza.tiene_hijas;
 
   // F2: hijas disponibles del estuche seleccionado
   const { data: hijasDisponibles = [] } = useQuery({
@@ -230,39 +231,42 @@ export function MovimientoFormPage() {
             </div>
             <div className="form-grid">
               <Field label="Material" required>
-                <select
-                  value={materialId || ""}
-                  onChange={(e) => { setMaterialId(Number(e.target.value)); setPiezaId(0); setTodasHijas(true); setHijasSeleccionadas(new Set()); }}
-                >
-                  <option value="">Seleccionar material…</option>
-                  {materiales.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.codigo} — {m.nombre}
-                    </option>
-                  ))}
-                </select>
+                <Combobox
+                  value={materialId}
+                  selectedLabel={material ? `${material.codigo} — ${material.nombre}` : ""}
+                  placeholder="Buscar por código o nombre…"
+                  onChange={(id) => { setMaterialId(id); setPiezaId(0); setTodasHijas(true); setHijasSeleccionadas(new Set()); }}
+                  fetchOptions={async (q) => {
+                    const res = await listMateriales({ q });
+                    return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
+                  }}
+                />
               </Field>
 
               {/* Si control_individual: selector de pieza */}
               {material?.control_individual ? (
                 <Field label="Pieza" required>
-                  <select
-                    value={piezaId || ""}
-                    onChange={(e) => {
-                      setPiezaId(Number(e.target.value));
-                      setTodasHijas(true);
-                      setHijasSeleccionadas(new Set());
+                  <Combobox
+                    value={piezaId}
+                    selectedLabel={
+                      pieza
+                        ? `${pieza.codigo} — ${pieza.material_nombre}${pieza.material_medida ? ` (${pieza.material_medida})` : ""} · ${pieza.estado}${pieza.tiene_hijas ? " [estuche]" : ""}`
+                        : ""
+                    }
+                    placeholder="Buscar por código…"
+                    onChange={(id) => { setPiezaId(id); setTodasHijas(true); setHijasSeleccionadas(new Set()); }}
+                    fetchOptions={async (q) => {
+                      const params =
+                        tipo === "salida" ? { material: materialId, estado: "Disponible", sin_padre: true, q }
+                        : tipo === "entrada" ? { material: materialId, estado: "Prestado", q }
+                        : { material: materialId, q };
+                      const res = await listPiezas(params);
+                      return res.map((p) => ({
+                        id: p.id,
+                        label: `${p.codigo} — ${p.material_nombre}${p.material_medida ? ` (${p.material_medida})` : ""} · ${p.estado}${p.tiene_hijas ? " [estuche]" : ""}`,
+                      }));
                     }}
-                  >
-                    <option value="">Seleccionar pieza…</option>
-                    {/* F4: muestra nombre del material junto al código */}
-                    {piezas.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {labelPieza(p)}{p.material_nombre ? ` — ${p.material_nombre}${p.material_medida ? ` (${p.material_medida})` : ""}` : ""} · {p.estado}
-                        {p.padre === null ? " [estuche]" : ""}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </Field>
               ) : material ? (
                 <Field label="Cantidad" required>
