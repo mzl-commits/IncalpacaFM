@@ -4,6 +4,12 @@ export const REQUEST_TYPES = [
   "INSTALACION",
   "TRASLADO",
   "INSPECCION",
+  "ELECTRICO",
+  "GASFITERIA",
+  "CLIMATIZACION",
+  "MOBILIARIO",
+  "ACABADOS",
+  "DISPENSADOR_AGUA",
   "OTRO",
 ] as const;
 
@@ -33,6 +39,12 @@ export const requestTypeLabels: Record<RequestType, string> = {
   INSTALACION: "Instalación",
   TRASLADO: "Traslado",
   INSPECCION: "Inspección",
+  ELECTRICO: "Iluminacion y electricidad",
+  GASFITERIA: "Agua, desague o gas",
+  CLIMATIZACION: "Climatizacion",
+  MOBILIARIO: "Mobiliario, puertas o ventanas",
+  ACABADOS: "Paredes, pisos o acabados",
+  DISPENSADOR_AGUA: "Dispensador de agua",
   OTRO: "Otro",
 };
 

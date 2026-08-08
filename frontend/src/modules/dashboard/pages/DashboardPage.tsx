@@ -29,7 +29,7 @@ import {
 import { listRetirementRequests } from "@/modules/lifecycle/lifecycleRepository";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
-import { workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
+import { getWorkOrderStatusLabel, workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
 import {
   retirementStatusLabels,
   type RetirementRequest,
@@ -132,7 +132,19 @@ function TechnicianDashboard() {
         <button className="button button-secondary" type="button" onClick={() => void refresh()} disabled={loading}><ArrowClockwise size={18} className={loading ? "is-spinning" : ""} />Actualizar</button>
       </header>
 
-      {loading ? <div className="dashboard-loading technician-dashboard-loading" aria-label="Cargando mi jornada"><div /><div /><div /></div> : <>
+      {loading ? (
+        <>
+          <section className="technician-dashboard-focus data-panel" aria-label="Cargando estado">
+            <div className="skeleton skeleton-block" style={{ height: "180px", borderRadius: "12px", border: "none" }} />
+          </section>
+          <section className="technician-dashboard-hours data-panel" aria-label="Cargando horas">
+            <div className="skeleton skeleton-block" style={{ height: "160px", borderRadius: "12px", border: "none" }} />
+          </section>
+          <section className="technician-dashboard-orders data-panel" aria-label="Cargando órdenes">
+            <div className="skeleton skeleton-block" style={{ height: "300px", borderRadius: "12px", border: "none" }} />
+          </section>
+        </>
+      ) : <>
         <section className="technician-dashboard-focus" aria-labelledby="next-task-title">
           <div className="technician-dashboard-focus-copy">
             <span>{activeOrder ? "Sesión en curso" : "Siguiente acción"}</span>
@@ -152,7 +164,7 @@ function TechnicianDashboard() {
 
         <section className="technician-dashboard-orders" aria-labelledby="technician-orders-title">
           <header><div><h2 id="technician-orders-title">Órdenes que requieren atención</h2><p>{actionableOrders.length ? "Abre una orden para iniciar, reanudar o registrar un avance." : "No tienes tareas operativas pendientes."}</p></div><Link to="/ordenes-trabajo">Todas <ArrowRight size={16} /></Link></header>
-          {actionableOrders.length ? <div>{actionableOrders.slice(0, 4).map((order) => <Link key={order.id} to={`/ordenes-trabajo/${order.id}${["PROGRAMADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(order.status) ? "/ejecutar" : ""}`}><span className="technician-dashboard-order-icon"><Wrench size={19} /></span><span><strong>{order.code}</strong><small>{getWorkOrderAssetDisplayCode(order) || order.requestCode} · {workOrderStatusLabels[order.status]}</small></span><time>{order.scheduledDate === today ? "Hoy" : formatDate(order.scheduledDate)}</time><ArrowRight size={18} /></Link>)}</div> : <div className="technician-dashboard-empty"><CheckCircle size={30} weight="fill" /><span><strong>Sin órdenes pendientes</strong><small>Cuando recibas una nueva asignación, aparecerá aquí.</small></span></div>}
+          {actionableOrders.length ? <div>{actionableOrders.slice(0, 4).map((order) => <Link key={order.id} to={`/ordenes-trabajo/${order.id}${["PROGRAMADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(order.status) ? "/ejecutar" : ""}`}><span className="technician-dashboard-order-icon"><Wrench size={19} /></span><span><strong>{order.code}</strong><small>{getWorkOrderAssetDisplayCode(order) || order.requestCode} · {getWorkOrderStatusLabel(order)}</small></span><time>{order.scheduledDate === today ? "Hoy" : formatDate(order.scheduledDate)}</time><ArrowRight size={18} /></Link>)}</div> : <div className="technician-dashboard-empty"><CheckCircle size={30} weight="fill" /><span><strong>Sin órdenes pendientes</strong><small>Cuando recibas una nueva asignación, aparecerá aquí.</small></span></div>}
         </section>
       </>}
     </section>
@@ -344,11 +356,23 @@ function AdministrativeDashboard() {
       )}
 
       {loading ? (
-        <div className="dashboard-loading" aria-label="Cargando panel">
-          <div />
-          <div />
-          <div />
-        </div>
+        <>
+          <section className="dashboard-overview">
+            <div className="dashboard-overview-intro data-panel skeleton" style={{ minHeight: "140px", border: "none" }}></div>
+            <dl className="dashboard-stat-list">
+               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
+               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
+               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
+            </dl>
+          </section>
+          
+          <div className="dashboard-main-grid">
+            <section className="dashboard-priorities data-panel skeleton" style={{ minHeight: "300px", border: "none" }}></section>
+            <aside className="dashboard-quick-actions data-panel skeleton" style={{ minHeight: "300px", border: "none" }}></aside>
+          </div>
+          
+          <section className="dashboard-activity data-panel skeleton" style={{ minHeight: "240px", marginTop: "24px", border: "none" }}></section>
+        </>
       ) : (
         <>
           <section

@@ -359,11 +359,11 @@ export function RetirementRequestListPage() {
               {filtered.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <strong>{item.code}</strong>
+                    <Link to={`/bienes/ciclo-vida/bajas/${item.id}`}><strong>{item.code}</strong></Link>
                     <small>{new Date(item.createdAt).toLocaleDateString("es-PE")}</small>
                   </td>
                   <td>
-                    <strong>{item.assetCode}</strong>
+                    <Link to={`/bienes/${item.assetId}`}><strong>{item.assetCode}</strong></Link>
                     <small>{item.assetName}</small>
                   </td>
                   <td>{diagnosisLabels[item.diagnosisResult]}</td>

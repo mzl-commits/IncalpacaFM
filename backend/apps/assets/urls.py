@@ -18,9 +18,11 @@ from .views import (
     AssetListCreateView,
     PublicAssetPhotoView,
     PublicAssetView,
+    TaxonomyModelListView,
 )
 
 urlpatterns = [
+    path('taxonomy-models/', TaxonomyModelListView.as_view(), name='taxonomy-model-list'),
     path('locations/', LocationListView.as_view(), name='location-list'),
     path(
         'location-maps/',

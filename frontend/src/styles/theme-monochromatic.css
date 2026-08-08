@@ -1,0 +1,164 @@
+/* theme-monochromatic.css - Centralized Grayscale Override
+ * Enforces a monochromatic, premium UI across all views (Admin, Executive, Tech)
+ */
+:root {
+  /* Fonts */
+  --font-ui: "Montserrat", sans-serif !important;
+  --font-heading: "Playfair Display", serif !important;
+  --font-sans: "Montserrat", sans-serif !important;
+  --font-serif: "Playfair Display", serif !important;
+  
+  /* Brand / Primary */
+  --primary: #222222 !important;
+  --primary-strong: #000000 !important;
+  --primary-soft: #3f3f3f !important;
+  
+  /* Accent */
+  --accent: #3f3f3f !important;
+  --accent-strong: #181818 !important;
+  --accent-soft: #e4e4e4 !important;
+  
+  /* Canvas & Surfaces */
+  --canvas: #f5f5f5 !important;
+  --surface: #ffffff !important;
+  --surface-raised: #ffffff !important;
+  --surface-subtle: #f5f5f5 !important;
+  --surface-inset: #f4f4f4 !important;
+  --surface-hover: #f4f4f4 !important;
+  --surface-selected: #e4e4e4 !important;
+  --surface-muted: #f4f4f4 !important;
+  --surface-strong: #e4e4e4 !important;
+  
+  /* Borders */
+  --border: #e4e4e4 !important;
+  --border-soft: #f4f4f4 !important;
+  --surface-border: #e4e4e4 !important;
+  --surface-border-strong: #d4d4d4 !important;
+  --surface-divider: #e4e4e4 !important;
+  
+  /* Text */
+  --text: #222222 !important;
+  --muted: #666666 !important;
+  
+  /* Semantic */
+  --success: #272727 !important;
+  --success-soft: #f4f4f4 !important;
+  --warning: #535353 !important;
+  --warning-soft: #f4f4f4 !important;
+  --error: #da3f3f !important;
+  --error-soft: #fbeaea !important;
+  --info-soft: #f4f4f4 !important;
+}
+
+/* Base structural overrides to enforce glassmorphism across all layouts */
+body {
+  font-family: var(--font-ui) !important;
+}
+
+.sidebar, .executive-sidebar, .admin-sidebar, .layout-sidebar {
+  background: rgba(18, 18, 18, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+/* For items inside the dark sidebar */
+.sidebar .nav-item, .executive-sidebar .nav-item, .layout-sidebar .nav-item {
+  color: #a1a1aa !important;
+  transition: all 0.2s ease !important;
+}
+.sidebar .nav-item:hover, .sidebar .nav-item.is-active,
+.executive-sidebar .nav-item:hover, .executive-sidebar .nav-item.is-active,
+.layout-sidebar .nav-item:hover, .layout-sidebar .nav-item.is-active {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  transform: translateX(2px) !important;
+}
+.sidebar .nav-item.is-active, .executive-sidebar .nav-item.is-active, .layout-sidebar .nav-item.is-active {
+  box-shadow: inset 3px 0 0 #ffffff !important;
+}
+
+/* Brand area */
+.sidebar .brand, .executive-sidebar .brand, .layout-sidebar .brand {
+  border-color: rgba(255,255,255,0.1) !important;
+}
+.sidebar .brand small, .executive-sidebar .brand small, .layout-sidebar .brand small, .sidebar .sidebar-account small {
+  color: #a1a1aa !important;
+}
+.sidebar-account {
+  border-top-color: rgba(255,255,255,0.1) !important;
+  transition: opacity 0.2s !important;
+}
+.sidebar-account:hover {
+  opacity: 0.8 !important;
+}
+
+.topbar, .executive-topbar, .layout-header {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+/* Status Badges - Monochrome */
+.status, .status-pill, .badge {
+  border-radius: 6px !important;
+  border: 1px solid transparent !important;
+}
+.status-neutral, .badge-neutral { background: var(--surface-muted) !important; color: var(--muted) !important; border-color: var(--border) !important; }
+.status-warning, .badge-warning { background: #ffffff !important; color: var(--primary) !important; border-color: var(--primary) !important; }
+.status-error, .badge-error { background: var(--primary) !important; color: #ffffff !important; border-color: var(--primary) !important; }
+.status-success, .badge-success { background: #e4e4e4 !important; color: var(--primary) !important; border-color: var(--primary) !important; box-shadow: inset 0 0 0 1px var(--primary) !important; }
+
+/* Micro-animations across the board */
+.data-panel, .form-panel, .help-panel, .review-card, .metrics-grid article, .executive-card {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03) !important;
+  transition: box-shadow 0.3s ease, transform 0.3s ease !important;
+  border-radius: 10px !important;
+}
+.data-panel:hover, .form-panel:hover, .review-card:hover, .metrics-grid article:hover, .executive-card:hover {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06) !important;
+  transform: translateY(-2px) !important;
+}
+
+.button, .button-primary, .button-secondary {
+  font-family: var(--font-sans) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+}
+.button-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  background: var(--primary-strong) !important;
+}
+.button-secondary:hover {
+  transform: translateY(-1px) !important;
+  background: var(--surface-muted) !important;
+}
+
+/* Inputs */
+.field input, .field select, .field textarea, .search-field {
+  transition: all 0.2s !important;
+  border-color: var(--border) !important;
+  border-radius: 6px !important;
+}
+.field input:focus, .field select:focus, .field textarea:focus, .search-field:focus-within {
+  outline: 3px solid rgba(0, 0, 0, 0.08) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Dashboard Alerts Overrides */
+.dashboard-alert { border-color: var(--border) !important; }
+.dashboard-alert.is-critical > svg:first-child {
+  background: var(--error-soft) !important;
+  color: var(--error) !important;
+}
+.dashboard-alert.is-warning > svg:first-child {
+  background: var(--surface-muted) !important;
+  color: var(--primary) !important;
+}
+.dashboard-alert.is-info > svg:first-child {
+  background: var(--surface-strong) !important;
+  color: var(--muted) !important;
+}

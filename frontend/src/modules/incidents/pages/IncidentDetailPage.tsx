@@ -53,6 +53,20 @@ const impactAnswerLabels: Record<string, string> = {
 function labelImpactAnswer(value?: string) {
   return value ? impactAnswerLabels[value] ?? value : "No indicado";
 }
+
+const reportedConditionLabels: Record<string, string> = {
+  NO_FUNCIONA: "No funciona",
+  FUNCIONA_PARCIALMENTE: "Funciona parcialmente",
+  DANADO: "Está dañado o deteriorado",
+  RIESGO: "Presenta una condición de riesgo",
+};
+
+const reportedTimingLabels: Record<string, string> = {
+  AHORA: "Hace unos minutos",
+  HOY: "Hoy",
+  SEMANA: "Durante esta semana",
+  MAS_TIEMPO: "Hace más de una semana",
+};
 export function IncidentDetailPage() {
   const { id } = useParams();
 
@@ -294,7 +308,15 @@ export function IncidentDetailPage() {
             {getWorkRequestAssetDisplayCode(request) && (
               <div>
                 <dt>Bien asociado</dt>
-                <dd>{getWorkRequestAssetDisplayCode(request)}</dd>
+                <dd>
+                  {request.assetId ? (
+                    <Link to={`/bienes/${request.assetId}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>
+                      {getWorkRequestAssetDisplayCode(request)}
+                    </Link>
+                  ) : (
+                    getWorkRequestAssetDisplayCode(request)
+                  )}
+                </dd>
               </div>
             )}
             <div>
@@ -398,7 +420,11 @@ export function IncidentDetailPage() {
               <dl className="detail-list">
                 <div>
                   <dt>Orden relacionada</dt>
-                  <dd>{request.workOrderId}</dd>
+                  <dd>
+                    <Link to={`/ordenes-trabajo/${request.workOrderId}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>
+                      {request.workOrderId}
+                    </Link>
+                  </dd>
                 </div>
               </dl>
 
@@ -426,6 +452,32 @@ export function IncidentDetailPage() {
           </div>
 
           <dl className="detail-list">
+            <div>
+              <dt>Solicitud registrada</dt>
+              <dd>{requestTypeLabels[request.requestType]}</dd>
+            </div>
+
+            {request.impactAssessment.answers?.otherRequestDetail ? (
+              <div>
+                <dt>Detalle indicado por la persona</dt>
+                <dd>{request.impactAssessment.answers.otherRequestDetail}</dd>
+              </div>
+            ) : null}
+
+            {request.impactAssessment.answers?.assetCondition ? (
+              <div>
+                <dt>Estado informado</dt>
+                <dd>{reportedConditionLabels[request.impactAssessment.answers.assetCondition] ?? request.impactAssessment.answers.assetCondition}</dd>
+              </div>
+            ) : null}
+
+            {request.impactAssessment.answers?.startedWhen ? (
+              <div>
+                <dt>Cuándo se notó</dt>
+                <dd>{reportedTimingLabels[request.impactAssessment.answers.startedWhen] ?? request.impactAssessment.answers.startedWhen}</dd>
+              </div>
+            ) : null}
+
             <div>
               <dt>Prioridad sugerida</dt>
               <dd>
