@@ -1,8 +1,8 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from apps.inspeccion.models import PlantillaCriterio, Criterio
 
 CRITERIOS = {
-    "Manuales": [
+    "Manual": [
         "Estado general de limpieza.",
         "Ausencia de grietas.",
         "Ausencia de deformaciones.",
@@ -20,7 +20,7 @@ CRITERIOS = {
         "Código patrimonial visible.",
         "Identificación de inspección vigente (cinta o etiqueta trimestral).",
     ],
-    "Eléctricas Inalámbricas": [
+    "Inalámbrica": [
         "Estado general de limpieza.",
         "Carcasa íntegra, sin grietas ni deformaciones.",
         "Empuñadura en buen estado.",
@@ -40,7 +40,7 @@ CRITERIOS = {
         "Identificación de inspección vigente (cinta o etiqueta trimestral).",
         "Herramienta apta para un uso seguro.",
     ],
-    "Eléctricas con cable": [
+    "Eléctrica": [
         "Estado general de limpieza de la herramienta.",
         "Carcasa íntegra, sin grietas ni deformaciones.",
         "Cable de alimentación en buen estado, sin cortes ni empalmes.",
@@ -61,13 +61,19 @@ CRITERIOS = {
 }
 
 class Command(BaseCommand):
-    help = "Carga las plantillas de criterios de inspección desde el formato Excel de Incalpaca."
+    help = "Carga los criterios de inspección en las plantillas ya existentes (Manual, Inalámbrica, Eléctrica)."
 
     def handle(self, *args, **options):
         for nombre_plantilla, criterios in CRITERIOS.items():
-            plantilla, creada = PlantillaCriterio.objects.get_or_create(nombre=nombre_plantilla)
-            estado = "creada" if creada else "ya existía"
-            self.stdout.write(f"Plantilla '{nombre_plantilla}' {estado}.")
+            try:
+                plantilla = PlantillaCriterio.objects.get(nombre=nombre_plantilla)
+            except PlantillaCriterio.DoesNotExist:
+                raise CommandError(
+                    f"La plantilla '{nombre_plantilla}' no existe en la base de datos. "
+                    "Este comando no crea plantillas nuevas — verifica el nombre exacto."
+                )
+
+            self.stdout.write(f"Plantilla '{nombre_plantilla}' encontrada (id={plantilla.id}).")
 
             for orden, texto in enumerate(criterios, start=1):
                 Criterio.objects.update_or_create(

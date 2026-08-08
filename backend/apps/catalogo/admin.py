@@ -6,7 +6,8 @@ from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "prefijo", "activo")
+    list_display = ("nombre", "prefijo", "activo", "requiere_inspeccion")
+    list_filter = ("requiere_inspeccion",)
     search_fields = ("nombre", "prefijo")
 
 
@@ -19,10 +20,15 @@ class SubcategoriaAdmin(admin.ModelAdmin):
 
 @admin.register(Material)
 class MaterialAdmin(admin.ModelAdmin):
-    list_display = ("codigo", "nombre", "subcategoria", "tipo_control", "control_individual", "cantidad_total", "vista_foto")
-    list_filter = ("subcategoria__categoria", "tipo_control", "control_individual")
+    list_display = ("codigo", "nombre", "precio", "activo", "subcategoria", "tipo_control", "control_individual", "cantidad_total", "vista_foto")
+    list_filter = ("activo", "subcategoria__categoria", "tipo_control", "control_individual")
     search_fields = ("codigo", "nombre", "marca")
     readonly_fields = ("cantidad_total",)
+
+    def save_model(self, request, obj, form, change):
+        if not change:  # solo al crear, no al editar
+            obj.activo = True
+        super().save_model(request, obj, form, change)
 
     def vista_foto(self, obj):
         if obj.foto:

@@ -36,6 +36,8 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
+# o si preferís controlarlo por variable de entorno propia:
+IS_PRODUCTION = os.environ.get("DJANGO_ENV", "development") == "production"
 
 # Application definition
 
@@ -176,6 +178,31 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_HEADERS = (*default_headers, "x-frontend-origin", "idempotency-key")
 
+# HTTPS y cookies: en desarrollo se mantienen desactivadas para 127.0.0.1.
+SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "1" if IS_PRODUCTION else "0") == "1"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if IS_PRODUCTION else None
+SESSION_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SECURE = IS_PRODUCTION
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000" if IS_PRODUCTION else "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = IS_PRODUCTION
+SECURE_HSTS_PRELOAD = IS_PRODUCTION
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+CONTENT_SECURITY_POLICY = os.environ.get(
+    "CONTENT_SECURITY_POLICY",
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; "
+    "img-src 'self' data: blob: https://cdn.jsdelivr.net; font-src 'self' data:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' http://localhost:5173 http://127.0.0.1:5173; "
+    "worker-src 'self' blob:" if DEBUG else
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; "
+    "img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self' blob:",
+)
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",

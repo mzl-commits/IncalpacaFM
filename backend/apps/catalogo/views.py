@@ -3,7 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.db.models import Q
+from django.db.models import Q, Exists, OuterRef
 
 from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
 from apps.catalogo.serializers import (
@@ -57,6 +57,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
         control_individual = self.request.query_params.get("control_individual")
         busqueda = self.request.query_params.get("q")
         incluir_componentes = self.request.query_params.get("incluir_componentes")
+        inspeccionable = self.request.query_params.get("inspeccionable")
 
         # Por defecto, ocultar materiales que son componentes internos de estuches
         if not (incluir_componentes and incluir_componentes.lower() == "true"):
@@ -68,16 +69,22 @@ class MaterialViewSet(viewsets.ModelViewSet):
             qs = qs.filter(subcategoria__categoria_id=categoria_id)
         if control_individual is not None:
             qs = qs.filter(control_individual=control_individual.lower() == "true")
+        if inspeccionable is not None and inspeccionable.lower() == "true":
+            qs = qs.filter(
+                activo=True,
+                subcategoria__activo=True,
+                subcategoria__categoria__activo=True,
+                subcategoria__categoria__requiere_inspeccion=True,
+                subcategoria__plantilla_inspeccion__isnull=False,
+                tipo_control="retornable",
+            )
         if busqueda:
             qs = qs.filter(
                 Q(nombre__icontains=busqueda)
                 | Q(codigo__icontains=busqueda)
                 | Q(marca__icontains=busqueda)
                 | Q(modelo__icontains=busqueda)
-                # Buscar por código de pieza directa
                 | Q(piezas__codigo__icontains=busqueda)
-                # Buscar por código de pieza hija (dentro de estuches)
-                # Esto devuelve el MATERIAL ESTUCHE cuando se busca un código de pieza hija
                 | Q(piezas__piezas_hijas__codigo__icontains=busqueda)
             ).distinct()
         return qs
@@ -117,16 +124,12 @@ class MaterialViewSet(viewsets.ModelViewSet):
         material = self.get_object()
         nombre = str(material)
         with transaction.atomic():
-            # 1. Eliminar respuestas de criterio de inspecciones
             from apps.inspeccion.models import RespuestaCriterio, Inspeccion
             from apps.inventario.models import Movimiento
             RespuestaCriterio.objects.filter(inspeccion__material=material).delete()
             Inspeccion.objects.filter(material=material).delete()
-            # 2. Limpiar referencias de movimientos a piezas antes de borrar piezas
             Movimiento.objects.filter(material=material).delete()
-            # 3. Borrar piezas (incluyendo hijas via CASCADE o SET_NULL)
             material.piezas.all().delete()
-            # 4. Borrar el material
             material.delete()
         return Response(
             {"detail": f"Material '{nombre}' eliminado correctamente junto con todos sus datos."},
@@ -182,13 +185,20 @@ class PiezaViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().annotate(
+            tiene_hijas=Exists(
+                Pieza.objects.filter(padre=OuterRef("pk"))
+            )
+        )
         material_id = self.request.query_params.get("material")
         estado = self.request.query_params.get("estado")
         sin_padre = self.request.query_params.get("sin_padre")
         padre_id = self.request.query_params.get("padre")
+        busqueda = self.request.query_params.get("q")
 
         if material_id:
+            # OR con padre__material_id: incluye piezas hijas del material
+            # (necesario para que sean seleccionables en inspeccion/movimiento)
             qs = qs.filter(Q(material_id=material_id) | Q(padre__material_id=material_id))
         if estado:
             qs = qs.filter(estado=estado)
@@ -196,6 +206,12 @@ class PiezaViewSet(viewsets.ModelViewSet):
             qs = qs.filter(padre__isnull=True)
         if padre_id:
             qs = qs.filter(padre_id=padre_id)
+        if busqueda:
+            qs = qs.filter(
+                Q(codigo__icontains=busqueda)
+                | Q(material__nombre__icontains=busqueda)
+                | Q(material__codigo__icontains=busqueda)
+            )
         return qs
 
     @action(detail=True, methods=["post"], url_path="reemplazar-hija")
@@ -245,8 +261,6 @@ class PiezaViewSet(viewsets.ModelViewSet):
                 {"detail": "Esta pieza no pertenece a ningún estuche."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Marcar el material de esta pieza como componente (era parte de un estuche)
-        # Esto evita que aparezca en el catálogo si el usuario la desvinculó
         if not pieza.material.es_componente:
             pieza.material.es_componente = True
             pieza.material.save(update_fields=["es_componente"])
@@ -266,28 +280,23 @@ class PiezaViewSet(viewsets.ModelViewSet):
         pieza = self.get_object()
         material = pieza.material
         with transaction.atomic():
-            # Recoger materiales de hijas antes de eliminarlas
             materiales_hijas = set()
             for hija in list(pieza.piezas_hijas.all()):
                 materiales_hijas.add(hija.material_id)
                 Movimiento.objects.filter(pieza=hija).delete()
                 hija.delete()
 
-            # Marcar los materiales de hijas como componentes (evita que aparezcan en catalogo)
             if materiales_hijas:
                 Material.objects.filter(
                     id__in=materiales_hijas,
                     es_componente=False,
                 ).update(es_componente=True)
 
-            # Si esta pieza era una hija (tiene padre), marcar su material como componente
             if pieza.padre is not None and not material.es_componente:
                 material.es_componente = True
                 material.save(update_fields=["es_componente"])
 
-            # Eliminar movimientos de la pieza principal
             Movimiento.objects.filter(pieza=pieza).delete()
             pieza.delete()
             material.recalcular_cantidad()
         return Response(status=status.HTTP_204_NO_CONTENT)
-

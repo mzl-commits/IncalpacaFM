@@ -191,3 +191,47 @@
 .estuche-hijas-table { display: grid; gap: 8px; margin-top: 12px; }
 .estuche-hija-row { display: grid; grid-template-columns: 1fr 100px 36px; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #dfe6ef; border-radius: 5px; background: #f8faff; }
 .estuche-hija-row input[type="number"] { min-height: 36px; text-align: center; border: 1px solid #9eabb9; border-radius: 4px; font: inherit; }
+
+/* ─── Botones de acción del encabezado de Material (Modo Compacto) ────────── */
+.material-header-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.button-sm {
+  min-height: 32px !important;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 5px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+}
+.button-danger-subtle {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+}
+.button-danger-subtle:hover {
+  background: #fee2e2 !important;
+}
+
+@media (max-width: 768px) {
+  .material-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .material-header-actions .button-sm {
+    min-height: 32px !important;
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+    flex: 0 0 auto;
+  }
+}
