@@ -109,7 +109,7 @@ class WorkOrderCost(models.Model):
     work_order = models.ForeignKey(WorkOrder, related_name="cost_items", on_delete=models.PROTECT)
     category = models.CharField(max_length=16, choices=Category.choices)
     description = models.CharField(max_length=240)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="work_order_costs", on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -167,3 +167,48 @@ class TechnicianSatisfaction(models.Model):
     class Meta:
         ordering = ("-submitted_at",)
         constraints = [models.CheckConstraint(condition=models.Q(rating__isnull=True) | models.Q(rating__gte=1, rating__lte=5), name="satisfaction_rating_between_1_and_5")]
+
+
+class WorkOrderMaterial(models.Model):
+    """Material usado o anticipado por el técnico durante la ejecución de una OT."""
+
+    class Tipo(models.TextChoices):
+        USADO = "USADO", "Usado"
+        NECESARIO_NO_BLOQUEANTE = "NECESARIO_NO_BLOQUEANTE", "Necesario (no bloqueante)"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    work_order = models.ForeignKey(
+        WorkOrder,
+        related_name="materiales_usados",
+        on_delete=models.PROTECT,
+    )
+    material = models.ForeignKey(
+        "catalogo.Material",
+        related_name="usos_en_ot",
+        on_delete=models.PROTECT,
+    )
+    cantidad = models.PositiveIntegerField()
+    tipo = models.CharField(
+        max_length=24,
+        choices=Tipo.choices,
+        default=Tipo.USADO,
+    )
+    es_bloqueante = models.BooleanField(
+        default=False,
+        help_text=(
+            "True cuando el técnico llega al punto en que ya no puede continuar "
+            "sin este material (solo aplica cuando tipo=NECESARIO_NO_BLOQUEANTE)."
+        ),
+    )
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="materiales_registrados_en_ot",
+        on_delete=models.PROTECT,
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("creado_en",)
+        verbose_name = "Material en OT"
+        verbose_name_plural = "Materiales en OT"

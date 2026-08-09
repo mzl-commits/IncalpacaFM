@@ -13,9 +13,13 @@ from rest_framework.views import APIView
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAdministrator, IsWorkOrderParticipant, user_role
 
-from .models import ReportTemplate, WorkOrder, WorkOrderPhoto, WorkOrderReport
+from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto, WorkOrderReport
 from .reporting import build_work_order_pdf
-from .serializers import ReportTemplateSerializer, WorkOrderActionSerializer, WorkOrderCostSerializer, WorkOrderSerializer
+from .serializers import (
+    ReportTemplateSerializer, WorkOrderActionSerializer, WorkOrderCostSerializer,
+    WorkOrderCostUpdateSerializer, WorkOrderMaterialSerializer,
+    WorkOrderMaterialWriteSerializer, WorkOrderSerializer,
+)
 
 
 def participant_queryset(request):
@@ -154,3 +158,192 @@ class ReportTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = ReportTemplateSerializer
     queryset = ReportTemplate.objects.all()
+
+
+class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
+    """
+    GET: lista los WorkOrderMaterial de una OT (técnico asignado y admins).
+    POST: el técnico registra un nuevo material, validando stock.
+    """
+    permission_classes = [IsWorkOrderParticipant]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return WorkOrderMaterialWriteSerializer
+        return WorkOrderMaterialSerializer
+
+    def get_queryset(self):
+        order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
+        return order.materiales_usados.select_related("material", "registrado_por")
+
+    def perform_create(self, serializer):
+        order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
+        if order.status == WorkOrder.Status.CLOSED:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No se pueden agregar materiales a una OT cerrada.")
+        instance = WorkOrderMaterial.objects.create(
+            work_order=order,
+            material=serializer.validated_data["material"],
+            cantidad=serializer.validated_data["cantidad"],
+            tipo=serializer.validated_data["tipo"],
+            registrado_por=self.request.user,
+        )
+        return instance
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = self.perform_create(serializer)
+        out = WorkOrderMaterialSerializer(instance)
+        from rest_framework import status as http_status
+        return response.Response(out.data, status=http_status.HTTP_201_CREATED)
+
+
+class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET: detalle de un WorkOrderMaterial.
+    PATCH: edita cantidad/tipo mientras la OT no esté cerrada.
+    DELETE: borra mientras la OT no esté cerrada.
+    Solo el técnico asignado o admin.
+    """
+    permission_classes = [IsWorkOrderParticipant]
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return WorkOrderMaterialWriteSerializer
+        return WorkOrderMaterialSerializer
+
+    def get_queryset(self):
+        return WorkOrderMaterial.objects.select_related(
+            "work_order", "material", "registrado_por"
+        )
+
+    def _check_not_closed(self, instance):
+        if instance.work_order.status == WorkOrder.Status.CLOSED:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No se puede modificar un material de una OT cerrada.")
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self._check_not_closed(instance)
+        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        instance.material = data.get("material", instance.material)
+        instance.cantidad = data.get("cantidad", instance.cantidad)
+        instance.tipo = data.get("tipo", instance.tipo)
+        instance.save()
+        return response.Response(WorkOrderMaterialSerializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self._check_not_closed(instance)
+        instance.delete()
+        from rest_framework import status as http_status
+        return response.Response(status=http_status.HTTP_204_NO_CONTENT)
+
+
+class WorkOrderMaterialMarkBlockingView(views.APIView):
+    """
+    POST: marca un WorkOrderMaterial de tipo NECESARIO_NO_BLOQUEANTE
+    como es_bloqueante=True y dispara notificación a administradores.
+    """
+    permission_classes = [IsWorkOrderParticipant]
+
+    def post(self, request, pk, material_id):
+        from apps.notifications.services import queue_for_administrators
+        instance = get_object_or_404(
+            WorkOrderMaterial.objects.select_related("work_order", "material", "registrado_por"),
+            pk=material_id,
+            work_order_id=pk,
+        )
+        if instance.work_order.status == WorkOrder.Status.CLOSED:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("La OT ya está cerrada.")
+        if instance.tipo != WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("Solo materiales de tipo 'NECESARIO_NO_BLOQUEANTE' pueden marcarse como bloqueantes.")
+        instance.es_bloqueante = True
+        instance.save(update_fields=("es_bloqueante", "actualizado_en"))
+        technician_name = request.user.get_full_name() or request.user.username
+        queue_for_administrators(
+            event="MATERIAL_BLOQUEANTE",
+            subject=f"Material urgente en {instance.work_order.code}",
+            body=(
+                f"El técnico {technician_name} no puede continuar la OT {instance.work_order.code} "
+                f"sin el material '{instance.material.nombre}' (cantidad: {instance.cantidad}). "
+                "Gestiona el suministro a la brevedad."
+            ),
+            entity=instance.work_order,
+            discriminator=f"bloqueante:{instance.id}",
+        )
+        return response.Response(WorkOrderMaterialSerializer(instance).data)
+
+
+class WorkOrderCostAutocompletarView(views.APIView):
+    """
+    POST: genera WorkOrderCost de categoría MATERIAL
+    para cada WorkOrderMaterial de tipo USADO en la OT.
+    Idempotente: no duplica si ya existe un costo con la misma descripción + categoría MATERIAL.
+    """
+    permission_classes = [IsAdministrator]
+
+    def post(self, request, pk):
+        order = get_object_or_404(WorkOrder, pk=pk)
+        materiales_usados = order.materiales_usados.filter(
+            tipo=WorkOrderMaterial.Tipo.USADO
+        ).select_related("material")
+        created = []
+        for uso in materiales_usados:
+            # idempotencia: evitar duplicados por nombre
+            existe = order.cost_items.filter(
+                category=WorkOrderCost.Category.MATERIAL,
+                description=uso.material.nombre,
+            ).exists()
+            if not existe:
+                cost = WorkOrderCost.objects.create(
+                    work_order=order,
+                    category=WorkOrderCost.Category.MATERIAL,
+                    description=uso.material.nombre,
+                    amount=uso.material.precio,  # puede ser None
+                    created_by=request.user,
+                )
+                created.append(cost)
+        all_costs = order.cost_items.all()
+        return response.Response(
+            WorkOrderCostSerializer(all_costs, many=True).data,
+            status=201 if created else 200,
+        )
+
+
+class WorkOrderCostDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    PATCH: permite al admin editar amount y description de un costo existente.
+    No verifica estado de la OT — el amount siempre es editable por el admin.
+    DELETE: elimina el costo.
+    """
+    permission_classes = [IsAdministrator]
+    serializer_class = WorkOrderCostUpdateSerializer
+
+    def get_queryset(self):
+        return WorkOrderCost.objects.filter(work_order_id=self.kwargs["pk"])
+
+    def get_object(self):
+        return get_object_or_404(self.get_queryset(), pk=self.kwargs["cost_id"])
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return response.Response(WorkOrderCostSerializer(instance).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = WorkOrderCostUpdateSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return response.Response(WorkOrderCostSerializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        from rest_framework import status as http_status
+        return response.Response(status=http_status.HTTP_204_NO_CONTENT)
