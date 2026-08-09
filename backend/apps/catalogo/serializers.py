@@ -112,52 +112,7 @@ class AltaPiezasSueltasSerializer(serializers.Serializer):
         return crear_piezas_sueltas(material, validated_data["cantidad"])
 
 
-class PiezaHijaSpecSerializer(serializers.Serializer):
-    material_id = serializers.IntegerField()
-    cantidad = serializers.IntegerField(min_value=1)
 
-    def validate_material_id(self, value):
-        if not Material.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("Material no existe.")
-        return value
-
-
-class AltaEstucheSerializer(serializers.Serializer):
-    material_contenedor_id = serializers.IntegerField()
-    piezas_hijas = PiezaHijaSpecSerializer(many=True)
-    num_estuches = serializers.IntegerField(min_value=1, default=1)
-
-    def validate_material_contenedor_id(self, value):
-        material = Material.objects.filter(pk=value).first()
-        if not material:
-            raise serializers.ValidationError("Material contenedor no existe.")
-        if not material.control_individual:
-            raise serializers.ValidationError(
-                "El material contenedor debe tener control individual."
-            )
-        return value
-
-    def validate_piezas_hijas(self, value):
-        for spec in value:
-            material = Material.objects.get(pk=spec["material_id"])
-            if not material.control_individual:
-                raise serializers.ValidationError(
-                    f"El material '{material.nombre}' no tiene control individual; "
-                    "no puede usarse como pieza hija."
-                )
-        return value
-
-    def create(self, validated_data):
-        contenedor = Material.objects.get(pk=validated_data["material_contenedor_id"])
-        piezas_spec = [
-            {"material": Material.objects.get(pk=p["material_id"]), "cantidad": p["cantidad"]}
-            for p in validated_data["piezas_hijas"]
-        ]
-        return crear_estuche_con_piezas(
-            material_contenedor=contenedor,
-            piezas_hijas_spec=piezas_spec,
-            num_estuches=validated_data["num_estuches"],
-        )
 
 class AjustarStockSerializer(serializers.Serializer):
     material_id = serializers.IntegerField()

@@ -45,10 +45,7 @@ export async function listInspecciones(
   return data;
 }
 
-export async function getInspeccion(id: number): Promise<Inspeccion> {
-  const { data } = await api.get<Inspeccion>(`/inspecciones/${id}/`);
-  return data;
-}
+
 
 export async function listVencidas(): Promise<VencidaItem[]> {
   const { data } = await api.get<VencidaItem[]>("/inspecciones/vencidas/");

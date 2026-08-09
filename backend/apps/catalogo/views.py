@@ -13,7 +13,6 @@ from apps.catalogo.serializers import (
     MaterialDetalleSerializer,
     PiezaSerializer,
     AltaPiezasSueltasSerializer,
-    AltaEstucheSerializer,
     AltaEstucheInlineSerializer,
     AjustarStockSerializer,
     ReemplazarHijaSerializer,
@@ -143,15 +142,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(detail=False, methods=["post"], url_path="alta-estuche")
-    def alta_estuche(self, request):
-        serializer = AltaEstucheSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        piezas = serializer.save()
-        return Response(
-            PiezaSerializer(piezas, many=True).data,
-            status=status.HTTP_201_CREATED,
-        )
+
 
     @action(detail=False, methods=["post"], url_path="ajustar-stock")
     def ajustar_stock_action(self, request):
