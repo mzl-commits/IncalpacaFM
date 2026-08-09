@@ -1,7 +1,8 @@
-import { CaretRight } from "@phosphor-icons/react";
+import { CaretRight, Plus } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useAuth } from "@/modules/accounts/AuthContext";
 import {
   FilterDate,
   FilterSelect,
@@ -16,9 +17,11 @@ import {
 } from "@/components/filters/filterUtils";
 import {
   adminPriorityLabels,
+  getWorkOrderStatusLabel,
   specialtyLabels,
   WORK_ORDER_STATUSES,
   workOrderStatusLabels,
+  workOrderTypeLabels,
   type WorkOrderStatus,
 } from "@/modules/workorders/workOrderModel";
 import {
@@ -30,6 +33,7 @@ import {
 const FILTER_KEYS = [
   "q",
   "status",
+  "orderType",
   "specialty",
   "priority",
   "operator",
@@ -85,6 +89,8 @@ function isOverdue(scheduledDate: string, status: WorkOrderStatus) {
 
 export function WorkOrderListPage() {
   const [allWorkOrders, setAllWorkOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
+  const { user } = useAuth();
+  const isAdministrator = user?.role === "ADMINISTRADOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
 
   useEffect(() => {
@@ -147,6 +153,7 @@ export function WorkOrderListPage() {
       const searchable = [
         workOrder.code,
         workOrder.requestCode,
+        workOrderTypeLabels[workOrder.orderType ?? "OT"],
         getWorkOrderAssetDisplayCode(workOrder),
         workOrder.operatorName,
         workOrder.supervisorName,
@@ -172,6 +179,7 @@ export function WorkOrderListPage() {
       return (
         (!query || searchable.includes(query)) &&
         (!values.status || workOrder.status === values.status) &&
+        (!values.orderType || (workOrder.orderType ?? "OT") === values.orderType) &&
         (!values.specialty || workOrder.specialty === values.specialty) &&
         (!values.priority || workOrder.adminPriority === values.priority) &&
         (!values.operator || workOrder.operatorName === values.operator) &&
@@ -198,6 +206,14 @@ export function WorkOrderListPage() {
       label: "Estado",
       value: labelFor(values.status, workOrderStatusLabels),
       onRemove: () => setValue("status", ""),
+    });
+  }
+  if (values.orderType) {
+    activeFilters.push({
+      key: "orderType",
+      label: "Tipo",
+      value: labelFor(values.orderType, workOrderTypeLabels),
+      onRemove: () => setValue("orderType", ""),
     });
   }
   if (values.specialty) {
@@ -285,10 +301,16 @@ export function WorkOrderListPage() {
     <section className="work-orders-list-page">
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Mantenimiento / Órdenes de trabajo</p>
-          <h1>Órdenes de trabajo</h1>
-          <p>Consulta la programación, responsables, avance y estado de las órdenes generadas.</p>
+          <p className="breadcrumb">Mantenimiento / Órdenes operativas</p>
+          <h1>Órdenes operativas</h1>
+          <p>Consulta la programación, responsables, avance y estado de OT y OL generadas.</p>
         </div>
+        {isAdministrator && (
+          <Link className="button button-primary" to="/ordenes-trabajo/nueva">
+            <Plus size={18} weight="bold" />
+            Crear orden
+          </Link>
+        )}
       </div>
 
       <div className="metrics-grid">
@@ -318,8 +340,8 @@ export function WorkOrderListPage() {
         <ListFilterPanel
           title="Consultar órdenes"
           description="Cruza responsables, especialidad, programación, avance y prioridad."
-          searchLabel="Buscar órdenes de trabajo"
-          searchPlaceholder="Orden, solicitud, operario, supervisor o especialidad"
+          searchLabel="Buscar órdenes operativas"
+          searchPlaceholder="Orden, solicitud, tipo, responsable, supervisor o especialidad"
           searchValue={values.q}
           onSearchChange={(value) => setValue("q", value)}
           resultCount={workOrders.length}
@@ -361,6 +383,13 @@ export function WorkOrderListPage() {
             onChange={(value) => setValue("status", value)}
             options={statusOptions}
             allLabel="Todos los estados"
+          />
+          <FilterSelect
+            label="Tipo"
+            value={values.orderType}
+            onChange={(value) => setValue("orderType", value)}
+            options={Object.entries(workOrderTypeLabels).map(([value, label]) => ({ value, label }))}
+            allLabel="Todos los tipos"
           />
           <FilterSelect
             label="Especialidad"
@@ -428,6 +457,7 @@ export function WorkOrderListPage() {
               <tr>
                 <th>Orden</th>
                 <th>Solicitud</th>
+                <th>Tipo</th>
                 <th>Especialidad</th>
                 <th>Operario</th>
                 <th>Supervisor</th>
@@ -453,6 +483,7 @@ export function WorkOrderListPage() {
                       <><br /><small>Bien: {getWorkOrderAssetDisplayCode(workOrder)}</small></>
                     )}
                   </td>
+                  <td>{workOrderTypeLabels[workOrder.orderType ?? "OT"]}</td>
                   <td>{specialtyLabels[workOrder.specialty]}</td>
                   <td>{workOrder.operatorName}</td>
                   <td>{workOrder.supervisorName}</td>
@@ -463,7 +494,7 @@ export function WorkOrderListPage() {
                   </td>
                   <td>
                     <span className={`status ${statusClass[workOrder.status]}`}>
-                      {workOrderStatusLabels[workOrder.status]}
+                      {getWorkOrderStatusLabel(workOrder)}
                     </span>
                   </td>
                   <td>
@@ -476,8 +507,8 @@ export function WorkOrderListPage() {
 
               {!workOrders.length && (
                 <tr>
-                  <td colSpan={10} className="empty-row">
-                    No encontramos órdenes de trabajo con esos criterios.
+                  <td colSpan={11} className="empty-row">
+                    No encontramos órdenes operativas con esos criterios.
                   </td>
                 </tr>
               )}
@@ -487,24 +518,25 @@ export function WorkOrderListPage() {
 
         <div
           className="operational-mobile-list hidden max-[720px]:grid gap-2 p-3"
-          aria-label="Órdenes de trabajo"
+          aria-label="Órdenes operativas"
         >
           {workOrders.map((workOrder) => (
             <Link
               key={workOrder.id}
               to={`/ordenes-trabajo/${workOrder.id}`}
-              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
             >
               <span className="flex items-start justify-between gap-3">
                 <strong className="text-sm">{workOrder.code}</strong>
                 <span className={`status ${statusClass[workOrder.status]}`}>
-                  {workOrderStatusLabels[workOrder.status]}
+                  {getWorkOrderStatusLabel(workOrder)}
                 </span>
               </span>
               <span className="grid gap-1 text-xs text-slate-600">
                 <strong className="text-sm text-slate-900">
                   {specialtyLabels[workOrder.specialty]}
                 </strong>
+                <span>{workOrderTypeLabels[workOrder.orderType ?? "OT"]}</span>
                 <span>Solicitud {workOrder.requestCode}</span>
                 {getWorkOrderAssetDisplayCode(workOrder) && (
                   <span>Bien {getWorkOrderAssetDisplayCode(workOrder)}</span>
@@ -528,7 +560,7 @@ export function WorkOrderListPage() {
                   {workOrder.progressPercentage} %
                 </span>
               </span>
-              <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-blue-700">
+              <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-zinc-800">
                 Ver detalle
                 <CaretRight size={18} aria-hidden="true" />
               </span>
@@ -537,7 +569,7 @@ export function WorkOrderListPage() {
 
           {!workOrders.length && (
             <p className="empty-row rounded border border-slate-300 bg-white">
-              No encontramos órdenes de trabajo con esos criterios.
+              No encontramos órdenes operativas con esos criterios.
             </p>
           )}
         </div>

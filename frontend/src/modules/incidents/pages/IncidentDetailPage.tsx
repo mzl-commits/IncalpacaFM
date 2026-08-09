@@ -23,6 +23,7 @@ import {
   getWorkRequestById,
   updateWorkRequest,
 } from "@/modules/incidents/incidentRepository";
+import type { WorkRequest } from "@/modules/incidents/types";
 
 const statusClass: Record<RequestStatus, string> = {
   PENDIENTE: "status-warning",
@@ -50,9 +51,27 @@ const impactAnswerLabels: Record<string, string> = {
   TODA_EL_AREA: "Toda el area",
 };
 
+function getOtherIssueCategoryDetail(request: WorkRequest) {
+  const detail = request.impactAssessment?.answers?.otherIssueCategoryDetail ?? request.impactAssessment?.answers?.otherRequestDetail;
+  return typeof detail === "string" ? detail.trim() : "";
+}
 function labelImpactAnswer(value?: string) {
   return value ? impactAnswerLabels[value] ?? value : "No indicado";
 }
+
+const reportedConditionLabels: Record<string, string> = {
+  NO_FUNCIONA: "No funciona",
+  FUNCIONA_PARCIALMENTE: "Funciona parcialmente",
+  DANADO: "Está dañado o deteriorado",
+  RIESGO: "Presenta una condición de riesgo",
+};
+
+const reportedTimingLabels: Record<string, string> = {
+  AHORA: "Hace unos minutos",
+  HOY: "Hoy",
+  SEMANA: "Durante esta semana",
+  MAS_TIEMPO: "Hace más de una semana",
+};
 export function IncidentDetailPage() {
   const { id } = useParams();
 
@@ -187,12 +206,32 @@ export function IncidentDetailPage() {
 
           <div className="admin-evaluation-actions">
             {request.status === "APROBADA" && (
-                <Link
-                className="button button-primary"
-                to={`/ordenes-trabajo/nueva/${request.id}`}
-                >
-                Generar orden de trabajo
-                </Link>
+              <div className="request-derivation-panel">
+                <div>
+                  <strong>Derivar solicitud</strong>
+                  <p>Selecciona el tipo de atención que se generará para esta solicitud.</p>
+                </div>
+
+                <div className="request-derivation-options">
+                  <Link className="request-derivation-option is-active" to={`/ordenes-trabajo/nueva/${request.id}`}>
+                    <span>OT</span>
+                    <strong>Orden de trabajo</strong>
+                    <small>Mantenimiento o reparación con operario y supervisor.</small>
+                  </Link>
+
+                  <button className="request-derivation-option" type="button" disabled>
+                    <span>OS</span>
+                    <strong>Orden de servicio</strong>
+                    <small>Pendiente de definir flujo de proveedor/servicio.</small>
+                  </button>
+
+                  <button className="request-derivation-option" type="button" disabled>
+                    <span>OL</span>
+                    <strong>Orden de limpieza</strong>
+                    <small>Pendiente de definir flujo de limpieza.</small>
+                  </button>
+                </div>
+              </div>
             )}
 
             {request.status === "PENDIENTE" && (
@@ -294,7 +333,15 @@ export function IncidentDetailPage() {
             {getWorkRequestAssetDisplayCode(request) && (
               <div>
                 <dt>Bien asociado</dt>
-                <dd>{getWorkRequestAssetDisplayCode(request)}</dd>
+                <dd>
+                  {request.assetId ? (
+                    <Link to={`/bienes/${request.assetId}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>
+                      {getWorkRequestAssetDisplayCode(request)}
+                    </Link>
+                  ) : (
+                    getWorkRequestAssetDisplayCode(request)
+                  )}
+                </dd>
               </div>
             )}
             <div>
@@ -374,6 +421,12 @@ export function IncidentDetailPage() {
               <dt>Tipo de solicitud</dt>
               <dd>{requestTypeLabels[request.requestType]}</dd>
             </div>
+            {getOtherIssueCategoryDetail(request) && (
+              <div>
+                <dt>Detalle indicado</dt>
+                <dd>{getOtherIssueCategoryDetail(request)}</dd>
+              </div>
+            )}
 
             <div>
               <dt>Prioridad declarada</dt>
@@ -398,7 +451,11 @@ export function IncidentDetailPage() {
               <dl className="detail-list">
                 <div>
                   <dt>Orden relacionada</dt>
-                  <dd>{request.workOrderId}</dd>
+                  <dd>
+                    <Link to={`/ordenes-trabajo/${request.workOrderId}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>
+                      {request.workOrderId}
+                    </Link>
+                  </dd>
                 </div>
               </dl>
 
@@ -426,6 +483,24 @@ export function IncidentDetailPage() {
           </div>
 
           <dl className="detail-list">
+            <div>
+              <dt>Solicitud registrada</dt>
+              <dd>{requestTypeLabels[request.requestType]}</dd>
+            </div>
+{request.impactAssessment.answers?.assetCondition ? (
+              <div>
+                <dt>Estado informado</dt>
+                <dd>{reportedConditionLabels[request.impactAssessment.answers.assetCondition] ?? request.impactAssessment.answers.assetCondition}</dd>
+              </div>
+            ) : null}
+
+            {request.impactAssessment.answers?.startedWhen ? (
+              <div>
+                <dt>Cuándo se notó</dt>
+                <dd>{reportedTimingLabels[request.impactAssessment.answers.startedWhen] ?? request.impactAssessment.answers.startedWhen}</dd>
+              </div>
+            ) : null}
+
             <div>
               <dt>Prioridad sugerida</dt>
               <dd>

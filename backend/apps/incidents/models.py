@@ -24,6 +24,13 @@ class Incident(models.Model):
     requester = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="reported_incidents", on_delete=models.PROTECT
     )
+    reporter_profile = models.ForeignKey(
+        "organization.ReporterProfile",
+        related_name="incidents",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+    )
     request_type = models.CharField(max_length=40)
     description = models.TextField()
     requester_priority = models.CharField(max_length=20, default="MEDIA")
@@ -42,3 +49,6 @@ class Incident(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+    @property
+    def work_order(self):
+        return self.work_orders.order_by("-created_at").first()

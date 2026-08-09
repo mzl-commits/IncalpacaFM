@@ -34,6 +34,14 @@ const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
 
 const FILTER_KEYS = ["q", "category", "assignment", "condition", "criticality"] as const;
 
+const PRINT_FORMATS = {
+  COMPACT: { label: "Compacta", detail: "40 × 30 mm", widthMm: 40, heightMm: 30, qrMm: 22, columns: 4, gapMm: 3, perPage: 24 },
+  STANDARD: { label: "Estándar", detail: "60 × 45 mm", widthMm: 60, heightMm: 45, qrMm: 32, columns: 3, gapMm: 4, perPage: 15 },
+  LARGE: { label: "Grande", detail: "90 × 60 mm", widthMm: 90, heightMm: 60, qrMm: 44, columns: 2, gapMm: 4, perPage: 8 },
+} as const;
+
+type PrintFormat = keyof typeof PRINT_FORMATS;
+
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Fecha no disponible";
@@ -51,7 +59,6 @@ function getCategory(asset: RegisteredAsset) {
 
 function getLocation(asset: RegisteredAsset) {
   if (asset.draft.locationPending) return "Ubicación por confirmar";
-
   const path = [
     asset.draft.zone,
     asset.draft.building,
@@ -85,7 +92,7 @@ async function createQrDataUrl(publicUrl: string, width = 320) {
     width,
     margin: 2,
     errorCorrectionLevel: "M",
-    color: { dark: "#002b58", light: "#ffffff" },
+    color: { dark: "#000000", light: "#ffffff" },
   });
 }
 
@@ -140,7 +147,6 @@ function AssetQrPreview({ asset }: { asset: RegisteredAsset }) {
     />
   );
 }
-
 export function AssetQrInventoryPage() {
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -150,6 +156,8 @@ export function AssetQrInventoryPage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [printFormat, setPrintFormat] = useState<PrintFormat>("STANDARD");
+  const [copies, setCopies] = useState(1);
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
 
   const loadAssets = useCallback(async () => {
@@ -286,28 +294,18 @@ export function AssetQrInventoryPage() {
   const printAssets = useCallback(async (items: RegisteredAsset[]) => {
     if (!items.length) return;
 
+    const format = PRINT_FORMATS[printFormat];
+    const normalizedCopies = Math.min(20, Math.max(1, copies));
+
     setActionMessage("");
-    const printWindow = window.open("", "sgtb-qr-print", "width=960,height=720");
-
-    if (!printWindow) {
-      setActionMessage(
-        "El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.",
-      );
-      return;
-    }
-
-    printWindow.opener = null;
-    printWindow.document.title = "Etiquetas QR · SGTB Incalpaca";
-    printWindow.document.body.textContent = "Preparando etiquetas QR…";
-
     try {
       const labels = await Promise.all(
-        items.map(async (asset) => ({
+        items.flatMap((asset) => Array.from({ length: normalizedCopies }, async () => ({
           asset,
-          dataUrl: await createQrDataUrl(asset.publicUrl),
-        })),
+          dataUrl: await createQrDataUrl(asset.publicUrl, Math.max(240, format.qrMm * 8)),
+        }))),
       );
-      const document = printWindow.document;
+      
       const style = document.createElement("style");
       style.textContent = `
         @page { size: A4; margin: 12mm; }
@@ -319,24 +317,27 @@ export function AssetQrInventoryPage() {
         }
         main {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8mm;
+          grid-template-columns: repeat(${format.columns}, ${format.widthMm}mm);
+          grid-auto-rows: ${format.heightMm}mm;
+          justify-content: center;
+          gap: ${format.gapMm}mm;
         }
         article {
           break-inside: avoid;
           display: grid;
-          grid-template-columns: 42mm minmax(0, 1fr);
+          grid-template-columns: ${format.qrMm}mm minmax(0, 1fr);
           align-items: center;
-          gap: 6mm;
-          min-height: 54mm;
-          padding: 6mm;
+          gap: ${Math.max(2, Math.round(format.gapMm / 1.5))}mm;
+          height: ${format.heightMm}mm;
+          padding: ${Math.max(2, Math.round(format.gapMm / 1.5))}mm;
           border: 1px solid #9eabb9;
+          overflow: hidden;
         }
-        img { width: 42mm; height: 42mm; }
+        img { width: ${format.qrMm}mm; height: ${format.qrMm}mm; }
         strong, span, small { display: block; }
-        strong { margin: 3mm 0 1mm; font-size: 16px; }
-        span { font-weight: 700; }
-        small { margin-top: 1.5mm; color: #536170; }
+        strong { margin: 1mm 0; font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 16}px; line-height: 1.15; }
+        span { font-size: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 10 : 12}px; font-weight: 700; line-height: 1.2; }
+        small { margin-top: 1mm; color: #536170; font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 8 : 10}px; line-height: 1.2; }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
@@ -356,39 +357,62 @@ export function AssetQrInventoryPage() {
 
         image.src = dataUrl;
         image.alt = "";
-        organization.textContent = "SGTB · INCALPACA";
+        organization.textContent = "FM INCALPACA";
         code.textContent = getAssetDisplayCode(asset);
         name.textContent = asset.draft.name;
         technicalCode.textContent = asset.fmCode ? `ID técnico: ${asset.code}` : "";
-        categoryText.textContent = getCategory(asset);
-        instruction.textContent = "Escanea para consultar la ficha pública autorizada.";
+        instruction.textContent = "Escanea para más información";
 
         copy.append(organization, code, name);
         if (asset.fmCode) copy.append(technicalCode);
-        copy.append(categoryText, instruction);
+        copy.append(instruction);
         label.append(image, copy);
         main.append(label);
       });
 
-      document.head.replaceChildren(style);
-      document.body.replaceChildren(main);
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+      
+      const printWindow = iframe.contentWindow;
+      if (!printWindow) return;
+      
+      printWindow.document.open();
+      printWindow.document.write("<!DOCTYPE html><html><head></head><body></body></html>");
+      printWindow.document.close();
+      
+      printWindow.document.head.append(style);
+      printWindow.document.body.append(main);
+      
       await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, 120);
+        window.setTimeout(resolve, 200);
       });
+      
       printWindow.focus();
       printWindow.print();
+      
+      window.setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+
       setActionMessage(
-        `${items.length} ${items.length === 1 ? "etiqueta preparada" : "etiquetas preparadas"} para impresión.`,
+        `${labels.length} ${labels.length === 1 ? "etiqueta preparada" : "etiquetas preparadas"} en formato ${format.label.toLocaleLowerCase("es")}.`,
       );
     } catch {
-      printWindow.close();
       setActionMessage(
         "No se pudieron preparar las etiquetas seleccionadas. Inténtalo nuevamente.",
       );
     }
-  }, []);
+  }, [copies, printFormat]);
 
   const unassignedCount = assets.filter((asset) => asset.assignmentStatus === "Sin asignar").length;
+  const selectedLabelCount = selectedAssets.length * copies;
+  const activePrintFormat = PRINT_FORMATS[printFormat];
 
   return (
     <section className="qr-inventory-page" aria-labelledby="qr-inventory-title" aria-busy={loading}>
@@ -543,6 +567,35 @@ export function AssetQrInventoryPage() {
               allLabel="Cualquier criticidad"
             />
           </ListFilterPanel>
+
+          <section className="qr-inventory-print-settings" aria-labelledby="qr-print-settings-title">
+            <div>
+              <h2 id="qr-print-settings-title">Formato de impresión</h2>
+              <p>Define la etiqueta antes de preparar la selección. El tamaño se respeta en una hoja A4.</p>
+            </div>
+            <label>
+              <span>Tamaño de etiqueta</span>
+              <select value={printFormat} onChange={(event) => setPrintFormat(event.target.value as PrintFormat)}>
+                {Object.entries(PRINT_FORMATS).map(([value, option]) => (
+                  <option key={value} value={value}>{option.label} · {option.detail}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Copias por código</span>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={copies}
+                onChange={(event) => setCopies(Math.min(20, Math.max(1, Number(event.target.value) || 1)))}
+              />
+            </label>
+            <output>
+              <strong>{activePrintFormat.perPage} por hoja</strong>
+              <span>{selectedAssets.length ? `${selectedLabelCount} etiqueta${selectedLabelCount === 1 ? "" : "s"} a imprimir` : "Selecciona bienes para imprimir"}</span>
+            </output>
+          </section>
 
           <div className="qr-inventory-selection-bar">
             <label className="qr-inventory-select-all">

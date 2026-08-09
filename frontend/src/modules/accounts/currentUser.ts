@@ -2,6 +2,7 @@ import type { SystemUser } from "./types";
 
 const fallbackUser: SystemUser = {
   id: "USR-admin",
+  userId: 1,
   fullName: "Facility Management",
   email: "facility.management@incalpaca.com",
   role: "ADMINISTRADOR",

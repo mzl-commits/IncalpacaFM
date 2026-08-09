@@ -28,13 +28,14 @@ import {
 } from "@/modules/almacen/types";
 import type { RespuestaInput } from "@/modules/almacen/inspeccionRepository";
 
-function Field({ label, required, error, children, wide }: {
-  label: string; required?: boolean; error?: string; children: React.ReactNode; wide?: boolean;
+function Field({ label, required, error, hint, children, wide }: {
+  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
 }) {
   return (
     <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
       <span>{label}{required && <b aria-hidden="true"> *</b>}</span>
       {children}
+      {hint && !error && <small style={{ color: "var(--muted)", fontSize: 12 }}>{hint}</small>}
       {error && <small className="field-error"><WarningCircle size={14} />{error}</small>}
     </label>
   );
@@ -340,7 +341,8 @@ export function InspeccionFormPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Próxima inspección" hint="Opcional — si no se asigna, se calculará automáticamente como fecha actual + 90 días">
+              <Field label="Próxima inspección">
+                <small style={{display: "block", marginBottom: 8, color: "#666"}}>Opcional — si no se asigna, se calculará automáticamente como fecha actual + 90 días</small>
                 <input type="date" value={proximaInspeccion} onChange={(e) => setProximaInspeccion(e.target.value)} />
               </Field>
             </div>

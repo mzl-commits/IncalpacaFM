@@ -19,11 +19,11 @@ import {
 import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
 
-function Field({ label, required, error, hint, children }: {
-  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode;
+function Field({ label, required, error, hint, children, wide }: {
+  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
 }) {
   return (
-    <label className={`field ${error ? "has-error" : ""}`}>
+    <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
       <span>{label}{required && <b aria-hidden="true"> *</b>}</span>
       {children}
       {hint && !error && <small style={{ color: "var(--muted)", fontSize: 12 }}>{hint}</small>}
@@ -355,12 +355,13 @@ export function MovimientoFormPage() {
                   />
                 </Field>
               )}
-              <Field label="Observaciones" wide>
+              <Field label="Observaciones">
                 <textarea
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
                   rows={3}
                   placeholder="Detalles adicionales (opcional)"
+                  style={{width: "100%"}}
                 />
               </Field>
             </div>

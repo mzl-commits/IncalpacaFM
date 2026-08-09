@@ -3,7 +3,7 @@
 ## Propósito y alcance
 
 Este documento define cómo conciliar la información textual y espacial de un plano
-DWG con el catálogo de taxonomía FM y los bienes registrados en SGTB. Su objetivo es
+DWG con el catálogo de taxonomía FM y los bienes registrados en FM Incalpaca. Su objetivo es
 preservar la trazabilidad sin convertir coincidencias de texto en ubicaciones o
 activos de manera automática.
 

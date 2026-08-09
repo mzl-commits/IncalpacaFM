@@ -34,7 +34,8 @@ runtime/
 media/
 private_media/
 /documents/
-backups/
+backups/*
+!backups/.gitkeep
 
 # Bases de datos y respaldos
 *.sql

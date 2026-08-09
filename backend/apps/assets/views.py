@@ -53,7 +53,7 @@ class AssetListCreateView(generics.ListCreateAPIView):
         )
         if user_role(self.request.user) == AccountProfile.Role.TECHNICIAN:
             queryset = queryset.filter(
-                incidents__work_order__technician=self.request.user,
+                incidents__work_orders__technician=self.request.user,
             ).distinct()
         search = self.request.query_params.get('search', '').strip()
         if search:
@@ -128,7 +128,7 @@ class AssetDetailView(generics.RetrieveUpdateAPIView):
         ).prefetch_related('assignments__responsible', 'repair_records')
         if user_role(self.request.user) == AccountProfile.Role.TECHNICIAN:
             queryset = queryset.filter(
-                incidents__work_order__technician=self.request.user,
+                incidents__work_orders__technician=self.request.user,
             ).distinct()
         return queryset
 
@@ -171,3 +171,25 @@ class AssetClassificationView(APIView):
                 after=after,
             )
         return Response(AssetDetailSerializer(asset, context={'request': request}).data)
+
+
+class TaxonomyModelListView(APIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+
+    @extend_schema(responses={200: list})
+    def get(self, request):
+        taxonomy_id = request.query_params.get('taxonomy_id')
+        if not taxonomy_id:
+            return Response([])
+        try:
+            taxonomy_id = uuid.UUID(taxonomy_id.strip())
+        except ValueError:
+            return Response([])
+            
+        models = Asset.objects.filter(
+            taxonomy_id=taxonomy_id
+        ).exclude(
+            model__exact=''
+        ).values_list('model', flat=True).distinct()
+        
+        return Response(sorted(list(models)))

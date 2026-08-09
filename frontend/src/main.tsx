@@ -16,9 +16,13 @@ import "@/styles/asset-map-overview.css";
 import "@/styles/incident-create.css";
 import "@/styles/registries.css";
 import "@/styles/auth.css";
+import "@/styles/visual-refresh.css";
 import "@/styles/almacen.css";
+import "@/styles/theme-monochromatic.css";
 
-registerSW({ immediate: true });
+if (import.meta.env.PROD) {
+  registerSW({ immediate: true });
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

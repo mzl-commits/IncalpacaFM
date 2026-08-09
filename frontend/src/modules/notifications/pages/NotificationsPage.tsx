@@ -1,18 +1,20 @@
-import { ArrowClockwise, Bell, CheckCircle, EnvelopeSimple, WarningCircle } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowClockwise, Bell, CheckCircle, WarningCircle } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
-import { type EmailNotification, listNotifications, markNotificationRead, retryNotification } from "@/modules/notifications/notificationRepository";
+import { type EmailNotification, listNotifications, markNotificationRead, notificationActionPath, retryNotification } from "@/modules/notifications/notificationRepository";
 
 function dateTime(value: string | null) { return value ? new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—"; }
 const statusLabel = { PENDIENTE: "En cola", ENVIADA: "Enviada", ERROR: "Error", CANCELADA: "Cancelada" } as const;
 
 export function NotificationsPage() {
   const { user } = useAuth(); const isAdmin = user?.role === "ADMINISTRADOR";
+  const navigate = useNavigate();
   const [items, setItems] = useState<EmailNotification[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [showHistory, setShowHistory] = useState(false); const [retrying, setRetrying] = useState("");
-  async function load() { setLoading(true); setError(""); try { setItems(await listNotifications({ includeAll: isAdmin && showHistory })); } catch { setError("No se pudo cargar tu bandeja de notificaciones."); } finally { setLoading(false); } }
-  useEffect(() => { void load(); }, [showHistory]);
+  const load = useCallback(async () => { setLoading(true); setError(""); try { setItems(await listNotifications({ includeAll: isAdmin && showHistory })); } catch { setError("No se pudo cargar tu bandeja de notificaciones."); } finally { setLoading(false); } }, [isAdmin, showHistory]);
+  useEffect(() => { void load(); }, [load]);
   const unread = useMemo(() => items.filter((item) => !item.readAt).length, [items]); const failures = items.filter((item) => item.status === "ERROR").length;
-  async function read(item: EmailNotification) { if (item.readAt) return; try { const updated = await markNotificationRead(item.id); setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry)); } catch { setError("No se pudo actualizar la notificación."); } }
+  async function read(item: EmailNotification) { if (!item.readAt) { try { const updated = await markNotificationRead(item.id); setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry)); } catch { setError("No se pudo actualizar la notificación."); } } navigate(notificationActionPath(item) ?? "/notificaciones"); }
   async function retry(item: EmailNotification) { setRetrying(item.id); try { const updated = await retryNotification(item.id); setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry)); } catch { setError("No se pudo reprogramar el correo."); } finally { setRetrying(""); } }
   return <section className="notifications-page"><header className="page-heading"><div><p className="breadcrumb">Comunicaciones</p><h1>Notificaciones</h1><p>Alertas operativas y comunicaciones importantes dirigidas a tu usuario.</p></div></header>
     <div className="notification-summary" aria-label="Resumen de notificaciones"><article><span>Sin leer</span><strong>{unread}</strong><small>Requieren tu atención</small></article><article><span>Registradas</span><strong>{items.length}</strong><small>En esta bandeja</small></article><article className={failures ? "has-errors" : ""}><span>Con error de correo</span><strong>{failures}</strong><small>{isAdmin ? "Puedes reintentar el envío" : "En seguimiento por FM"}</small></article></div>

@@ -21,11 +21,11 @@ const routeMap: Array<{ match: RegExp; crumbs: RouteCrumb[] }> = [
   { match: /^\/incidencias\/nueva$/, crumbs: [{ label: "Mantenimiento" }, { label: "Solicitudes", to: "/incidencias" }, { label: "Nueva solicitud" }] },
   { match: /^\/incidencias\/[^/]+$/, crumbs: [{ label: "Mantenimiento" }, { label: "Solicitudes", to: "/incidencias" }, { label: "Detalle" }] },
   { match: /^\/incidencias$/, crumbs: [{ label: "Mantenimiento" }, { label: "Solicitudes" }] },
-  { match: /^\/ordenes-trabajo\/[^/]+\/diagnostico$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes de trabajo", to: "/ordenes-trabajo" }, { label: "Diagnóstico" }] },
-  { match: /^\/ordenes-trabajo\/[^/]+\/ejecutar$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes de trabajo", to: "/ordenes-trabajo" }, { label: "Ejecución" }] },
-  { match: /^\/ordenes-trabajo\/nueva\//, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes de trabajo", to: "/ordenes-trabajo" }, { label: "Nueva orden" }] },
-  { match: /^\/ordenes-trabajo\/[^/]+$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes de trabajo", to: "/ordenes-trabajo" }, { label: "Detalle" }] },
-  { match: /^\/ordenes-trabajo$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes de trabajo" }] },
+  { match: /^\/ordenes-trabajo\/[^/]+\/diagnostico$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes operativas", to: "/ordenes-trabajo" }, { label: "Diagnóstico" }] },
+  { match: /^\/ordenes-trabajo\/[^/]+\/ejecutar$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes operativas", to: "/ordenes-trabajo" }, { label: "Ejecución" }] },
+  { match: /^\/ordenes-trabajo\/nueva\//, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes operativas", to: "/ordenes-trabajo" }, { label: "Nueva orden" }] },
+  { match: /^\/ordenes-trabajo\/[^/]+$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes operativas", to: "/ordenes-trabajo" }, { label: "Detalle" }] },
+  { match: /^\/ordenes-trabajo$/, crumbs: [{ label: "Mantenimiento" }, { label: "Órdenes operativas" }] },
   { match: /^\/informes$/, crumbs: [{ label: "Informes" }] },
   { match: /^\/documentos$/, crumbs: [{ label: "Administración" }, { label: "Documentos" }] },
   { match: /^\/auditoria$/, crumbs: [{ label: "Administración" }, { label: "Auditoría" }] },
@@ -40,7 +40,7 @@ const routeMap: Array<{ match: RegExp; crumbs: RouteCrumb[] }> = [
 
 export function RouteBreadcrumbs() {
   const { pathname } = useLocation();
-  const crumbs = routeMap.find((route) => route.match.test(pathname))?.crumbs ?? [{ label: "SGTB" }];
+  const crumbs = routeMap.find((route) => route.match.test(pathname))?.crumbs ?? [{ label: "FM Incalpaca" }];
   const entries: RouteCrumb[] = pathname === "/" ? crumbs : [{ label: "Inicio", to: "/" }, ...crumbs];
 
   return (

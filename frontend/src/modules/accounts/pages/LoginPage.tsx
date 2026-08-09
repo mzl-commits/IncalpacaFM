@@ -51,7 +51,7 @@ export function LoginPage() {
       <section className="login-form-panel">
         <form onSubmit={handleSubmit}>
           <header>
-            <span>SGTB Incalpaca</span>
+            <span>FM Incalpaca</span>
             <h2>Iniciar sesión</h2>
             <p>Ingresa con el código de trabajador asignado.</p>
           </header>
@@ -84,6 +84,9 @@ export function LoginPage() {
           <button className="button button-primary login-submit" disabled={loading}>
             {loading ? "Validando…" : "Ingresar al sistema"}
           </button>
+          <p className="login-privacy-copy">
+            Al ingresar, el sistema registra el acceso para proteger los bienes y la trazabilidad del servicio. Consulta el aviso de privacidad y ejerce tus derechos ARCO en <a href="/privacidad">Privacidad</a>.
+          </p>
           <aside className="login-demo-accounts">
             <strong>Accesos de demostración</strong>
             <span>Administrador: admin / Montescoli3</span>
