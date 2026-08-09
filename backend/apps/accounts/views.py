@@ -1,4 +1,3 @@
-
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -61,6 +60,7 @@ class TechnicianListCreateView(generics.ListCreateAPIView):
         return get_user_model().objects.select_related('account_profile').filter(
             account_profile__role=AccountProfile.Role.TECHNICIAN
         ).order_by('first_name', 'last_name', 'username')
+
 
 class TechnicianDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdministrator]

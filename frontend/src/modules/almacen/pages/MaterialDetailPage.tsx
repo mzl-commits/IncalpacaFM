@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, ArrowRight, ClipboardText, Package, PencilSimple, Plus, Trash, WarningCircle,
+  ArrowLeft, ArrowRight, CaretDown, ClipboardText, Package, PencilSimple, Plus, Trash, WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -42,6 +42,7 @@ export function MaterialDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false); // eslint-disable-line -- kept for safety
   // "idle" | "confirming" | "force_required" | "force_confirming"
   const [deleteStep, setDeleteStep] = useState<"idle" | "confirming" | "force_required" | "force_confirming">("idle");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const deleteMut = useMutation({
     mutationFn: () => deleteMaterial(materialId),
@@ -102,41 +103,41 @@ export function MaterialDetailPage() {
           <h1>{material.nombre}</h1>
           <p>{material.subcategoria_nombre} · {material.categoria_nombre}</p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link
-            className="button button-secondary"
-            to={`/almacen/catalogo/${material.id}/editar`}
-          >
-            <PencilSimple size={16} /> Editar
-          </Link>
-          <Link
-            className="button button-secondary"
-            to={`/almacen/movimientos/nuevo?material=${material.id}`}
-          >
-            <ArrowRight size={16} /> Registrar movimiento
-          </Link>
+        <div className="material-header-actions">
           {material.control_individual && (
             <Link
-              className="button button-secondary"
-              to={`/almacen/inspecciones/nueva?material=${material.id}`}
-            >
-              <ClipboardText size={16} /> Nueva inspección
-            </Link>
-          )}
-          {material.control_individual && (
-            <Link
-              className="button button-primary"
+              className="button button-primary button-sm"
               to={`/almacen/catalogo/${material.id}/alta-piezas`}
             >
-              <Plus size={16} /> Alta de piezas
+              <Plus size={14} /> Alta de piezas
             </Link>
           )}
+          <Link
+            className="button button-secondary button-sm"
+            to={`/almacen/movimientos/nuevo?material=${material.id}`}
+          >
+            <ArrowRight size={14} /> Registrar movimiento
+          </Link>
+          {material.control_individual && (
+            <Link
+              className="button button-secondary button-sm"
+              to={`/almacen/inspecciones/nueva?material=${material.id}`}
+            >
+              <ClipboardText size={14} /> Nueva inspección
+            </Link>
+          )}
+          <Link
+            className="button button-secondary button-sm"
+            to={`/almacen/catalogo/${material.id}/editar`}
+          >
+            <PencilSimple size={14} /> Editar
+          </Link>
           <button
-            className="button"
-            style={{ background: "var(--error, #dc2626)", color: "#fff", borderColor: "transparent" }}
+            type="button"
+            className="button button-danger-subtle button-sm"
             onClick={() => setDeleteStep("confirming")}
           >
-            <Trash size={16} /> Eliminar
+            <Trash size={14} /> Eliminar
           </button>
         </div>
       </div>
@@ -273,6 +274,14 @@ export function MaterialDetailPage() {
               <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Tipo de control</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{tipoControlLabels[material.tipo_control]}</dd></div>
               <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Control individual</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Ubicación física</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.ubicacion_fisica || "—"}</dd></div>
+              <div>
+                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Precio de referencia</dt>
+                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                  {material.precio !== null && material.precio !== undefined && material.precio !== ""
+                    ? `S/ ${Number(material.precio).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : "—"}
+                </dd>
+              </div>
               <div>
                 <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Cantidad / Piezas</dt>
                 <dd style={{ margin: "4px 0 0", fontSize: 13 }}>

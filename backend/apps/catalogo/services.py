@@ -3,11 +3,16 @@ import random
 import string
 
 def generar_codigo_material(categoria):
-    """Genera código correlativo: prefijo + consecutivo de 4 dígitos (ej. H0013)."""
+    """Genera código correlativo: prefijo + consecutivo de 4 dígitos (ej. H0013).
+    Solo cuenta entre materiales visibles (es_componente=False); los
+    materiales-componente no afectan este contador."""
 
     largo_prefijo = len(categoria.prefijo)
     ultimo = (
-        Material.objects.filter(codigo__regex=rf"^{categoria.prefijo}\d+$")
+        Material.objects.filter(
+            codigo__regex=rf"^{categoria.prefijo}\d+$",
+            es_componente=False,
+        )
         .order_by("-codigo")
         .first()
     )
@@ -22,6 +27,17 @@ def generar_codigo_pieza():
     while True:
         codigo = "".join(random.choices(caracteres, k=5))
         if not Pieza.objects.filter(codigo=codigo).exists():
+            return codigo
+
+
+def generar_codigo_material_componente():
+    """Código aleatorio para materiales-componente (creados automáticamente
+    al registrar piezas hijas inline). Misma lógica que generar_codigo_pieza(),
+    pero verificando unicidad contra Material en vez de Pieza."""
+    caracteres = string.ascii_uppercase + string.digits
+    while True:
+        codigo = "".join(random.choices(caracteres, k=5))
+        if not Material.objects.filter(codigo=codigo).exists():
             return codigo
 
 def crear_piezas_sueltas(material, cantidad):
