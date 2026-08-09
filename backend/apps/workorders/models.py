@@ -200,6 +200,11 @@ class WorkOrderMaterial(models.Model):
             "sin este material (solo aplica cuando tipo=NECESARIO_NO_BLOQUEANTE)."
         ),
     )
+    porcentaje_requerido = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Porcentaje de avance de la OT en que el material es requerido (0-100)."
+    )
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="materiales_registrados_en_ot",

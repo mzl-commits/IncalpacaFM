@@ -554,6 +554,46 @@ class WorkOrderActionSerializer(serializers.Serializer):
             ]
             order.progress_percentage = percentage
             order.started_at = order.started_at or now
+
+            # Check for necessary_no_blocking materials whose required progress percentage is met
+            # and check if they still lack stock to notify administrators
+            from apps.workorders.models import WorkOrderMaterial
+            from apps.notifications.services import queue_for_administrators
+            
+            materiales_pendientes = order.materiales_usados.filter(
+                tipo=WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE,
+                es_bloqueante=False,
+                porcentaje_requerido__isnull=False,
+                porcentaje_requerido__lte=percentage
+            ).select_related("material")
+            
+            for m in materiales_pendientes:
+                insuficiente = False
+                if m.material.control_individual:
+                    from apps.catalogo.models import Pieza
+                    disponibles = Pieza.objects.filter(material=m.material, estado="Disponible").count()
+                    if m.cantidad > disponibles:
+                        insuficiente = True
+                else:
+                    if m.cantidad > m.material.cantidad_total:
+                        insuficiente = True
+                
+                if insuficiente:
+                    m.es_bloqueante = True
+                    m.save(update_fields=["es_bloqueante", "actualizado_en"])
+                    
+                    operator_name = request.user.get_full_name() or request.user.username
+                    queue_for_administrators(
+                        event="MATERIAL_BLOQUEANTE",
+                        subject=f"Material urgente en {order.code} por avance ({percentage}%)",
+                        body=(
+                            f"El técnico {operator_name} ha alcanzado el {percentage}% de avance en la OT {order.code} "
+                            f"y requiere el material '{m.material.nombre}' (cantidad: {m.cantidad}) "
+                            f"el cual no cuenta con stock disponible. Se ha marcado como bloqueante."
+                        ),
+                        entity=order,
+                        discriminator=f"bloqueante_avance:{m.id}"
+                    )
             if percentage == 100:
                 finish_photo = self.validated_data.get("finishPhoto")
                 if not WorkOrderPhoto.objects.filter(work_order=order, stage=WorkOrderPhoto.Stage.FINISH).exists():
@@ -816,6 +856,7 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
             "tipo",
             "tipoLabel",
             "esBloqueante",
+            "porcentajeRequerido",
             "registradoPorNombre",
             "creadoEn",
             "actualizadoEn",
@@ -823,6 +864,7 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
 
     # camelCase mapping
     esBloqueante = serializers.BooleanField(source="es_bloqueante", read_only=True)
+    porcentajeRequerido = serializers.IntegerField(source="porcentaje_requerido", read_only=True)
 
     def get_registradoPorNombre(self, obj) -> str:
         return obj.registrado_por.get_full_name() or obj.registrado_por.username
@@ -837,6 +879,13 @@ class WorkOrderMaterialWriteSerializer(serializers.Serializer):
     )
     cantidad = serializers.IntegerField(min_value=1)
     tipo = serializers.ChoiceField(choices=["USADO", "NECESARIO_NO_BLOQUEANTE"])
+    porcentajeRequerido = serializers.IntegerField(
+        source="porcentaje_requerido",
+        min_value=0,
+        max_value=100,
+        required=False,
+        allow_null=True,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

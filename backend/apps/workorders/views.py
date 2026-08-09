@@ -186,6 +186,7 @@ class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
             material=serializer.validated_data["material"],
             cantidad=serializer.validated_data["cantidad"],
             tipo=serializer.validated_data["tipo"],
+            porcentaje_requerido=serializer.validated_data.get("porcentaje_requerido"),
             registrado_por=self.request.user,
         )
         return instance
@@ -232,6 +233,8 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.material = data.get("material", instance.material)
         instance.cantidad = data.get("cantidad", instance.cantidad)
         instance.tipo = data.get("tipo", instance.tipo)
+        if "porcentaje_requerido" in data:
+            instance.porcentaje_requerido = data["porcentaje_requerido"]
         instance.save()
         return response.Response(WorkOrderMaterialSerializer(instance).data)
 
