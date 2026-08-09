@@ -14,6 +14,14 @@ export interface TrackingEvent {
   date: string;
 }
 
+export interface WorkEvidence {
+  id: string;
+  name: string;
+  mimeType: string;
+  createdAt: string;
+  progressPercentage?: number;
+}
+
 export interface RequestTracking {
   incidentId: string;
   code: string;
@@ -23,6 +31,7 @@ export interface RequestTracking {
   workerSpecialty: string;
   workOrderCode: string;
   workOrderStatus: string;
+  workEvidence: WorkEvidence[];
   canSubmitConformity: boolean;
   conformity?: {
     accepted?: boolean;

@@ -1,0 +1,79 @@
+import { ArrowLeft, ArrowRight, CalendarBlank, ClipboardText, Package, Wrench } from "@phosphor-icons/react";
+import { Link } from "react-router-dom";
+
+export function WorkOrderTypeSelectorPage() {
+  return (
+    <section className="order-type-selector-page">
+      <div className="page-heading">
+        <div>
+          <p className="breadcrumb">Mantenimiento / Nueva orden</p>
+          <h1>Crear orden</h1>
+          <p>Elige que tipo de orden se va a generar. Por ahora solo la OT usa el flujo activo.</p>
+        </div>
+        <Link className="button button-secondary" to="/ordenes-trabajo">
+          <ArrowLeft size={18} />
+          Volver
+        </Link>
+      </div>
+
+      <div className="order-type-grid">
+        <Link className="order-type-card is-enabled" to="/ordenes-trabajo/nueva/ot">
+          <span className="order-type-icon">
+            <Wrench size={28} />
+          </span>
+          <span className="order-type-code">OT</span>
+          <strong>Orden de trabajo</strong>
+          <small>
+            Para mantenimiento correctivo o atencion tecnica creada directamente por administracion.
+          </small>
+          <b>
+            Continuar con OT
+            <ArrowRight size={17} />
+          </b>
+        </Link>
+
+        <Link className="order-type-card is-enabled" to="/ordenes-trabajo/nueva/ol">
+          <span className="order-type-icon">
+            <ClipboardText size={28} />
+          </span>
+          <span className="order-type-code">OL</span>
+          <strong>Orden de limpieza</strong>
+          <small>
+            Para una limpieza puntual creada por administracion.
+          </small>
+          <b>
+            OL puntual
+            <ArrowRight size={17} />
+          </b>
+        </Link>
+
+
+        <Link className="order-type-card is-enabled" to="/ordenes-trabajo/nueva/ol-rutinaria">
+          <span className="order-type-icon">
+            <CalendarBlank size={28} />
+          </span>
+          <span className="order-type-code">OL</span>
+          <strong>Limpieza rutinaria</strong>
+          <small>
+            Para generar varias OL segun dias, hora y rango de fechas.
+          </small>
+          <b>
+            OL rutinaria
+            <ArrowRight size={17} />
+          </b>
+        </Link>
+        <button className="order-type-card is-disabled" type="button" disabled>
+          <span className="order-type-icon">
+            <Package size={28} />
+          </span>
+          <span className="order-type-code">OS</span>
+          <strong>Orden de servicio</strong>
+          <small>
+            Para servicios o derivaciones que todavia no forman parte del flujo actual.
+          </small>
+          <b>Proximamente</b>
+        </button>
+      </div>
+    </section>
+  );
+}

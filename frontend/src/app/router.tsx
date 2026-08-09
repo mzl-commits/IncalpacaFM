@@ -13,6 +13,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
+import { ReporterRegistryPage } from "@/modules/accounts/pages/ReporterRegistryPage";
 import { TechnicianDetailPage } from "@/modules/accounts/pages/TechnicianDetailPage";
 import { TechnicianSchedulePage } from "@/modules/workorders/pages/TechnicianSchedulePage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
@@ -28,7 +29,7 @@ function lazyRoute<TModule, TKey extends keyof TModule>(
   };
 }
 
-function SupervisorWorkOrderReviewRoute() {
+function supervisorWorkOrderReviewRoute() {
   return <SupervisorWorkOrderReviewPage />;
 }
 
@@ -65,10 +66,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/reportar/:token",
-    lazy: lazyRoute(
-      () => import("@/modules/incidents/pages/PublicIncidentCreatePage"),
-      "PublicIncidentCreatePage",
-    ),
+    element: <LegacyPublicReportRedirect />,
   },
   {
     path: "/seguimiento-solicitud",
@@ -87,6 +85,10 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     lazy: lazyRoute(() => import("@/modules/accounts/pages/LoginPage"), "LoginPage"),
+  },
+  {
+    path: "/privacidad",
+    lazy: lazyRoute(() => import("@/modules/privacy/pages/PrivacyPage"), "PrivacyPage"),
   },
   {
     path: "/",
@@ -200,7 +202,7 @@ export const router = createBrowserRouter([
         path: "supervision",
         element: (
           <RoleRoute allowedRoles={["SUPERVISOR", "ADMINISTRADOR"]}>
-            <SupervisorWorkOrderReviewRoute />
+            {supervisorWorkOrderReviewRoute()}
           </RoleRoute>
         ),
       },
@@ -209,6 +211,34 @@ export const router = createBrowserRouter([
         lazy: lazyRoute(
           () => import("@/modules/workorders/pages/WorkOrderListPage"),
           "WorkOrderListPage",
+        ),
+      },
+      {
+        path: "ordenes-trabajo/nueva",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/WorkOrderTypeSelectorPage"),
+          "WorkOrderTypeSelectorPage",
+        ),
+      },
+      {
+        path: "ordenes-trabajo/nueva/ot",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/DirectWorkOrderCreatePage"),
+          "DirectWorkOrderCreatePage",
+        ),
+      },
+      {
+        path: "ordenes-trabajo/nueva/ol",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/DirectWorkOrderCreatePage"),
+          "DirectWorkOrderCreatePage",
+        ),
+      },
+      {
+        path: "ordenes-trabajo/nueva/ol-rutinaria",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/RoutineCleaningOrderCreatePage"),
+          "RoutineCleaningOrderCreatePage",
         ),
       },
       {
@@ -248,6 +278,7 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
+      { path: "bienes/escanear", lazy: lazyRoute(() => import("@/modules/assets/pages/AssetScannerPage"), "AssetScannerPage") },
       {
         path: "ordenes-trabajo/recomendaciones",
         lazy: administratorLazyRoute(
@@ -285,8 +316,13 @@ export const router = createBrowserRouter([
       },
       {
         path: "informes",
-        lazy: lazyRoute(() => import("@/modules/reports/pages/ReportsPage"), "ReportsPage"),
+        lazy: administratorLazyRoute(() => import("@/modules/reports/pages/ReportsPage"), "ReportsPage"),
       },
+      {
+        path: "informes/ordenes-trabajo",
+        lazy: administratorLazyRoute(() => import("@/modules/reports/pages/WorkOrderReportsPage"), "WorkOrderReportsPage"),
+      },
+      { path: "informes/plantillas", lazy: administratorLazyRoute(() => import("@/modules/reports/pages/ReportTemplatesPage"), "ReportTemplatesPage") },
       {
         path: "notificaciones",
         lazy: lazyRoute(
@@ -325,6 +361,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
             <TechnicianManagementPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "administracion/reportantes",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <ReporterRegistryPage />
           </RoleRoute>
         ),
       },
@@ -479,3 +523,7 @@ export const router = createBrowserRouter([
   },
 ]);
 
+function LegacyPublicReportRedirect() {
+  const token = window.location.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  return <Navigate to={`/solicitud-trabajo?asset=${encodeURIComponent(token)}`} replace />;
+}

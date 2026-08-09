@@ -11,4 +11,5 @@ openpyxl==3.1.5
 pillow==12.3.0
 psycopg[binary]==3.3.4
 redis==6.4.0
+reportlab==4.4.10
 whitenoise==6.12.0

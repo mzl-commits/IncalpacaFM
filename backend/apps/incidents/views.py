@@ -1,4 +1,4 @@
-﻿from uuid import UUID
+from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
@@ -15,6 +15,7 @@ from apps.accounts.permissions import IsAuthenticatedReadAdministratorWrite, use
 from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
+from apps.privacy.services import record_privacy_event
 from apps.workorders.models import TechnicianSatisfaction, WorkOrder
 
 from .models import Incident
@@ -71,6 +72,7 @@ class PublicWorkRequestCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         incident = serializer.save()
+        record_privacy_event(request=request, context="REPORTE", subject_reference=incident.code)
         queue_for_administrators(
             event="INCIDENT_CREATED",
             subject=f"Nueva solicitud {incident.code}",
@@ -105,6 +107,7 @@ class PublicAssetIncidentCreateView(APIView):
         asset = get_object_or_404(
             Asset.objects.select_related("location"), public_token=token
         )
+        location = asset.location
         return Response({
             "displayCode": asset.fm_code or asset.code,
             "name": asset.name,
@@ -112,9 +115,14 @@ class PublicAssetIncidentCreateView(APIView):
                 f"/api/v1/public/assets/{asset.public_token}/photo/"
             ) if asset.photo else None,
             "generalLocation": (
-                f"{asset.location.building} / {asset.location.area}"
-                if asset.location else "Por confirmar"
+                f"{location.building} / {location.area}"
+                if location else "Por confirmar"
             ),
+            "locationId": str(location.id) if location else "",
+            "zone": location.zone if location else "",
+            "building": location.building if location else "",
+            "area": location.area if location else "",
+            "room": location.room if location else "",
         })
 
     @extend_schema(request=PublicAssetIncidentSerializer, responses={201: OpenApiTypes.OBJECT})
@@ -177,9 +185,7 @@ class PublicIncidentTrackingView(generics.RetrieveAPIView):
         queryset = Incident.objects.select_related(
             "requester",
             "asset",
-            "work_order",
-            "work_order__technician",
-        )
+        ).prefetch_related("work_orders__technician", "work_orders__satisfaction")
         try:
             UUID(token)
             return get_object_or_404(queryset, pk=token)
@@ -190,7 +196,7 @@ class PublicIncidentConformityView(APIView):
 
     @transaction.atomic
     def post(self, request, token):
-        queryset = Incident.objects.select_related("work_order")
+        queryset = Incident.objects.prefetch_related("work_orders__satisfaction")
         try:
             UUID(token)
             incident = get_object_or_404(queryset, pk=token)
@@ -198,67 +204,58 @@ class PublicIncidentConformityView(APIView):
             incident = get_object_or_404(queryset, code__iexact=token)
 
         order = getattr(incident, "work_order", None)
-        if not order or order.status != WorkOrder.Status.CONFORMITY:
+        if not order or order.status not in {WorkOrder.Status.CLOSED, WorkOrder.Status.CONFORMITY}:
             return Response(
-                {"detail": "La solicitud aún no está lista para conformidad."},
+                {"detail": "La atención aún no está lista para ser evaluada."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        accepted = bool(request.data.get("accepted"))
         rating = request.data.get("rating")
         comment = str(request.data.get("comment") or "").strip()
+        try:
+            rating = int(rating)
+        except (TypeError, ValueError):
+            return Response({"rating": "Selecciona una calificación de 1 a 5."}, status=status.HTTP_400_BAD_REQUEST)
+        if not 1 <= rating <= 5:
+            return Response({"rating": "La calificación debe estar entre 1 y 5."}, status=status.HTTP_400_BAD_REQUEST)
         now = timezone.now()
         order.conformity = {
-            "accepted": accepted,
+            "accepted": True,
             "rating": rating,
             "comment": comment,
             "at": now.isoformat(),
             "by": "Solicitante",
-            "source": "public_tracking",
+            "source": "public_satisfaction",
         }
-        if accepted:
+        # Compatibilidad con las OT creadas antes del cierre administrativo.
+        if order.status == WorkOrder.Status.CONFORMITY:
             order.status = WorkOrder.Status.CLOSED
             order.closed_at = now
             incident.status = Incident.Status.CLOSED
             incident.save(update_fields=("status", "updated_at"))
-        else:
-            order.status = WorkOrder.Status.RETURNED
-            order.closed_at = None
         order.save(update_fields=("conformity", "status", "closed_at", "updated_at"))
         TechnicianSatisfaction.objects.update_or_create(
             work_order=order,
             defaults={
                 "technician": order.technician,
-                "accepted": accepted,
-                "rating": rating if accepted else None,
+                "accepted": True,
+                "rating": rating,
                 "comment": comment,
             },
         )
-        if accepted:
-            queue_for_administrators(
-                event='SERVICE_SATISFACTION_RECEIVED',
-                subject=f'Satisfacción registrada · {incident.code}',
-                body=(
-                    f'El solicitante confirmó la atención {incident.code} '
-                    f'con una calificación de {rating or "sin calificación"}/5.'
-                ),
-                entity=incident,
-                discriminator='accepted',
-            )
-            queue_incident_requester(
-                event='SERVICE_SATISFACTION_THANK_YOU',
-                incident=incident,
-                subject=f'Gracias por tu evaluación · {incident.code}',
-                body='Tu confirmación y evaluación fueron registradas. Gracias por ayudarnos a mejorar el servicio.',
-                discriminator='accepted-thank-you',
-            )
-        else:
-            queue_for_administrators(
-                event='SERVICE_RETURNED_BY_REQUESTER',
-                subject=f'Revisión solicitada por el usuario · {incident.code}',
-                body=f'El solicitante indicó que la atención {incident.code} requiere una nueva revisión. {comment}',
-                entity=incident,
-                discriminator='returned',
-            )
+        queue_for_administrators(
+            event='SERVICE_SATISFACTION_RECEIVED',
+            subject=f'Satisfacción registrada · {incident.code}',
+            body=f'El solicitante calificó la atención {incident.code} con {rating}/5.',
+            entity=incident,
+            discriminator='satisfaction',
+        )
+        queue_incident_requester(
+            event='SERVICE_SATISFACTION_THANK_YOU',
+            incident=incident,
+            subject=f'Gracias por tu evaluación · {incident.code}',
+            body='Tu evaluación fue registrada. Gracias por ayudarnos a mejorar el servicio.',
+            discriminator='satisfaction-thank-you',
+        )
 
         return Response(PublicIncidentTrackingSerializer(incident).data)

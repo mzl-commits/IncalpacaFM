@@ -1,8 +1,9 @@
 import {
   ArrowLeft,
   FloppyDisk,
+  Sparkle,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Link,
   useNavigate,
@@ -24,8 +25,11 @@ import {
   type Specialty,
 } from "@/modules/workorders/workOrderModel";
 
-import { createWorkOrder } from "@/modules/workorders/workOrderRepository";
+import { createWorkOrder, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
+
+function specialtyMatch(specialty: string, type: string) { const value = `${specialty} ${type}`.toLowerCase(); return ["electric", "gasfit", "carpint", "sold", "pint", "clima"].some((word) => value.includes(word)); }
+function hoursFormat(value: number) { return `${Math.round(value * 10) / 10} h`; }
 
 interface WorkOrderFormState {
   operatorId: string;
@@ -43,21 +47,6 @@ interface WorkOrderFormState {
   plannedHours: number;
   administratorNotes: string;
 }
-
-const operators = [
-  {
-    id: "USR-OPE-001",
-    name: "Carlos Mamani",
-  },
-  {
-    id: "USR-OPE-002",
-    name: "Luis Quispe",
-  },
-  {
-    id: "USR-OPE-003",
-    name: "Miguel Condori",
-  },
-];
 
 const supervisors = [
   {
@@ -93,10 +82,26 @@ export function WorkOrderCreatePage() {
 
   const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
+
   useEffect(() => {
     if (requestId) void getWorkRequestById(requestId).then(setRequest);
     void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
+    void listWorkOrders().then(setOrders);
   }, [requestId]);
+
+  const topRecommendation = useMemo(() => {
+    if (!request || technicians.length === 0) return null;
+    const candidates = technicians.map((person) => { 
+      const assigned = orders.filter((order) => order.operatorId === person.id && order.scheduledDate >= new Date().toISOString().slice(0, 10) && !["CERRADA", "CANCELADA"].includes(order.status)); 
+      const scheduledHours = assigned.reduce((sum, order) => sum + order.plannedHours, 0); 
+      const matching = specialtyMatch(person.specialty, request.requestType); 
+      const urgency = request.requesterPriority === "EMERGENCIA" ? 14 : request.requesterPriority === "URGENTE" ? 9 : 4; 
+      const score = Math.max(0, 100 - scheduledHours * 9 + (matching ? 22 : 0) + urgency); 
+      return { person, scheduledHours, matching, score, reason: `${matching ? "Especialidad compatible" : "Especialidad general"} · ${hoursFormat(scheduledHours)} ya programadas` }; 
+    }).sort((a, b) => b.score - a.score);
+    return candidates.length > 0 ? candidates[0] : null;
+  }, [request, technicians, orders]);
 
   const [form, setForm] =
     useState<WorkOrderFormState>(initialForm);
@@ -295,6 +300,28 @@ export function WorkOrderCreatePage() {
           </div>
 
           <div className="form-grid">
+            {topRecommendation && (
+              <div className="recommendation-widget" style={{ gridColumn: "1 / -1", backgroundColor: "var(--brand-surface)", padding: "16px", borderRadius: "var(--radius-lg)", border: "1px solid var(--brand-primary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+                  <div style={{ backgroundColor: "var(--brand-primary)", color: "white", padding: "10px", borderRadius: "50%", display: "flex" }}>
+                    <Sparkle size={20} weight="fill" />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: "var(--text-primary)" }}>Sugerencia inteligente: {topRecommendation.person.full_name}</h3>
+                    <p style={{ margin: 0, fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>
+                      {topRecommendation.reason} ({topRecommendation.score} pts)
+                    </p>
+                  </div>
+                </div>
+                <button type="button" className="button button-primary" onClick={() => {
+                  updateField("operatorId", topRecommendation.person.id);
+                  updateField("operatorName", topRecommendation.person.full_name);
+                  updateField("technicianWorkerCode", topRecommendation.person.worker_code ?? "");
+                }}>
+                  Asignar sugerencia
+                </button>
+              </div>
+            )}
             <label className="field">
               <span>Operario *</span>
 

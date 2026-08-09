@@ -1,7 +1,8 @@
-﻿import type {
+import type {
   AdminPriority,
   Specialty,
   WorkOrderStatus,
+  WorkOrderType,
 } from "./workOrderModel";
 
 export interface WorkOrderSession {
@@ -38,9 +39,14 @@ export interface WorkOrder {
 
   requestId: string;
   requestCode: string;
+  orderType?: WorkOrderType;
   assetId?: string | null;
   assetCode?: string | null;
   assetDisplayCode?: string | null;
+  correctionOfId?: string | null;
+  correctionOfCode?: string | null;
+  correctionWorkOrderId?: string | null;
+  correctionWorkOrderCode?: string | null;
 
   operatorId: string;
   operatorName: string;
@@ -66,6 +72,8 @@ export interface WorkOrder {
   workSessions?: WorkOrderSession[];
   effectiveWorkMinutes?: number;
   activeWorkSession?: WorkOrderSession | null;
+  startPhoto?: string | null;
+  finishPhoto?: string | null;
   satisfaction?: {
     accepted: boolean;
     rating: number | null;

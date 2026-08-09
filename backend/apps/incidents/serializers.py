@@ -1,14 +1,18 @@
-﻿from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
 from apps.accounts.models import AccountProfile
-from apps.assets.models import Location, LocationMap
+from apps.assets.models import Asset, Location, LocationMap
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
+from apps.privacy.services import record_privacy_event
+from apps.organization.services import register_reporter
 
 from .models import Incident
+from .services import build_tracking_url
 
 
 class IncidentSerializer(serializers.ModelSerializer):
@@ -134,7 +138,8 @@ class IncidentSerializer(serializers.ModelSerializer):
         return self._location_float(obj, "locationMarkerY")
 
     def get_workOrderId(self, obj) -> str | None:
-        return str(obj.work_order.id) if hasattr(obj, "work_order") else None
+        order = obj.work_order
+        return str(order.id) if order else None
 
     def validate_status(self, value):
         aliases = {
@@ -271,12 +276,27 @@ class IncidentSerializer(serializers.ModelSerializer):
             before=before,
             after={"status": instance.status, "rejection_reason": instance.rejection_reason},
         )
+        if before["status"] != Incident.Status.REJECTED and instance.status == Incident.Status.REJECTED:
+            reason = instance.rejection_reason.strip() or "No se registró un motivo específico."
+            queue_incident_requester(
+                event="INCIDENT_REJECTED",
+                incident=instance,
+                subject=f"Solicitud no aprobada {instance.code}",
+                body=(
+                    f"Tu solicitud {instance.code} fue revisada y no fue aprobada para atención.\n\n"
+                    f"Motivo: {reason}\n\n"
+                    f"Puedes revisar el seguimiento aquí: {build_tracking_url(instance)}"
+                ),
+                discriminator=instance.status,
+            )
         return instance
 
 
 class PublicAssetIncidentSerializer(serializers.Serializer):
     reporterName = serializers.CharField(max_length=160)
     reporterEmail = serializers.EmailField(required=False, allow_blank=True)
+    reporterDni = serializers.CharField(max_length=12)
+    reporterWorkerCode = serializers.CharField(max_length=40)
     requestType = serializers.CharField(max_length=40)
     description = serializers.CharField(min_length=10, max_length=3000)
     requesterPriority = serializers.ChoiceField(choices=("BAJA", "MEDIA", "ALTA"), default="MEDIA")
@@ -309,12 +329,22 @@ class PublicAssetIncidentSerializer(serializers.Serializer):
     def create(self, validated_data):
         asset = self.context["asset"]
         requester = self._public_requester()
+        try:
+            reporter_profile = register_reporter(
+                dni=validated_data["reporterDni"],
+                worker_code=validated_data["reporterWorkerCode"],
+                full_name=validated_data["reporterName"],
+                email=validated_data.get("reporterEmail", ""),
+            )
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
         sequence = Incident.objects.select_for_update().count() + 1
         location = asset.location
         return Incident.objects.create(
             code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
             asset=asset,
             requester=requester,
+            reporter_profile=reporter_profile,
             reporter_name=validated_data["reporterName"],
             reporter_email=validated_data.get("reporterEmail", ""),
             public_submission=True,
@@ -322,6 +352,7 @@ class PublicAssetIncidentSerializer(serializers.Serializer):
                 "name": validated_data["reporterName"],
                 "email": validated_data.get("reporterEmail", ""),
                 "phone": "",
+                "workerCode": validated_data["reporterWorkerCode"],
             },
             request_type=validated_data["requestType"],
             description=validated_data["description"],
@@ -341,18 +372,35 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     requesterName = serializers.CharField(max_length=160)
     requesterEmail = serializers.EmailField()
     requesterPhone = serializers.CharField(max_length=40, required=False, allow_blank=True)
-    requesterWorkerCode = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    requesterWorkerCode = serializers.CharField(max_length=40)
+    requesterDni = serializers.CharField(max_length=12)
+    assetToken = serializers.CharField(required=False, allow_blank=True, max_length=100)
     locationId = serializers.CharField(required=False, allow_blank=True)
-    zone = serializers.CharField(max_length=120)
-    building = serializers.CharField(max_length=160)
-    area = serializers.CharField(max_length=160)
-    room = serializers.CharField(max_length=160)
+    zone = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    building = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    area = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    room = serializers.CharField(max_length=160, required=False, allow_blank=True)
     description = serializers.CharField(min_length=10, max_length=1000)
     evidence = serializers.ListField(required=False, default=list)
     noPhotoReason = serializers.CharField(required=False, allow_blank=True, max_length=300)
     suggestedPriority = serializers.ChoiceField(choices=("NORMAL", "URGENTE", "EMERGENCIA"))
     priorityReasons = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     impactAnswers = serializers.DictField(required=True)
+
+    def validate(self, attrs):
+        impact_answers = attrs.get("impactAnswers") or {}
+        if (
+            impact_answers.get("issueCategory") == "OTRO"
+            and not (str(impact_answers.get("otherIssueCategoryDetail", "")).strip() or str(impact_answers.get("otherRequestDetail", "")).strip())
+        ):
+            raise serializers.ValidationError(
+                {"impactAnswers": "Indica el detalle cuando el tipo de solicitud es Otro."}
+            )
+        asset_token = attrs.get('assetToken', '').strip()
+        zone = attrs.get('zone', '').strip()
+        if not asset_token and not zone:
+            raise serializers.ValidationError({"zone": "Debe indicar la ubicación o escanear un código QR válido."})
+        return attrs
 
     def _public_requester(self):
         user_model = get_user_model()
@@ -382,6 +430,22 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     @transaction.atomic
     def create(self, validated_data):
         requester = self._public_requester()
+        asset_token = validated_data.pop("assetToken", "").strip()
+        asset = None
+        if asset_token:
+            try:
+                asset = Asset.objects.select_related("location").get(public_token=asset_token)
+            except Asset.DoesNotExist as exc:
+                raise serializers.ValidationError({"assetToken": "El QR del bien no es válido o ya no está disponible."}) from exc
+        try:
+            reporter_profile = register_reporter(
+                dni=validated_data["requesterDni"],
+                worker_code=validated_data["requesterWorkerCode"],
+                full_name=validated_data["requesterName"],
+                email=validated_data["requesterEmail"],
+            )
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
         sequence = Incident.objects.select_for_update().count() + 1
         location = {
             "locationId": validated_data.get("locationId") or "-".join(
@@ -397,17 +461,27 @@ class PublicWorkRequestSerializer(serializers.Serializer):
             "area": validated_data["area"],
             "room": validated_data["room"],
         }
+        if asset and asset.location:
+            location = {
+                "locationId": str(asset.location.id),
+                "zone": asset.location.zone,
+                "building": asset.location.building,
+                "area": asset.location.area,
+                "room": asset.location.room,
+            }
         incident = Incident.objects.create(
             code=f"SOL-{timezone.localdate().year}-{sequence:04d}",
             requester=requester,
+            reporter_profile=reporter_profile,
             requester_contact={
                 "name": validated_data["requesterName"],
                 "email": validated_data["requesterEmail"],
                 "phone": validated_data.get("requesterPhone", ""),
                 "workerCode": validated_data.get("requesterWorkerCode", ""),
             },
+            asset=asset,
             location_snapshot=location,
-            request_type="OTRO",
+            request_type=validated_data["impactAnswers"].get("issueCategory") or "OTRO",
             description=validated_data["description"],
             requester_priority=validated_data["suggestedPriority"],
             project=False,
@@ -419,6 +493,11 @@ class PublicWorkRequestSerializer(serializers.Serializer):
                 "noPhotoReason": validated_data.get("noPhotoReason", ""),
             },
             status="RECIBIDA",
+        )
+        record_privacy_event(
+            request=self.context["request"],
+            context="REPORTE",
+            subject_reference=incident.code,
         )
         return incident
 
@@ -484,7 +563,11 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
 
     def get_canSubmitConformity(self, obj):
         order = self._work_order(obj)
-        return bool(order and order.status == "PENDIENTE_DE_CONFORMIDAD")
+        return bool(
+            order
+            and order.status in {"CERRADA", "PENDIENTE_DE_CONFORMIDAD"}
+            and not getattr(order, "satisfaction", None)
+        )
 
     def get_conformity(self, obj):
         order = self._work_order(obj)
@@ -575,8 +658,8 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                 events.append(
                     {
                         "id": f"{order.id}-conformity-pending",
-                        "status": "PENDIENTE_CONFORMIDAD",
-                        "description": "El trabajo fue ejecutado y espera tu conformidad.",
+                        "status": "FINALIZADO",
+                        "description": "La atención fue finalizada y puedes evaluarla de forma opcional.",
                         "date": order.updated_at.isoformat(),
                     }
                 )
@@ -590,3 +673,5 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                     }
                 )
         return events
+
+

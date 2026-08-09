@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Briefcase,
   CalendarBlank,
@@ -19,6 +19,7 @@ import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
 import {
   adminPriorityLabels,
+  getWorkOrderReturnInfo,
   specialtyLabels,
   workOrderStatusLabels,
   type WorkOrderStatus,
@@ -27,6 +28,7 @@ import {
   adminReviewWorkOrder,
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
+  scheduleWorkOrderCorrection,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 
@@ -50,6 +52,10 @@ function formatDate(value: string) {
     month: "long",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function formatDateTime(value?: string) {
@@ -89,23 +95,41 @@ function formatMinutesDuration(minutes?: number) {
   if (rest === 0) return `${hours} h`;
   return `${hours} h ${rest} min`;
 }
-function getTextValue(data: Record<string, unknown> | undefined, key: string, fallback: string) {
-  const value = data?.[key];
+function getTextValue(data: Record<string, unknown> | { comment?: unknown } | null | undefined, key: string, fallback: string) {
+  const value = data && key === "comment" ? data.comment : (data as Record<string, unknown> | undefined)?.[key];
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
-function getRatingLabel(data: Record<string, unknown> | undefined) {
-  const value = data?.rating;
+function getRatingLabel(data: Record<string, unknown> | { rating?: unknown } | null | undefined) {
+  const value = data && "rating" in data ? data.rating : undefined;
   if (typeof value === "number") return `${value} de 5`;
   if (typeof value === "string" && value.trim()) return `${value} de 5`;
   return "Sin puntuación";
 }
 
-function getConformityLabel(data: Record<string, unknown> | undefined) {
-  if (!data || typeof data.accepted !== "boolean") return "Pendiente";
-  return data.accepted ? "Conforme" : "Pidió revisión";
+
+
+type CorrectionSchedule = {
+  scheduledDate: string;
+  scheduledStartTime: string;
+  plannedHours: string;
+  administratorNotes: string;
+};
+
+function getCorrectionSchedule(workOrder: WorkOrder): CorrectionSchedule | undefined {
+  const raw = workOrder.recommendation_snapshot?.correctionSchedule;
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  const scheduledDate = typeof value.scheduledDate === "string" ? value.scheduledDate : "";
+  if (!scheduledDate) return undefined;
+  return {
+    scheduledDate,
+    scheduledStartTime: typeof value.scheduledStartTime === "string" ? value.scheduledStartTime : "08:00",
+    plannedHours: typeof value.plannedHours === "number" || typeof value.plannedHours === "string" ? String(value.plannedHours) : "-",
+    administratorNotes: typeof value.administratorNotes === "string" && value.administratorNotes.trim() ? value.administratorNotes : "Sin indicaciones adicionales.",
+  };
 }
-function getValidationLabel(data: Record<string, unknown> | undefined) {
+function getValidationLabel(data: Record<string, unknown> | undefined, returnedLabel = "Devuelta") {
   if (!data || typeof data.approved !== "boolean") return "Sin validar";
   return data.approved ? "Aprobada" : "Devuelta";
 }
@@ -118,11 +142,22 @@ export function WorkOrderDetailPage() {
   const [adminComment, setAdminComment] = useState("");
   const [adminError, setAdminError] = useState("");
   const [savingAdminReview, setSavingAdminReview] = useState(false);
+  const [correctionDate, setCorrectionDate] = useState(todayKey());
+  const [correctionTime, setCorrectionTime] = useState("08:00");
+  const [correctionHours, setCorrectionHours] = useState(2);
+  const [correctionNotes, setCorrectionNotes] = useState("");
+  const [correctionError, setCorrectionError] = useState("");
+  const [correctionSuccess, setCorrectionSuccess] = useState("");
+  const [savingCorrection, setSavingCorrection] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     void getWorkOrderById(id).then(async (order) => {
       setWorkOrder(order);
+      setCorrectionDate(order.scheduledDate || todayKey());
+      setCorrectionTime(order.scheduledStartTime?.slice(0, 5) || "08:00");
+      setCorrectionHours(order.plannedHours || 2);
+      setCorrectionNotes(order.administratorNotes || "");
       setRequest(await getWorkRequestById(order.requestId));
     });
   }, [id]);
@@ -147,13 +182,45 @@ export function WorkOrderDetailPage() {
     }
   }
 
+
+  async function handleScheduleCorrection(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    if (!workOrder) return;
+    if (!correctionDate) {
+      setCorrectionError("Selecciona la fecha de corrección.");
+      return;
+    }
+    if (correctionHours < 1 || correctionHours > 16) {
+      setCorrectionError("Las horas estimadas deben estar entre 1 y 16.");
+      return;
+    }
+
+    setSavingCorrection(true);
+    setCorrectionError("");
+    setCorrectionSuccess("");
+    try {
+      const updated = await scheduleWorkOrderCorrection(workOrder.id, {
+        scheduledDate: correctionDate,
+        scheduledStartTime: correctionTime,
+        plannedHours: correctionHours,
+        administratorNotes: correctionNotes.trim(),
+      });
+      setWorkOrder(updated);
+      setCorrectionSuccess("Programación guardada. El operario verá la corrección en su agenda.");
+    } catch {
+      setCorrectionError("No se pudo programar la corrección. Revisa los datos e intenta nuevamente.");
+    } finally {
+      setSavingCorrection(false);
+    }
+  }
+
   if (!workOrder) {
   return (
       <section>
         <div className="page-heading">
           <div>
-            <p className="breadcrumb">Mantenimiento / Órdenes de trabajo / Detalle</p>
-            <h1>Orden de trabajo no encontrada</h1>
+            <p className="breadcrumb">Mantenimiento / Ordenes operativas / Detalle</p>
+            <h1>Orden no encontrada</h1>
             <p>La orden indicada no existe o ya no está disponible.</p>
           </div>
           <Link className="button button-secondary" to="/ordenes-trabajo">
@@ -165,9 +232,43 @@ export function WorkOrderDetailPage() {
     );
   }
 
+  const isCleaningOrder = workOrder.orderType === "OL" || workOrder.code.startsWith("OL-");
+  const orderCopy = {
+    singular: isCleaningOrder ? "orden de limpieza" : "orden de trabajo",
+    singularTitle: isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
+    detailTitle: isCleaningOrder ? "Detalle de orden de limpieza" : "Detalle de orden de trabajo",
+    detailDescription: isCleaningOrder ? "Revisa limpieza, supervisión y validación administrativa." : "Revisa ejecución, supervisión y validación administrativa.",
+    defaultDescription: isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
+    linkedPrefix: isCleaningOrder ? "Esta OL corrige a:" : "Esta OT corrige a:",
+    linkedCorrectionLabel: isCleaningOrder ? "OL de corrección" : "OT de corrección",
+    progressLabel: isCleaningOrder ? "Avance de la limpieza" : "Avance de la orden",
+    validationTitle: isCleaningOrder ? "Validación de la limpieza" : "Validación del trabajo",
+    operatorStep: isCleaningOrder ? "1. Responsable" : "1. Operario",
+    doneLabel: isCleaningOrder ? "Limpieza terminada" : "Trabajo terminado",
+    runningLabel: isCleaningOrder ? "En limpieza" : "En ejecución",
+    adminPendingHelp: isCleaningOrder ? "Debe aprobar o devolver la limpieza" : "Debe aprobar o devolver la ejecución",
+    correctionCreated: isCleaningOrder ? "Se creó una nueva OL para que el responsable atienda la corrección." : "Se creó una nueva OT para que el operario atienda la corrección.",
+    correctionHelp: isCleaningOrder ? "Define cuándo debe retomar la limpieza el responsable." : "Define cuándo debe retomar el trabajo el operario.",
+    correctionNotesLabel: isCleaningOrder ? "Indicaciones para limpieza" : "Indicaciones para el operario",
+    correctionPlaceholder: isCleaningOrder ? "Ej. Repetir limpieza del ambiente y adjuntar foto final." : "Ej. Revisar evidencia faltante y corregir el acabado indicado.",
+    adminCommentPlaceholder: isCleaningOrder ? "Observaciones finales, conformidad o motivo de devolución de la limpieza." : "Observaciones finales, conformidad o motivo de devolución.",
+    dataTitle: isCleaningOrder ? "Datos de la OL" : "Datos de la orden",
+    operatorLabel: isCleaningOrder ? "Responsable de limpieza" : "Operario asignado",
+    scheduleTitle: isCleaningOrder ? "Programación de limpieza" : "Programación",
+    durationTitle: isCleaningOrder ? "Tiempo de limpieza" : "Tiempo de ejecución",
+    startLabel: isCleaningOrder ? "Inicio del responsable" : "Inicio del operario",
+    endLabel: isCleaningOrder ? "Fin del responsable" : "Fin del operario",
+    effectiveTimeLabel: isCleaningOrder ? "Tiempo efectivo de limpieza" : "Tiempo efectivo trabajado",
+    locationTitle: isCleaningOrder ? "Ubicación de limpieza" : "Ubicación del trabajo",
+    executionTitle: isCleaningOrder ? "Ejecución de la limpieza" : "Ejecución de la orden",
+    executionEmpty: isCleaningOrder ? "Los avances y evidencias del responsable aparecerán en esta sección." : "Los avances, materiales, herramientas y evidencias del operario aparecerán en esta sección.",
+    progressButton: isCleaningOrder ? "Registrar avance de limpieza" : "Registrar avance",
+    diagnosisButton: isCleaningOrder ? "Observación inicial" : "Diagnóstico técnico",
+  };
   const isAdmin = user?.role === "ADMINISTRADOR";
   const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
-  const canRegisterProgress = ![
+  const isAssignedTechnician = user?.id === workOrder.operatorId;
+  const canRegisterProgress = isAssignedTechnician && ![
     "CERRADA",
     "CANCELADA",
     "PENDIENTE_DE_SUPERVISION",
@@ -186,18 +287,22 @@ export function WorkOrderDetailPage() {
   );
 
   const requesterComment = getTextValue(
-    workOrder.conformity,
+    workOrder.satisfaction,
     "comment",
-    "Sin comentario del solicitante",
+    "La evaluación del solicitante es opcional",
   );
+  const returnInfo = getWorkOrderReturnInfo(workOrder);
+  const correctionSchedule = getCorrectionSchedule(workOrder);
+  const hasLinkedCorrection = Boolean(workOrder.correctionWorkOrderId);
+  const canScheduleCorrection = isAdmin && Boolean(returnInfo) && !correctionSchedule && !hasLinkedCorrection;
 
   return (
     <section>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Mantenimiento / Órdenes de trabajo / {workOrder.code}</p>
-          <h1>Detalle de orden de trabajo</h1>
-          <p>Revisa ejecución, supervisión y validación administrativa.</p>
+          <p className="breadcrumb">Mantenimiento / Ordenes operativas / {workOrder.code}</p>
+          <h1>{orderCopy.detailTitle}</h1>
+          <p>{orderCopy.detailDescription}</p>
         </div>
 
         <Link className="button button-secondary" to="/ordenes-trabajo">
@@ -209,7 +314,7 @@ export function WorkOrderDetailPage() {
       <div className="detail-header data-panel">
         <div>
           <span className="detail-code">{workOrder.code}</span>
-          <h2>{request?.description ?? "Orden de trabajo"}</h2>
+          <h2>{request?.description ?? orderCopy.defaultDescription}</h2>
           <p>
             Solicitud de origen:{" "}
             <Link className="detail-link" to={`/incidencias/${workOrder.requestId}`}>
@@ -222,10 +327,33 @@ export function WorkOrderDetailPage() {
         </span>
       </div>
 
+
+      {(workOrder.correctionOfId || workOrder.correctionWorkOrderId) && (
+        <article className="data-panel linked-work-order-card">
+          <Briefcase size={22} />
+          <div>
+            {workOrder.correctionOfId ? (
+              <>
+                <strong>{orderCopy.linkedPrefix}</strong>
+                <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionOfId}`}>
+                  {workOrder.correctionOfCode}
+                </Link>
+              </>
+            ) : (
+              <>
+                <strong>Tiene corrección vinculada:</strong>
+                <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>
+                  {workOrder.correctionWorkOrderCode}
+                </Link>
+              </>
+            )}
+          </div>
+        </article>
+      )}
       <div className="work-order-progress data-panel">
         <div className="work-order-progress-heading">
           <div>
-            <span>Avance de la orden</span>
+            <span>{orderCopy.progressLabel}</span>
             <strong>{workOrder.progressPercentage} %</strong>
           </div>
           <small>Ultima actualizacion: {formatDateTime(workOrder.updatedAt)}</small>
@@ -241,13 +369,13 @@ export function WorkOrderDetailPage() {
       <article className="data-panel detail-card work-order-validation-card">
         <div className="detail-card-heading">
           <ShieldCheck size={22} />
-          <h2>Validación del trabajo</h2>
+          <h2>{orderCopy.validationTitle}</h2>
         </div>
 
         <div className="validation-flow-grid">
           <div>
-            <span>1. Operario</span>
-            <strong>{workOrder.progressPercentage === 100 ? "Trabajo terminado" : "En ejecución"}</strong>
+            <span>{orderCopy.operatorStep}</span>
+            <strong>{workOrder.progressPercentage === 100 ? orderCopy.doneLabel : orderCopy.runningLabel}</strong>
             <small>{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</small>
           </div>
           <div>
@@ -258,14 +386,98 @@ export function WorkOrderDetailPage() {
           <div>
             <span>3. Administrador</span>
             <strong>{needsAdminReview ? "Pendiente de decision" : getValidationLabel(workOrder.administrator_validation)}</strong>
-            <small>{needsAdminReview ? "Debe aprobar o devolver la ejecución" : adminRegisteredComment}</small>
+            <small>{needsAdminReview ? orderCopy.adminPendingHelp : adminRegisteredComment}</small>
           </div>
           <div>
-            <span>4. Solicitante</span>
-            <strong>{getConformityLabel(workOrder.conformity)}</strong>
-            <small>{getRatingLabel(workOrder.conformity)} - {requesterComment}</small>
+            <span>4. Solicitante - opcional</span>
+            <strong>{workOrder.satisfaction ? "Evaluación registrada" : "Sin evaluación"}</strong>
+            <small>{getRatingLabel(workOrder.satisfaction)} - {requesterComment}</small>
           </div>
         </div>
+
+        {returnInfo && (
+          <div className="return-observation-card">
+            <strong>{returnInfo.title}</strong>
+            <p>{returnInfo.comment}</p>
+            <small>{returnInfo.nextStep}</small>
+          </div>
+        )}
+
+        {isAdmin && returnInfo && correctionSchedule && (
+          <div className="correction-scheduled-card">
+            <div>
+              <CheckCircle size={22} />
+              <div>
+                <strong>Corrección programada</strong>
+                <p>{orderCopy.correctionCreated}</p>
+              </div>
+            </div>
+            <dl>
+              <div><dt>Fecha</dt><dd>{formatDate(correctionSchedule.scheduledDate)}</dd></div>
+              <div><dt>Hora</dt><dd>{correctionSchedule.scheduledStartTime}</dd></div>
+              <div><dt>Duración estimada</dt><dd>{correctionSchedule.plannedHours} h</dd></div>
+              <div><dt>Indicaciones</dt><dd>{correctionSchedule.administratorNotes}</dd></div>
+              {workOrder.correctionWorkOrderId && (
+                <div><dt>{orderCopy.linkedCorrectionLabel}</dt><dd><Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>{workOrder.correctionWorkOrderCode}</Link></dd></div>
+              )}
+            </dl>
+          </div>
+        )}
+
+        {canScheduleCorrection && (
+          <form className="correction-schedule-form" onSubmit={handleScheduleCorrection}>
+            <div>
+              <strong>Programar corrección</strong>
+              <p>{orderCopy.correctionHelp}</p>
+            </div>
+            <div className="form-grid">
+              <label className="field">
+                <span>Fecha de corrección</span>
+                <input
+                  type="date"
+                  min={todayKey()}
+                  value={correctionDate}
+                  onChange={(event) => setCorrectionDate(event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Hora de inicio</span>
+                <input
+                  type="time"
+                  value={correctionTime}
+                  onChange={(event) => setCorrectionTime(event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Horas estimadas</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={correctionHours}
+                  onChange={(event) => setCorrectionHours(Number(event.target.value))}
+                />
+              </label>
+              <label className="field field-wide">
+                <span>{orderCopy.correctionNotesLabel}</span>
+                <textarea
+                  rows={3}
+                  value={correctionNotes}
+                  onChange={(event) => setCorrectionNotes(event.target.value)}
+                  placeholder={orderCopy.correctionPlaceholder}
+                />
+              </label>
+            </div>
+            {correctionError && <div className="form-error">{correctionError}</div>}
+            {correctionSuccess && <div className="form-success">{correctionSuccess}</div>}
+            <div className="admin-evaluation-actions">
+              <button className="button button-primary" type="button" disabled={savingCorrection} onClick={() => void handleScheduleCorrection()}>
+                <CalendarBlank size={18} />
+                Guardar programación
+              </button>
+            </div>
+          </form>
+        )}
 
         {isAdmin && needsAdminReview && (
           <form className="admin-review-form" onSubmit={(event) => { event.preventDefault(); void handleAdminReview(true); }}>
@@ -275,7 +487,7 @@ export function WorkOrderDetailPage() {
                 rows={4}
                 value={adminComment}
                 onChange={(event) => setAdminComment(event.target.value)}
-                placeholder="Observaciones finales, conformidad o motivo de devolución."
+                placeholder={orderCopy.adminCommentPlaceholder}
               />
             </label>
 
@@ -304,7 +516,7 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <Briefcase size={22} />
-            <h2>Datos de la orden</h2>
+            <h2>{orderCopy.dataTitle}</h2>
           </div>
           <dl className="detail-list">
             <div><dt>Especialidad</dt><dd>{specialtyLabels[workOrder.specialty]}</dd></div>
@@ -323,7 +535,7 @@ export function WorkOrderDetailPage() {
             <h2>Responsables</h2>
           </div>
           <dl className="detail-list">
-            <div><dt>Operario asignado</dt><dd>{workOrder.operatorName}</dd></div>
+            <div><dt>{orderCopy.operatorLabel}</dt><dd>{workOrder.operatorName}</dd></div>
             <div><dt>Supervisor asignado</dt><dd>{workOrder.supervisorName}</dd></div>
           </dl>
         </article>
@@ -331,7 +543,7 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <CalendarBlank size={22} />
-            <h2>Programación</h2>
+            <h2>{orderCopy.scheduleTitle}</h2>
           </div>
           <dl className="detail-list">
             <div><dt>Fecha programada</dt><dd>{formatDate(workOrder.scheduledDate)}</dd></div>
@@ -344,12 +556,12 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card work-order-duration-card">
           <div className="detail-card-heading">
             <ClockCounterClockwise size={22} />
-            <h2>Tiempo de ejecución</h2>
+            <h2>{orderCopy.durationTitle}</h2>
           </div>
           <dl className="detail-list">
-            <div><dt>Inicio del operario</dt><dd>{formatDateTime(workOrder.startedAt)}</dd></div>
-            <div><dt>Fin del operario</dt><dd>{formatDateTime(workOrder.finishedAt)}</dd></div>
-            <div><dt>Tiempo efectivo trabajado</dt><dd>{formatMinutesDuration(workOrder.effectiveWorkMinutes)}</dd></div>
+            <div><dt>{orderCopy.startLabel}</dt><dd>{formatDateTime(workOrder.startedAt)}</dd></div>
+            <div><dt>{orderCopy.endLabel}</dt><dd>{formatDateTime(workOrder.finishedAt)}</dd></div>
+            <div><dt>{orderCopy.effectiveTimeLabel}</dt><dd>{formatMinutesDuration(workOrder.effectiveWorkMinutes)}</dd></div>
             <div><dt>Tiempo calendario</dt><dd>{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</dd></div>
           </dl>
         </article>
@@ -357,13 +569,13 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <MapPin size={22} />
-            <h2>Ubicación del trabajo</h2>
+            <h2>{orderCopy.locationTitle}</h2>
           </div>
           {request ? (
             <dl className="detail-list">
               <div><dt>Zona</dt><dd>{request.zone}</dd></div>
               <div><dt>Edificio</dt><dd>{request.building}</dd></div>
-              <div><dt>Área</dt><dd>{request.area}</dd></div>
+              <div><dt>Area</dt><dd>{request.area}</dd></div>
               <div><dt>Ambiente</dt><dd>{request.room}</dd></div>
             </dl>
           ) : (
@@ -383,20 +595,20 @@ export function WorkOrderDetailPage() {
       <article className="data-panel detail-card work-order-actions-card">
         <div className="detail-card-heading">
           <Wrench size={22} />
-          <h2>Ejecución de la orden</h2>
+          <h2>{orderCopy.executionTitle}</h2>
         </div>
         <p className="detail-empty">
-          Los avances, materiales, herramientas y evidencias del operario aparecerán en está seccion.
+          {orderCopy.executionEmpty}
         </p>
 
         {canRegisterProgress && (
           <div className="work-order-detail-actions">
             <Link className="button button-primary" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
-              Registrar avance
+              {orderCopy.progressButton}
             </Link>
             <Link className="button button-secondary" to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}>
               <Stethoscope size={18} />
-              Diagnóstico técnico
+              {orderCopy.diagnosisButton}
             </Link>
           </div>
         )}
