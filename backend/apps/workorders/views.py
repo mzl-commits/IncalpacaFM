@@ -208,6 +208,8 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
     Solo el técnico asignado o admin.
     """
     permission_classes = [IsWorkOrderParticipant]
+    lookup_field = "id"
+    lookup_url_kwarg = "material_id"
 
     def get_serializer_class(self):
         if self.request.method in ("PUT", "PATCH"):

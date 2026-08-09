@@ -7,7 +7,8 @@ import {
   Spinner,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { listMateriales } from "@/modules/almacen/catalogoRepository";
+import { getMaterialesHijas, listMateriales } from "@/modules/almacen/catalogoRepository";
+import { Combobox } from "@/modules/almacen/components/shared/Combobox";
 import type { Material } from "@/modules/almacen/types";
 import {
   addWorkOrderMaterial,
@@ -36,6 +37,17 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
     porcentajeRequerido: number | "";
   }>({ material: "", cantidad: 1, tipo: "USADO", porcentajeRequerido: "" });
 
+  // Piezas hijas del material seleccionado (vacío si no es un estuche/contenedor)
+  const [hijas, setHijas] = useState<Material[]>([]);
+  const [modo, setModo] = useState<"completo" | "piezas">("completo");
+  const [hijaForms, setHijaForms] = useState<
+    Record<
+      number,
+      { cantidad: number; tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE"; porcentajeRequerido: number | "" }
+    >
+  >({});
+  const [savingHijaId, setSavingHijaId] = useState<number | null>(null);
+
   useEffect(() => {
     void listWorkOrderMateriales(workOrderId).then((data) => {
       setMateriales(data);
@@ -43,6 +55,24 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
     });
     void listMateriales({}).then(setCatalogo);
   }, [workOrderId]);
+
+  // Cada vez que cambia el material elegido, revisa si tiene piezas hijas
+  useEffect(() => {
+    if (!form.material) {
+      setHijas([]);
+      setModo("completo");
+      return;
+    }
+    void getMaterialesHijas(Number(form.material)).then((data) => {
+      setHijas(data);
+      setModo("completo");
+      setHijaForms(
+        Object.fromEntries(
+          data.map((h) => [h.id, { cantidad: 1, tipo: "USADO" as const, porcentajeRequerido: "" as const }]),
+        ),
+      );
+    });
+  }, [form.material]);
 
   async function handleAdd(event: React.FormEvent) {
     event.preventDefault();
@@ -61,10 +91,38 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
       });
       setMateriales((prev) => [...prev, added]);
       setForm({ material: "", cantidad: 1, tipo: "USADO", porcentajeRequerido: "" });
+      setHijas([]);
+      setModo("completo");
     } catch {
       setError("No se pudo registrar el material. Verifica el stock disponible.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAddHija(hijaMaterialId: number) {
+    const hijaForm = hijaForms[hijaMaterialId] ?? { cantidad: 1, tipo: "USADO" as const, porcentajeRequerido: "" as const };
+    setSavingHijaId(hijaMaterialId);
+    setError("");
+    try {
+      const added = await addWorkOrderMaterial(workOrderId, {
+        material: hijaMaterialId,
+        cantidad: hijaForm.cantidad,
+        tipo: hijaForm.tipo,
+        porcentajeRequerido:
+          hijaForm.tipo === "NECESARIO_NO_BLOQUEANTE" && hijaForm.porcentajeRequerido !== ""
+            ? Number(hijaForm.porcentajeRequerido)
+            : null,
+      });
+      setMateriales((prev) => [...prev, added]);
+      setHijaForms((prev) => ({
+        ...prev,
+        [hijaMaterialId]: { cantidad: 1, tipo: "USADO", porcentajeRequerido: "" },
+      }));
+    } catch {
+      setError("No se pudo registrar esa pieza. Verifica el stock disponible.");
+    } finally {
+      setSavingHijaId(null);
     }
   }
 
@@ -252,20 +310,24 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
         >
           <label className="field">
             <span>Material del almacén</span>
-            <select
-              value={form.material}
-              onChange={(e) => setForm({ ...form, material: e.target.value ? Number(e.target.value) : "" })}
-              required
-            >
-              <option value="">— Seleccionar —</option>
-              {catalogo.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                  {c.marca ? ` · ${c.marca}` : ""}
-                  {" "}(Stock: {c.cantidad_total})
-                </option>
-              ))}
-            </select>
+            <Combobox
+              value={form.material === "" ? 0 : Number(form.material)}
+              selectedLabel={
+                selectedMaterial
+                  ? `${selectedMaterial.nombre}${selectedMaterial.marca ? ` · ${selectedMaterial.marca}` : ""} (Stock: ${selectedMaterial.cantidad_total})`
+                  : ""
+              }
+              placeholder="Buscar por nombre, código o marca…"
+              onChange={(id) => setForm({ ...form, material: id })}
+              fetchOptions={async (q) => {
+                const res = await listMateriales({ q });
+                return res.map((c) => ({
+                  id: c.id,
+                  label: `${c.nombre}${c.marca ? ` · ${c.marca}` : ""}`,
+                  sublabel: `Stock: ${c.cantidad_total}`,
+                }));
+              }}
+            />
             {selectedMaterial && (
               <small style={{ color: "var(--muted)" }}>
                 Código: {selectedMaterial.codigo} · Precio ref: {selectedMaterial.precio ? `S/ ${selectedMaterial.precio}` : "Sin precio"}
@@ -273,53 +335,183 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
             )}
           </label>
 
-          <label className="field">
-            <span>Cant.</span>
-            <input
-              type="number"
-              min={1}
-              value={form.cantidad}
-              onChange={(e) => setForm({ ...form, cantidad: Math.max(1, Number(e.target.value)) })}
-              required
-            />
-          </label>
+          {/* Solo se muestra el resto del formulario si es estuche completo, o si el material no tiene piezas hijas */}
+          {modo === "completo" && (
+            <>
+              <label className="field">
+                <span>Cant.</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.cantidad}
+                  onChange={(e) => setForm({ ...form, cantidad: Math.max(1, Number(e.target.value)) })}
+                  required
+                />
+              </label>
 
-          <label className="field">
-            <span>Estado de uso</span>
-            <select
-              value={form.tipo}
-              onChange={(e) => setForm({ ...form, tipo: e.target.value as typeof form.tipo })}
-            >
-              <option value="USADO">Usado</option>
-              <option value="NECESARIO_NO_BLOQUEANTE">Necesario (no bloqueante aún)</option>
-            </select>
-          </label>
+              <label className="field">
+                <span>Estado de uso</span>
+                <select
+                  value={form.tipo}
+                  onChange={(e) => setForm({ ...form, tipo: e.target.value as typeof form.tipo })}
+                >
+                  <option value="USADO">Usado</option>
+                  <option value="NECESARIO_NO_BLOQUEANTE">Necesario (no bloqueante aún)</option>
+                </select>
+              </label>
 
-          {form.tipo === "NECESARIO_NO_BLOQUEANTE" && (
-            <label className="field">
-              <span>% Requerido</span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={form.porcentajeRequerido}
-                onChange={(e) => setForm({ ...form, porcentajeRequerido: e.target.value !== "" ? Number(e.target.value) : "" })}
-                placeholder="Ej. 50"
-                required
-              />
-            </label>
+              {form.tipo === "NECESARIO_NO_BLOQUEANTE" && (
+                <label className="field">
+                  <span>% Requerido</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.porcentajeRequerido}
+                    onChange={(e) => setForm({ ...form, porcentajeRequerido: e.target.value !== "" ? Number(e.target.value) : "" })}
+                    placeholder="Ej. 50"
+                    required
+                  />
+                </label>
+              )}
+
+              <button
+                className="button button-secondary"
+                type="submit"
+                disabled={saving}
+                style={{ alignSelf: "end", display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <PlusCircle size={16} />
+                {saving ? "Guardando…" : "Agregar"}
+              </button>
+            </>
           )}
-
-          <button
-            className="button button-secondary"
-            type="submit"
-            disabled={saving}
-            style={{ alignSelf: "end", display: "flex", alignItems: "center", gap: 6 }}
-          >
-            <PlusCircle size={16} />
-            {saving ? "Guardando…" : "Agregar"}
-          </button>
         </form>
+      )}
+
+      {/* Si el material elegido tiene piezas hijas, deja elegir entre llevar todo o desglosar */}
+      {!isOtClosed && hijas.length > 0 && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 8,
+            border: "1px dashed var(--border, #e5e7eb)",
+            background: "var(--surface-raised, #f9fafb)",
+          }}
+        >
+          <div style={{ display: "flex", gap: 16, marginBottom: modo === "piezas" ? 12 : 0, fontSize: 13 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="modo-estuche"
+                checked={modo === "completo"}
+                onChange={() => setModo("completo")}
+              />
+              Llevar el estuche completo
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="modo-estuche"
+                checked={modo === "piezas"}
+                onChange={() => setModo("piezas")}
+              />
+              Elegir piezas específicas ({hijas.length} tipos disponibles)
+            </label>
+          </div>
+
+          {modo === "piezas" && (
+            <div style={{ display: "grid", gap: 8 }}>
+              {hijas.map((h) => {
+                const hf = hijaForms[h.id] ?? { cantidad: 1, tipo: "USADO" as const, porcentajeRequerido: "" as const };
+                return (
+                  <div
+                    key={h.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 10px",
+                      borderRadius: 6,
+                      background: "var(--surface, #fff)",
+                      border: "1px solid var(--border, #e5e7eb)",
+                      fontSize: 13,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 140 }}>
+                      {h.nombre} <span style={{ color: "var(--muted)" }}>(Stock: {h.cantidad_total})</span>
+                    </span>
+
+                    <input
+                      type="number"
+                      min={1}
+                      max={h.cantidad_total || undefined}
+                      value={hf.cantidad}
+                      onChange={(e) =>
+                        setHijaForms((prev) => ({
+                          ...prev,
+                          [h.id]: { ...hf, cantidad: Math.max(1, Number(e.target.value)) },
+                        }))
+                      }
+                      style={{ width: 56, fontSize: 13, textAlign: "center" }}
+                    />
+
+                    <select
+                      value={hf.tipo}
+                      onChange={(e) =>
+                        setHijaForms((prev) => ({
+                          ...prev,
+                          [h.id]: { ...hf, tipo: e.target.value as "USADO" | "NECESARIO_NO_BLOQUEANTE" },
+                        }))
+                      }
+                      style={{ fontSize: 12, width: 150 }}
+                    >
+                      <option value="USADO">Usado</option>
+                      <option value="NECESARIO_NO_BLOQUEANTE">Necesario (no bloqueante)</option>
+                    </select>
+
+                    {hf.tipo === "NECESARIO_NO_BLOQUEANTE" && (
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        placeholder="% req."
+                        value={hf.porcentajeRequerido}
+                        onChange={(e) =>
+                          setHijaForms((prev) => ({
+                            ...prev,
+                            [h.id]: {
+                              ...hf,
+                              porcentajeRequerido: e.target.value !== "" ? Number(e.target.value) : "",
+                            },
+                          }))
+                        }
+                        style={{ width: 64, fontSize: 12, textAlign: "center" }}
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      disabled={
+                        savingHijaId === h.id ||
+                        (hf.tipo === "USADO" && h.cantidad_total === 0) ||
+                        (hf.tipo === "NECESARIO_NO_BLOQUEANTE" && hf.porcentajeRequerido === "")
+                      }
+                      onClick={() => void handleAddHija(h.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 8px" }}
+                    >
+                      <PlusCircle size={14} />
+                      {savingHijaId === h.id ? "..." : "Agregar"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

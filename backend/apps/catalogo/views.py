@@ -58,6 +58,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
         busqueda = self.request.query_params.get("q")
         incluir_componentes = self.request.query_params.get("incluir_componentes")
         inspeccionable = self.request.query_params.get("inspeccionable")
+        activo = self.request.query_params.get("activo")
 
         # Por defecto, ocultar materiales que son componentes internos de estuches
         if not (incluir_componentes and incluir_componentes.lower() == "true"):
@@ -69,6 +70,8 @@ class MaterialViewSet(viewsets.ModelViewSet):
             qs = qs.filter(subcategoria__categoria_id=categoria_id)
         if control_individual is not None:
             qs = qs.filter(control_individual=control_individual.lower() == "true")
+        if activo is not None:
+            qs = qs.filter(activo=activo.lower() == "true")
         if inspeccionable is not None and inspeccionable.lower() == "true":
             qs = qs.filter(
                 activo=True,
@@ -177,6 +180,23 @@ class MaterialViewSet(viewsets.ModelViewSet):
             PiezaSerializer(piezas, many=True).data,
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=["get"], url_path="materiales-hijas")
+    def materiales_hijas(self, request, pk=None):
+        """
+        Devuelve los materiales "hijos" (tipos de piezas individuales) que
+        pertenecen a este material contenedor (estuche), para poder
+        registrarlos por separado en vez de usar el estuche completo.
+        GET /materiales/{id}/materiales-hijas/
+        """
+        material = self.get_object()
+        hijas_material_ids = (
+            Pieza.objects.filter(padre__material_id=material.id)
+            .values_list("material_id", flat=True)
+            .distinct()
+        )
+        materiales = Material.objects.filter(id__in=hijas_material_ids)
+        return Response(MaterialSerializer(materiales, many=True).data)
 
 
 class PiezaViewSet(viewsets.ModelViewSet):

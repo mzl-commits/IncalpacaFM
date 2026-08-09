@@ -890,7 +890,10 @@ class WorkOrderMaterialWriteSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from apps.catalogo.models import Material
-        self.fields["material"].queryset = Material.objects.filter(activo=True)
+        # Sin filtro: se permiten tanto materiales "padre" (estuches completos)
+        # como materiales "hijos" (es_componente=True, piezas específicas de un
+        # estuche). La validación real de stock disponible ocurre en validate().
+        self.fields["material"].queryset = Material.objects.all()
 
     def validate(self, attrs):
         material = attrs["material"]
@@ -921,4 +924,3 @@ class WorkOrderCostUpdateSerializer(serializers.ModelSerializer):
             "amount": {"required": False, "allow_null": True},
             "description": {"required": False},
         }
-
