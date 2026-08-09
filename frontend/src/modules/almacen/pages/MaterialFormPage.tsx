@@ -80,6 +80,7 @@ export function MaterialFormPage() {
     grosor_mm: "",
     largo_mm: "",
     ubicacion_fisica: "",
+    precio: "",
     tipo_control: "retornable",
     control_individual: false,
   });
@@ -121,6 +122,7 @@ export function MaterialFormPage() {
         grosor_mm: materialExistente.grosor_mm ?? "",
         largo_mm: materialExistente.largo_mm ?? "",
         ubicacion_fisica: materialExistente.ubicacion_fisica,
+        precio: materialExistente.precio ?? "",
         tipo_control: materialExistente.tipo_control,
         control_individual: materialExistente.control_individual,
       });
@@ -365,6 +367,16 @@ export function MaterialFormPage() {
                   step="0.01"
                   value={form.largo_mm}
                   onChange={(e) => set("largo_mm", e.target.value)}
+                />
+              </Field>
+              <Field label="Precio (S/)" hint="Precio de referencia (opcional)" error={errors.precio}>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.precio ?? ""}
+                  onChange={(e) => set("precio", e.target.value)}
+                  placeholder="Ej. 150.00"
                 />
               </Field>
               <Field label="Ubicación física" hint="Ej. A1, Estante 3, Caja de brocas" error={errors.ubicacion_fisica} wide>

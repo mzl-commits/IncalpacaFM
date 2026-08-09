@@ -350,10 +350,16 @@ export const router = createBrowserRouter([
       { path: "administracion", element: <Navigate to="/administracion/taxonomia" replace /> },
       {
         path: "administracion/taxonomia",
-        element: (
-          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
-            <TaxonomyCatalogPage />
-          </RoleRoute>
+        lazy: administratorLazyRoute(
+          () => import("@/modules/taxonomy/pages/TaxonomyCatalogPage"),
+          "TaxonomyCatalogPage",
+        ),
+      },
+      {
+        path: "administracion/modelos",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/taxonomy/pages/ModelCatalogPage"),
+          "ModelCatalogPage",
         ),
       },
       {

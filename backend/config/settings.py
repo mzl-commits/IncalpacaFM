@@ -48,7 +48,6 @@ if IS_PRODUCTION:
     if not CSRF_TRUSTED_ORIGINS:
         raise RuntimeError("Define CSRF_TRUSTED_ORIGINS con las URL HTTPS públicas.")
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -80,8 +79,6 @@ INSTALLED_APPS = [
     "apps.inventario",
 ]
 
-
-
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -112,7 +109,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
-
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

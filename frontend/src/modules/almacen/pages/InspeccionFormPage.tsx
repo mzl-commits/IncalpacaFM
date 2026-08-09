@@ -1,7 +1,7 @@
 import { ArrowLeft, Package, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { labelPieza } from "@/utils/pieza";
 
 import {
@@ -17,6 +17,7 @@ import type {
   AccionInspeccion,
   Criterio,
   Material,
+  PiezaBase,
   ResultadoInspeccion,
   TipoInspeccion,
   ValorRespuesta,
@@ -27,6 +28,7 @@ import {
   valorRespuestaLabels,
 } from "@/modules/almacen/types";
 import type { RespuestaInput } from "@/modules/almacen/inspeccionRepository";
+import { Combobox } from "../components/shared/Combobox";
 
 function Field({ label, required, error, hint, children, wide }: {
   label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
@@ -42,7 +44,6 @@ function Field({ label, required, error, hint, children, wide }: {
 }
 
 export function InspeccionFormPage() {
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const [params] = useSearchParams();
 
@@ -62,7 +63,11 @@ export function InspeccionFormPage() {
   const [respuestas, setRespuestas] = useState<Record<number, { valor: ValorRespuesta | ""; observacion: string }>>({});
   const [resultado, setResultado] = useState<ResultadoInspeccion>("apta");
   const [accion, setAccion] = useState<AccionInspeccion>("continua_servicio");
-  const [proximaInspeccion, setProximaInspeccion] = useState("");
+  const [proximaInspeccion, setProximaInspeccion] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return d.toISOString().slice(0, 10);
+  });
   const [cantInspeccionada, setCantInspeccionada] = useState<number>(0);
   const [cantApta, setCantApta] = useState<number>(0);
   const [cantNoApta, setCantNoApta] = useState<number>(0);
@@ -92,11 +97,15 @@ export function InspeccionFormPage() {
     enabled: !!materialId && material?.control_individual === true,
   });
 
-
-  // Hijas: piezas cuyo padre === piezaId
-  const hijasActivas = piezas.filter(
-    (p) => p.padre === piezaId && p.estado !== "Baja"
-  );
+  // Hijas activas de la pieza seleccionada (modo individual). Consulta
+  // independiente: las hijas pueden pertenecer a un material distinto
+  // al del contenedor, así que no dependemos de `piezas` (filtrado por materialId).
+  const { data: hijasActivas = [] } = useQuery({
+    queryKey: ["piezas-hijas", piezaId],
+    queryFn: () =>
+      listPiezas({ padre: piezaId }).then((res) => res.filter((p) => p.estado !== "Baja")),
+    enabled: piezaId > 0,
+  });
   const esEstuche = piezaId > 0 && hijasActivas.length > 0;
 
   // Auto-seleccionar plantilla de la subcategoría del material
@@ -108,11 +117,19 @@ export function InspeccionFormPage() {
 
   // Auto-poblar piezas_lote cuando se detecta estuche
   useEffect(() => {
-    if (esEstuche) {
-      const idsHijas = new Set(hijasActivas.map((h) => h.id));
-      setPiezasLote(idsHijas);
+  if (esEstuche) {
+    const idsHijas = new Set(hijasActivas.map((h) => h.id));
+    setPiezasLote(idsHijas);
+  }
+}, [esEstuche, piezaId]);
+
+  // Recalcula el total inspeccionado automáticamente según el lote,
+  // solo para materiales con control individual (donde sí hay piezas que contar).
+  useEffect(() => {
+    if (tipo === "grupal" && material?.control_individual) {
+      setCantInspeccionada(piezasLote.size);
     }
-  }, [esEstuche, piezaId]);
+  }, [tipo, material?.control_individual, piezasLote]);
 
   const plantillaSeleccionada = plantillas.find((p) => p.id === plantillaId);
   const criterios: Criterio[] = plantillaSeleccionada?.criterios ?? [];
@@ -133,6 +150,31 @@ export function InspeccionFormPage() {
     });
   }
 
+  const [contenedoresMarcados, setContenedoresMarcados] = useState<Set<number>>(new Set());
+
+  async function togglePiezaLote(pieza: PiezaBase) {
+    if (!pieza.tiene_hijas) {
+      togglePieza(pieza.id);
+      return;
+    }
+    const marcando = !contenedoresMarcados.has(pieza.id);
+    setContenedoresMarcados((prev) => {
+      const next = new Set(prev);
+      marcando ? next.add(pieza.id) : next.delete(pieza.id);
+      return next;
+    });
+    const hijas = await listPiezas({ padre: pieza.id });
+    setPiezasLote((prev) => {
+      const next = new Set(prev);
+      if (marcando) {
+        hijas.filter((h) => h.estado !== "Baja").forEach((h) => next.add(h.id));
+      } else {
+        hijas.forEach((h) => next.delete(h.id));
+      }
+      return next;
+    });
+  }
+
   const mut = useMutation({
     mutationFn: () => {
       const errs: Record<string, string> = {};
@@ -141,8 +183,11 @@ export function InspeccionFormPage() {
       if (!plantillaId) errs.plantilla = "Selecciona una plantilla.";
       if (tipo === "individual" && !piezaId) errs.pieza = "Selecciona una pieza.";
       if (tipo === "grupal") {
-        if (cantApta + cantNoApta !== cantInspeccionada && cantInspeccionada > 0)
+        if (material?.control_individual && cantInspeccionada !== piezasLote.size) {
+          errs.cantidades = `Debes tener ${cantInspeccionada} pieza(s) seleccionada(s) en el lote (actualmente hay ${piezasLote.size}).`;
+        } else if (cantApta + cantNoApta !== cantInspeccionada && cantInspeccionada > 0) {
           errs.cantidades = `Aptas (${cantApta}) + No aptas (${cantNoApta}) debe ser igual a inspeccionadas (${cantInspeccionada}).`;
+        }
       }
       if (Object.keys(errs).length) {
         setErrors(errs);
@@ -200,7 +245,7 @@ export function InspeccionFormPage() {
           <Link className="button button-secondary" to="/almacen/inspecciones">
             Volver a inspecciones
           </Link>
-          <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
+          <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setContenedoresMarcados(new Set()); setRespuestas({}); }}>
             Nueva inspección
           </button>
         </div>
@@ -251,26 +296,39 @@ export function InspeccionFormPage() {
             </div>
             <div className="form-grid">
               <Field label="Material" required error={errors.material}>
-                <select value={materialId || ""} onChange={(e) => { setMaterialId(Number(e.target.value)); setPiezaId(0); setPiezasLote(new Set()); }}>
-                  <option value="">Seleccionar material…</option>
-                  {materiales.map((m) => (
-                    <option key={m.id} value={m.id}>{m.codigo} — {m.nombre}</option>
-                  ))}
-                </select>
+                <Combobox
+                  value={materialId}
+                  selectedLabel={material ? `${material.codigo} — ${material.nombre}` : ""}
+                  placeholder="Buscar por código o nombre…"
+                  onChange={(id) => { setMaterialId(id); setPiezaId(0); setPiezasLote(new Set()); setContenedoresMarcados(new Set()); }}
+                  fetchOptions={async (q) => {
+                    const res = await listMateriales({ q, inspeccionable: true });
+                    return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
+                  }}
+                />
               </Field>
 
               {tipo === "individual" && material?.control_individual && (
               <Field label="Pieza" required error={errors.pieza}>
-                <select value={piezaId || ""} onChange={(e) => { setPiezaId(Number(e.target.value)); setPiezasLote(new Set()); }}>
-                  <option value="">Seleccionar pieza…</option>
-                  {piezas.filter((p) => p.padre === null || p.padre === undefined).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {labelPieza(p)}{p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}
-                    </option>
-                  ))}
-                </select>
+                <Combobox
+                  value={piezaId}
+                  selectedLabel={
+                    piezas.find((p) => p.id === piezaId)
+                      ? `${labelPieza(piezas.find((p) => p.id === piezaId)!)}${piezas.find((p) => p.id === piezaId)!.estado !== "Disponible" ? ` (⚠️ ${piezas.find((p) => p.id === piezaId)!.estado})` : ""}`
+                      : ""
+                  }
+                  placeholder="Buscar por código…"
+                  onChange={(id) => { setPiezaId(id); setPiezasLote(new Set()); }}
+                  fetchOptions={async (q) => {
+                    const res = await listPiezas({ material: materialId, sin_padre: true, q });
+                    return res.map((p) => ({
+                      id: p.id,
+                      label: `${labelPieza(p)}${p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}`,
+                    }));
+                  }}
+                />
               </Field>
-            )}
+              )}
 
             {/* Aviso de estuche detectado */}
             {esEstuche && (
@@ -295,10 +353,10 @@ export function InspeccionFormPage() {
                     <label key={p.id} className="pieza-checkbox-row">
                       <input
                         type="checkbox"
-                        checked={piezasLote.has(p.id)}
-                        onChange={() => togglePieza(p.id)}
+                        checked={p.tiene_hijas ? contenedoresMarcados.has(p.id) : piezasLote.has(p.id)}
+                        onChange={() => togglePiezaLote(p)}
                       />
-                      <span className="pieza-code">{labelPieza(p)}</span>
+                      <span className="pieza-code">{labelPieza(p)}{p.tiene_hijas ? " [estuche]" : ""}</span>
                       <span style={{ fontSize: 13 }}>
                         {p.material_nombre}{p.material_medida ? ` (${p.material_medida})` : ""}
                       </span>
@@ -400,7 +458,13 @@ export function InspeccionFormPage() {
               </div>
               <div className="form-grid">
                 <Field label="Total inspeccionadas" required error={errors.cantidades}>
-                  <input type="number" min={0} value={cantInspeccionada} onChange={(e) => setCantInspeccionada(Number(e.target.value))} />
+                  <input
+                    type="number"
+                    min={0}
+                    value={cantInspeccionada}
+                    disabled={!!material?.control_individual}
+                    onChange={(e) => setCantInspeccionada(Number(e.target.value))}
+                  />
                 </Field>
                 <Field label="Aptas">
                   <input type="number" min={0} value={cantApta} onChange={(e) => setCantApta(Number(e.target.value))} />

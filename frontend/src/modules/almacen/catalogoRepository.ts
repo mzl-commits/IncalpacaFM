@@ -69,6 +69,7 @@ export interface MaterialesParams {
   categoria?: number;
   subcategoria?: number;
   control_individual?: boolean;
+  inspeccionable?: boolean;
   q?: string;
 }
 
@@ -78,6 +79,7 @@ export async function listMateriales(params: MaterialesParams = {}): Promise<Mat
   if (params.subcategoria) query.subcategoria = params.subcategoria;
   if (params.control_individual !== undefined)
     query.control_individual = params.control_individual;
+  if (params.inspeccionable !== undefined) query.inspeccionable = params.inspeccionable;
   if (params.q) query.q = params.q;
 
   const { data } = await api.get<Material[]>("/materiales/", { params: query });
@@ -146,6 +148,8 @@ export interface PiezasParams {
   sin_padre?: boolean;
   /** Filtrar hijas de un estuche específico (ID de la pieza padre) */
   padre?: number;
+  /** Búsqueda por código de pieza o nombre/código de material */
+  q?: string;
 }
 
 export async function listPiezas(params: PiezasParams = {}): Promise<PiezaBase[]> {
@@ -154,6 +158,7 @@ export async function listPiezas(params: PiezasParams = {}): Promise<PiezaBase[]
   if (params.estado) query.estado = params.estado;
   if (params.sin_padre !== undefined) query.sin_padre = params.sin_padre;
   if (params.padre !== undefined) query.padre = params.padre;
+  if (params.q) query.q = params.q;   // <-- nuevo
   const { data } = await api.get<PiezaBase[]>("/piezas/", { params: query });
   return data;
 }
