@@ -21,6 +21,7 @@ import {
   registerWorkOrderProgress,
   startWorkOrder,
 } from "@/modules/workorders/workOrderRepository";
+import { MaterialesUsadosSection } from "@/modules/workorders/components/MaterialesUsadosSection";
 
 function formatMinutesDuration(minutes?: number) {
   if (minutes === undefined || minutes === null || minutes <= 0) return "0 min";
@@ -393,6 +394,13 @@ export function WorkOrderExecutionPage() {
               </button>
             </article>
           )}
+          <div className="data-panel" style={{ marginBottom: 16 }}>
+            <MaterialesUsadosSection
+              workOrderId={workOrder.id}
+              isOtClosed={workOrder.status === "CERRADA"}
+            />
+          </div>
+
           <form
             className="data-panel"
             onSubmit={handleSubmit}

@@ -22,7 +22,8 @@ from apps.notifications.services import (
 from apps.notifications.monitoring import queue_work_order_alerts
 from apps.privacy.services import record_privacy_event
 
-from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderPhoto
+from apps.catalogo.models import Material
+from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto
 
 
 def root_work_order(order):
@@ -784,3 +785,91 @@ class WorkOrderActionSerializer(serializers.Serializer):
             after={"status": order.status, "progress": order.progress_percentage},
         )
         return order
+
+
+class WorkOrderMaterialSerializer(serializers.ModelSerializer):
+    """Serializer de lectura para un WorkOrderMaterial."""
+    materialNombre = serializers.CharField(source="material.nombre", read_only=True)
+    materialCodigo = serializers.CharField(source="material.codigo", read_only=True)
+    materialPrecio = serializers.DecimalField(
+        source="material.precio", max_digits=10, decimal_places=2,
+        allow_null=True, read_only=True,
+    )
+    materialStock = serializers.IntegerField(source="material.cantidad_total", read_only=True)
+    tipoLabel = serializers.CharField(source="get_tipo_display", read_only=True)
+    registradoPorNombre = serializers.SerializerMethodField()
+    creadoEn = serializers.DateTimeField(source="creado_en", read_only=True)
+    actualizadoEn = serializers.DateTimeField(source="actualizado_en", read_only=True)
+    workOrderCode = serializers.CharField(source="work_order.code", read_only=True)
+
+    class Meta:
+        model = WorkOrderMaterial
+        fields = (
+            "id",
+            "workOrderCode",
+            "material",
+            "materialNombre",
+            "materialCodigo",
+            "materialPrecio",
+            "materialStock",
+            "cantidad",
+            "tipo",
+            "tipoLabel",
+            "esBloqueante",
+            "registradoPorNombre",
+            "creadoEn",
+            "actualizadoEn",
+        )
+
+    # camelCase mapping
+    esBloqueante = serializers.BooleanField(source="es_bloqueante", read_only=True)
+
+    def get_registradoPorNombre(self, obj) -> str:
+        return obj.registrado_por.get_full_name() or obj.registrado_por.username
+
+
+class WorkOrderMaterialWriteSerializer(serializers.Serializer):
+    """Serializer de escritura para registrar/editar un WorkOrderMaterial."""
+    from apps.catalogo.models import Material as _Material
+
+    material = serializers.PrimaryKeyRelatedField(
+        queryset=Material.objects.none(),
+    )
+    cantidad = serializers.IntegerField(min_value=1)
+    tipo = serializers.ChoiceField(choices=["USADO", "NECESARIO_NO_BLOQUEANTE"])
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.catalogo.models import Material
+        self.fields["material"].queryset = Material.objects.filter(activo=True)
+
+    def validate(self, attrs):
+        material = attrs["material"]
+        cantidad = attrs["cantidad"]
+        if material.control_individual:
+            from apps.catalogo.models import Pieza
+            disponibles = Pieza.objects.filter(
+                material=material, estado="Disponible"
+            ).count()
+            if cantidad > disponibles:
+                raise serializers.ValidationError(
+                    {"cantidad": f"Solo hay {disponibles} piezas disponibles de este material."}
+                )
+        else:
+            if cantidad > material.cantidad_total:
+                raise serializers.ValidationError(
+                    {"cantidad": f"Solo hay {material.cantidad_total} unidades disponibles de este material."}
+                )
+        return attrs
+
+
+class WorkOrderCostUpdateSerializer(serializers.ModelSerializer):
+    """Permite al administrador actualizar amount (y description) de un costo existente."""
+    class Meta:
+        model = WorkOrderCost
+        fields = ("amount", "description")
+        extra_kwargs = {
+            "amount": {"required": False, "allow_null": True},
+            "description": {"required": False},
+        }
+
