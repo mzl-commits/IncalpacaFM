@@ -12,6 +12,7 @@ export interface WorkOrderMaterial {
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
   tipoLabel: string;
   esBloqueante: boolean;
+  porcentajeRequerido: number | null;
   registradoPorNombre: string;
   creadoEn: string;
   actualizadoEn: string;
@@ -21,6 +22,7 @@ export interface WorkOrderMaterialPayload {
   material: number;
   cantidad: number;
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
+  porcentajeRequerido?: number | null;
 }
 
 export async function listWorkOrderMateriales(workOrderId: string): Promise<WorkOrderMaterial[]> {

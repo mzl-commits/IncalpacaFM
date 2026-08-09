@@ -33,7 +33,8 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
     material: number | "";
     cantidad: number;
     tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
-  }>({ material: "", cantidad: 1, tipo: "USADO" });
+    porcentajeRequerido: number | "";
+  }>({ material: "", cantidad: 1, tipo: "USADO", porcentajeRequerido: "" });
 
   useEffect(() => {
     void listWorkOrderMateriales(workOrderId).then((data) => {
@@ -56,9 +57,10 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
         material: Number(form.material),
         cantidad: form.cantidad,
         tipo: form.tipo,
+        porcentajeRequerido: form.tipo === "NECESARIO_NO_BLOQUEANTE" && form.porcentajeRequerido !== "" ? Number(form.porcentajeRequerido) : null,
       });
       setMateriales((prev) => [...prev, added]);
-      setForm({ material: "", cantidad: 1, tipo: "USADO" });
+      setForm({ material: "", cantidad: 1, tipo: "USADO", porcentajeRequerido: "" });
     } catch {
       setError("No se pudo registrar el material. Verifica el stock disponible.");
     } finally {
@@ -93,6 +95,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
         material: item.material,
         cantidad: nuevaCantidad,
         tipo: item.tipo,
+        porcentajeRequerido: item.porcentajeRequerido,
       });
       setMateriales((prev) => prev.map((m) => (m.id === id ? updated : m)));
     } catch {
@@ -151,7 +154,13 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
                 <strong>{m.materialNombre}</strong>
                 <code style={{ fontSize: 11, marginLeft: 6, color: "var(--muted)" }}>{m.materialCodigo}</code>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                  {m.tipoLabel} · Stock almacén: {m.materialStock}
+                  {m.tipoLabel}
+                  {m.tipo === "NECESARIO_NO_BLOQUEANTE" && m.porcentajeRequerido !== null && (
+                    <span style={{ fontWeight: 600, color: "var(--brand-primary, #0056b3)", marginLeft: 6 }}>
+                      (Requerido al {m.porcentajeRequerido}% de avance)
+                    </span>
+                  )}
+                  {" "}· Stock almacén: {m.materialStock}
                   {m.esBloqueante && (
                     <span style={{ color: "var(--error, #dc2626)", fontWeight: 600, marginLeft: 8 }}>
                       ⚠ Bloqueante — Administrador notificado
@@ -236,7 +245,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
           onSubmit={(e) => void handleAdd(e)}
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 80px 180px auto",
+            gridTemplateColumns: form.tipo === "NECESARIO_NO_BLOQUEANTE" ? "1fr 80px 180px 100px auto" : "1fr 80px 180px auto",
             gap: 8,
             alignItems: "end",
           }}
@@ -285,6 +294,21 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
               <option value="NECESARIO_NO_BLOQUEANTE">Necesario (no bloqueante aún)</option>
             </select>
           </label>
+
+          {form.tipo === "NECESARIO_NO_BLOQUEANTE" && (
+            <label className="field">
+              <span>% Requerido</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={form.porcentajeRequerido}
+                onChange={(e) => setForm({ ...form, porcentajeRequerido: e.target.value !== "" ? Number(e.target.value) : "" })}
+                placeholder="Ej. 50"
+                required
+              />
+            </label>
+          )}
 
           <button
             className="button button-secondary"
