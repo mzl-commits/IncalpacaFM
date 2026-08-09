@@ -1,4 +1,4 @@
-import { Package, Plus, WarningCircle, CaretRight, CaretLeft, MapPin, Image } from "@phosphor-icons/react";
+import { Package, Plus, WarningCircle, CaretRight, CaretLeft, MapPin, FolderPlus } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -8,6 +8,7 @@ import { buildFilterOptions, useListFilterParams } from "@/components/filters/fi
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listMateriales, listCategorias, listSubcategorias } from "@/modules/almacen/catalogoRepository";
+import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 
 const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
@@ -15,6 +16,7 @@ const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as 
 export function CatalogoPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
+  const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
 
   const { data: materiales = [], isLoading } = useQuery({
     queryKey: ["materiales", values],
@@ -83,6 +85,14 @@ export function CatalogoPage() {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <button
             className="button button-secondary"
+            onClick={() => setMostrarGestionCat((v) => !v)}
+            title="Administrar categorías y subcategorías"
+          >
+            <FolderPlus size={16} />
+            Categorías
+          </button>
+          <button
+            className="button button-secondary"
             onClick={() => setMostrarCroquis((v) => !v)}
             title="Croquis del almacén (próximamente)"
           >
@@ -95,6 +105,11 @@ export function CatalogoPage() {
           </Link>
         </div>
       </div>
+
+      {/* Panel interactivo de gestión CRUD de Categorías y Subcategorías */}
+      {mostrarGestionCat && (
+        <GestionCategoriasPanel onClose={() => setMostrarGestionCat(false)} />
+      )}
 
       {/* Croquis del almacén — carrusel con imágenes de prueba */}
       {mostrarCroquis && (

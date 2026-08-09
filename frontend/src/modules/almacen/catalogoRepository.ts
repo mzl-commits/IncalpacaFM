@@ -136,10 +136,7 @@ export async function altaPiezasSueltas(payload: AltaPiezasSueltasPayload): Prom
   return data;
 }
 
-export async function altaEstuche(payload: AltaEstuchePayload): Promise<PiezaBase[]> {
-  const { data } = await api.post<PiezaBase[]>("/materiales/alta-estuche/", payload);
-  return data;
-}
+
 
 // ─── Piezas ───────────────────────────────────────────────────────────────────
 
