@@ -1,4 +1,4 @@
-import { CheckCircle, Package, WarningCircle } from "@phosphor-icons/react";
+import { CaretDown, CaretRight, CheckCircle, Package, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -19,6 +19,7 @@ export function ChecklistPage() {
   const [responsableId, setResponsableId] = useState<number>(0);
   const [devueltas, setDevueltas] = useState<Set<number>>(new Set());
   const [pendientes, setPendientes] = useState<Set<number>>(new Set());
+  const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(new Set());
 
   const { data: prestadas = [], isLoading } = useQuery({
     queryKey: ["checklist-prestados"],
@@ -37,16 +38,11 @@ export function ChecklistPage() {
     (p) => p.ultimo_movimiento?.fecha?.slice(0, 10) !== hoy,
   );
 
-  // Identificar estuches incompletos: piezas que son padre de otras piezas prestadas
-  const padreIdsConHijasPrestadas = new Set(
-    prestadas.filter((p) => p.padre !== null).map((p) => p.padre!)
-  );
-
   const devolverMut = useMutation({
     mutationFn: (pieza: PiezaPrestada) =>
       registrarEntradaPieza({
         pieza_id: pieza.id,
-        responsable_id: responsableId || pieza.id, // fallback temporal
+        responsable_id: responsableId,
         observaciones: "Devolución registrada desde checklist diario.",
       }),
     onMutate: (pieza) => {
@@ -70,6 +66,15 @@ export function ChecklistPage() {
       return;
     }
     devolverMut.mutate(pieza);
+  }
+
+  function toggleGrupo(codigo: string) {
+    setGruposAbiertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(codigo)) next.delete(codigo);
+      else next.add(codigo);
+      return next;
+    });
   }
 
   if (isLoading) return <div className="loading-panel">Cargando checklist…</div>;
@@ -119,22 +124,15 @@ export function ChecklistPage() {
             <strong>{anteriorPiezas.length} piezas de días anteriores sin devolver</strong>
           </div>
           <p className="checklist-section-label">Préstamos anteriores pendientes</p>
-          <div className="checklist-list">
-            {anteriorPiezas.map((p) => (
-              <ChecklistRow
-                key={p.id}
-                pieza={p}
-                devuelta={devueltas.has(p.id)}
-                cargando={pendientes.has(p.id)}
-                overdue
-                esEstucheIncompleto={padreIdsConHijasPrestadas.has(p.id)}
-                hijasPrestadas={prestadas.filter(
-                  (h) => h.padre === p.id && !devueltas.has(h.id)
-                ).length}
-                onCheck={(checked) => handleCheck(p, checked)}
-              />
-            ))}
-          </div>
+          <ChecklistSection
+            piezas={anteriorPiezas}
+            devueltas={devueltas}
+            pendientes={pendientes}
+            gruposAbiertos={gruposAbiertos}
+            overdue
+            onToggleGrupo={toggleGrupo}
+            onCheck={handleCheck}
+          />
         </div>
       )}
 
@@ -142,25 +140,116 @@ export function ChecklistPage() {
       {hoyPiezas.length > 0 && (
         <div className="data-panel">
           <p className="checklist-section-label">Préstamos de hoy</p>
-          <div className="checklist-list">
-            {hoyPiezas.map((p) => (
-              <ChecklistRow
-                key={p.id}
-                pieza={p}
-                devuelta={devueltas.has(p.id)}
-                cargando={pendientes.has(p.id)}
-                overdue={false}
-                esEstucheIncompleto={padreIdsConHijasPrestadas.has(p.id)}
-                hijasPrestadas={prestadas.filter(
-                  (h) => h.padre === p.id && !devueltas.has(h.id)
-                ).length}
-                onCheck={(checked) => handleCheck(p, checked)}
-              />
-            ))}
-          </div>
+          <ChecklistSection
+            piezas={hoyPiezas}
+            devueltas={devueltas}
+            pendientes={pendientes}
+            gruposAbiertos={gruposAbiertos}
+            overdue={false}
+            onToggleGrupo={toggleGrupo}
+            onCheck={handleCheck}
+          />
         </div>
       )}
     </section>
+  );
+}
+
+// ─── Agrupa piezas prestadas: sueltas vs. hijas de un mismo estuche ─────────────
+function agruparPorContenedor(piezas: PiezaPrestada[]) {
+  const grupos = new Map<string, PiezaPrestada[]>();
+  const candidatasSueltas: PiezaPrestada[] = [];
+  for (const p of piezas) {
+    if (p.padre_codigo) {
+      const arr = grupos.get(p.padre_codigo) ?? [];
+      arr.push(p);
+      grupos.set(p.padre_codigo, arr);
+    } else {
+      candidatasSueltas.push(p);
+    }
+  }
+  // Si el propio contenedor también quedó "Prestado" (ej. estuche completo,
+  // o dato viejo de antes del fix de estado), no lo mostramos duplicado como
+  // fila suelta si ya está representado como cabecera de grupo arriba.
+  const sueltas = candidatasSueltas.filter((p) => !p.codigo || !grupos.has(p.codigo));
+  return { grupos, sueltas };
+}
+
+// ─── Subcomponente: sección (hoy / anteriores) con grupos + sueltas ─────────────
+function ChecklistSection({
+  piezas,
+  devueltas,
+  pendientes,
+  gruposAbiertos,
+  overdue,
+  onToggleGrupo,
+  onCheck,
+}: {
+  piezas: PiezaPrestada[];
+  devueltas: Set<number>;
+  pendientes: Set<number>;
+  gruposAbiertos: Set<string>;
+  overdue: boolean;
+  onToggleGrupo: (codigo: string) => void;
+  onCheck: (pieza: PiezaPrestada, checked: boolean) => void;
+}) {
+  const { grupos, sueltas } = agruparPorContenedor(piezas);
+
+  return (
+    <div className="checklist-list">
+      {[...grupos.entries()].map(([codigoContenedor, hijas]) => {
+        const hijasPendientes = hijas.filter((h) => !devueltas.has(h.id));
+        const abierto = gruposAbiertos.has(codigoContenedor);
+        return (
+          <div key={codigoContenedor} style={{ border: "1px solid #e8e8e8", borderRadius: 6, overflow: "hidden" }}>
+            <button
+              type="button"
+              onClick={() => onToggleGrupo(codigoContenedor)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10, width: "100%",
+                padding: "12px 14px", background: "#f6f6f6", border: "none",
+                cursor: "pointer", textAlign: "left", font: "inherit",
+              }}
+            >
+              {abierto ? <CaretDown size={14} /> : <CaretRight size={14} />}
+              <Package size={16} />
+              <span style={{ flex: 1, fontSize: 13 }}>
+                <strong>{codigoContenedor}</strong> — estuche ·{" "}
+                {hijasPendientes.length === 0
+                  ? "todas las piezas devueltas"
+                  : `${hijasPendientes.length} pieza${hijasPendientes.length !== 1 ? "s" : ""} aún prestada${hijasPendientes.length !== 1 ? "s" : ""}`}
+              </span>
+              {hijasPendientes.length === 0 && <CheckCircle size={16} color="var(--success)" />}
+            </button>
+            {abierto && (
+              <div className="checklist-list" style={{ padding: "8px 10px 8px 30px" }}>
+                {hijas.map((h) => (
+                  <ChecklistRow
+                    key={h.id}
+                    pieza={h}
+                    devuelta={devueltas.has(h.id)}
+                    cargando={pendientes.has(h.id)}
+                    overdue={overdue}
+                    onCheck={(checked) => onCheck(h, checked)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {sueltas.map((p) => (
+        <ChecklistRow
+          key={p.id}
+          pieza={p}
+          devuelta={devueltas.has(p.id)}
+          cargando={pendientes.has(p.id)}
+          overdue={overdue}
+          onCheck={(checked) => onCheck(p, checked)}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -170,16 +259,12 @@ function ChecklistRow({
   devuelta,
   cargando,
   overdue,
-  esEstucheIncompleto,
-  hijasPrestadas,
   onCheck,
 }: {
   pieza: PiezaPrestada;
   devuelta: boolean;
   cargando: boolean;
   overdue: boolean;
-  esEstucheIncompleto?: boolean;
-  hijasPrestadas?: number;
   onCheck: (checked: boolean) => void;
 }) {
   return (
@@ -197,28 +282,7 @@ function ChecklistRow({
         <strong>
           <code className="pieza-code">{labelPieza(pieza)}</code>{" "}
           — {pieza.material_nombre}
-          {pieza.padre_codigo && (
-            <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: 6 }}>
-              (estuche {pieza.padre_codigo})
-            </span>
-          )}
         </strong>
-        {/* Aviso de estuche incompleto: el estuche regresa pero faltan hijas */}
-        {esEstucheIncompleto && !devuelta && (
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 11,
-              color: "var(--warning, #d97706)",
-              marginLeft: 8,
-            }}
-          >
-            <Package size={12} />
-            Estuche incompleto — {hijasPrestadas} item{hijasPrestadas !== 1 ? "s" : ""} aún prestado{hijasPrestadas !== 1 ? "s" : ""}
-          </span>
-        )}
         <small>
           {pieza.ultimo_movimiento
             ? `Salida: ${new Date(pieza.ultimo_movimiento.fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })} · ${pieza.ultimo_movimiento.responsable}`

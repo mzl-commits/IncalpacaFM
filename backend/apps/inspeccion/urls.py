@@ -5,6 +5,8 @@ from apps.inspeccion.views import (
     CriterioViewSet,
     InspeccionViewSet,
     RespuestaCriterioViewSet,
+    ProgramacionInspeccionViewSet,
+    PlanInspeccionAnualViewSet,
 )
 
 router = DefaultRouter()
@@ -12,5 +14,7 @@ router.register("plantillas-criterios", PlantillaCriterioViewSet)
 router.register("criterios", CriterioViewSet)
 router.register("inspecciones", InspeccionViewSet)
 router.register("respuestas-criterios", RespuestaCriterioViewSet)
+router.register("programaciones-inspeccion", ProgramacionInspeccionViewSet, basename="programacion-inspeccion")
+router.register("plan-anual", PlanInspeccionAnualViewSet, basename="plan-anual")
 
 urlpatterns = router.urls

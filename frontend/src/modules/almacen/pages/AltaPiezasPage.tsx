@@ -145,23 +145,15 @@ export function AltaPiezasPage() {
         <Header titulo="Piezas registradas" />
         <div className="wizard-layout">
           <div className="form-panel">
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 20,
-                color: "var(--success, #16a34a)",
-              }}
-            >
+            <div className="alta-success-banner">
               <CheckCircle size={28} weight="fill" />
               <div>
-                <strong style={{ fontSize: 16 }}>
+                <strong className="text-md">
                   {piezasCreadas.length} pieza{piezasCreadas.length !== 1 ? "s" : ""} creada
                   {piezasCreadas.length !== 1 ? "s" : ""} correctamente
                 </strong>
                 {esEstuche && (
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>
+                  <p className="alta-success-count">
                     {contenedoras.length} estuche{contenedoras.length !== 1 ? "s" : ""}{" "}
                     · {hijas.length} item{hijas.length !== 1 ? "s" : ""}
                   </p>
@@ -170,97 +162,47 @@ export function AltaPiezasPage() {
             </div>
 
             {esEstuche ? (
-              // Mostrar árbol de estuche → hijas
-              <div style={{ display: "grid", gap: 12 }}>
+              // Mostrar árbol de estuche → hijas (reutiliza .pieza-tree de MaterialDetailPage)
+              <div className="pieza-tree">
                 {contenedoras.map((cont) => {
                   const misHijas = hijas.filter((h) => h.padre === cont.id);
                   return (
-                    <div
-                      key={cont.id}
-                      style={{
-                        border: "1px solid var(--border, #e5e7eb)",
-                        borderRadius: 8,
-                        overflow: "hidden",
-                      }}
-                    >
+                    <div key={cont.id}>
                       {/* Fila estuche */}
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          padding: "10px 14px",
-                          background: "var(--surface-raised, #f9fafb)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        <Package size={16} style={{ color: "var(--muted)" }} />
+                      <div className="pieza-tree-row is-container">
+                        <Package size={16} className="text-muted" />
                         <code className="pieza-code">{cont.codigo}</code>
-                        <span style={{ fontSize: 13 }}>Estuche — {material.nombre}</span>
-                        <span
-                          style={{
-                            marginLeft: "auto",
-                            fontSize: 11,
-                            color: "var(--muted)",
-                          }}
-                        >
+                        <span className="text-base">Estuche — {material.nombre}</span>
+                        <span className="ml-auto text-muted-xs">
                           {misHijas.length} item{misHijas.length !== 1 ? "s" : ""}
                         </span>
                       </div>
                       {/* Filas hijas */}
-                      {misHijas.map((hija) => (
-                        <div
-                          key={hija.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "8px 14px 8px 32px",
-                            borderTop: "1px solid var(--border, #e5e7eb)",
-                            fontSize: 13,
-                          }}
-                        >
-                          <Package size={13} style={{ color: "var(--muted)", flexShrink: 0 }} />
-                          <code className="pieza-code">{labelPieza(hija)}</code>
-                          <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                            Item
-                          </span>
-                        </div>
-                      ))}
+                      <div className="pieza-tree-children">
+                        {misHijas.map((hija) => (
+                          <div key={hija.id} className="pieza-tree-hija">
+                            <Package size={13} className="text-muted" style={{ flexShrink: 0 }} />
+                            <code className="pieza-code">{labelPieza(hija)}</code>
+                            <span className="text-muted-sm">Item</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
               // Piezas sueltas
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 8,
-                }}
-              >
+              <div className="alta-piezas-chips">
                 {piezasCreadas.map((p) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "6px 12px",
-                      borderRadius: 6,
-                      background: "var(--surface-raised, #f3f4f6)",
-                      border: "1px solid var(--border, #e5e7eb)",
-                      fontSize: 13,
-                    }}
-                  >
+                  <div key={p.id} className="alta-pieza-chip">
                     <code className="pieza-code">{p.codigo}</code>
                   </div>
                 ))}
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+            <div className="flex-row mt-24">
               <Link
                 className="button button-primary"
                 to={`/almacen/catalogo/${materialId}`}
@@ -284,7 +226,7 @@ export function AltaPiezasPage() {
 
           <div className="help-panel">
             <h2>¿Qué sigue?</h2>
-            <p style={{ fontSize: 13 }}>
+            <p className="text-base">
               Las piezas ya están registradas en el inventario con estado{" "}
               <strong>Disponible</strong>. Puedes registrar un movimiento de
               préstamo desde la ficha del material.
@@ -304,11 +246,10 @@ export function AltaPiezasPage() {
           subtitulo="¿Cómo quieres registrar las piezas de este material?"
         />
         <div className="wizard-layout">
-          <div style={{ display: "grid", gap: 16 }}>
+          <div className="option-cards-stack">
             {/* Opción A: sueltas */}
             <div
-              className="form-panel"
-              style={{ cursor: "pointer" }}
+              className="form-panel option-card"
               onClick={() => setModo("sueltas")}
               role="button"
               tabIndex={0}
@@ -322,16 +263,8 @@ export function AltaPiezasPage() {
                   4 destornilladores planos.
                 </p>
               </div>
-              <div style={{ marginTop: 8 }}>
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    fontSize: 12,
-                    color: "var(--muted)",
-                  }}
-                >
+              <div className="mt-8">
+                <span className="option-hint">
                   <Package size={13} />
                   Cada pieza recibe un código único (ej. 3WADV).
                 </span>
@@ -340,8 +273,7 @@ export function AltaPiezasPage() {
 
             {/* Opción B: estuche */}
             <div
-              className="form-panel"
-              style={{ cursor: "pointer" }}
+              className="form-panel option-card"
               onClick={() => setModo("estuche")}
               role="button"
               tabIndex={0}
@@ -355,16 +287,8 @@ export function AltaPiezasPage() {
                   Allen con varias medidas, estuche de mecánico.
                 </p>
               </div>
-              <div style={{ marginTop: 8 }}>
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    fontSize: 12,
-                    color: "var(--muted)",
-                  }}
-                >
+              <div className="mt-8">
+                <span className="option-hint">
                   <Package size={13} />
                   El estuche y cada item reciben su propio código.
                 </span>
@@ -374,8 +298,8 @@ export function AltaPiezasPage() {
 
           <div className="help-panel">
             <h2>¿Cuál elegir?</h2>
-            <ul style={{ fontSize: 13, paddingLeft: 16 }}>
-              <li style={{ marginBottom: 8 }}>
+            <ul className="info-list">
+              <li>
                 <strong>Sueltas</strong> → cuando cada unidad es independiente aunque
                 sean del mismo tipo (varios taladros iguales).
               </li>
@@ -407,7 +331,7 @@ export function AltaPiezasPage() {
                 Cada pieza recibirá un código único de 5 caracteres (ej. 3WADV, K9MXT).
               </p>
             </div>
-            <div className="form-grid" style={{ marginTop: 16 }}>
+            <div className="form-grid mt-16">
               <Field
                 label="Cantidad de piezas"
                 required
@@ -422,16 +346,7 @@ export function AltaPiezasPage() {
                 />
               </Field>
             </div>
-            <div
-              style={{
-                padding: "12px 16px",
-                background: "var(--surface-raised, #f9fafb)",
-                borderRadius: 8,
-                fontSize: 13,
-                color: "var(--muted)",
-                marginTop: 16,
-              }}
-            >
+            <div className="info-box mt-16">
               Se crearán <strong>{cantPiezas}</strong> pieza
               {cantPiezas !== 1 ? "s" : ""} de{" "}
               <strong>
@@ -439,7 +354,7 @@ export function AltaPiezasPage() {
               </strong>
               , cada una con su código único.
             </div>
-            <div className="form-actions" style={{ marginTop: 20 }}>
+            <div className="form-actions mt-20">
               <button
                 type="button"
                 className="button button-secondary"
@@ -461,7 +376,7 @@ export function AltaPiezasPage() {
 
           <div className="help-panel">
             <h2>Ejemplo</h2>
-            <p style={{ fontSize: 13 }}>
+            <p className="text-base">
               Si tienes 3 taladros iguales (mismo modelo), ingresa <strong>3</strong>.
               Se generarán automáticamente 3 piezas: <code>A1B2C</code>, <code>D3E4F</code>,{" "}
               <code>G5H6I</code>.
@@ -505,14 +420,14 @@ export function AltaPiezasPage() {
         subtitulo={`Estuche: ${material.codigo} — ${material.nombre}`}
       />
       <div className="wizard-layout">
-        <div style={{ display: "grid", gap: 20 }}>
+        <div className="grid-gap-20">
           {/* Número de estuches */}
           <div className="form-panel">
             <div className="form-section-heading">
               <h2>¿Cuántos estuches idénticos?</h2>
               <p>Si tienes varios estuches del mismo modelo, indica la cantidad.</p>
             </div>
-            <div className="form-grid" style={{ marginTop: 12 }}>
+            <div className="form-grid mt-12">
               <Field label="Número de estuches" required>
                 <input
                   type="number"
@@ -535,21 +450,9 @@ export function AltaPiezasPage() {
               </p>
             </div>
 
-            <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+            <div className="hijas-list">
               {/* Cabecera de columnas */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 120px 80px 36px",
-                  gap: 8,
-                  padding: "6px 4px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "var(--muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: ".05em",
-                }}
-              >
+              <div className="hijas-grid-cols hijas-grid-header">
                 <span>Nombre de la pieza</span>
                 <span>Medida (opc.)</span>
                 <span>Cantidad</span>
@@ -557,15 +460,7 @@ export function AltaPiezasPage() {
               </div>
 
               {hijasSpec.map((hija, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 120px 80px 36px",
-                    gap: 8,
-                    alignItems: "center",
-                  }}
-                >
+                <div key={idx} className="hijas-grid-cols hijas-grid-row">
                   <input
                     type="text"
                     placeholder="Ej: Destornillador punta plana"
@@ -592,13 +487,7 @@ export function AltaPiezasPage() {
                   />
                   <button
                     type="button"
-                    style={{
-                      background: "transparent",
-                      border: 0,
-                      color: "var(--error, #dc2626)",
-                      cursor: "pointer",
-                      padding: 4,
-                    }}
+                    className="icon-button-danger"
                     onClick={() => removeFila(idx)}
                     disabled={hijasSpec.length === 1}
                     aria-label="Eliminar fila"
@@ -610,8 +499,7 @@ export function AltaPiezasPage() {
 
               <button
                 type="button"
-                className="button button-secondary"
-                style={{ justifySelf: "start", fontSize: 13, marginTop: 4 }}
+                className="button button-secondary add-fila-btn"
                 onClick={addFila}
               >
                 <Plus size={14} /> Agregar tipo de pieza
@@ -620,15 +508,7 @@ export function AltaPiezasPage() {
 
             {/* Resumen */}
             {hayHijasValidas && (
-              <div
-                style={{
-                  marginTop: 16,
-                  padding: "12px 16px",
-                  background: "var(--surface-raised, #f9fafb)",
-                  borderRadius: 8,
-                  fontSize: 13,
-                }}
-              >
+              <div className="info-box is-plain mt-16">
                 <strong>Resumen:</strong>{" "}
                 {numEstuches} estuche{numEstuches !== 1 ? "s" : ""} × {totalPiezasPorEstuche} pieza
                 {totalPiezasPorEstuche !== 1 ? "s" : ""} ={" "}
@@ -642,16 +522,7 @@ export function AltaPiezasPage() {
             )}
 
             {altaEstucheMut.isError && (
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: "10px 14px",
-                  background: "var(--error-surface, #fef2f2)",
-                  borderRadius: 8,
-                  color: "var(--error, #dc2626)",
-                  fontSize: 13,
-                }}
-              >
+              <div className="error-box mt-12">
                 Error al crear el estuche. Verifica los datos e intenta de nuevo.
               </div>
             )}
@@ -679,15 +550,15 @@ export function AltaPiezasPage() {
 
         <div className="help-panel">
           <h2>Cómo funciona</h2>
-          <ul style={{ fontSize: 13, paddingLeft: 16 }}>
-            <li style={{ marginBottom: 8 }}>
+          <ul className="info-list">
+            <li>
               <strong>Nombre</strong>: el tipo de pieza (ej. "Llave Allen", "Broca espiral").
             </li>
-            <li style={{ marginBottom: 8 }}>
+            <li>
               <strong>Medida</strong>: opcional, diferencia piezas del mismo tipo
               (ej. "4 mm", "6 mm", "8 mm").
             </li>
-            <li style={{ marginBottom: 8 }}>
+            <li>
               <strong>Cantidad</strong>: cuántas piezas de ese tipo contiene el estuche.
               Cada una recibe un código único.
             </li>

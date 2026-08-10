@@ -1,6 +1,6 @@
-import type { EstadoPieza, TipoMovimiento, ResultadoInspeccion } from "@/modules/almacen/types";
+import type { EstadoPieza, TipoMovimiento, ResultadoInspeccion, EstadoCalculado } from "@/modules/almacen/types";
 
-type BadgeValue = EstadoPieza | TipoMovimiento | ResultadoInspeccion | string;
+type BadgeValue = EstadoPieza | TipoMovimiento | ResultadoInspeccion | EstadoCalculado | string;
 
 const variantMap: Record<string, string> = {
   // Estado Pieza
@@ -16,6 +16,11 @@ const variantMap: Record<string, string> = {
   apta: "status-success",
   requiere_reparacion: "status-warning",
   fuera_servicio: "status-error",
+  // Estado calculado de Programación de Inspección
+  vencida: "status-error",
+  proxima: "status-warning",
+  pendiente: "status-neutral",
+  realizada: "status-success",
 };
 
 const labelMap: Record<string, string> = {
@@ -25,6 +30,10 @@ const labelMap: Record<string, string> = {
   apta: "Apta",
   requiere_reparacion: "Requiere reparación",
   fuera_servicio: "Fuera de servicio",
+  vencida: "Vencida",
+  proxima: "Próxima",
+  pendiente: "Pendiente",
+  realizada: "Realizada",
 };
 
 interface StatusBadgeProps {

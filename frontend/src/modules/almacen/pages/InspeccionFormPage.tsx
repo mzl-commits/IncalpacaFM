@@ -29,18 +29,8 @@ import {
 } from "@/modules/almacen/types";
 import type { RespuestaInput } from "@/modules/almacen/inspeccionRepository";
 import { Combobox } from "../components/shared/Combobox";
-
-function Field({ label, required, error, children, wide }: {
-  label: string; required?: boolean; error?: string; children: React.ReactNode; wide?: boolean;
-}) {
-  return (
-    <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
-      <span>{label}{required && <b aria-hidden="true"> *</b>}</span>
-      {children}
-      {error && <small className="field-error"><WarningCircle size={14} />{error}</small>}
-    </label>
-  );
-}
+import { Field } from "@/modules/almacen/components/shared/Field";
+import { EstucheGroup } from "@/modules/almacen/components/EstucheGroup";
 
 export function InspeccionFormPage() {
   const qc = useQueryClient();
@@ -114,13 +104,19 @@ export function InspeccionFormPage() {
     if (plantillaId) setPlantillaId(plantillaId);
   }, [material]);
 
-  // Auto-poblar piezas_lote cuando se detecta estuche
+  // Auto-poblar piezas_lote cuando se detecta estuche.
+  // Solo se marcan por defecto las hijas Disponible: Prestado y Mantenimiento
+  // se muestran (atenuadas, en EstucheGroup) pero no entran al lote a menos
+  // que el usuario las marque explícitamente — no están físicamente
+  // disponibles para inspeccionar.
   useEffect(() => {
-  if (esEstuche) {
-    const idsHijas = new Set(hijasActivas.map((h) => h.id));
-    setPiezasLote(idsHijas);
-  }
-}, [esEstuche, piezaId]);
+    if (esEstuche) {
+      const idsDisponibles = new Set(
+        hijasActivas.filter((h) => h.estado === "Disponible").map((h) => h.id),
+      );
+      setPiezasLote(idsDisponibles);
+    }
+  }, [esEstuche, piezaId]);
 
   // Recalcula el total inspeccionado automáticamente según el lote,
   // solo para materiales con control individual (donde sí hay piezas que contar).
@@ -129,6 +125,25 @@ export function InspeccionFormPage() {
       setCantInspeccionada(piezasLote.size);
     }
   }, [tipo, material?.control_individual, piezasLote]);
+
+  // Feedback inmediato: recalcula el error de cantidades mientras el usuario
+  // escribe, sin esperar al submit. La validación real (y la fuente de
+  // verdad) sigue viviendo en mutationFn / backend; esto solo refleja el
+  // mismo chequeo en vivo para no hacer esperar al usuario hasta enviar.
+  useEffect(() => {
+    if (tipo !== "grupal") return;
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (material?.control_individual && cantInspeccionada !== piezasLote.size) {
+        next.cantidades = `Debes tener ${cantInspeccionada} pieza(s) seleccionada(s) en el lote (actualmente hay ${piezasLote.size}).`;
+      } else if (cantInspeccionada > 0 && cantApta + cantNoApta !== cantInspeccionada) {
+        next.cantidades = `Aptas (${cantApta}) + No aptas (${cantNoApta}) debe ser igual a inspeccionadas (${cantInspeccionada}).`;
+      } else {
+        delete next.cantidades;
+      }
+      return next;
+    });
+  }, [tipo, material?.control_individual, cantInspeccionada, cantApta, cantNoApta, piezasLote]);
 
   const plantillaSeleccionada = plantillas.find((p) => p.id === plantillaId);
   const criterios: Criterio[] = plantillaSeleccionada?.criterios ?? [];
@@ -149,30 +164,28 @@ export function InspeccionFormPage() {
     });
   }
 
-  const [contenedoresMarcados, setContenedoresMarcados] = useState<Set<number>>(new Set());
-
-  async function togglePiezaLote(pieza: PiezaBase) {
-    if (!pieza.tiene_hijas) {
-      togglePieza(pieza.id);
-      return;
-    }
-    const marcando = !contenedoresMarcados.has(pieza.id);
-    setContenedoresMarcados((prev) => {
-      const next = new Set(prev);
-      marcando ? next.add(pieza.id) : next.delete(pieza.id);
-      return next;
-    });
-    const hijas = await listPiezas({ padre: pieza.id });
+  function toggleTodasHijas(hijas: PiezaBase[]) {
     setPiezasLote((prev) => {
       const next = new Set(prev);
-      if (marcando) {
-        hijas.filter((h) => h.estado !== "Baja").forEach((h) => next.add(h.id));
-      } else {
-        hijas.forEach((h) => next.delete(h.id));
-      }
+      const todasMarcadas = hijas.every((h) => next.has(h.id));
+      hijas.forEach((h) => (todasMarcadas ? next.delete(h.id) : next.add(h.id)));
       return next;
     });
   }
+
+  // Agrupar piezas del lote: padres (sin `padre`) vs hijas (con `padre` seteado).
+  // Los padres con `tiene_hijas` se muestran como EstucheGroup; el resto,
+  // como filas sueltas.
+  const piezasPadre = piezas.filter((p) => !p.padre);
+  const estuches = piezasPadre.filter((p) => p.tiene_hijas);
+  const sueltas = piezasPadre.filter((p) => !p.tiene_hijas);
+  const hijasPorPadre = new Map<number, PiezaBase[]>();
+  piezas
+    .filter((p) => p.padre)
+    .forEach((p) => {
+      if (!hijasPorPadre.has(p.padre!)) hijasPorPadre.set(p.padre!, []);
+      hijasPorPadre.get(p.padre!)!.push(p);
+    });
 
   const mut = useMutation({
     mutationFn: () => {
@@ -244,7 +257,7 @@ export function InspeccionFormPage() {
           <Link className="button button-secondary" to="/almacen/inspecciones">
             Volver a inspecciones
           </Link>
-          <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setContenedoresMarcados(new Set()); setRespuestas({}); }}>
+          <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
             Nueva inspección
           </button>
         </div>
@@ -299,7 +312,7 @@ export function InspeccionFormPage() {
                   value={materialId}
                   selectedLabel={material ? `${material.codigo} — ${material.nombre}` : ""}
                   placeholder="Buscar por código o nombre…"
-                  onChange={(id) => { setMaterialId(id); setPiezaId(0); setPiezasLote(new Set()); setContenedoresMarcados(new Set()); }}
+                  onChange={(id) => { setMaterialId(id); setPiezaId(0); setPiezasLote(new Set()); }}
                   fetchOptions={async (q) => {
                     const res = await listMateriales({ q, inspeccionable: true });
                     return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
@@ -341,27 +354,52 @@ export function InspeccionFormPage() {
             )}
             </div>
 
-            {/* Lote de piezas (grupal) */}
+            {/* Lote de piezas (grupal): estuches agrupan a sus piezas hijas,
+                el resto se muestra como filas sueltas. */}
             {tipo === "grupal" && material?.control_individual && (
               <div style={{ marginTop: 16 }}>
                 <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
                   Seleccionar piezas del lote
                 </strong>
                 <div className="pieza-multiselect">
-                  {piezas.map((p) => (
-                    <label key={p.id} className="pieza-checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={p.tiene_hijas ? contenedoresMarcados.has(p.id) : piezasLote.has(p.id)}
-                        onChange={() => togglePiezaLote(p)}
-                      />
-                      <span className="pieza-code">{labelPieza(p)}{p.tiene_hijas ? " [estuche]" : ""}</span>
-                      <span style={{ fontSize: 13 }}>
-                        {p.material_nombre}{p.material_medida ? ` (${p.material_medida})` : ""}
-                      </span>
-                      <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>{p.estado}</span>
-                    </label>
-                  ))}
+                  {estuches.length > 0 && (
+                    <div className="lote-subseccion">
+                      <span className="lote-subseccion-titulo">Estuches ({estuches.length})</span>
+                      {estuches.map((p) => (
+                        <EstucheGroup
+                          key={p.id}
+                          padre={p}
+                          hijas={hijasPorPadre.get(p.id) ?? []}
+                          piezasLote={piezasLote}
+                          togglePieza={togglePieza}
+                          toggleTodas={toggleTodasHijas}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {sueltas.length > 0 && (
+                    <div className="lote-subseccion">
+                      <span className="lote-subseccion-titulo">Piezas sueltas ({sueltas.length})</span>
+                      {sueltas.map((p) => (
+                        <label key={p.id} className="pieza-checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={piezasLote.has(p.id)}
+                            onChange={() => togglePieza(p.id)}
+                          />
+                          <span className="pieza-code">{labelPieza(p)}</span>
+                          <span style={{ fontSize: 13 }}>
+                            {p.material_nombre}
+                            {p.detalle ? ` — ${p.detalle}` : ""}
+                            {p.material_medida ? ` (${p.material_medida})` : ""}
+                          </span>
+                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>{p.estado}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
                   {piezas.length === 0 && materialId > 0 && (
                     <p className="empty-row" style={{ fontSize: 12 }}>Sin piezas disponibles.</p>
                   )}
@@ -383,12 +421,21 @@ export function InspeccionFormPage() {
             </div>
             <div className="form-grid">
               <Field label="Plantilla de criterios" required error={errors.plantilla}>
-                <select value={plantillaId || ""} onChange={(e) => setPlantillaId(Number(e.target.value))}>
+                <select
+                  value={plantillaId || ""}
+                  disabled={!!material?.subcategoria_plantilla_inspeccion}
+                  onChange={(e) => setPlantillaId(Number(e.target.value))}
+                >
                   <option value="">Seleccionar plantilla…</option>
                   {plantillas.map((p) => (
                     <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
                 </select>
+                {material?.subcategoria_plantilla_inspeccion && (
+                  <small style={{ display: "block", marginTop: 4, color: "#666" }}>
+                    Definida por la subcategoría del material — no editable.
+                  </small>
+                )}
               </Field>
               <Field label="Inspector" required error={errors.inspector}>
                 <select value={inspectorId || ""} onChange={(e) => setInspectorId(Number(e.target.value))}>

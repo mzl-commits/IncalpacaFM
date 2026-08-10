@@ -3,9 +3,7 @@ import random
 import string
 
 def generar_codigo_material(categoria):
-    """Genera código correlativo: prefijo + consecutivo de 4 dígitos (ej. H0013).
-    Solo cuenta entre materiales visibles (es_componente=False); los
-    materiales-componente no afectan este contador."""
+    """Código correlativo: prefijo + 4 dígitos (ej. H0013). Ignora materiales-componente."""
 
     largo_prefijo = len(categoria.prefijo)
     ultimo = (
@@ -31,9 +29,7 @@ def generar_codigo_pieza():
 
 
 def generar_codigo_material_componente():
-    """Código aleatorio para materiales-componente (creados automáticamente
-    al registrar piezas hijas inline). Misma lógica que generar_codigo_pieza(),
-    pero verificando unicidad contra Material en vez de Pieza."""
+    """Código aleatorio único para materiales-componente (mismo patrón que generar_codigo_pieza, pero contra Material)."""
     caracteres = string.ascii_uppercase + string.digits
     while True:
         codigo = "".join(random.choices(caracteres, k=5))
@@ -47,20 +43,9 @@ def crear_piezas_sueltas(material, cantidad):
     material.recalcular_cantidad()
     return creadas
 
-
 def crear_estuche_con_piezas(material_contenedor, piezas_hijas_spec, num_estuches=1):
-    """
-    Crea uno o más estuches (piezas contenedoras) con sus piezas hijas,
-    permitiendo que cada hija sea de un Material distinto (ej. medidas mixtas).
-
-    material_contenedor: Material del estuche en sí (ej. "Estuche llaves Allen").
-    piezas_hijas_spec: lista de dicts, uno por cada Material distinto dentro del estuche:
-        [
-            {"material": <Material 5mm>, "cantidad": 2},
-            {"material": <Material 8mm>, "cantidad": 1},
-        ]
-    num_estuches: cuántos estuches idénticos crear (cada uno con el mismo set de hijas).
-    """
+    """Crea uno o más estuches con piezas hijas (cada hija puede ser de un Material
+    distinto, ej. medidas mixtas). piezas_hijas_spec: [{"material": Material, "cantidad": int}, ...]"""
 
     creadas = []
     materiales_afectados = {material_contenedor}
@@ -82,11 +67,7 @@ def crear_estuche_con_piezas(material_contenedor, piezas_hijas_spec, num_estuche
     return creadas
 
 def ajustar_stock(material, cantidad):
-    """
-    Aumenta (o disminuye, si cantidad es negativa) el stock manual de un
-    material sin control individual. No aplica a materiales con
-    control_individual=True, cuyo cantidad_total se recalcula solo desde las piezas.
-    """
+    """Suma o resta stock manual (cantidad negativa resta). Solo para materiales sin control_individual."""
     if material.control_individual:
         raise ValueError(
             "Este material tiene control individual; el stock se calcula "

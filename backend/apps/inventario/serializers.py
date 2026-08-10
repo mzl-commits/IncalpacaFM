@@ -2,9 +2,16 @@ from rest_framework import serializers
 from apps.inventario.models import Movimiento
 from apps.catalogo.models import Material, Pieza
 from django.contrib.auth import get_user_model
+from apps.inventario.services import (
+    registrar_salida_material,
+    registrar_salida_pieza,
+    registrar_entrada_material,
+    registrar_entrada_pieza,
+    registrar_baja_material,
+    registrar_baja_pieza,
+)
 
 User = get_user_model()
-
 
 class MovimientoSerializer(serializers.ModelSerializer):
     material_codigo = serializers.CharField(source="material.codigo", read_only=True)
@@ -27,33 +34,28 @@ class MovimientoSerializer(serializers.ModelSerializer):
             return obj.responsable.get_full_name() or obj.responsable.username
         return "N/A"
 
-
 class SalidaMaterialSerializer(serializers.Serializer):
-    material_id = serializers.IntegerField()
+    material_id = serializers.PrimaryKeyRelatedField(queryset=Material.objects.all())
     cantidad = serializers.IntegerField(min_value=1)
-    responsable_id = serializers.IntegerField()
+    responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     referencia_externa = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
 
-    def validate_material_id(self, value):
-        if not Material.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El material especificado no existe.")
-        return value
-
-    def validate_responsable_id(self, value):
-        if not User.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El usuario responsable especificado no existe.")
-        return value
-
+    def create(self, validated_data):
+        return registrar_salida_material(
+            material=validated_data["material_id"],
+            cantidad=validated_data["cantidad"],
+            responsable=validated_data["responsable_id"],
+            referencia_externa=validated_data["referencia_externa"],
+            observaciones=validated_data["observaciones"],
+        )
 
 class SalidaPiezaSerializer(serializers.Serializer):
-    pieza_id = serializers.IntegerField()
-    responsable_id = serializers.IntegerField()
+    pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
+    responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     referencia_externa = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
-    # Opcional: lista de IDs de piezas hijas a incluir en la salida.
-    # None = comportamiento por defecto (todas las disponibles).
-    # Lista vacía [] = solo sale el contenedor, sin hijas.
+    # None = todas las hijas disponibles; [] = solo el contenedor; [ids] = solo esas hijas
     piezas_hijas_ids = serializers.ListField(
         child=serializers.IntegerField(),
         required=False,
@@ -61,82 +63,66 @@ class SalidaPiezaSerializer(serializers.Serializer):
         default=None,
     )
 
-    def validate_pieza_id(self, value):
-        if not Pieza.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("La pieza especificada no existe.")
-        return value
-
-    def validate_responsable_id(self, value):
-        if not User.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El usuario responsable especificado no existe.")
-        return value
-
+    def create(self, validated_data):
+        return registrar_salida_pieza(
+            pieza=validated_data["pieza_id"],
+            responsable=validated_data["responsable_id"],
+            referencia_externa=validated_data["referencia_externa"],
+            observaciones=validated_data["observaciones"],
+            piezas_hijas_ids=validated_data["piezas_hijas_ids"],
+        )
 
 class EntradaMaterialSerializer(serializers.Serializer):
-    material_id = serializers.IntegerField()
+    material_id = serializers.PrimaryKeyRelatedField(queryset=Material.objects.all())
     cantidad = serializers.IntegerField(min_value=1)
-    responsable_id = serializers.IntegerField()
+    responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
 
-    def validate_material_id(self, value):
-        if not Material.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El material especificado no existe.")
-        return value
-
-    def validate_responsable_id(self, value):
-        if not User.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El usuario responsable especificado no existe.")
-        return value
-
+    def create(self, validated_data):
+        return registrar_entrada_material(
+            material=validated_data["material_id"],
+            cantidad=validated_data["cantidad"],
+            responsable=validated_data["responsable_id"],
+            observaciones=validated_data["observaciones"],
+        )
 
 class EntradaPiezaSerializer(serializers.Serializer):
-    pieza_id = serializers.IntegerField()
-    responsable_id = serializers.IntegerField()
+    pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
+    responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
 
-    def validate_pieza_id(self, value):
-        if not Pieza.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("La pieza especificada no existe.")
-        return value
-
-    def validate_responsable_id(self, value):
-        if not User.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El usuario responsable especificado no existe.")
-        return value
-
+    def create(self, validated_data):
+        return registrar_entrada_pieza(
+            pieza=validated_data["pieza_id"],
+            responsable=validated_data["responsable_id"],
+            observaciones=validated_data["observaciones"],
+        )
 
 class BajaMaterialSerializer(serializers.Serializer):
-    material_id = serializers.IntegerField()
+    material_id = serializers.PrimaryKeyRelatedField(queryset=Material.objects.all())
     cantidad = serializers.IntegerField(min_value=1)
-    responsable_id = serializers.IntegerField()
+    responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
 
-    def validate_material_id(self, value):
-        if not Material.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El material especificado no existe.")
-        return value
-
-    def validate_responsable_id(self, value):
-        if not User.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El usuario responsable especificado no existe.")
-        return value
-
+    def create(self, validated_data):
+        return registrar_baja_material(
+            material=validated_data["material_id"],
+            cantidad=validated_data["cantidad"],
+            responsable=validated_data["responsable_id"],
+            observaciones=validated_data["observaciones"],
+        )
 
 class BajaPiezaSerializer(serializers.Serializer):
-    pieza_id = serializers.IntegerField()
-    responsable_id = serializers.IntegerField()
+    pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
+    responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
 
-    def validate_pieza_id(self, value):
-        if not Pieza.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("La pieza especificada no existe.")
-        return value
-
-    def validate_responsable_id(self, value):
-        if not User.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("El usuario responsable especificado no existe.")
-        return value
-
+    def create(self, validated_data):
+        return registrar_baja_pieza(
+            pieza=validated_data["pieza_id"],
+            responsable=validated_data["responsable_id"],
+            observaciones=validated_data["observaciones"],
+        )
 
 class PiezaPrestadaSerializer(serializers.ModelSerializer):
     material_codigo = serializers.CharField(source="material.codigo", read_only=True)

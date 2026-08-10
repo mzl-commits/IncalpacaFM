@@ -75,6 +75,7 @@ export interface Categoria {
   prefijo: string;
   descripcion: string;
   activo: boolean;
+  requiere_inspeccion: boolean;
 }
 
 export interface Subcategoria {
@@ -98,6 +99,7 @@ export interface PiezaBase {
   padre: number | null;
   creado_en: string;
   tiene_hijas: boolean;
+  detalle?:string;
 }
 
 export interface PiezaAnidada {
@@ -110,6 +112,7 @@ export interface PiezaAnidada {
   total_hijas: number;
   hijas_disponibles: number;
   piezas_hijas: PiezaBase[];
+  detalle?:string;
 }
 
 export interface Material {
@@ -125,13 +128,24 @@ export interface Material {
   modelo: string;
   medida: string;
   foto: string | null;
-  grosor_mm: string | null;
-  largo_mm: string | null;
+  grosor: string | null;
+  largo: string | null;
+  unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio: string | number | null;
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
+  periodicidad_valor: number;
+  periodicidad_unidad: "dias" | "meses";
+  /** Periodicidad de inspección en días, calculada por el backend. */
+  periodicidad_inspeccion_dias: number;
+  /**
+   * Fuente única de verdad (calculada en el backend) de si el material es
+   * inspeccionable: subcategoría con plantilla_inspeccion asignada Y
+   * categoría con requiere_inspeccion=True.
+   */
+  es_inspeccionable: boolean;
   activo: boolean;
   creado_en: string;
 }
@@ -148,12 +162,15 @@ export interface MaterialCreatePayload {
   marca: string;
   modelo: string;
   medida: string;
-  grosor_mm: string;
-  largo_mm: string;
+  grosor: string;
+  largo: string;
+  unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio?: string | number | null;
   tipo_control: TipoControl;
   control_individual: boolean;
+  periodicidad_valor: number;
+  periodicidad_unidad: "dias" | "meses";
   // foto se envía aparte como FormData si existe
 }
 
@@ -212,7 +229,7 @@ export interface PiezaPrestada {
 
 export interface SalidaEstucheRespuesta {
   movimientos: Movimiento[];
-  hijas_excluidas?: number[];
+  hijas_excluidas?: { id: number; codigo: string; estado: EstadoPieza }[];
   aviso?: string;
 }
 
@@ -263,6 +280,49 @@ export interface Inspeccion {
   respuestas: RespuestaCriterio[];
 }
 
+// ─── Planificación (Plan Anual / Programación de inspecciones) ───────────────
+
+export type EstadoPlanAnual = "borrador" | "aprobado" | "cerrado";
+export type EstadoProgramacion = "pendiente" | "realizada";
+export type EstadoCalculado = "vencida" | "proxima" | "pendiente" | "realizada";
+
+export const estadoPlanAnualLabels: Record<EstadoPlanAnual, string> = {
+  borrador: "Borrador",
+  aprobado: "Aprobado",
+  cerrado: "Cerrado",
+};
+
+export const estadoCalculadoLabels: Record<EstadoCalculado, string> = {
+  vencida: "Vencida",
+  proxima: "Próxima",
+  pendiente: "Pendiente",
+  realizada: "Realizada",
+};
+
+export interface PlanInspeccionAnual {
+  id: number;
+  anio: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  estado: EstadoPlanAnual;
+}
+
+export interface ProgramacionInspeccion {
+  id: number;
+  plan: number;
+  material: number | null;
+  material_codigo: string | null;
+  pieza: number | null;
+  pieza_codigo: string | null;
+  subcategoria_nombre: string | null;
+  objeto_nombre: string | null;
+  periodicidad_dias: number;
+  fecha_programada: string;
+  estado: EstadoProgramacion;
+  estado_calculado: EstadoCalculado;
+  inspeccion: number | null;
+}
+
 export interface VencidaItem {
   material_id: number;
   material_codigo: string;
@@ -281,3 +341,12 @@ export interface UsuarioLista {
   role: string;
   role_display: string;
 }
+
+export type UnidadMedida = "mm" | "cm" | "in" | "ft";
+
+export const unidadMedidaAbrev: Record<UnidadMedida, string> = {
+  mm: "mm",
+  cm: "cm",
+  in: "in",
+  ft: "ft",
+};

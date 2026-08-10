@@ -2,6 +2,7 @@ import {
   ArrowRight,
   Barcode,
   CalendarBlank,
+  CalendarPlus,
   CaretDown,
   ChartBar,
   ClipboardText,
@@ -26,6 +27,7 @@ import {
   Wrench,
   X,
 } from "@phosphor-icons/react";
+
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
@@ -83,6 +85,8 @@ const groups: Array<{
       { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
       { to: "/almacen/checklist", label: "Devolución", icon: ListChecks },
       { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText },
+      { to: "/almacen/calendario", label: "Calendario", icon: CalendarBlank },
+      { to: "/almacen/plan-anual", label: "Plan anual", icon: CalendarPlus },
     ],
   },
   {
@@ -211,6 +215,8 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/almacen/movimientos")) return ["Almacén", "Movimientos"];
   if (pathname.startsWith("/almacen/checklist")) return ["Almacén", "Devolución"];
   if (pathname.startsWith("/almacen/inspecciones")) return ["Almacén", "Inspecciones"];
+  if (pathname.startsWith("/almacen/calendario")) return ["Almacén", "Calendario"];
+  if (pathname.startsWith("/almacen/plan-anual")) return ["Almacén", "Plan anual"];
   if (pathname.startsWith("/almacen")) return ["Almacén", "Almacén de herramientas"];
   return ["FM Incalpaca", "Facility Management"];
 }
