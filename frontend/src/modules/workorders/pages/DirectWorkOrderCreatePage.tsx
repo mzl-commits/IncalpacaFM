@@ -1,4 +1,4 @@
-import { ArrowLeft, FloppyDisk } from "@phosphor-icons/react";
+﻿import { ArrowLeft, Broom, FloppyDisk, Wrench } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -14,7 +14,8 @@ import {
   type AdminPriority,
   type Specialty,
 } from "@/modules/workorders/workOrderModel";
-import { createWorkOrder } from "@/modules/workorders/workOrderRepository";
+import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
+import { createWorkOrder, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 
 type DirectOrderType = "OT" | "OL";
 
@@ -79,10 +80,26 @@ export function DirectWorkOrderCreatePage() {
   const orderType: DirectOrderType = location.pathname.endsWith("/ol") ? "OL" : "OT";
   const isCleaningOrder = orderType === "OL";
   const orderName = isCleaningOrder ? "OL" : "OT";
+  const orderIntro = isCleaningOrder
+    ? {
+        title: "OL puntual",
+        description: "Se agenda una limpieza específica para un ambiente. Aparecerá en la jornada del responsable de limpieza.",
+        firstStep: "Ambiente",
+        secondStep: "Responsable",
+        thirdStep: "Foto antes y después",
+      }
+    : {
+        title: "OT directa",
+        description: "Se agenda un trabajo técnico interno sin crear una solicitud manual previa.",
+        firstStep: "Bien o ambiente",
+        secondStep: "Operario",
+        thirdStep: "Avance y evidencias",
+      };
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [assets, setAssets] = useState<RegisteredAsset[]>([]);
+  const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [form, setForm] = useState<DirectWorkOrderFormState>(() => initialForm(orderType));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -94,6 +111,7 @@ export function DirectWorkOrderCreatePage() {
   useEffect(() => {
     void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
     void listRegisteredAssets().then(setAssets);
+    void listWorkOrders().then(setOrders);
   }, []);
 
   const selectedAsset = assets.find((asset) => asset.id === form.assetId) ?? null;
@@ -147,6 +165,17 @@ export function DirectWorkOrderCreatePage() {
       setError(`Completa los campos obligatorios antes de generar la ${orderName}.`);
       return;
     }
+    const conflicts = findScheduleConflicts({
+      orders,
+      operatorId: form.operatorId,
+      dates: [form.scheduledDate],
+      startTime: form.scheduledStartTime,
+      plannedHours: form.plannedHours,
+    });
+    if (conflicts.length) {
+      setError(`El responsable ya tiene una orden en ese horario: ${conflicts.map((order) => order.code).join(", ")}.`);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -172,7 +201,7 @@ export function DirectWorkOrderCreatePage() {
         administratorNotes: form.administratorNotes.trim(),
         progressPercentage: 0,
       });
-      navigate(`/ordenes-trabajo/${workOrder.id}`);
+      navigate(`/órdenes-trabajo/${workOrder.id}`);
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
       setError(detail || `No se pudo generar la ${orderName} directa.`);
@@ -182,27 +211,42 @@ export function DirectWorkOrderCreatePage() {
   }
 
   return (
-    <section>
+    <section className={`direct-order-create-page is-${orderType.toLowerCase()}`}>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Mantenimiento / Ordenes / {orderName} directa</p>
+          <p className="breadcrumb">Mantenimiento / Órdenes / {orderName} directa</p>
           <h1>Crear {orderName} directa</h1>
           <p>{isCleaningOrder ? "Registra una limpieza puntual sin crear una solicitud manual previa." : "Registra una orden sin pedirle al administrador crear y aprobar una solicitud manualmente."}</p>
         </div>
-        <Link className="button button-secondary" to="/ordenes-trabajo/nueva">
+        <Link className="button button-secondary" to="/órdenes-trabajo/nueva">
           <ArrowLeft size={18} />
           Volver
         </Link>
       </div>
 
-      <form className="data-panel" onSubmit={handleSubmit}>
+      <article className="direct-order-intro data-panel">
+        <span className="direct-order-intro-icon">
+          {isCleaningOrder ? <Broom size={28} /> : <Wrench size={28} />}
+        </span>
+        <div>
+          <span>{orderIntro.title}</span>
+          <h2>{orderIntro.description}</h2>
+        </div>
+        <dl>
+          <div><dt>1</dt><dd>{orderIntro.firstStep}</dd></div>
+          <div><dt>2</dt><dd>{orderIntro.secondStep}</dd></div>
+          <div><dt>3</dt><dd>{orderIntro.thirdStep}</dd></div>
+        </dl>
+      </article>
+
+      <form className="data-panel direct-order-form" onSubmit={handleSubmit}>
         <div className="form-section">
           <div className="section-heading">
             <div>
               <span className="section-number">1</span>
               <div>
                 <h2>Datos de la orden</h2>
-                <p>{isCleaningOrder ? "Indica que limpieza puntual se debe realizar y en que ambiente." : "Indica que se necesita atender y donde se realizara el trabajo."}</p>
+                <p>{isCleaningOrder ? "Indica qué limpieza puntual se debe realizar y en qué ambiente." : "Indica qué se necesita atender y dónde se realizará el trabajo."}</p>
               </div>
             </div>
           </div>
@@ -213,7 +257,7 @@ export function DirectWorkOrderCreatePage() {
               <textarea
                 value={form.description}
                 onChange={(event) => updateField("description", event.target.value)}
-                placeholder={isCleaningOrder ? "Ej. Limpieza profunda de sala de reuniones despues de evento." : "Ej. Reparar chapa de puerta en oficina de mantenimiento."}
+                placeholder={isCleaningOrder ? "Ej. Limpieza profunda de sala de reuniones después de evento." : "Ej. Reparar chapa de puerta en oficina de mantenimiento."}
                 rows={4}
                 maxLength={1000}
               />
@@ -228,13 +272,13 @@ export function DirectWorkOrderCreatePage() {
                   <option key={asset.id} value={asset.id}>{assetLabel(asset)}</option>
                 ))}
               </select>
-              <small>Opcional. Si el bien tiene ubicacion, se completara el ambiente.</small>
+              <small>Opcional. Si el bien tiene ubicación, se completará el ambiente.</small>
             </label>
 
             <label className="field">
-              <span>Ubicacion *</span>
+              <span>Ubicación *</span>
               <select value={form.locationId} onChange={(event) => updateField("locationId", event.target.value)} disabled={locationsQuery.isPending}>
-                <option value="">{locationsQuery.isPending ? "Cargando ubicaciones..." : "Seleccionar ubicacion"}</option>
+                <option value="">{locationsQuery.isPending ? "Cargando ubicaciónes..." : "Seleccionar ubicación"}</option>
                 {locations.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.locationCode ? `${item.locationCode} - ` : ""}{item.building} / {item.area} / {item.room}
@@ -257,8 +301,8 @@ export function DirectWorkOrderCreatePage() {
             <div>
               <span className="section-number">2</span>
               <div>
-                <h2>Responsables y programacion</h2>
-                <p>{isCleaningOrder ? "Asigna quien realizara la limpieza, quien supervisa y cuando se atendera." : "Asigna quien ejecuta, quien supervisa y cuando se atendera."}</p>
+                <h2>Responsables y programación</h2>
+                <p>{isCleaningOrder ? "Asigna quién realizará la limpieza, quién supervisa y cuándo se atenderá." : "Asigna quién ejecuta, quién supervisa y cuándo se atenderá."}</p>
               </div>
             </div>
           </div>
@@ -277,11 +321,23 @@ export function DirectWorkOrderCreatePage() {
                   <option key={operator.id} value={operator.id}>{operator.full_name} - {operator.specialty || "Sin especialidad"}</option>
                 ))}
               </select>
-              {isCleaningOrder && !assignableTechnicians.length && <small>No hay responsables de limpieza activos. Registralos en Equipo tecnico.</small>}
+              {isCleaningOrder && !assignableTechnicians.length && <small>No hay responsables de limpieza activos. Regístralos en Equipo técnico.</small>}
             </label>
 
+            <div className="field field-wide">
+              <OperatorAvailabilityPanel
+                orders={orders}
+                operatorId={form.operatorId}
+                operatorName={form.operatorName}
+                selectedDate={form.scheduledDate}
+                startTime={form.scheduledStartTime}
+                plannedHours={form.plannedHours}
+                title={isCleaningOrder ? "Disponibilidad del responsable de limpieza" : "Disponibilidad del operario"}
+              />
+            </div>
+
             <label className="field">
-              <span>{isCleaningOrder ? "Apoyo de limpieza" : "Tecnicos de apoyo"}</span>
+              <span>{isCleaningOrder ? "Apoyo de limpieza" : "Técnicos de apoyo"}</span>
               <select multiple value={form.supportingWorkerCodes} onChange={(event) => updateField("supportingWorkerCodes", Array.from(event.target.selectedOptions).map((option) => option.value))}>
                 {supportingTechnicians.map((person) => (
                   <option key={person.id} value={person.worker_code}>{person.full_name} - {person.specialty || "Sin especialidad"}</option>
@@ -346,13 +402,14 @@ export function DirectWorkOrderCreatePage() {
               <textarea value={form.administratorNotes} onChange={(event) => updateField("administratorNotes", event.target.value)} rows={4} maxLength={1000} />
               <small>{form.administratorNotes.length} / 1000 caracteres</small>
             </label>
+
           </div>
         </div>
 
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-actions">
-          <Link className="button button-secondary" to="/ordenes-trabajo/nueva">Cancelar</Link>
+          <Link className="button button-secondary" to="/órdenes-trabajo/nueva">Cancelar</Link>
           <button className="button button-primary" type="submit" disabled={saving}>
             <FloppyDisk size={18} weight="bold" />
             {saving ? "Generando..." : `Generar ${orderName}`}
@@ -362,3 +419,5 @@ export function DirectWorkOrderCreatePage() {
     </section>
   );
 }
+
+

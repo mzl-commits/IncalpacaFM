@@ -67,15 +67,15 @@ export const adminPriorityLabels: Record<AdminPriority, string> = {
 };
 
 export const workOrderStatusLabels: Record<WorkOrderStatus, string> = {
-  PROGRAMADA: "Programada",
+  PROGRAMADA: "Lista para iniciar",
   ASIGNADA: "Asignada",
-  EN_PROCESO: "En proceso",
-  PENDIENTE_DE_SUPERVISION: "Pendiente de supervisión",
-  PENDIENTE_DE_VALIDACION: "Pendiente de validación administrativa",
-  PENDIENTE_DE_CONFORMIDAD: "Ejecutada, pendiente de conformidad",
-  DEVUELTA: "Devuelta",
-  REPROCESO: "Reproceso",
-  APROBADA_POR_SUPERVISOR: "Aprobada por supervisor",
+  EN_PROCESO: "En atención",
+  PENDIENTE_DE_SUPERVISION: "Esperando revisión del supervisor",
+  PENDIENTE_DE_VALIDACION: "Esperando validación del admin",
+  PENDIENTE_DE_CONFORMIDAD: "Atendida, esperando calificación",
+  DEVUELTA: "Necesita corrección",
+  REPROCESO: "En corrección",
+  APROBADA_POR_SUPERVISOR: "Revisada por supervisor",
   CERRADA: "Cerrada",
   CANCELADA: "Cancelada",
 };
