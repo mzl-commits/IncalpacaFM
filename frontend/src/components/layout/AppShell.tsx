@@ -1,15 +1,10 @@
 import {
   ArrowRight,
-  ArrowUpRight,
   Barcode,
   CalendarBlank,
   CaretLeft,
   ChartBar,
-  ChartLineUp,
-  ChartPieSlice,
   ClipboardText,
-  Cube,
-  CubeFocus,
   DotsThree,
   Files,
   GearSix,
@@ -22,17 +17,12 @@ import {
   Plus,
   ShieldCheck,
   SignOut,
-  Siren,
   SquaresFour,
   TreeStructure,
   Tag,
   Toolbox,
   UserCircle,
-  UserPlus,
-  UserSwitch,
   UsersThree,
-  WarningCircle,
-  WarningDiamond,
   Wrench,
   X,
 } from "@phosphor-icons/react";
@@ -167,45 +157,11 @@ const mobilePrimary: NavItem[] = [
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
 
-const railItems = mobilePrimary;
-
-interface QuickActionItem {
-  to: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number; weight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone"; color?: string; className?: string }>;
-  color: string;
-  type: string;
-}
-
-const quickActions: QuickActionItem[] = [
-  {
-    to: "/bienes/entradas/nueva",
-    label: "Registrar un bien",
-    icon: Package,
-    color: "#2563EB",
-    type: "bienes",
-  },
-  {
-    to: "/asignaciones/nueva",
-    label: "Crear una asignación",
-    icon: UserSwitch,
-    color: "#7C3AED",
-    type: "asignaciones",
-  },
-  {
-    to: "/incidencias/nueva",
-    label: "Reportar una incidencia",
-    icon: WarningDiamond,
-    color: "#E85D04",
-    type: "incidencias",
-  },
-  {
-    to: "/informes",
-    label: "Abrir informes",
-    icon: ChartLineUp,
-    color: "#059669",
-    type: "informes",
-  },
+const quickActions: NavItem[] = [
+  { to: "/bienes/entradas/nueva", label: "Registrar un bien", icon: Package },
+  { to: "/asignaciones/nueva", label: "Crear una asignación", icon: ClipboardText },
+  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: ListChecks },
+  { to: "/informes", label: "Abrir informes", icon: ChartBar },
 ];
 
 function isGroupActive(pathname: string, paths: string[]) {
@@ -562,36 +518,24 @@ export function AppShell() {
         }}
       >
         <section className="quick-actions-sheet" aria-labelledby="quick-actions-title">
-          <header className="quick-actions-header">
+          <header>
             <div>
-              <h2 id="quick-actions-title">Nueva acción</h2>
-              <p>Selecciona una tarea para continuar.</p>
+              <span>Centro de acciones</span>
+              <h2 id="quick-actions-title">¿Qué deseas iniciar?</h2>
             </div>
-            <button type="button" aria-label="Cerrar" onClick={closeQuickMenu}>
-              <X size={21} />
+            <button type="button" aria-label="Cerrar acciones rápidas" onClick={closeQuickMenu}>
+              <X />
             </button>
           </header>
 
-          <nav className="quick-actions-matrix" aria-label="Acciones globales">
-            {quickActions.map(({ to, label, icon: Icon, type, color }, index) => {
-              const delays = [40, 75, 110, 145];
-              return (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={`quick-action-card action-type-${type}`}
-                  onClick={closeQuickMenu}
-                  style={{ "--action-color": color, "--stagger-delay": `${delays[index] || 40}ms` } as React.CSSProperties}
-                >
-                  <span className="quick-action-top-accent" />
-                  <div className="quick-action-icon-box">
-                    <Icon size={42} weight="duotone" color={color} />
-                  </div>
-                  <span className="quick-action-label">{label}</span>
-                  <ArrowUpRight size={22} className="quick-action-arrow" />
-                </NavLink>
-              );
-            })}
+          <nav aria-label="Acciones globales">
+            {quickActions.map(({ to, label, icon: Icon }) => (
+              <NavLink key={to} to={to} onClick={closeQuickMenu}>
+                <Icon size={22} weight="duotone" />
+                <span>{label}</span>
+                <ArrowRight size={18} />
+              </NavLink>
+            ))}
           </nav>
         </section>
       </dialog>
