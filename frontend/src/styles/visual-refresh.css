@@ -411,6 +411,13 @@ tbody tr:hover td { background: #f8f8f8; }
 .supervisor-review-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0; color: var(--muted); font-size: 0.82rem; }
 .supervisor-loading-state { display: grid; min-height: 220px; place-items: center; gap: 12px; color: var(--muted); }
 .supervisor-loading-state .skeleton { width: min(100%, 420px); height: 8px; }
+.supervisor-photo-evidence { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.supervisor-photo-evidence .detail-card-heading { margin-bottom: 13px; }
+.supervisor-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.supervisor-photo-card { min-width: 0; margin: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); }
+.supervisor-photo-card figcaption { padding: 9px 11px; color: var(--muted); font-size: 0.75rem; font-weight: 700; }
+.supervisor-photo-card img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #e8eaed; }
+.supervisor-photo-empty { display: grid; min-height: 120px; place-items: center; align-content: center; gap: 6px; padding: 15px; color: var(--muted); font-size: 0.75rem; text-align: center; }
 .user-reports-section { margin-top: 34px; }
 .user-report-group { display: grid; gap: 9px; margin-top: 18px; }
 .user-report-group > h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.95rem; }
@@ -430,6 +437,7 @@ tbody tr:hover td { background: #f8f8f8; }
   .user-profile-panel { align-items: flex-start; flex-wrap: wrap; }
   .user-profile-count { width: 100%; padding: 12px 0 0 74px; border-top: 1px solid var(--border); border-left: 0; }
   .supervisor-review-toolbar { align-items: flex-start; flex-direction: column; }
+  .supervisor-photo-grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

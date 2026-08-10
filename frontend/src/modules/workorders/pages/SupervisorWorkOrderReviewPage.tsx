@@ -1,6 +1,7 @@
 import {
   ArrowSquareOut,
   ArrowClockwise,
+  Camera,
   CheckCircle,
   NotePencil,
   SealCheck,
@@ -24,6 +25,7 @@ import {
   WORK_ORDERS_UPDATED_EVENT,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
+import { api } from "@/services/api";
 
 type ReviewTab = "pending" | "reviewed";
 
@@ -71,6 +73,30 @@ function formatDuration(start?: string, end?: string) {
 function getReviewComment(order?: WorkOrder) {
   const value = order?.supervisor_validation?.comment;
   return typeof value === "string" && value.trim() ? value : "Sin comentario registrado";
+}
+
+function WorkOrderPhoto({ url, label }: { url?: string | null; label: string }) {
+  const [source, setSource] = useState<string>();
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl = "";
+    if (!url) {
+      setSource(undefined);
+      return;
+    }
+    const path = url.startsWith("/api/v1") ? url.slice("/api/v1".length) : url;
+    void api.get<Blob>(path, { responseType: "blob" }).then(({ data }) => {
+      objectUrl = URL.createObjectURL(data);
+      setSource(objectUrl);
+    }).catch(() => setFailed(true));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url]);
+
+  return <figure className="supervisor-photo-card">
+    <figcaption>{label}</figcaption>
+    {source && !failed ? <img src={source} alt={`${label} de la orden`} /> : <div className="supervisor-photo-empty"><WarningCircle size={22} /><span>{url ? "No se pudo cargar la evidencia" : "No registrada"}</span></div>}
+  </figure>;
 }
 
 export function SupervisorWorkOrderReviewPage() {
@@ -369,6 +395,14 @@ export function SupervisorWorkOrderReviewPage() {
                 <dd>{getReviewComment(selectedOrder)}</dd>
               </div>
             </dl>
+
+            <section className="supervisor-photo-evidence" aria-labelledby="supervisor-photo-title">
+              <div className="detail-card-heading"><Camera size={22} /><div><h2 id="supervisor-photo-title">Evidencia fotográfica</h2><p>Compara el estado del bien antes y después de la atención.</p></div></div>
+              <div className="supervisor-photo-grid">
+                <WorkOrderPhoto url={selectedOrder.startPhoto} label="Antes de la atención" />
+                <WorkOrderPhoto url={selectedOrder.finishPhoto} label="Después de la atención" />
+              </div>
+            </section>
 
             {selectedCanReview ? (
               <form className="rejection-form" onSubmit={(event) => { event.preventDefault(); void handleReview(true); }}>
