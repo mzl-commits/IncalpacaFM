@@ -15,8 +15,7 @@ from reportlab.lib.enums import TA_CENTER
 
 TEMPLATE_PATH = Path(__file__).resolve().parent / "plantillas" / "Formato_Inspeccion.xlsx"
 
-# Los nombres de hoja deben coincidir EXACTO con el archivo Formato_Inspeccion.xlsx
-# (Ojo: "Electricas con cable " lleva un espacio al final, tal como quedo en la plantilla original).
+# Nombres de hoja deben coincidir EXACTO con Formato_Inspeccion.xlsx (ojo: "Electricas con cable " lleva espacio final)
 HOJA_MANUALES = "Manuales"
 HOJA_INALAMBRICAS = "Electricas Inalambricas"
 HOJA_CON_CABLE = "Electricas con cable "
@@ -76,7 +75,6 @@ CONFIG_HOJAS = {
     },
 }
 
-
 def _normalizar(texto):
     """Quita tildes/mayusculas y corrige mojibake comun (utf-8 mal leido como latin-1)."""
     if not texto:
@@ -89,7 +87,6 @@ def _normalizar(texto):
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     return texto.lower()
 
-
 def _detectar_hoja(plantilla_nombre):
     nombre = _normalizar(plantilla_nombre)
     if "manual" in nombre:
@@ -100,24 +97,18 @@ def _detectar_hoja(plantilla_nombre):
         return HOJA_INALAMBRICAS
     return None
 
-
 def _fecha(valor):
     return valor.strftime("%d/%m/%Y") if valor else ""
-
 
 def _codigo_documento(inspeccion):
     """Genera el código de documento SST: FOR-SST-00XXX (basado en el ID de la inspección)."""
     return f"FOR-SST-{inspeccion.id:05d}"
 
-
 def _fecha_emision_hoy():
     from datetime import date
     return date.today().strftime("%d/%m/%Y")
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# EXCEL
-# ─────────────────────────────────────────────────────────────────────────────
+# ─── EXCEL ─────────────────────────────────────────────────────────────────
 
 def generar_excel_inspeccion(inspeccion):
     hoja_nombre = _detectar_hoja(inspeccion.plantilla.nombre)
@@ -204,7 +195,6 @@ def generar_excel_inspeccion(inspeccion):
     buffer.seek(0)
     return buffer
 
-
 def _generar_excel_simple(inspeccion):
     """Respaldo: formato basico usado antes, para plantillas que no coincidan con ninguna hoja conocida."""
     from openpyxl import Workbook
@@ -221,8 +211,6 @@ def _generar_excel_simple(inspeccion):
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
     ws.append(["Código documento:", codigo_doc, "", "Fecha de emisión:", fecha_emision])
-    ws[f"A3"].font = Font(bold=True)
-    ws[f"D3"].font = Font(bold=True)
     ws.append(["Código herramienta:", objetivo])
     ws.append(["Material:", inspeccion.material.nombre])
     ws.append(["Tipo:", inspeccion.get_tipo_display()])
@@ -263,10 +251,7 @@ def _generar_excel_simple(inspeccion):
     buffer.seek(0)
     return buffer
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PDF
-# ─────────────────────────────────────────────────────────────────────────────
+# ─── PDF ───────────────────────────────────────────────────────────────────
 
 TITULOS_PDF = {
     HOJA_MANUALES: "FORMATO DE INSPECCIÓN GRUPAL DE HERRAMIENTAS MANUALES",

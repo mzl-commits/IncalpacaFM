@@ -59,21 +59,21 @@ export function InspeccionDetailPage() {
             </div>
             <dl style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0 }}>
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Fecha</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+                <dt className="dt-label">Fecha</dt>
+                <dd className="dd-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {new Date(inspeccion.fecha).toLocaleDateString("es-PE", { dateStyle: "long" })}
                   <TrimestreBadge fecha={inspeccion.fecha} showLabel />
                 </dd>
               </div>
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Tipo</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                <dt className="dt-label">Tipo</dt>
+                <dd className="dd-value">
                   {inspeccion.tipo === "individual" ? "Individual" : "Grupal"}
                 </dd>
               </div>
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Material</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                <dt className="dt-label">Material</dt>
+                <dd className="dd-value">
                   <Link to={`/almacen/catalogo/${inspeccion.material}`} style={{ color: "var(--accent)", fontWeight: 600 }}>
                     {inspeccion.material_codigo} — {inspeccion.material_nombre}
                   </Link>
@@ -81,32 +81,32 @@ export function InspeccionDetailPage() {
               </div>
               {inspeccion.pieza_codigo && (
                 <div>
-                  <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Pieza</dt>
-                  <dd style={{ margin: "4px 0 0", fontSize: 13, fontFamily: "ui-monospace, monospace" }}>
+                  <dt className="dt-label">Pieza</dt>
+                  <dd className="dd-value" style={{ fontFamily: "ui-monospace, monospace" }}>
                     {inspeccion.pieza_codigo}
                   </dd>
                 </div>
               )}
               {inspeccion.piezas_lote.length > 0 && (
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Piezas del lote</dt>
+                  <dt className="dt-label">Piezas del lote</dt>
                   <dd style={{ margin: "4px 0 0", fontSize: 12 }}>
                     {inspeccion.piezas_lote.length} piezas inspeccionadas en lote
                   </dd>
                 </div>
               )}
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Inspector</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>{inspeccion.inspector_nombre}</dd>
+                <dt className="dt-label">Inspector</dt>
+                <dd className="dd-value">{inspeccion.inspector_nombre}</dd>
               </div>
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Plantilla usada</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>{inspeccion.plantilla_nombre}</dd>
+                <dt className="dt-label">Plantilla usada</dt>
+                <dd className="dd-value">{inspeccion.plantilla_nombre}</dd>
               </div>
               {inspeccion.proxima_inspeccion && (
                 <div>
-                  <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Próxima inspección</dt>
-                  <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                  <dt className="dt-label">Próxima inspección</dt>
+                  <dd className="dd-value">
                     {new Date(inspeccion.proxima_inspeccion).toLocaleDateString("es-PE")}
                   </dd>
                 </div>
@@ -116,12 +116,12 @@ export function InspeccionDetailPage() {
               {inspeccion.cantidad_inspeccionada !== null && (
                 <>
                   <div>
-                    <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Inspeccionadas</dt>
-                    <dd style={{ margin: "4px 0 0", fontSize: 13 }}>{inspeccion.cantidad_inspeccionada}</dd>
+                    <dt className="dt-label">Inspeccionadas</dt>
+                    <dd className="dd-value">{inspeccion.cantidad_inspeccionada}</dd>
                   </div>
                   <div>
-                    <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Aptas / No aptas</dt>
-                    <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                    <dt className="dt-label">Aptas / No aptas</dt>
+                    <dd className="dd-value">
                       <span style={{ color: "var(--success)" }}>{inspeccion.cantidad_apta} aptas</span>
                       {" / "}
                       <span style={{ color: "var(--error)" }}>{inspeccion.cantidad_no_apta} no aptas</span>
@@ -131,22 +131,22 @@ export function InspeccionDetailPage() {
               )}
 
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Resultado general</dt>
+                <dt className="dt-label">Resultado general</dt>
                 <dd style={{ margin: "4px 0 0" }}>
                   <StatusBadge value={inspeccion.resultado_general} />
                 </dd>
               </div>
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Acción tomada</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                <dt className="dt-label">Acción tomada</dt>
+                <dd className="dd-value">
                   {accionInspeccionLabels[inspeccion.accion_tomada] ?? inspeccion.accion_tomada}
                 </dd>
               </div>
 
               {inspeccion.observaciones && (
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Observaciones</dt>
-                  <dd style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5 }}>{inspeccion.observaciones}</dd>
+                  <dt className="dt-label">Observaciones</dt>
+                  <dd className="dd-value" style={{ lineHeight: 1.5 }}>{inspeccion.observaciones}</dd>
                 </div>
               )}
             </dl>
@@ -220,7 +220,7 @@ export function InspeccionDetailPage() {
             className="button button-primary"
             style={{ display: "flex", width: "100%", justifyContent: "center", marginTop: 8 }}
           >
-            Nueva inspección del mismo material
+            Nueva inspección
           </Link>
           <Link
             to={`/almacen/catalogo/${inspeccion.material}`}

@@ -20,12 +20,10 @@ from apps.catalogo.serializers import (
     AgregarHijaInlineSerializer,
 )
 
-
 class CategoriaViewSet(viewsets.ModelViewSet):
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
     permission_classes = [AllowAny]
-
 
 class SubcategoriaViewSet(viewsets.ModelViewSet):
     queryset = Subcategoria.objects.select_related("categoria").all()
@@ -38,7 +36,6 @@ class SubcategoriaViewSet(viewsets.ModelViewSet):
         if categoria_id:
             qs = qs.filter(categoria_id=categoria_id)
         return qs
-
 
 class MaterialViewSet(viewsets.ModelViewSet):
     queryset = Material.objects.select_related("subcategoria__categoria").all()
@@ -85,7 +82,9 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 | Q(marca__icontains=busqueda)
                 | Q(modelo__icontains=busqueda)
                 | Q(piezas__codigo__icontains=busqueda)
+                | Q(piezas__detalle__icontains=busqueda)
                 | Q(piezas__piezas_hijas__codigo__icontains=busqueda)
+                | Q(piezas__piezas_hijas__detalle__icontains=busqueda)
             ).distinct()
         return qs
 
@@ -111,11 +110,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["delete"], url_path="eliminar-forzado")
     def eliminar_forzado(self, request, pk=None):
-        """
-        Elimina el material junto con TODAS sus piezas, movimientos e inspecciones.
-        Requiere confirmación explícita: body { "confirmar": true }
-        DELETE /materiales/{id}/eliminar-forzado/
-        """
+        """Elimina el material y TODAS sus piezas, movimientos e inspecciones. Requiere body {"confirmar": true}."""
         if not request.data.get("confirmar"):
             return Response(
                 {"detail": "Debes enviar { \"confirmar\": true } para confirmar la eliminación."},
@@ -165,11 +160,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="alta-estuche-inline")
     def alta_estuche_inline(self, request):
-        """
-        Crea estuches con piezas hijas definidas inline (nombre+medida+cantidad).
-        Si el material hijo no existe en la subcategoría, se crea automáticamente.
-        POST /materiales/alta-estuche-inline/
-        """
+        """Crea estuches con piezas hijas inline (nombre+medida+cantidad); crea el material hijo si no existe."""
         serializer = AltaEstucheInlineSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         piezas = serializer.save()
@@ -177,7 +168,6 @@ class MaterialViewSet(viewsets.ModelViewSet):
             PiezaSerializer(piezas, many=True).data,
             status=status.HTTP_201_CREATED,
         )
-
 
 class PiezaViewSet(viewsets.ModelViewSet):
     queryset = Pieza.objects.select_related("material", "padre").all()
@@ -197,8 +187,7 @@ class PiezaViewSet(viewsets.ModelViewSet):
         busqueda = self.request.query_params.get("q")
 
         if material_id:
-            # OR con padre__material_id: incluye piezas hijas del material
-            # (necesario para que sean seleccionables en inspeccion/movimiento)
+            # Incluye hijas del material (para que sean seleccionables en inspeccion/movimiento)
             qs = qs.filter(Q(material_id=material_id) | Q(padre__material_id=material_id))
         if estado:
             qs = qs.filter(estado=estado)
@@ -209,6 +198,7 @@ class PiezaViewSet(viewsets.ModelViewSet):
         if busqueda:
             qs = qs.filter(
                 Q(codigo__icontains=busqueda)
+                | Q(detalle__icontains=busqueda)
                 | Q(material__nombre__icontains=busqueda)
                 | Q(material__codigo__icontains=busqueda)
             )
@@ -216,12 +206,7 @@ class PiezaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="reemplazar-hija")
     def reemplazar_hija(self, request, pk=None):
-        """
-        Reemplaza una pieza hija rota/baja con una pieza suelta disponible
-        del mismo material.
-        URL: POST /piezas/{id}/reemplazar-hija/
-        Body: { "pieza_suelta_id": <int> }
-        """
+        """Reemplaza una pieza hija rota/baja con una pieza suelta disponible del mismo material."""
         hija = self.get_object()
         serializer = ReemplazarHijaSerializer(
             data=request.data,
@@ -233,12 +218,7 @@ class PiezaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="agregar-hija-inline")
     def agregar_hija_inline(self, request, pk=None):
-        """
-        Agrega una o más piezas hijas a un estuche ya existente.
-        Si el material hijo no existe en la subcategoría, se crea automáticamente.
-        URL: POST /piezas/{id}/agregar-hija-inline/
-        Body: { "nombre": "...", "medida": "...", "cantidad": 1 }
-        """
+        """Agrega piezas hijas a un estuche existente; crea el material hijo si no existe."""
         contenedor = self.get_object()
         serializer = AgregarHijaInlineSerializer(
             data=request.data,
@@ -250,11 +230,7 @@ class PiezaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="desvincular")
     def desvincular(self, request, pk=None):
-        """
-        Quita una pieza hija de su estuche (padre=null).
-        La pieza pasa a ser pieza suelta del mismo material.
-        URL: POST /piezas/{id}/desvincular/
-        """
+        """Quita una pieza hija de su estuche (padre=null); pasa a ser pieza suelta del mismo material."""
         pieza = self.get_object()
         if pieza.padre is None:
             return Response(
@@ -270,12 +246,8 @@ class PiezaViewSet(viewsets.ModelViewSet):
         return Response(PiezaSerializer(pieza).data, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
-        """
-        Elimina una pieza (suelta o estuche).
-        Si es estuche, elimina también todas sus piezas hijas y sus movimientos.
-        Marca los materiales de las piezas hijas como es_componente=True para
-        que no aparezcan en el catálogo si quedan otros registros de ese material.
-        """
+        """Elimina una pieza (suelta o estuche, con sus hijas y movimientos). Marca los materiales
+        de las hijas como es_componente=True para que no aparezcan sueltos en el catálogo."""
         from apps.inventario.models import Movimiento
         pieza = self.get_object()
         material = pieza.material

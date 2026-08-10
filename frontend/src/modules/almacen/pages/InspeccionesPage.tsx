@@ -11,7 +11,8 @@ import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
 import type { ResultadoInspeccion, TipoInspeccion } from "@/modules/almacen/types";
 
-const FILTER_KEYS = ["tipo", "resultado"] as const;
+
+const FILTER_KEYS = ["q", "tipo", "resultado"] as const;
 
 export function InspeccionesPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
@@ -20,6 +21,7 @@ export function InspeccionesPage() {
     queryKey: ["inspecciones", values],
     queryFn: () =>
       listInspecciones({
+        q: values.q || undefined,
         tipo: values.tipo ? (values.tipo as TipoInspeccion) : undefined,
         resultado: values.resultado ? (values.resultado as ResultadoInspeccion) : undefined,
       }),
@@ -94,8 +96,8 @@ export function InspeccionesPage() {
           description="Busca por tipo o resultado."
           searchLabel="Buscar"
           searchPlaceholder="Material o inspector"
-          searchValue=""
-          onSearchChange={() => {}}
+          searchValue={values.q}
+          onSearchChange={(v) => setValue("q", v)}
           resultCount={inspecciones.length}
           totalCount={inspecciones.length}
           activeFilters={activeFilters}

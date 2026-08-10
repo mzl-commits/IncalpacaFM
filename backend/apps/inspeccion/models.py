@@ -8,7 +8,6 @@ class PlantillaCriterio(models.Model):
     def __str__(self):
         return self.nombre
 
-
 class Criterio(models.Model):
     plantilla = models.ForeignKey(
         PlantillaCriterio, on_delete=models.CASCADE, related_name="criterios"
@@ -78,7 +77,6 @@ class Inspeccion(models.Model):
         objetivo = self.pieza.codigo if self.pieza else self.material.codigo
         return f"Inspección {objetivo} - {self.fecha.date()}"
 
-
 class RespuestaCriterio(models.Model):
     VALOR_CHOICES = [
         ("cumple", "Cumple"),
@@ -95,3 +93,57 @@ class RespuestaCriterio(models.Model):
 
     class Meta:
         unique_together = ("inspeccion", "criterio")
+
+class PlanInspeccionAnual(models.Model):
+    ESTADO_CHOICES = [
+        ("borrador", "Borrador"),
+        ("aprobado", "Aprobado"),
+        ("cerrado", "Cerrado"),
+    ]
+
+    anio = models.PositiveIntegerField(unique=True)
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default="borrador")
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-anio"]
+
+    def __str__(self):
+        return f"Plan de inspección {self.anio}"
+
+
+class ProgramacionInspeccion(models.Model):
+    ESTADO_CHOICES = [
+        ("pendiente", "Pendiente"),
+        ("realizada", "Realizada"),
+    ]
+
+    plan = models.ForeignKey(PlanInspeccionAnual, on_delete=models.CASCADE, related_name="programaciones")
+    material = models.ForeignKey("catalogo.Material", null=True, blank=True, on_delete=models.CASCADE, related_name="programaciones_inspeccion")
+    pieza = models.ForeignKey("catalogo.Pieza", null=True, blank=True, on_delete=models.CASCADE, related_name="programaciones_inspeccion")
+    periodicidad_dias = models.PositiveIntegerField()
+    fecha_programada = models.DateField()
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default="pendiente")
+    inspeccion = models.ForeignKey(Inspeccion, null=True, blank=True, on_delete=models.SET_NULL, related_name="programacion")
+
+    class Meta:
+        ordering = ["fecha_programada"]
+
+    def __str__(self):
+        objetivo = self.pieza.codigo if self.pieza else self.material.codigo
+        return f"{objetivo} - {self.fecha_programada}"
+
+    @property
+    def estado_calculado(self):
+        """vencida / proxima / pendiente / realizada — calculado en el momento, no se guarda."""
+        from datetime import date, timedelta
+        if self.inspeccion_id:
+            return "realizada"
+        hoy = date.today()
+        if self.fecha_programada < hoy:
+            return "vencida"
+        if self.fecha_programada <= hoy + timedelta(days=15):
+            return "proxima"
+        return "pendiente"
