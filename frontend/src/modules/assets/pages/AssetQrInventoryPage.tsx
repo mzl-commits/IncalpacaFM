@@ -96,13 +96,6 @@ async function createQrDataUrl(publicUrl: string, width = 320) {
   });
 }
 
-function barcodeGradient(value: string) {
-  let hash = 2166136261;
-  for (const char of value) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  const bars = Array.from({ length: 72 }, (_, index) => ((hash = Math.imul(hash ^ index, 16777619)) >>> 0) % 3 === 0);
-  return `repeating-linear-gradient(90deg, ${bars.map((dark) => `${dark ? "#111" : "transparent"} 0 0.42mm`).join(", ")})`;
-}
-
 function AssetQrPreview({ asset }: { asset: RegisteredAsset }) {
   const [dataUrl, setDataUrl] = useState("");
   const [failed, setFailed] = useState(false);
@@ -341,11 +334,10 @@ export function AssetQrInventoryPage() {
           border: 1px solid #9eabb9;
           overflow: hidden;
         }
-        article.compact-label { display: flex; flex-direction: column; justify-content: center; gap: 1mm; text-align: center; }
-        article.compact-label .brand { font-size: 7px; letter-spacing: .04em; font-weight: 700; color: #343434; }
-        article.compact-label .barcode { width: 100%; height: 10mm; background: repeating-linear-gradient(90deg, #111 0 0.35mm, transparent 0.35mm 0.8mm, #111 0.8mm 1.15mm, transparent 1.15mm 1.8mm); border: 1px solid #222; }
-        article.compact-label .human-code { font-family: "Courier New", monospace; font-size: 10px; font-weight: 700; letter-spacing: .18em; white-space: nowrap; }
-        article.compact-label .asset-name { font-size: 7px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        article.compact-label { grid-template-columns: ${format.qrMm}mm minmax(0, 1fr); gap: 2mm; text-align: left; }
+        article.compact-label .brand { font-size: 6px; letter-spacing: .03em; font-weight: 700; color: #343434; }
+        article.compact-label .human-code { font-family: "Courier New", monospace; font-size: 8px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
+        article.compact-label .asset-name { font-size: 7px; line-height: 1.1; max-height: 8mm; overflow: hidden; }
         img { display: block; flex: 0 0 ${format.qrMm}mm; width: ${format.qrMm}mm; height: ${format.qrMm}mm; object-fit: contain; }
         strong, span, small { display: block; }
         strong { margin: 1mm 0; font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 16}px; line-height: 1.15; }
@@ -378,18 +370,16 @@ export function AssetQrInventoryPage() {
         if (format === PRINT_FORMATS.COMPACT) {
           label.className = "compact-label";
           const brand = document.createElement("span");
-          const barcode = document.createElement("div");
           const humanCode = document.createElement("strong");
           const assetName = document.createElement("span");
           brand.className = "brand";
-          barcode.className = "barcode";
-          barcode.style.background = barcodeGradient(getAssetDisplayCode(asset));
           humanCode.className = "human-code";
           assetName.className = "asset-name";
           brand.textContent = "INCALPACA FM";
           humanCode.textContent = `* ${getAssetDisplayCode(asset)} *`;
           assetName.textContent = asset.draft.name;
-          label.append(brand, barcode, humanCode, assetName);
+          copy.append(brand, humanCode, assetName);
+          label.append(image, copy);
           main.append(label);
           return;
         }
