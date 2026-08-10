@@ -983,7 +983,7 @@ class Command(BaseCommand):
                 code=f"SOL-2026-{index:04d}",
                 defaults={
                     "asset": asset,
-                    "requester": admin_user,
+                    "requester": requester_user if index <= 3 else admin_user,
                     "request_type": request_type,
                     "description": description,
                     "requester_priority": priority,

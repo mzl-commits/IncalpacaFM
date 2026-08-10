@@ -24,7 +24,7 @@ export interface UserDashboardData {
 }
 
 export async function fetchUserDashboard(): Promise<UserDashboardData> {
-  const { data } = await api.get<UserDashboardData>("/assets/user-dashboard/");
+  const { data } = await api.get<UserDashboardData>("/user-dashboard/");
   return data;
 }
 
