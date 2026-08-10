@@ -106,18 +106,19 @@ export function ModelCatalogPage() {
                         </td>
                         <td>
                           {model.isActive ? (
-                            <span className="status-badge status-success">
+                            <span className="status status-success">
                               <CheckCircle size={14} weight="fill" />
                               Activo
                             </span>
                           ) : (
-                            <span className="status-badge status-neutral">
+                            <span className="status status-neutral">
                               <WarningCircle size={14} weight="fill" />
                               Inactivo
                             </span>
                           )}
                         </td>
                         <td className="action-cell">
+                          <div className="model-row-actions">
                           <button
                             className="icon-button"
                             type="button"
@@ -137,6 +138,7 @@ export function ModelCatalogPage() {
                           >
                             <Trash size={18} />
                           </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

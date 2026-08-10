@@ -3023,6 +3023,82 @@ td { padding: 13px 14px; }
   color: #000000;
 }
 
+/* Selector tipo carrito para la vista del técnico */
+.technician-material-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  padding: 20px 22px 24px;
+  border-top: 1px solid #000;
+  background: #fafafa;
+}
+.technician-material-list { min-width: 0; }
+.technician-material-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.technician-material-kicker { display: block; color: #666; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.technician-material-intro h2, .technician-cart-heading h2 { display: flex; align-items: center; gap: 8px; margin: 4px 0 3px; color: #111; font-size: 18px; }
+.technician-material-intro p { margin: 0; color: #666; font-size: 13px; line-height: 1.45; }
+.technician-material-count { flex: none; padding: 6px 9px; border: 1px solid #bbb; border-radius: 999px; color: #555; font-size: 12px; font-weight: 600; }
+.technician-material-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.technician-material-card { display: flex; min-width: 0; flex-direction: column; overflow: hidden; background: #fff; border: 1px solid #d1d1d1; border-radius: 9px; transition: border-color 150ms ease, transform 150ms ease; }
+.technician-material-card:hover { border-color: #111; transform: translateY(-1px); }
+.technician-material-card.is-selected { border-color: #111; box-shadow: inset 0 0 0 1px #111; }
+.technician-material-visual { position: relative; display: grid; height: 94px; place-items: center; background: #f0f0f0; color: #777; }
+.technician-material-visual img { width: 100%; height: 100%; object-fit: cover; }
+.technician-stock-pill { position: absolute; right: 8px; bottom: 8px; padding: 4px 7px; background: #fff; border: 1px solid #bbb; border-radius: 4px; color: #222; font-size: 10px; font-weight: 700; }
+.technician-stock-pill.is-low { border-color: #b57900; color: #8a5b00; }
+.technician-stock-pill.is-empty { border-color: #b22; color: #a11; }
+.technician-material-content { flex: 1; padding: 12px 13px 10px; }
+.technician-material-code { color: #777; font-family: monospace; font-size: 11px; font-weight: 700; }
+.technician-material-content h3 { overflow: hidden; margin: 4px 0 3px; color: #111; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.technician-material-content p { overflow: hidden; margin: 0 0 8px; color: #666; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.technician-material-location { display: block; overflow: hidden; color: #555; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.technician-material-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 45px; padding: 8px 12px; border-top: 1px solid #e2e2e2; }
+.technician-material-type { color: #777; font-size: 10px; }
+.technician-add-material, .technician-cart-copy { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; padding: 0 9px; border: 1px solid #111; border-radius: 5px; background: #111; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+.technician-add-material:disabled { cursor: not-allowed; opacity: .45; }
+.technician-quantity-control { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #111; border-radius: 5px; }
+.technician-quantity-control button { display: grid; width: 27px; height: 28px; place-items: center; border: 0; background: #fff; cursor: pointer; }
+.technician-quantity-control button:disabled { cursor: not-allowed; opacity: .35; }
+.technician-quantity-control strong { min-width: 13px; text-align: center; font-size: 12px; }
+.technician-material-cart { position: sticky; top: 20px; align-self: start; overflow: hidden; min-height: 190px; background: #fff; border: 1px solid #111; border-radius: 9px; }
+.technician-cart-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px; border-bottom: 1px solid #ddd; }
+.technician-cart-heading h2 { margin-top: 5px; font-size: 16px; }
+.technician-cart-total { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: #111; color: #fff; font-size: 13px; font-weight: 700; }
+.technician-cart-empty { display: flex; align-items: center; gap: 8px; padding: 22px 16px; flex-direction: column; text-align: center; color: #777; font-size: 12px; }
+.technician-cart-empty strong { color: #222; font-size: 13px; }
+.technician-cart-items { display: flex; max-height: 275px; flex-direction: column; overflow-y: auto; }
+.technician-cart-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 14px; border-bottom: 1px solid #eee; }
+.technician-cart-item div { min-width: 0; }
+.technician-cart-item strong, .technician-cart-item span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.technician-cart-item strong { color: #222; font-size: 12px; }
+.technician-cart-item span { margin-top: 2px; color: #777; font-size: 11px; }
+.technician-cart-item button, .technician-cart-clear { border: 0; background: transparent; color: #777; cursor: pointer; }
+.technician-cart-item button:hover, .technician-cart-clear:hover { color: #a11; }
+.technician-cart-actions { display: flex; align-items: center; gap: 10px; padding: 14px; }
+.technician-cart-clear { font-size: 12px; text-decoration: underline; }
+.technician-material-empty { padding: 36px 12px; color: #666; font-size: 13px; text-align: center; }
+.team-schedule-summary { display: grid; gap: 14px; margin: 18px 0; padding: 18px; border: 1px solid #d7d7d7; border-radius: 10px; background: #fff; }
+.team-schedule-summary > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.team-schedule-summary > header span { color: #777; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.team-schedule-summary > header h2 { margin: 4px 0 2px; color: #222; font-size: 19px; }
+.team-schedule-summary > header p { margin: 0; color: #666; font-size: 13px; }
+.team-schedule-summary > header > strong { padding: 7px 10px; border: 1px solid #cfcfcf; border-radius: 999px; color: #444; font-size: 12px; white-space: nowrap; }
+.team-schedule-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 10px; }
+.team-schedule-summary-grid article { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 8px 10px; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; }
+.team-schedule-avatar { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; background: #222; color: #fff; font-size: 11px; font-weight: 800; }
+.team-schedule-person { min-width: 0; }
+.team-schedule-person strong, .team-schedule-person span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-schedule-person strong { color: #222; font-size: 13px; }
+.team-schedule-person span { margin-top: 2px; color: #777; font-size: 11px; }
+.team-schedule-summary-grid dl { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 2px 0 0; }
+.team-schedule-summary-grid dl > div { padding-top: 7px; border-top: 1px solid #e4e4e4; }
+.team-schedule-summary-grid dt { color: #777; font-size: 10px; }
+.team-schedule-summary-grid dd { margin: 2px 0 0; color: #222; font-size: 16px; font-weight: 800; }
+@media (max-width: 1000px) { .technician-material-workspace { grid-template-columns: 1fr; } .technician-material-cart { position: static; } }
+@media (max-width: 560px) { .technician-material-workspace { padding: 16px 12px 20px; } .technician-material-intro { flex-direction: column; } .technician-material-grid { grid-template-columns: 1fr 1fr; gap: 9px; } .technician-material-card-footer { align-items: stretch; flex-direction: column; } .technician-add-material, .technician-quantity-control { width: 100%; } .technician-quantity-control { justify-content: space-between; } }
+@media (max-width: 360px) { .technician-material-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .team-schedule-summary > header { flex-direction: column; } .team-schedule-summary-grid { grid-template-columns: 1fr; } }
+
 .almacen-catalogo-view .catalog-table tr:hover td {
   background: #FFFFFF;
 }
@@ -3846,12 +3922,21 @@ td { padding: 13px 14px; }
 .operator-availability-card.is-muted { color: #5f5f5f; }
 .operator-availability-card.is-muted > div { display: flex; align-items: center; gap: 9px; font-weight: 700; }
 .operator-availability-card.has-conflict { border-color: #9f9f9f; background: #f6f6f6; box-shadow: inset 4px 0 0 #303030; }
+.operator-availability-card.has-availability { border-color: #aebdaf; }
+.operator-availability-status { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border: 1px solid #cfcfcf; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.operator-availability-status.is-available { border-color: #9db5a1; background: #f2f8f3; color: #2f6340; }
+.operator-availability-status.is-conflict { border-color: #c6a3a3; background: #fff7f7; color: #8b3030; }
 .operator-availability-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
-.operator-availability-card > header > div { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 2px 8px; align-items: center; }
+.operator-availability-card > header > div:first-child { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 2px 8px; align-items: center; }
 .operator-availability-card > header svg { grid-row: span 2; color: #3f3f3f; }
 .operator-availability-card > header span { color: #666666; font-size: 12px; font-weight: 850; text-transform: uppercase; }
 .operator-availability-card > header strong { color: #202020; font-size: 15px; }
 .operator-availability-card > p { margin: 0; color: #4f4f4f; font-size: 13px; line-height: 1.45; }
+.operator-availability-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.operator-availability-summary > div { display: grid; gap: 3px; min-width: 0; padding: 9px 10px; border: 1px solid #dedede; border-radius: 6px; background: #fff; }
+.operator-availability-summary span { color: #777; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.operator-availability-summary strong { overflow: hidden; color: #262626; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.operator-availability-card .operator-availability-toggle { margin-left: auto; }
 .operator-availability-warning { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border: 1px solid #c9c9c9; border-radius: 8px; background: #ffffff; color: #262626; font-size: 13px; font-weight: 800; }
 .operator-availability-calendar { display: grid; grid-template-columns: repeat(7, minmax(128px, 1fr)); overflow-x: auto; border: 1px solid #dedede; border-radius: 8px; background: #ffffff; }
 .operator-availability-calendar section { min-height: 150px; border-right: 1px solid #e5e5e5; }
@@ -3873,6 +3958,7 @@ td { padding: 13px 14px; }
   .direct-order-intro { grid-template-columns: 1fr; }
   .direct-order-intro dl { grid-template-columns: 1fr; }
   .operator-availability-card > header { flex-direction: column; }
+  .operator-availability-summary { grid-template-columns: 1fr; }
   .operator-availability-calendar { grid-template-columns: repeat(7, minmax(150px, 1fr)); }
 }
 .routine-weekdays { border: 0; padding: 0; }

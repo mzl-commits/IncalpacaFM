@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, CalendarBlank, Clock, ListChecks, WarningCircle 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
 
@@ -149,6 +150,8 @@ function getExecutionPath(order: TechnicianOrder) {
 }
 
 export function TechnicianSchedulePage() {
+  const { user } = useAuth();
+  const isAdministrator = user?.role === "ADMINISTRADOR";
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
@@ -183,13 +186,27 @@ export function TechnicianSchedulePage() {
     .sort((left, right) => new Date(right.closedAt ?? right.finishedAt ?? right.updatedAt).getTime() - new Date(left.closedAt ?? left.finishedAt ?? left.updatedAt).getTime())
     .slice(0, 8);
   const completedMinutes = completedHistory.reduce((total, order) => total + totalWorkedMinutes(order), 0);
+  const technicianSummary = useMemo(() => {
+    const grouped = new Map<string, { name: string; total: number; pending: number; active: number; done: number; hours: number }>();
+    weekOrders.forEach((order) => {
+      const current = grouped.get(order.operatorId) ?? { name: order.operatorName || "Técnico sin nombre", total: 0, pending: 0, active: 0, done: 0, hours: 0 };
+      const tone = getTaskTone(order);
+      current.total += 1;
+      current.hours += order.plannedHours || 2;
+      if (tone === "pending" || tone === "returned") current.pending += 1;
+      if (tone === "active") current.active += 1;
+      if (tone === "done" || tone === "closed") current.done += 1;
+      grouped.set(order.operatorId, current);
+    });
+    return [...grouped.values()].sort((left, right) => right.pending - left.pending || left.name.localeCompare(right.name));
+  }, [weekOrders]);
 
   return (
     <section className="technician-schedule-page">
       <header className="technician-schedule-heading">
         <div>
           <p className="breadcrumb">Mi trabajo / Agenda semanal</p>
-          <h1>Mi agenda de trabajo</h1>
+          <h1>{isAdministrator ? "Jornada del equipo técnico" : "Mi agenda de trabajo"}</h1>
           <p>Distingue rápido qué tienes pendiente, qué está en proceso y qué ya terminaste.</p>
         </div>
         <Link className="button button-secondary" to="/ordenes-trabajo"><ListChecks size={18} />Ver mis órdenes</Link>
@@ -210,6 +227,11 @@ export function TechnicianSchedulePage() {
           <div><dt>Órdenes listas</dt><dd>{completed} / {weekOrders.length}</dd><small>Finalizadas o cerradas esta semana</small></div>
         </dl>
       </section>
+
+      {isAdministrator && <section className="team-schedule-summary" aria-labelledby="team-schedule-summary-title">
+        <header><div><span>Vista de supervisión</span><h2 id="team-schedule-summary-title">Carga por técnico</h2><p>Resumen de órdenes programadas en la semana seleccionada.</p></div><strong>{technicianSummary.length} técnicos</strong></header>
+        {technicianSummary.length ? <div className="team-schedule-summary-grid">{technicianSummary.map((technician) => <article key={technician.name}><div className="team-schedule-avatar">{technician.name.slice(0, 2).toUpperCase()}</div><div className="team-schedule-person"><strong>{technician.name}</strong><span>{technician.total} OT · {technician.hours} h programadas</span></div><dl><div><dt>Por atender</dt><dd>{technician.pending}</dd></div><div><dt>En proceso</dt><dd>{technician.active}</dd></div><div><dt>Realizadas</dt><dd>{technician.done}</dd></div></dl></article>)}</div> : <div className="technician-empty-state"><CalendarBlank size={24} /><span>No hay órdenes asignadas al equipo en esta semana.</span></div>}
+      </section>}
 
       <section className="technician-today-focus" aria-labelledby="today-focus-title">
         <header>

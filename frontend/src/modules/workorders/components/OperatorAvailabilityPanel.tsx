@@ -1,4 +1,4 @@
-import { CalendarBlank, Clock, WarningCircle } from "@phosphor-icons/react";
+import { CalendarBlank, CheckCircle, Clock, WarningCircle } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -48,6 +48,11 @@ function formatDate(value: string) {
     day: "2-digit",
     month: "short",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatLongDate(value: string) {
+  return new Intl.DateTimeFormat("es-PE", { weekday: "long", day: "numeric", month: "long" })
+    .format(new Date(`${value}T00:00:00`));
 }
 
 function startOfWeek(dateKey: string) {
@@ -112,7 +117,7 @@ export function OperatorAvailabilityPanel({
   currentOrderId,
   title = "Disponibilidad del operario",
 }: OperatorAvailabilityPanelProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const dates = selectedDates?.length ? selectedDates : selectedDate ? [selectedDate] : [];
   const anchorDate = dates[0] || new Date().toISOString().slice(0, 10);
   const calendarDates = weekDates(anchorDate);
@@ -138,6 +143,10 @@ export function OperatorAvailabilityPanel({
     return grouped;
   }, [currentOrderId, operatorId, orders]);
 
+  const weekOrders = calendarDates.flatMap((date) => occupiedByDate.get(date) ?? []);
+  const weekHours = weekOrders.reduce((total, order) => total + Math.max(1, order.plannedHours || 1), 0);
+  const selectedDayOrders = dates.flatMap((date) => occupiedByDate.get(date) ?? []);
+
   if (!operatorId) {
     return (
       <article className="operator-availability-card is-muted">
@@ -150,17 +159,27 @@ export function OperatorAvailabilityPanel({
   }
 
   return (
-    <article className={`operator-availability-card ${conflicts.length ? "has-conflict" : ""}`}>
+    <article className={`operator-availability-card ${conflicts.length ? "has-conflict" : "has-availability"}`}>
       <header>
         <div>
           <CalendarBlank size={22} />
           <span>{title}</span>
           <strong>{operatorName || "Operario seleccionado"}</strong>
         </div>
-        <button className="button button-secondary" type="button" onClick={() => setOpen((current) => !current)}>
+        <div className={`operator-availability-status ${conflicts.length ? "is-conflict" : "is-available"}`}>
+          {conflicts.length ? <WarningCircle size={16} /> : <CheckCircle size={16} />}
+          {conflicts.length ? "Cruce de horario" : "Disponible"}
+        </div>
+        <button className="button button-secondary operator-availability-toggle" type="button" onClick={() => setOpen((current) => !current)}>
           {open ? "Ocultar agenda" : "Ver agenda"}
         </button>
       </header>
+
+      <div className="operator-availability-summary">
+        <div><span>Fecha elegida</span><strong>{dates[0] ? formatLongDate(dates[0]) : "Selecciona una fecha"}</strong></div>
+        <div><span>Horario de esta OT</span><strong>{formatTime(startTime)} · {Math.max(1, plannedHours || 1)} h</strong></div>
+        <div><span>Carga semanal</span><strong>{weekHours} h · {weekOrders.length} OT{weekOrders.length === 1 ? "" : "s"}</strong></div>
+      </div>
 
       {conflicts.length ? (
         <div className="operator-availability-warning">

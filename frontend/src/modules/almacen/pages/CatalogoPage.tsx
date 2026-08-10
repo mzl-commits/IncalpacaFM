@@ -1,15 +1,20 @@
 import {
   CaretLeft,
   CaretRight,
+  Check,
+  Copy,
   Cube,
   FolderPlus,
   Funnel,
   House,
   MagnifyingGlass,
   MapTrifold,
+  Minus,
   Package,
   Plus,
+  ShoppingCart,
   Stack,
+  Trash,
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
@@ -21,14 +26,20 @@ import { buildFilterOptions, useListFilterParams } from "@/components/filters/fi
 import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
+import type { Material } from "@/modules/almacen/types";
+import { useAuth } from "@/modules/accounts/AuthContext";
 
 const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
 
 export function CatalogoPage() {
+  const { user } = useAuth();
+  const isTechnician = user?.role === "TECNICO";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const [basket, setBasket] = useState<Record<number, number>>({});
+  const [copiedBasket, setCopiedBasket] = useState(false);
 
   const { data: materiales = [], isLoading } = useQuery({
     queryKey: ["materiales", values],
@@ -64,6 +75,32 @@ export function CatalogoPage() {
   const stockBajo = materiales.filter(
     (m) => !m.control_individual && m.cantidad_total < STOCK_MINIMO,
   ).length;
+
+  const basketItems = materiales.filter((material) => (basket[material.id] ?? 0) > 0);
+  const basketUnits = basketItems.reduce((total, material) => total + (basket[material.id] ?? 0), 0);
+
+  function setBasketQuantity(material: Material, quantity: number) {
+    const next = Math.max(0, Math.min(quantity, Math.max(0, material.cantidad_total)));
+    setBasket((current) => {
+      const updated = { ...current };
+      if (next === 0) delete updated[material.id];
+      else updated[material.id] = next;
+      return updated;
+    });
+    setCopiedBasket(false);
+  }
+
+  async function copyBasket() {
+    const lines = basketItems.map((material) => `${material.codigo} — ${material.nombre} x${basket[material.id]}`);
+    if (!lines.length) return;
+    try {
+      await navigator.clipboard.writeText(`Materiales solicitados\n${lines.join("\n")}`);
+      setCopiedBasket(true);
+      window.setTimeout(() => setCopiedBasket(false), 2200);
+    } catch {
+      setCopiedBasket(false);
+    }
+  }
 
   // Active filters list
   const activeFilters = useMemo(() => {
@@ -124,7 +161,7 @@ export function CatalogoPage() {
           <p className="page-description">Ficha maestra de herramientas y materiales del almacén.</p>
         </div>
         <div className="header-actions">
-          <button
+          {!isTechnician && <button
             type="button"
             className="btn-secondary"
             onClick={() => setMostrarGestionCat((v) => !v)}
@@ -132,7 +169,7 @@ export function CatalogoPage() {
           >
             <FolderPlus size={18} />
             <span>Categorías</span>
-          </button>
+          </button>}
           <button
             type="button"
             className="btn-secondary"
@@ -142,10 +179,10 @@ export function CatalogoPage() {
             <MapTrifold size={18} />
             <span>Croquis del almacén</span>
           </button>
-          <Link className="btn-primary" to="/almacen/catalogo/nuevo">
+          {!isTechnician && <Link className="btn-primary" to="/almacen/catalogo/nuevo">
             <Plus size={18} weight="bold" />
             <span>Nuevo material</span>
-          </Link>
+          </Link>}
         </div>
       </header>
 
@@ -332,7 +369,18 @@ export function CatalogoPage() {
           </div>
         )}
 
-        <div style={{ width: "100%", overflowX: "auto" }}>
+        {isTechnician ? (
+          <TechnicianMaterialShelf
+            materiales={materiales}
+            isLoading={isLoading}
+            basket={basket}
+            basketUnits={basketUnits}
+            copiedBasket={copiedBasket}
+            onSetQuantity={setBasketQuantity}
+            onCopyBasket={copyBasket}
+            onClearBasket={() => setBasket({})}
+          />
+        ) : <div style={{ width: "100%", overflowX: "auto" }}>
           <table className="catalog-table">
             <thead>
               <tr>
@@ -419,13 +467,55 @@ export function CatalogoPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </div>}
       </section>
     </div>
   );
 }
 
 // ─── Croquis Carrusel ────────────────────────────────────────────────────────
+
+type TechnicianMaterialShelfProps = {
+  materiales: Material[];
+  isLoading: boolean;
+  basket: Record<number, number>;
+  basketUnits: number;
+  copiedBasket: boolean;
+  onSetQuantity: (material: Material, quantity: number) => void;
+  onCopyBasket: () => void;
+  onClearBasket: () => void;
+};
+
+function TechnicianMaterialShelf({ materiales, isLoading, basket, basketUnits, copiedBasket, onSetQuantity, onCopyBasket, onClearBasket }: TechnicianMaterialShelfProps) {
+  return (
+    <div className="technician-material-workspace">
+      <div className="technician-material-list">
+        <div className="technician-material-intro">
+          <div><span className="technician-material-kicker">SelecciÃ³n de jornada</span><h2>Materiales disponibles</h2><p>Agrega herramientas o consumibles a tu lista. La cantidad se ajusta al stock disponible.</p></div>
+          <span className="technician-material-count">{materiales.length} opciones</span>
+        </div>
+        {isLoading ? <div className="technician-material-empty">Cargando materialesâ€¦</div> : materiales.length === 0 ? <div className="technician-material-empty">No encontramos materiales con estos filtros.</div> : (
+          <div className="technician-material-grid">
+            {materiales.map((material) => {
+              const selected = basket[material.id] ?? 0;
+              const outOfStock = material.cantidad_total <= 0;
+              const lowStock = !material.control_individual && material.cantidad_total < STOCK_MINIMO;
+              return <article className={`technician-material-card${selected ? " is-selected" : ""}`} key={material.id}>
+                <div className="technician-material-visual">{material.foto ? <img src={material.foto} alt="" loading="lazy" /> : <Package size={28} aria-hidden="true" />}<span className={`technician-stock-pill${outOfStock ? " is-empty" : lowStock ? " is-low" : ""}`}>{outOfStock ? "Agotado" : `${material.cantidad_total} disponibles`}</span></div>
+                <div className="technician-material-content"><span className="technician-material-code">{material.codigo}</span><h3>{material.nombre}</h3><p>{material.marca ? `${material.marca}${material.modelo ? ` · ${material.modelo}` : ""}` : material.categoria_nombre}</p><span className="technician-material-location">{material.ubicacion_fisica || "UbicaciÃ³n por confirmar"}</span></div>
+                <div className="technician-material-card-footer"><span className="technician-material-type">{material.control_individual ? "Pieza individual" : "Consumible"}</span>{selected ? <div className="technician-quantity-control" aria-label={`Cantidad de ${material.nombre}`}><button type="button" onClick={() => onSetQuantity(material, selected - 1)} aria-label="Quitar una unidad"><Minus size={15} /></button><strong>{selected}</strong><button type="button" onClick={() => onSetQuantity(material, selected + 1)} disabled={selected >= material.cantidad_total} aria-label="Agregar una unidad"><Plus size={15} /></button></div> : <button type="button" className="technician-add-material" onClick={() => onSetQuantity(material, 1)} disabled={outOfStock}><ShoppingCart size={16} /> Agregar</button>}</div>
+              </article>;
+            })}
+          </div>
+        )}
+      </div>
+      <aside className="technician-material-cart" aria-label="Lista de materiales seleccionados">
+        <div className="technician-cart-heading"><div><span className="technician-material-kicker">Tu lista</span><h2><ShoppingCart size={20} /> Materiales seleccionados</h2></div><span className="technician-cart-total">{basketUnits}</span></div>
+        {basketUnits === 0 ? <div className="technician-cart-empty"><ShoppingCart size={28} /><strong>AÃºn no has agregado materiales</strong><span>Selecciona una tarjeta para preparar tu solicitud.</span></div> : <><div className="technician-cart-items">{materiales.filter((material) => basket[material.id]).map((material) => <div className="technician-cart-item" key={material.id}><div><strong>{material.nombre}</strong><span>{material.codigo} · {basket[material.id]} ud.</span></div><button type="button" onClick={() => onSetQuantity(material, 0)} aria-label={`Quitar ${material.nombre}`}><Trash size={16} /></button></div>)}</div><div className="technician-cart-actions"><button type="button" className="technician-cart-copy" onClick={onCopyBasket}>{copiedBasket ? <Check size={17} /> : <Copy size={17} />}{copiedBasket ? "Lista copiada" : "Copiar lista"}</button><button type="button" className="technician-cart-clear" onClick={onClearBasket}>Vaciar</button></div></>}
+      </aside>
+    </div>
+  );
+}
 
 const SLIDES = [
   {
