@@ -3,6 +3,7 @@ export const USER_ROLES = [
   "ADMINISTRADOR",
   "TECNICO",
   "SUPERVISOR",
+  "ALMACENERO",
 ] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];

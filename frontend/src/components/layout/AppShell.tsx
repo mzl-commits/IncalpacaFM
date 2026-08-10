@@ -225,7 +225,7 @@ export function AppShell() {
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
-  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : "Administrador / Planner";
+  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : user?.role === "ALMACENERO" ? "Almacenero" : "Administrador / Planner";
   const initials =
     user?.fullName
       .split(" ")

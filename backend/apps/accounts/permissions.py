@@ -42,3 +42,22 @@ class IsAuthenticatedReadAdministratorWrite(BasePermission):
         if request.method in SAFE_METHODS:
             return bool(request.user and request.user.is_authenticated)
         return user_role(request.user) == AccountProfile.Role.ADMIN
+
+
+class IsAlmaceneroOrAdministratorWrite(BasePermission):
+    """
+    Requiere sesión iniciada para leer (GET/HEAD/OPTIONS).
+    Requiere rol ADMINISTRADOR o ALMACENERO para escribir
+    (POST, PUT, PATCH, DELETE).
+    """
+    message = "Esta acción requiere permisos de Administrador o Almacenero."
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        return user_role(request.user) in {
+            AccountProfile.Role.ADMIN,
+            AccountProfile.Role.ALMACENERO,
+        }

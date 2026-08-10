@@ -7,6 +7,7 @@ export type Technician = {
   worker_code: string;
   specialty: string;
   active: boolean;
+  role: "TECNICO" | "ALMACENERO";
 };
 
 export type TechnicianInput = Omit<Technician, "id"> & { temporary_password?: string };
