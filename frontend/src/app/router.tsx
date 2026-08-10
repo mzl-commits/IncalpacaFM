@@ -403,6 +403,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "perfil",
+        lazy: lazyRoute(() => import("@/modules/accounts/pages/ProfilePage"), "ProfilePage"),
+      },
+      {
         path: "mi-perfil",
         lazy: lazyRoute(() => import("@/modules/accounts/pages/UserDashboardPage"), "default"),
       },
