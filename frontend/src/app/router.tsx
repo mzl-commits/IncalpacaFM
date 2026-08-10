@@ -12,6 +12,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
+import { UserImportPage } from "@/modules/accounts/pages/UserImportPage";
 import { ReporterRegistryPage } from "@/modules/accounts/pages/ReporterRegistryPage";
 import { TechnicianDetailPage } from "@/modules/accounts/pages/TechnicianDetailPage";
 import { TechnicianSchedulePage } from "@/modules/workorders/pages/TechnicianSchedulePage";
@@ -367,6 +368,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
             <TechnicianManagementPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "administracion/usuarios/importar",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <UserImportPage />
           </RoleRoute>
         ),
       },

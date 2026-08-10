@@ -31,3 +31,10 @@ export async function notifyTechnician(id: string, input: { template: "REMINDER"
   const { data } = await api.post<{ detail: string }>(`/technicians/${id}/notifications/`, input);
   return data;
 }
+
+export async function importTechnicians(file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post<{ created: number; updated: number; errors: { fila: number; detalle: string }[] }>("/technicians/import/", form, { headers: { "Content-Type": "multipart/form-data" } });
+  return data;
+}
