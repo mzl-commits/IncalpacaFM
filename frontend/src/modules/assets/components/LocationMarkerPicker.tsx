@@ -87,7 +87,7 @@ export function LocationMarkerPicker({
       ) : imageQuery.isError || !imageQuery.data ? (
         <div className="location-map-load-error" role="alert">
           <WarningCircle />
-          <span>No se pudo cargar la imagen protegida del ambiente.</span>
+          <span>El plano no está disponible. Solicita al administrador volver a cargar la imagen del ambiente.</span>
           <button type="button" onClick={() => imageQuery.refetch()}>Reintentar</button>
         </div>
       ) : (
