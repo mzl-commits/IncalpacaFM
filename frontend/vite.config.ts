@@ -70,7 +70,8 @@ export default defineConfig({
   },
   server: {
     // Keep the development origin aligned with the public QR links.
-    port: 5173,
+    port: 8008,
+    strictPort: true,
     host: true,
     proxy: {
       "/api": {
