@@ -181,28 +181,28 @@ const quickActions: QuickActionItem[] = [
   {
     to: "/bienes/entradas/nueva",
     label: "Registrar un bien",
-    icon: Toolbox,
+    icon: Package,
     color: "#2563EB",
     type: "bienes",
   },
   {
     to: "/asignaciones/nueva",
     label: "Crear una asignación",
-    icon: UserPlus,
+    icon: UserSwitch,
     color: "#7C3AED",
     type: "asignaciones",
   },
   {
     to: "/incidencias/nueva",
     label: "Reportar una incidencia",
-    icon: Siren,
+    icon: WarningDiamond,
     color: "#E85D04",
     type: "incidencias",
   },
   {
     to: "/informes",
     label: "Abrir informes",
-    icon: ChartPieSlice,
+    icon: ChartLineUp,
     color: "#059669",
     type: "informes",
   },
@@ -568,27 +568,30 @@ export function AppShell() {
               <p>Selecciona una tarea para continuar.</p>
             </div>
             <button type="button" aria-label="Cerrar" onClick={closeQuickMenu}>
-              <X size={22} />
+              <X size={21} />
             </button>
           </header>
 
           <nav className="quick-actions-matrix" aria-label="Acciones globales">
-            {quickActions.map(({ to, label, icon: Icon, type, color }, index) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={`quick-action-card action-type-${type}`}
-                onClick={closeQuickMenu}
-                style={{ "--action-color": color, "--stagger-delay": `${(index + 1) * 40}ms` } as React.CSSProperties}
-              >
-                <span className="quick-action-top-accent" />
-                <div className="quick-action-icon-box">
-                  <Icon size={40} weight="duotone" color={color} />
-                </div>
-                <span className="quick-action-label">{label}</span>
-                <ArrowUpRight size={22} className="quick-action-arrow" />
-              </NavLink>
-            ))}
+            {quickActions.map(({ to, label, icon: Icon, type, color }, index) => {
+              const delays = [40, 75, 110, 145];
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={`quick-action-card action-type-${type}`}
+                  onClick={closeQuickMenu}
+                  style={{ "--action-color": color, "--stagger-delay": `${delays[index] || 40}ms` } as React.CSSProperties}
+                >
+                  <span className="quick-action-top-accent" />
+                  <div className="quick-action-icon-box">
+                    <Icon size={42} weight="duotone" color={color} />
+                  </div>
+                  <span className="quick-action-label">{label}</span>
+                  <ArrowUpRight size={22} className="quick-action-arrow" />
+                </NavLink>
+              );
+            })}
           </nav>
         </section>
       </dialog>

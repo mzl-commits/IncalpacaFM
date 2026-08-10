@@ -3851,6 +3851,7 @@ td { padding: 13px 14px; }
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
    REDISEÑO UX/UI COMMAND PANEL / ACTION LAUNCHER (MODAL NUEVA ACCIÓN)
    ============================================================ */
 
@@ -3866,11 +3867,15 @@ td { padding: 13px 14px; }
 =======
    REDISEÑO UX/UI WIDGET CENTRO DE ACCIONES (MODAL NUEVA ACCIÓN 840px)
 >>>>>>> feature/rediseno-ui-sidebar-catalogo
+=======
+   REDISEÑO UX/UI VENTANA EMPRESARIAL 900px (MODAL NUEVA ACCIÓN)
+>>>>>>> feature/rediseno-ui-sidebar-catalogo
    ============================================================ */
 
-@keyframes widgetEntry {
+@keyframes modalWindowEntry {
   from {
     opacity: 0;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     transform: translateY(8px) scale(0.985);
@@ -3880,6 +3885,9 @@ td { padding: 13px 14px; }
 >>>>>>> feature/rediseno-ui-sidebar-catalogo
 =======
     transform: translateY(12px) scale(0.98);
+>>>>>>> feature/rediseno-ui-sidebar-catalogo
+=======
+    transform: translateY(12px) scale(0.985);
 >>>>>>> feature/rediseno-ui-sidebar-catalogo
   }
   to {
@@ -3912,7 +3920,7 @@ td { padding: 13px 14px; }
 @keyframes cardStagger {
   from {
     opacity: 0;
-    transform: translateY(7px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -3922,31 +3930,67 @@ td { padding: 13px 14px; }
 
 @keyframes iconContainerPulse {
   0% {
-    transform: scale(1) rotate(0deg);
+    transform: scale(1);
   }
-  45% {
-    transform: scale(1.10) rotate(-3deg);
+  40% {
+    transform: scale(1.08);
   }
   70% {
-    transform: scale(1.05) rotate(2deg);
+    transform: scale(1.04);
   }
   100% {
-    transform: scale(1.06) rotate(0deg);
+    transform: scale(1.05);
   }
 }
 
-@keyframes sirenWobble {
+@keyframes packageLift {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.07);
+  }
+  100% {
+    transform: translateY(0) scale(1.03);
+  }
+}
+
+@keyframes userShift {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    transform: translateX(3px) scale(1.06);
+  }
+  100% {
+    transform: translateX(0) scale(1.03);
+  }
+}
+
+@keyframes warningTilt {
   0% {
     transform: scale(1) rotate(0deg);
   }
   30% {
-    transform: scale(1.12) rotate(-4deg);
+    transform: scale(1.07) rotate(-4deg);
   }
   60% {
-    transform: scale(1.08) rotate(4deg);
+    transform: scale(1.05) rotate(4deg);
   }
   100% {
-    transform: scale(1.08) rotate(0deg);
+    transform: scale(1.03) rotate(0deg);
+  }
+}
+
+@keyframes chartLift {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.07);
+  }
+  100% {
+    transform: translateY(0) scale(1.03);
   }
 }
 
@@ -3969,37 +4013,50 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-sheet {
-  width: 840px;
-  max-width: calc(100vw - 48px);
+  width: 900px;
+  max-width: calc(100vw - 64px);
   background: #FFFFFF;
-  border: 1px solid #D8D8D8;
+  border: 1px solid #DADADA;
   border-radius: 16px;
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.22) !important;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   overflow: hidden;
-  animation: widgetEntry 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: modalWindowEntry 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
-@media (min-width: 1400px) {
+@media (min-width: 1200px) {
   .quick-actions-sheet {
-    width: 880px;
-    max-width: 900px;
+    width: 900px;
+    max-width: 920px;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1199px) and (min-width: 900px) {
+  .quick-actions-sheet {
+    width: 820px;
+  }
+}
+
+@media (max-width: 899px) and (min-width: 641px) {
+  .quick-actions-sheet {
+    width: calc(100vw - 40px);
+  }
+}
+
+@media (max-width: 640px) {
   .quick-actions-sheet {
     width: calc(100vw - 24px);
   }
 }
 
-/* HEADER */
+/* HEADER & DIVIDER */
 .quick-actions-header {
-  padding: 32px 36px 28px 36px;
+  padding: 34px 38px 30px 38px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  border-bottom: 1px solid #E5E5E5;
 }
 
 .quick-actions-header h2 {
@@ -4016,15 +4073,15 @@ td { padding: 13px 14px; }
   font-size: 15px;
   font-weight: 400;
   line-height: 1.5;
-  color: #666666;
-  margin: 7px 0 0 0;
+  color: #686868;
+  margin: 8px 0 0 0;
 }
 
 .quick-actions-header button {
-  width: 46px;
-  height: 46px;
-  border-radius: 10px;
-  background: #F4F4F4;
+  width: 48px;
+  height: 48px;
+  border-radius: 11px;
+  background: #F3F3F3;
   border: 1px solid transparent;
   display: flex;
   align-items: center;
@@ -4036,8 +4093,8 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-header button:hover {
-  background: #EAEAEA;
-  border-color: #D5D5D5;
+  background: #E9E9E9;
+  border-color: #D8D8D8;
   transform: rotate(5deg);
 }
 
@@ -4046,40 +4103,43 @@ td { padding: 13px 14px; }
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
-  padding: 26px 36px 34px 36px;
+  padding: 28px 32px 34px 32px;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 720px) {
   .quick-actions-matrix {
     grid-template-columns: 1fr;
     padding: 20px 20px 26px 20px;
   }
 }
 
-/* ACTION CARD OPTIONS */
+/* ACTION CARD INNER 3-COLUMN GRID (PREVENTS TEXT & ICON OVERLAP) */
 .quick-action-card {
-  min-height: 155px;
+  min-height: 170px;
   padding: 26px 28px;
   background: #FFFFFF;
-  border: 1px solid #DEDEDE;
+  border: 1px solid #DCDCDC;
   border-radius: 14px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) 32px;
+  column-gap: 22px;
   align-items: center;
-  gap: 22px;
   position: relative;
   overflow: hidden;
   cursor: pointer;
   text-decoration: none;
   color: #171717;
-  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
-  animation: cardStagger 200ms ease-out forwards;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  animation: cardStagger 180ms ease-out forwards;
   animation-delay: var(--stagger-delay, 0ms);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 640px) {
   .quick-action-card {
-    min-height: 120px;
+    min-height: 130px;
     padding: 20px;
+    grid-template-columns: 68px minmax(0, 1fr) 28px;
+    column-gap: 16px;
   }
 }
 
@@ -4087,12 +4147,13 @@ td { padding: 13px 14px; }
 .quick-action-top-accent {
   position: absolute;
   top: 0;
-  left: 20px;
-  right: 20px;
+  left: 24px;
+  right: 24px;
   height: 3px;
   border-radius: 0 0 3px 3px;
   background: var(--action-color);
   transform: scaleX(0);
+  transform-origin: center;
   opacity: 0;
   transition: transform 220ms ease, opacity 220ms ease;
 }
@@ -4102,82 +4163,84 @@ td { padding: 13px 14px; }
   opacity: 1;
 }
 
-/* LARGE ICON CONTAINER (72px x 72px) */
+/* COL 1: ICON CONTAINER BOX (78px x 78px) */
 .quick-action-icon-box {
-  width: 72px;
-  height: 72px;
+  width: 78px;
+  height: 78px;
   border-radius: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
   transition: transform 180ms ease, background-color 180ms ease;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 640px) {
   .quick-action-icon-box {
-    width: 60px;
-    height: 60px;
+    width: 68px;
+    height: 68px;
     border-radius: 14px;
   }
 }
 
-/* ACTION SPECIFIC CONTAINER BACKGROUNDS */
+/* ACTION SPECIFIC CONTAINER BACKGROUNDS & BORDERS */
 .quick-action-card.action-type-bienes .quick-action-icon-box {
-  background: rgba(37, 99, 235, 0.10);
+  background: rgba(37, 99, 235, 0.09);
+  border: 1px solid rgba(37, 99, 235, 0.13);
 }
 
 .quick-action-card.action-type-asignaciones .quick-action-icon-box {
-  background: rgba(124, 58, 237, 0.10);
+  background: rgba(124, 58, 237, 0.09);
+  border: 1px solid rgba(124, 58, 237, 0.13);
 }
 
 .quick-action-card.action-type-incidencias .quick-action-icon-box {
-  background: rgba(232, 93, 4, 0.10);
+  background: rgba(232, 93, 4, 0.09);
+  border: 1px solid rgba(232, 93, 4, 0.13);
 }
 
 .quick-action-card.action-type-informes .quick-action-icon-box {
-  background: rgba(5, 150, 105, 0.10);
+  background: rgba(5, 150, 105, 0.09);
+  border: 1px solid rgba(5, 150, 105, 0.13);
 }
 
 /* HOVER MICRO-PULSE ON ICON CONTAINER */
 .quick-action-card:hover .quick-action-icon-box {
-  animation: iconContainerPulse 480ms ease-in-out forwards;
+  animation: iconContainerPulse 460ms ease-in-out forwards;
 }
 
 /* SEMANTIC MICRO-ANIMATIONS PER ACTION SVG */
 .quick-action-card.action-type-bienes:hover .quick-action-icon-box svg {
-  transform: translateY(-2px) scale(1.08);
-  transition: transform 180ms ease;
+  animation: packageLift 450ms ease-in-out forwards;
 }
 
 .quick-action-card.action-type-asignaciones:hover .quick-action-icon-box svg {
-  transform: translateX(2px) scale(1.08);
-  transition: transform 180ms ease;
+  animation: userShift 450ms ease-in-out forwards;
 }
 
 .quick-action-card.action-type-incidencias:hover .quick-action-icon-box svg {
-  animation: sirenWobble 480ms ease-in-out forwards;
+  animation: warningTilt 450ms ease-in-out forwards;
 }
 
 .quick-action-card.action-type-informes:hover .quick-action-icon-box svg {
-  transform: translateY(-2px) scale(1.08);
-  transition: transform 180ms ease;
+  animation: chartLift 450ms ease-in-out forwards;
 }
 
-/* LABEL TYPOGRAPHY */
+/* COL 2: LABEL TYPOGRAPHY (ISOLATED IN ITS OWN GRID COLUMN) */
 .quick-action-label {
   font-size: 18px;
   font-weight: 650;
   line-height: 1.25;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
   color: #171717;
-  flex: 1;
+  max-width: 100%;
+  min-width: 0;
+  word-break: normal;
 }
 
-/* NAVIGATION ARROW */
+/* COL 3: NAVIGATION ARROW */
 .quick-action-arrow {
-  color: #999999;
-  flex-shrink: 0;
+  color: #949494;
+  justify-self: end;
   transition: transform 180ms ease, color 180ms ease;
 }
 
@@ -4188,10 +4251,10 @@ td { padding: 13px 14px; }
 
 /* HOVER & ACTIVE CARD STATES */
 .quick-action-card:hover {
-  background: #FFFFFF;
-  border-color: #BABABA;
+  background: #FCFCFC;
+  border-color: #BDBDBD;
   transform: translateY(-4px);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.09);
 }
 
 .quick-action-card:active {
@@ -4201,7 +4264,7 @@ td { padding: 13px 14px; }
 
 .quick-action-card:focus-visible {
   outline: 2px solid #111111;
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 /* ACCESSIBILITY: PREFERS-REDUCED-MOTION */
