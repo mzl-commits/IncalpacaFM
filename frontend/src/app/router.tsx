@@ -242,6 +242,13 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "ordenes-trabajo/nueva/os",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/ServiceOrderCreatePage"),
+          "ServiceOrderCreatePage",
+        ),
+      },
+      {
         path: "ordenes-trabajo/nueva/:requestId",
         lazy: lazyRoute(
           () => import("@/modules/workorders/pages/WorkOrderCreatePage"),

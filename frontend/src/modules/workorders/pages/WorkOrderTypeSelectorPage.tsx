@@ -8,7 +8,7 @@ export function WorkOrderTypeSelectorPage() {
         <div>
           <p className="breadcrumb">Mantenimiento / Nueva orden</p>
           <h1>Crear orden</h1>
-          <p>Elige que tipo de orden se va a generar. Por ahora solo la OT usa el flujo activo.</p>
+          <p>Elige que tipo de orden se va a generar segun el tipo de atencion.</p>
         </div>
         <Link className="button button-secondary" to="/ordenes-trabajo">
           <ArrowLeft size={18} />
@@ -62,17 +62,20 @@ export function WorkOrderTypeSelectorPage() {
             <ArrowRight size={17} />
           </b>
         </Link>
-        <button className="order-type-card is-disabled" type="button" disabled>
+        <Link className="order-type-card is-enabled" to="/ordenes-trabajo/nueva/os">
           <span className="order-type-icon">
             <Package size={28} />
           </span>
           <span className="order-type-code">OS</span>
           <strong>Orden de servicio</strong>
           <small>
-            Para servicios o derivaciones que todavia no forman parte del flujo actual.
+            Para registrar proveedor, documento y monto de un servicio externo.
           </small>
-          <b>Proximamente</b>
-        </button>
+          <b>
+            Continuar con OS
+            <ArrowRight size={17} />
+          </b>
+        </Link>
       </div>
     </section>
   );

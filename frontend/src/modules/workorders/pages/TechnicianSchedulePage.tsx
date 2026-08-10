@@ -159,14 +159,15 @@ export function TechnicianSchedulePage() {
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const startKey = toDateKey(days[0]);
   const endKey = toDateKey(days[6]);
-  const weekOrders = orders.filter((order) => order.scheduledDate >= startKey && order.scheduledDate <= endKey);
+  const technicianOrders = orders.filter((order) => order.orderType !== "OS" && !order.code.startsWith("OS-"));
+  const weekOrders = technicianOrders.filter((order) => order.scheduledDate >= startKey && order.scheduledDate <= endKey);
   const plannedHours = weekOrders.reduce((total, order) => total + (order.plannedHours || 2), 0);
   const plannedMinutes = plannedHours * 60;
-  const workedMinutes = orders.reduce((total, order) => total + registeredMinutes(order, startKey, endKey), 0);
+  const workedMinutes = technicianOrders.reduce((total, order) => total + registeredMinutes(order, startKey, endKey), 0);
   const pendingMinutes = Math.max(plannedMinutes - workedMinutes, 0);
   const completed = weekOrders.filter((order) => getTaskTone(order) === "done" || getTaskTone(order) === "closed").length;
   const hoursProgress = plannedMinutes ? Math.min(100, Math.round((workedMinutes / plannedMinutes) * 100)) : 0;
-  const completedHistory = orders
+  const completedHistory = technicianOrders
     .filter((order) => order.status === "CERRADA" || order.progressPercentage === 100)
     .sort((left, right) => new Date(right.closedAt ?? right.finishedAt ?? right.updatedAt).getTime() - new Date(left.closedAt ?? left.finishedAt ?? left.updatedAt).getTime())
     .slice(0, 8);

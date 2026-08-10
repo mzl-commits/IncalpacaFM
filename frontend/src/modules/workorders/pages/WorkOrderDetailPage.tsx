@@ -29,6 +29,7 @@ import {
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
   scheduleWorkOrderCorrection,
+  updateServiceOrderStatus,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 
@@ -149,6 +150,9 @@ export function WorkOrderDetailPage() {
   const [correctionError, setCorrectionError] = useState("");
   const [correctionSuccess, setCorrectionSuccess] = useState("");
   const [savingCorrection, setSavingCorrection] = useState(false);
+  const [serviceComment, setServiceComment] = useState("");
+  const [serviceError, setServiceError] = useState("");
+  const [savingServiceStatus, setSavingServiceStatus] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -214,6 +218,26 @@ export function WorkOrderDetailPage() {
     }
   }
 
+  async function handleServiceStatus(action: "SERVICE_START" | "SERVICE_CLOSE" | "SERVICE_CANCEL") {
+    if (!workOrder) return;
+    if (action === "SERVICE_CANCEL" && serviceComment.trim().length < 8) {
+      setServiceError("Escribe un motivo breve antes de cancelar la OS.");
+      return;
+    }
+
+    setSavingServiceStatus(true);
+    setServiceError("");
+    try {
+      const updated = await updateServiceOrderStatus(workOrder.id, action, serviceComment.trim());
+      setWorkOrder(updated);
+      setServiceComment("");
+    } catch {
+      setServiceError("No se pudo actualizar el estado de la OS.");
+    } finally {
+      setSavingServiceStatus(false);
+    }
+  }
+
   if (!workOrder) {
   return (
       <section>
@@ -232,13 +256,14 @@ export function WorkOrderDetailPage() {
     );
   }
 
+  const isServiceOrder = workOrder.orderType === "OS" || workOrder.code.startsWith("OS-");
   const isCleaningOrder = workOrder.orderType === "OL" || workOrder.code.startsWith("OL-");
   const orderCopy = {
-    singular: isCleaningOrder ? "orden de limpieza" : "orden de trabajo",
-    singularTitle: isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
-    detailTitle: isCleaningOrder ? "Detalle de orden de limpieza" : "Detalle de orden de trabajo",
-    detailDescription: isCleaningOrder ? "Revisa limpieza, supervisión y validación administrativa." : "Revisa ejecución, supervisión y validación administrativa.",
-    defaultDescription: isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
+    singular: isServiceOrder ? "orden de servicio" : isCleaningOrder ? "orden de limpieza" : "orden de trabajo",
+    singularTitle: isServiceOrder ? "Orden de servicio" : isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
+    detailTitle: isServiceOrder ? "Detalle de orden de servicio" : isCleaningOrder ? "Detalle de orden de limpieza" : "Detalle de orden de trabajo",
+    detailDescription: isServiceOrder ? "Gestiona proveedor, documento, monto y cierre administrativo." : isCleaningOrder ? "Revisa limpieza, supervisión y validación administrativa." : "Revisa ejecución, supervisión y validación administrativa.",
+    defaultDescription: isServiceOrder ? "Orden de servicio" : isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
     linkedPrefix: isCleaningOrder ? "Esta OL corrige a:" : "Esta OT corrige a:",
     linkedCorrectionLabel: isCleaningOrder ? "OL de corrección" : "OT de corrección",
     progressLabel: isCleaningOrder ? "Avance de la limpieza" : "Avance de la orden",
@@ -327,6 +352,69 @@ export function WorkOrderDetailPage() {
         </span>
       </div>
 
+      {isServiceOrder && (
+        <article className="data-panel detail-card service-order-admin-card">
+          <div className="detail-card-heading">
+            <Briefcase size={22} />
+            <h2>Gestión administrativa de OS</h2>
+          </div>
+          <p className="detail-empty">
+            Esta orden corresponde a un servicio externo. No se envía a agenda técnica ni requiere supervisor.
+          </p>
+          <dl className="detail-list">
+            <div><dt>Fecha del servicio</dt><dd>{formatDate(workOrder.scheduledDate)}</dd></div>
+            <div><dt>Estado actual</dt><dd>{workOrderStatusLabels[workOrder.status]}</dd></div>
+            <div><dt>Registro administrativo</dt><dd>{workOrder.administratorNotes || "Sin datos administrativos."}</dd></div>
+            <div><dt>Última actualización</dt><dd>{formatDateTime(workOrder.updatedAt)}</dd></div>
+          </dl>
+
+          {isAdmin && !["CERRADA", "CANCELADA"].includes(workOrder.status) && (
+            <form className="admin-review-form" onSubmit={(event) => event.preventDefault()}>
+              <label className="field field-wide">
+                <span>Comentario administrativo</span>
+                <textarea
+                  rows={3}
+                  value={serviceComment}
+                  onChange={(event) => setServiceComment(event.target.value)}
+                  placeholder="Ej. Servicio coordinado con proveedor, pendiente de factura o conformidad."
+                />
+              </label>
+
+              {serviceError && <div className="form-error">{serviceError}</div>}
+
+              <div className="admin-evaluation-actions">
+                {workOrder.status === "PROGRAMADA" && (
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    disabled={savingServiceStatus}
+                    onClick={() => void handleServiceStatus("SERVICE_START")}
+                  >
+                    Pasar a coordinación
+                  </button>
+                )}
+                <button
+                  className="button button-danger"
+                  type="button"
+                  disabled={savingServiceStatus}
+                  onClick={() => void handleServiceStatus("SERVICE_CANCEL")}
+                >
+                  Cancelar OS
+                </button>
+                <button
+                  className="button button-primary"
+                  type="button"
+                  disabled={savingServiceStatus}
+                  onClick={() => void handleServiceStatus("SERVICE_CLOSE")}
+                >
+                  Cerrar OS
+                </button>
+              </div>
+            </form>
+          )}
+        </article>
+      )}
+
 
       {(workOrder.correctionOfId || workOrder.correctionWorkOrderId) && (
         <article className="data-panel linked-work-order-card">
@@ -350,7 +438,7 @@ export function WorkOrderDetailPage() {
           </div>
         </article>
       )}
-      <div className="work-order-progress data-panel">
+      {!isServiceOrder && <div className="work-order-progress data-panel">
         <div className="work-order-progress-heading">
           <div>
             <span>{orderCopy.progressLabel}</span>
@@ -364,9 +452,9 @@ export function WorkOrderDetailPage() {
             style={{ width: `${Math.min(Math.max(workOrder.progressPercentage, 0), 100)}%` }}
           />
         </div>
-      </div>
+      </div>}
 
-      <article className="data-panel detail-card work-order-validation-card">
+      {!isServiceOrder && <article className="data-panel detail-card work-order-validation-card">
         <div className="detail-card-heading">
           <ShieldCheck size={22} />
           <h2>{orderCopy.validationTitle}</h2>
@@ -510,7 +598,7 @@ export function WorkOrderDetailPage() {
             </div>
           </form>
         )}
-      </article>
+      </article>}
 
       <div className="detail-grid work-order-detail-grid">
         <article className="data-panel detail-card">
@@ -529,7 +617,7 @@ export function WorkOrderDetailPage() {
           </dl>
         </article>
 
-        <article className="data-panel detail-card">
+        {!isServiceOrder && <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <User size={22} />
             <h2>Responsables</h2>
@@ -538,7 +626,7 @@ export function WorkOrderDetailPage() {
             <div><dt>{orderCopy.operatorLabel}</dt><dd>{workOrder.operatorName}</dd></div>
             <div><dt>Supervisor asignado</dt><dd>{workOrder.supervisorName}</dd></div>
           </dl>
-        </article>
+        </article>}
 
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
@@ -553,7 +641,7 @@ export function WorkOrderDetailPage() {
           </dl>
         </article>
 
-        <article className="data-panel detail-card work-order-duration-card">
+        {!isServiceOrder && <article className="data-panel detail-card work-order-duration-card">
           <div className="detail-card-heading">
             <ClockCounterClockwise size={22} />
             <h2>{orderCopy.durationTitle}</h2>
@@ -564,7 +652,7 @@ export function WorkOrderDetailPage() {
             <div><dt>{orderCopy.effectiveTimeLabel}</dt><dd>{formatMinutesDuration(workOrder.effectiveWorkMinutes)}</dd></div>
             <div><dt>Tiempo calendario</dt><dd>{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</dd></div>
           </dl>
-        </article>
+        </article>}
 
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
@@ -592,7 +680,7 @@ export function WorkOrderDetailPage() {
         <p>{workOrder.administratorNotes || "No se registraron indicaciones adicionales."}</p>
       </article>
 
-      <article className="data-panel detail-card work-order-actions-card">
+      {!isServiceOrder && <article className="data-panel detail-card work-order-actions-card">
         <div className="detail-card-heading">
           <Wrench size={22} />
           <h2>{orderCopy.executionTitle}</h2>
@@ -612,7 +700,7 @@ export function WorkOrderDetailPage() {
             </Link>
           </div>
         )}
-      </article>
+      </article>}
     </section>
   );
 }
