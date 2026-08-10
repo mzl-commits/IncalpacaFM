@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowClockwise,
   ArrowRight,
+  CaretRight,
   CheckCircle,
   ClipboardText,
   Clock,
