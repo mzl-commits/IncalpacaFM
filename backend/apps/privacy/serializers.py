@@ -23,7 +23,8 @@ class PrivacyAcknowledgementSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         version = validated_data.pop("noticeVersion", "")
         context = validated_data["context"]
-        notice = PrivacyNotice.objects.filter(active=True, contexts__contains=[context]).order_by("-effective_from").first()
+        notices = PrivacyNotice.objects.filter(active=True).order_by("-effective_from")
+        notice = next((n for n in notices if context in (n.contexts or [])), None)
         if version:
             notice = PrivacyNotice.objects.filter(version=version, active=True).first()
         if not notice:

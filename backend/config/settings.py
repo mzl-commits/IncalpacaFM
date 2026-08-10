@@ -175,9 +175,10 @@ MONITORING_TLS_PORT = int(os.environ.get("MONITORING_TLS_PORT", "443"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174" if DEBUG else "",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8008,http://127.0.0.1:8008" if DEBUG else "",
 )
 CORS_ALLOW_HEADERS = (*default_headers, "x-frontend-origin", "idempotency-key")
 
@@ -200,7 +201,7 @@ CONTENT_SECURITY_POLICY = os.environ.get(
     "CONTENT_SECURITY_POLICY",
     "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; "
     "img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-    "script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5173 http://127.0.0.1:5173; "
+    "script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:* http://127.0.0.1:*; "
     "worker-src 'self' blob:" if DEBUG else
     "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; "
     "img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
