@@ -155,34 +155,20 @@ const modules: ModuleGroup[] = [
   },
 ];
 
-const railItems: NavItem[] = [
+const mobilePrimary: NavItem[] = [
   { to: "/", label: "Inicio", icon: House, end: true },
   { to: "/bienes", label: "Bienes", icon: ListDashes, end: true },
   { to: "/mapa", label: "Mapa", icon: MapTrifold, end: true },
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
 
-<<<<<<< HEAD
-import {
-  ArrowRight as IconoirArrowRight,
-  Package as IconoirPackage,
-  Reports as IconoirReports,
-  UserPlus as IconoirUserPlus,
-  WarningTriangle as IconoirWarningTriangle,
-  Xmark as IconoirXmark,
-} from "iconoir-react";
+const railItems = mobilePrimary;
 
-interface QuickActionItem {
-  to: string;
-  label: string;
-  icon: React.ComponentType<{ width?: number; height?: number; color?: string; className?: string }>;
-=======
 interface QuickActionItem {
   to: string;
   label: string;
   category: string;
   icon: React.ComponentType<{ size?: number; weight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone"; color?: string; className?: string }>;
->>>>>>> feature/rediseno-ui-sidebar-catalogo
   color: string;
   type: string;
 }
@@ -191,51 +177,33 @@ const quickActions: QuickActionItem[] = [
   {
     to: "/bienes/entradas/nueva",
     label: "Registrar un bien",
-<<<<<<< HEAD
-    icon: IconoirPackage,
-=======
     category: "Activos",
     icon: Cube,
->>>>>>> feature/rediseno-ui-sidebar-catalogo
     color: "#2563EB",
     type: "bienes",
   },
   {
     to: "/asignaciones/nueva",
     label: "Crear una asignación",
-<<<<<<< HEAD
-    icon: IconoirUserPlus,
-=======
     category: "Custodia",
     icon: UserSwitch,
->>>>>>> feature/rediseno-ui-sidebar-catalogo
     color: "#7C3AED",
     type: "asignaciones",
   },
   {
     to: "/incidencias/nueva",
     label: "Reportar una incidencia",
-<<<<<<< HEAD
-    icon: IconoirWarningTriangle,
-    color: "#EA580C",
-=======
     category: "Mantenimiento",
     icon: WarningDiamond,
     color: "#E85D04",
->>>>>>> feature/rediseno-ui-sidebar-catalogo
     type: "incidencias",
   },
   {
     to: "/informes",
     label: "Abrir informes",
-<<<<<<< HEAD
-    icon: IconoirReports,
-    color: "#059669",
-=======
     category: "Reportes",
     icon: ChartLineUp,
     color: "#00875A",
->>>>>>> feature/rediseno-ui-sidebar-catalogo
     type: "informes",
   },
 ];
