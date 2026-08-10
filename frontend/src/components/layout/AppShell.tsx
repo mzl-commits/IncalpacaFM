@@ -6,6 +6,7 @@ import {
   CaretDown,
   CaretLeft,
   ChartBar,
+  ChartLineUp,
   ClipboardText,
   DotsThree,
   Files,
@@ -24,7 +25,9 @@ import {
   Tag,
   Toolbox,
   UserCircle,
+  UserPlus,
   UsersThree,
+  WarningDiamond,
   Wrench,
   X,
 } from "@phosphor-icons/react";
@@ -171,9 +174,9 @@ const mobilePrimary: NavItem[] = [
 
 const quickActions: NavItem[] = [
   { to: "/bienes/entradas/nueva", label: "Registrar un bien", icon: Package },
-  { to: "/asignaciones/nueva", label: "Crear una asignación", icon: ClipboardText },
-  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: ListChecks },
-  { to: "/informes", label: "Abrir informes", icon: ChartBar },
+  { to: "/asignaciones/nueva", label: "Crear una asignación", icon: UserPlus },
+  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: WarningDiamond },
+  { to: "/informes", label: "Abrir informes", icon: ChartLineUp },
 ];
 
 function isGroupActive(pathname: string, paths: string[]) {
@@ -554,9 +557,9 @@ export function AppShell() {
           <nav aria-label="Acciones globales">
             {quickActions.map(({ to, label, icon: Icon }) => (
               <NavLink key={to} to={to} onClick={closeQuickMenu}>
-                <Icon size={22} weight="duotone" />
+                <Icon size={23} weight="bold" />
                 <span>{label}</span>
-                <ArrowRight size={18} />
+                <ArrowRight size={18} weight="bold" />
               </NavLink>
             ))}
           </nav>
