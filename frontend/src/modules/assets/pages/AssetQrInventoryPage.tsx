@@ -35,7 +35,7 @@ const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
 const FILTER_KEYS = ["q", "category", "assignment", "condition", "criticality"] as const;
 
 const PRINT_FORMATS = {
-  COMPACT: { label: "Compacta", detail: "36 × 25 mm", widthMm: 36, heightMm: 25, qrMm: 18, columns: 5, gapMm: 2, perPage: 35 },
+  COMPACT: { label: "Compacta", detail: "38 × 30 mm", widthMm: 38, heightMm: 30, qrMm: 20, columns: 5, gapMm: 1.5, perPage: 30 },
   STANDARD: { label: "Estándar", detail: "60 × 45 mm", widthMm: 60, heightMm: 45, qrMm: 32, columns: 3, gapMm: 4, perPage: 15 },
   LARGE: { label: "Grande", detail: "90 × 60 mm", widthMm: 90, heightMm: 60, qrMm: 44, columns: 2, gapMm: 4, perPage: 8 },
 } as const;
@@ -334,7 +334,7 @@ export function AssetQrInventoryPage() {
           border: 1px solid #9eabb9;
           overflow: hidden;
         }
-        img { width: ${format.qrMm}mm; height: ${format.qrMm}mm; }
+        img { display: block; flex: 0 0 ${format.qrMm}mm; width: ${format.qrMm}mm; height: ${format.qrMm}mm; object-fit: contain; }
         strong, span, small { display: block; }
         strong { margin: 1mm 0; font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 16}px; line-height: 1.15; }
         span { font-size: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 10 : 12}px; font-weight: 700; line-height: 1.2; }
