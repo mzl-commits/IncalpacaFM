@@ -52,6 +52,7 @@ export interface AssetEntryDraft {
   observations: string;
   taxonomyId: string;
   taxonomyPrefix: string;
+  fmCode: string;
   taxonomyVersion: string;
   taxonomySnapshot: AssetTaxonomySnapshot | null;
   assetType: string;
@@ -149,6 +150,7 @@ export const emptyAssetEntryDraft: AssetEntryDraft = {
   observations: "",
   taxonomyId: "",
   taxonomyPrefix: "",
+  fmCode: "",
   taxonomyVersion: "",
   taxonomySnapshot: null,
   assetType: "",

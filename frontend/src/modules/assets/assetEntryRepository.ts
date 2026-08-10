@@ -190,6 +190,7 @@ export async function registerAsset(draft: AssetEntryDraft): Promise<RegisteredA
   if (draft.serialNumber) form.append("serial_number", draft.serialNumber);
   form.append("condition", draft.condition);
   form.append("criticality", draft.criticality);
+  if (draft.fmCode.trim()) form.append("fm_code", draft.fmCode.trim().toUpperCase());
   if (!draft.classificationPending && draft.taxonomyId) form.append("taxonomy_id", draft.taxonomyId);
   if (!draft.locationPending && draft.locationId) form.append("location_id", draft.locationId);
   if (!draft.locationPending && draft.locationMapId) form.append("location_map_id", draft.locationMapId);
