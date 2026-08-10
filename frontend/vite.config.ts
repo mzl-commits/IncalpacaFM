@@ -43,6 +43,15 @@ export default defineConfig({
     },
   },
   build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@zxing")) {
+            return "vendor-zxing";
+          }
+        },
+      },
+    },
     rolldownOptions: {
       output: {
         codeSplitting: {
