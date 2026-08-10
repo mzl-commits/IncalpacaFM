@@ -110,7 +110,7 @@ export function DetailedReportsSection() {
   function exportCsv() {
     let headers: string[] = [];
     let rows: string[][] = [];
-    let filename = `reporte-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `reporte-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
 
     if (activeTab === "audit") {
       headers = ["Fecha", "Actor", "Acción", "Entidad", "ID Entidad", "IP"];

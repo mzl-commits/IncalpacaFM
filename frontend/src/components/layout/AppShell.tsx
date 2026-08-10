@@ -259,9 +259,6 @@ export function AppShell() {
     : supervisorMode
       ? []
       : mobilePrimary;
-  const visibleMobileSecondary = visibleGroups
-    .flatMap((group) => group.items)
-    .filter((item) => !visibleMobilePrimary.some((primary) => primary.to === item.to));
   const visibleQuickActions = technicianMode
     ? quickActions.filter((item) => item.to === "/incidencias/nueva")
     : supervisorMode

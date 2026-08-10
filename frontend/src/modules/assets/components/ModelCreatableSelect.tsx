@@ -1,4 +1,3 @@
-import { useId } from "react";
 import { WarningCircle } from "@phosphor-icons/react";
 import { useModelList } from "@/modules/taxonomy/modelQueries";
 
@@ -12,7 +11,6 @@ interface ModelCreatableSelectProps {
 }
 
 export function ModelCreatableSelect({
-  taxonomyId, // Retenido por compatibilidad con Props, aunque la nueva tabla es global
   value,
   onChange,
   error,

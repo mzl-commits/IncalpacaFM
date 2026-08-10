@@ -449,7 +449,7 @@ export function MaterialFormPage() {
                   <input
                     type="number"
                     min={0}
-                    value={(form as any).cantidad_total ?? 0}
+                    value={form.cantidad_total ?? 0}
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, cantidad_total: Number(e.target.value) }))
                     }

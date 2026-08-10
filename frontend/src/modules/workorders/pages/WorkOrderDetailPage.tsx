@@ -129,7 +129,7 @@ function getCorrectionSchedule(workOrder: WorkOrder): CorrectionSchedule | undef
     administratorNotes: typeof value.administratorNotes === "string" && value.administratorNotes.trim() ? value.administratorNotes : "Sin indicaciones adicionales.",
   };
 }
-function getValidationLabel(data: Record<string, unknown> | undefined, returnedLabel = "Devuelta") {
+function getValidationLabel(data: Record<string, unknown> | undefined) {
   if (!data || typeof data.approved !== "boolean") return "Sin validar";
   return data.approved ? "Aprobada" : "Devuelta";
 }

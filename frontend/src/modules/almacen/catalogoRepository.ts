@@ -7,7 +7,6 @@ import type {
   MaterialCreatePayload,
   PiezaBase,
   AltaPiezasSueltasPayload,
-  AltaEstuchePayload,
 } from "./types";
 
 // ─── Categorías ───────────────────────────────────────────────────────────────

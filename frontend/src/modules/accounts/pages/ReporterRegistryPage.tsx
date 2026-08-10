@@ -1,4 +1,3 @@
-import { UsersThree } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 import { ListFilterPanel } from "@/components/filters/ListFilterPanel";

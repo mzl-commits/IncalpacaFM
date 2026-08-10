@@ -154,6 +154,7 @@ export interface MaterialCreatePayload {
   precio?: string | number | null;
   tipo_control: TipoControl;
   control_individual: boolean;
+  cantidad_total?: number;
   // foto se envía aparte como FormData si existe
 }
 

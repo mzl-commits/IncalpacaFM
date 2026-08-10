@@ -352,7 +352,6 @@ export function AssetQrInventoryPage() {
         const code = document.createElement("strong");
         const name = document.createElement("span");
         const technicalCode = document.createElement("small");
-        const categoryText = document.createElement("small");
         const instruction = document.createElement("small");
 
         image.src = dataUrl;

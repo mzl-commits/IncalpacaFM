@@ -29,7 +29,7 @@ import {
 import { listRetirementRequests } from "@/modules/lifecycle/lifecycleRepository";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
-import { getWorkOrderStatusLabel, workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
+import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
 import {
   retirementStatusLabels,
   type RetirementRequest,

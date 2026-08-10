@@ -65,7 +65,7 @@ export function ReportIncidentModal({ onClose, prefilledAssetId, assignedAssets 
       });
       onClose();
       navigate("/incidencias");
-    } catch (err) {
+    } catch {
       setError("No se pudo registrar la solicitud. Inténtalo nuevamente.");
       setIsSubmitting(false);
     }
