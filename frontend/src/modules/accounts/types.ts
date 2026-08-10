@@ -17,6 +17,9 @@ export interface SystemUser {
   role: UserRole;
   workerCode?: string;
   specialtyId?: string;
+  dni?: string;
+  position?: string;
+  hourlyRate?: number | string;
   mustChangePassword?: boolean;
   active: boolean;
 }

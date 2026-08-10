@@ -26,6 +26,9 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     role = serializers.CharField(source="account_profile.role", read_only=True)
     specialty = serializers.CharField(source="account_profile.specialty", read_only=True)
+    dni = serializers.CharField(source="account_profile.dni", read_only=True)
+    position = serializers.CharField(source="account_profile.position", read_only=True)
+    hourly_rate = serializers.DecimalField(source="account_profile.hourly_rate", max_digits=10, decimal_places=2, read_only=True)
     must_change_password = serializers.BooleanField(
         source="account_profile.must_change_password", read_only=True
     )
@@ -40,6 +43,9 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "email",
             "role",
             "specialty",
+            "dni",
+            "position",
+            "hourly_rate",
             "must_change_password",
         )
 
