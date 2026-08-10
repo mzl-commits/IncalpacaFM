@@ -96,6 +96,8 @@ class Command(BaseCommand):
                 "worker_code": "tecnico",
                 "role": AccountProfile.Role.TECHNICIAN,
                 "specialty": "Mantenimiento eléctrico y mecánico",
+                "position": "Técnico especialista",
+                "hourly_rate": 32.50,
                 "must_change_password": False,
                 "active": True,
             },

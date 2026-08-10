@@ -146,13 +146,15 @@ class TechnicianSerializer(serializers.ModelSerializer):
     worker_code = serializers.CharField(source='account_profile.worker_code', max_length=40)
     dni = serializers.CharField(source='account_profile.dni', max_length=8, required=False, allow_blank=True)
     specialty = serializers.CharField(source='account_profile.specialty', max_length=100, allow_blank=True)
+    position = serializers.CharField(source='account_profile.position', max_length=100, allow_blank=True, required=False)
+    hourly_rate = serializers.DecimalField(source='account_profile.hourly_rate', max_digits=10, decimal_places=2, min_value=0, required=False)
     active = serializers.BooleanField(source='account_profile.active', required=False)
     temporary_password = serializers.CharField(write_only=True, min_length=10, required=False)
 
     class Meta:
         model = get_user_model()
         fields = (
-            'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'active', 'temporary_password',
+            'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'position', 'hourly_rate', 'active', 'temporary_password',
         )
 
     def validate_worker_code(self, value):
@@ -226,7 +228,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
             instance.account_profile.must_change_password = True
         instance.save()
         profile = instance.account_profile
-        for field in ('worker_code', 'specialty', 'active'):
+        for field in ('worker_code', 'specialty', 'position', 'hourly_rate', 'active'):
             if field in profile_data:
                 setattr(profile, field, profile_data[field])
         profile.save()
