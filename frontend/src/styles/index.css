@@ -3848,6 +3848,7 @@ td { padding: 13px 14px; }
 .routine-preview strong, .routine-preview span { display: block; }
 .routine-preview span { margin-top: 3px; color: var(--muted); font-size: 13px; }
 /* ============================================================
+<<<<<<< HEAD
    REDISEÑO UX/UI COMMAND PANEL / ACTION LAUNCHER (MODAL NUEVA ACCIÓN)
    ============================================================ */
 
@@ -3855,11 +3856,21 @@ td { padding: 13px 14px; }
   from {
     opacity: 0;
     transform: translateY(6px) scale(0.99);
+=======
+   REDISEÑO UX/UI COMMAND PALETTE / ACTION LAUNCHER (MODAL NUEVA ACCIÓN)
+   ============================================================ */
+
+@keyframes paletteEntry {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+>>>>>>> feature/rediseno-ui-sidebar-catalogo
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+<<<<<<< HEAD
 }
 
 @keyframes iconHeartbeat {
@@ -3878,6 +3889,8 @@ td { padding: 13px 14px; }
   100% {
     transform: scale(1.08);
   }
+=======
+>>>>>>> feature/rediseno-ui-sidebar-catalogo
 }
 
 .quick-actions-dialog {
@@ -3895,6 +3908,7 @@ td { padding: 13px 14px; }
 
 .quick-actions-dialog::backdrop {
   background: rgba(0, 0, 0, 0.45);
+<<<<<<< HEAD
   backdrop-filter: blur(1.5px);
 }
 
@@ -3903,16 +3917,40 @@ td { padding: 13px 14px; }
   max-width: calc(100vw - 32px);
   background: #FFFFFF;
   border: 1px solid #D8D8D8;
+=======
+  backdrop-filter: blur(2px);
+}
+
+.quick-actions-sheet {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  background: #FFFFFF;
+  border: 1px solid #DADADA;
+>>>>>>> feature/rediseno-ui-sidebar-catalogo
   border-radius: 10px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   overflow: hidden;
+<<<<<<< HEAD
   animation: modalEntry 200ms ease-out forwards;
 }
 
 /* HEADER */
 .quick-actions-header {
   padding: 22px 24px 18px 24px;
+=======
+  animation: paletteEntry 200ms ease-out forwards;
+}
+
+@media (max-width: 560px) {
+  .quick-actions-sheet {
+    width: calc(100vw - 24px);
+  }
+}
+
+/* HEADER */
+.quick-actions-header {
+  padding: 20px 22px 16px 22px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -3921,7 +3959,7 @@ td { padding: 13px 14px; }
 
 .quick-actions-header h2 {
   font-family: "Inter", sans-serif !important;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -3930,11 +3968,11 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-header p {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 1.45;
-  color: #666666;
-  margin: 4px 0 0 0;
+  line-height: 1.4;
+  color: #777777;
+  margin: 2px 0 0 0;
 }
 
 .quick-actions-header button {
@@ -3953,44 +3991,53 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-header button:hover {
-  background: #EEEEEE;
+  background: #F0F0F0;
 }
 
-/* VERTICAL LIST */
+/* VERTICAL SINGLE-CONTAINER LIST */
 .quick-actions-list {
   display: flex;
   flex-direction: column;
+  padding-bottom: 4px;
 }
 
 .quick-action-row {
   position: relative;
-  height: 68px;
-  padding: 0 20px;
+  height: 70px;
+  padding: 0 18px;
   display: grid;
-  grid-template-columns: 32px 1fr 32px;
+  grid-template-columns: 34px 1fr auto;
+  gap: 12px;
   align-items: center;
-  column-gap: 12px;
   background: #FFFFFF;
-  border-top: 1px solid #E5E5E5;
+  border-top: 1px solid #E8E8E8;
   text-decoration: none;
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease;
+  transition: background 180ms ease, transform 180ms ease;
 }
 
-/* ACCENT BAR ON HOVER */
-.quick-action-accent-bar {
+@media (max-width: 560px) {
+  .quick-action-row {
+    height: 72px;
+  }
+}
+
+/* ACCENT LINE ON HOVER */
+.quick-action-accent-line {
   position: absolute;
   left: 0;
-  top: 14px;
-  bottom: 14px;
+  top: calc(50% - 12px);
   width: 3px;
+  height: 24px;
   border-radius: 0 3px 3px 0;
   background: var(--action-color);
-  transform: scaleY(0);
-  transition: transform 180ms ease;
+  opacity: 0;
+  transform: scaleY(0.4);
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.quick-action-row:hover .quick-action-accent-bar {
+.quick-action-row:hover .quick-action-accent-line {
+  opacity: 1;
   transform: scaleY(1);
 }
 
@@ -3998,13 +4045,20 @@ td { padding: 13px 14px; }
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 180ms ease;
 }
 
-.quick-action-row:hover .quick-action-icon svg {
-  animation: iconHeartbeat 550ms ease-in-out forwards;
+.quick-action-row:hover .quick-action-icon {
+  transform: translateX(2px) scale(1.08);
 }
 
-.quick-action-label {
+.quick-action-text-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.quick-action-title {
   font-size: 14px;
   font-weight: 600;
   color: #111111;
@@ -4012,41 +4066,51 @@ td { padding: 13px 14px; }
   transition: color 180ms ease;
 }
 
+.quick-action-category {
+  font-size: 11px;
+  font-weight: 500;
+  color: #8A8A8A;
+  margin-top: 2px;
+  transition: color 180ms ease;
+}
+
 .quick-action-arrow {
-  width: 16px;
-  height: 16px;
   opacity: 0.35;
   color: #111111;
   justify-self: end;
   transition: transform 180ms ease, opacity 180ms ease, color 180ms ease;
 }
 
-/* HOVER TRANSFORMATION (ROW TO BLACK, TEXT TO WHITE, ICON RETAINS COLOR) */
+/* HOVER STATE (ROW TO BLACK, TEXT TO WHITE, ICON RETAINS FUNCTIONAL COLOR) */
 .quick-action-row:hover {
   background: #111111;
 }
 
-.quick-action-row:hover .quick-action-label {
+.quick-action-row:hover .quick-action-title {
   color: #FFFFFF;
+}
+
+.quick-action-row:hover .quick-action-category {
+  color: #BDBDBD;
 }
 
 .quick-action-row:hover .quick-action-arrow {
   opacity: 1;
   color: #FFFFFF;
-  transform: translateX(5px);
+  transform: translateX(4px);
 }
 
 .quick-action-row:active {
-  transform: scale(0.99);
+  transform: scale(0.995);
   transition: transform 80ms ease;
 }
 
 .quick-action-row:focus-visible {
-  outline: 2px solid #000000;
+  outline: 2px solid #111111;
   outline-offset: -2px;
 }
 
-/* PREFERS-REDUCED-MOTION ACCESSIBILITY */
+/* ACCESSIBILITY: PREFERS-REDUCED-MOTION */
 @media (prefers-reduced-motion: reduce) {
   .quick-actions-sheet,
   .quick-action-row,
