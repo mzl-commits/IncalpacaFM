@@ -3092,6 +3092,438 @@ td { padding: 13px 14px; }
 }
 
 /* ============================================================
+   REDISEÑO UX/UI PROFESIONAL DEL PANEL EJECUTIVO (INICIO)
+   ============================================================ */
+
+.dashboard-page {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 36px 48px 36px;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  color: #000000;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (min-width: 1440px) {
+  .dashboard-page {
+    padding-left: 44px;
+    padding-right: 44px;
+  }
+}
+
+/* ENCABEZADO */
+.dashboard-page .dashboard-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.dashboard-page .dashboard-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: #000000;
+  margin: 0;
+  font-family: "Inter", sans-serif !important;
+}
+
+.dashboard-page .dashboard-description {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #666666;
+  margin: 6px 0 0 0;
+}
+
+.dashboard-page .dashboard-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* FRANJA EJECUTIVA (ESTADO GENERAL) */
+.dashboard-page .executive-banner {
+  background: #FFFFFF;
+  border: 1px solid #D8D8D8;
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 2.6fr);
+  align-items: center;
+  gap: 32px;
+  box-shadow: none !important;
+}
+
+@media (max-width: 900px) {
+  .dashboard-page .executive-banner {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.dashboard-page .banner-coverage-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-page .banner-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #000000;
+}
+
+.dashboard-page .banner-big-number {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: #000000;
+  margin-top: 4px;
+}
+
+.dashboard-page .banner-progress-track {
+  width: 100%;
+  height: 6px;
+  background: #E5E5E5;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px 0 8px 0;
+}
+
+.dashboard-page .banner-progress-fill {
+  height: 100%;
+  background: #000000;
+  border-radius: 3px;
+  transition: width 300ms ease;
+}
+
+.dashboard-page .banner-subtext {
+  font-size: 13px;
+  font-weight: 400;
+  color: #666666;
+}
+
+.dashboard-page .banner-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+@media (max-width: 600px) {
+  .dashboard-page .banner-kpis-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.dashboard-page .banner-kpi-item {
+  padding: 0 24px;
+  border-left: 1px solid #E5E5E5;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 600px) {
+  .dashboard-page .banner-kpi-item {
+    padding: 0;
+    border-left: none;
+    border-top: 1px solid #E5E5E5;
+    padding-top: 14px;
+  }
+}
+
+.dashboard-page .kpi-item-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #000000;
+}
+
+.dashboard-page .kpi-item-number {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #000000;
+  margin-top: 6px;
+}
+
+.dashboard-page .kpi-item-sub {
+  font-size: 12px;
+  font-weight: 400;
+  color: #666666;
+  margin-top: 4px;
+}
+
+/* MAIN GRID: PRIORIDADES + ACCIONES RÁPIDAS */
+.dashboard-page .dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  gap: 20px;
+}
+
+@media (max-width: 960px) {
+  .dashboard-page .dashboard-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* PRIORIDADES DE HOY PANEL */
+.dashboard-page .priorities-panel {
+  background: #FFFFFF;
+  border: 1px solid #D8D8D8;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.dashboard-page .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #E5E5E5;
+}
+
+.dashboard-page .panel-title {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #000000;
+  margin: 0;
+}
+
+.dashboard-page .panel-badge-counter {
+  font-size: 12px;
+  font-weight: 600;
+  color: #000000;
+  background: #EEEEEE;
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
+.dashboard-page .priorities-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-page .priority-row {
+  height: 62px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #E5E5E5;
+  text-decoration: none;
+  color: #000000;
+  transition: background 150ms ease;
+}
+
+.dashboard-page .priority-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-page .priority-row:hover {
+  background: #F1F1F1;
+}
+
+.dashboard-page .priority-number {
+  width: 44px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #000000;
+  flex-shrink: 0;
+}
+
+.dashboard-page .priority-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.dashboard-page .priority-arrow {
+  color: #000000;
+  flex-shrink: 0;
+}
+
+.dashboard-page .priority-empty-row {
+  padding: 24px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000000;
+}
+
+/* ACCIONES RÁPIDAS EN MATRIZ 2x2 */
+.dashboard-page .quick-actions-panel {
+  background: #FFFFFF;
+  border: 1px solid #D8D8D8;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.dashboard-page .actions-matrix {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.dashboard-page .action-matrix-item {
+  min-height: 84px;
+  padding: 16px 18px;
+  background: #FFFFFF;
+  border-right: 1px solid #E5E5E5;
+  border-bottom: 1px solid #E5E5E5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  color: #000000;
+  transition: background 150ms ease;
+}
+
+.dashboard-page .action-matrix-item:nth-child(2n) {
+  border-right: none;
+}
+
+.dashboard-page .action-matrix-item:nth-child(3),
+.dashboard-page .action-matrix-item:nth-child(4) {
+  border-bottom: none;
+}
+
+.dashboard-page .action-matrix-item:hover {
+  background: #F1F1F1;
+}
+
+.dashboard-page .action-matrix-item svg {
+  color: #000000;
+}
+
+.dashboard-page .action-matrix-item span {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #000000;
+  line-height: 1.2;
+}
+
+/* ACTIVIDAD RECIENTE PANEL */
+.dashboard-page .activity-panel {
+  background: #FFFFFF;
+  border: 1px solid #D8D8D8;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.dashboard-page .panel-time-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: #666666;
+}
+
+.dashboard-page .activity-list-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dashboard-page .activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.dashboard-page .activity-table td {
+  height: 56px;
+  padding: 0 20px;
+  border-bottom: 1px solid #E5E5E5;
+  vertical-align: middle;
+  color: #000000;
+}
+
+.dashboard-page .activity-table tr:last-child td {
+  border-bottom: none;
+}
+
+.dashboard-page .activity-table tr:nth-child(odd) td {
+  background: #FFFFFF;
+}
+
+.dashboard-page .activity-table tr:nth-child(even) td {
+  background: #F9F9F9;
+}
+
+.dashboard-page .activity-table tr:hover td {
+  background: #EEEEEE !important;
+}
+
+.dashboard-page .activity-title-cell {
+  width: 220px;
+}
+
+.dashboard-page .activity-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.dashboard-page .activity-detail-cell {
+  font-size: 13px;
+  font-weight: 500;
+  color: #000000;
+}
+
+.dashboard-page .activity-date-cell {
+  width: 120px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #666666;
+}
+
+.dashboard-page .activity-action-cell {
+  width: 40px;
+  text-align: right;
+}
+
+.dashboard-page .activity-row-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #000000;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.dashboard-page .activity-row-btn:hover {
+  background: #E5E5E5;
+}
+
+.dashboard-page .activity-empty-state {
+  padding: 28px 20px;
+  font-size: 14px;
+  color: #666666;
+  text-align: center;
+}
+
+/* ============================================================
    SISTEMA REUTILIZABLE DE FILAS INTERCALADAS (ZEBRA STRIPING)
    ============================================================ */
 
