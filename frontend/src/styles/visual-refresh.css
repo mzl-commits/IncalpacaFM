@@ -412,6 +412,7 @@ tbody tr:hover td { background: #f8f8f8; }
 .asset-detail-photo-empty { display: grid; min-height: 150px; place-items: center; align-content: center; gap: 8px; color: var(--muted); font-size: 0.8rem; }
 .asset-master-icon { overflow: hidden; }
 .asset-master-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.location-marker-stage:disabled { cursor: default; opacity: 1; }
 .user-dashboard-error { display: flex; align-items: center; gap: 10px; }
 .user-dashboard-error span { flex: 1; }
 .supervisor-review-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0; color: var(--muted); font-size: 0.82rem; }

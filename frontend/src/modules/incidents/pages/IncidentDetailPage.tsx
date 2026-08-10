@@ -12,6 +12,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { currentUser } from "@/modules/accounts/currentUser";
+import { LocationMarkerPicker } from "@/modules/assets/components/LocationMarkerPicker";
+import { useLocations } from "@/modules/assets/locationMapQueries";
 import {
   requestPriorityLabels,
   requestStatusLabels,
@@ -76,6 +78,7 @@ export function IncidentDetailPage() {
   const { id } = useParams();
 
   const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
+  const locationsQuery = useLocations();
   useEffect(() => {
     if (id) void getWorkRequestById(id).then(setRequest);
   }, [id]);
@@ -379,6 +382,10 @@ export function IncidentDetailPage() {
               </dd>
             </div>
           </dl>
+          {(() => {
+            const location = locationsQuery.data?.find((item) => item.id === request.locationId);
+            return location?.activeMap ? <LocationMarkerPicker locationName={`${location.building} / ${location.room}`} locationMap={location.activeMap} markerX={request.locationMarkerX ?? null} markerY={request.locationMarkerY ?? null} subjectLabel="incidente" readOnly onChange={() => undefined} /> : null;
+          })()}
         </article>
 
         <article className="data-panel detail-card">
