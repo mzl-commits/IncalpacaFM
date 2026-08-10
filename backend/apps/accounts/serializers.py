@@ -8,6 +8,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import AccountProfile
 
+def normalize_employee_dni(value):
+    digits = "".join(char for char in str(value or "") if char.isdigit())
+    if len(digits) != 8:
+        raise serializers.ValidationError("El DNI debe tener 8 dígitos.")
+    return digits
+
+def notify_duplicate(subject, body, discriminator):
+    from apps.notifications.services import queue_for_administrators
+    queue_for_administrators(event="DUPLICATE_WORKER_IDENTITY", subject=subject, body=body, discriminator=discriminator)
+
 
 class CurrentUserSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source="account_profile.id", read_only=True)
@@ -44,12 +54,20 @@ class LoginSerializer(serializers.Serializer):
     @transaction.atomic
     def validate(self, attrs):
         now = timezone.now()
+        worker_code = attrs["worker_code"].strip().upper()
+        duplicate_profiles = AccountProfile.objects.filter(worker_code__iexact=worker_code, active=True, user__is_active=True)
+        if duplicate_profiles.count() > 1:
+            notify_duplicate("Código de trabajador duplicado detectado", f"Se detectaron varios perfiles activos con el código {worker_code} durante un acceso.", f"login-worker:{worker_code}")
+            raise serializers.ValidationError("No se puede validar este código. Contacta al administrador.")
         try:
             profile = AccountProfile.objects.select_for_update().select_related("user").get(
-                worker_code=attrs["worker_code"], active=True, user__is_active=True
+                worker_code__iexact=worker_code, active=True, user__is_active=True
             )
         except AccountProfile.DoesNotExist as exc:
             raise serializers.ValidationError("Credenciales inválidas.") from exc
+
+        if profile.dni and AccountProfile.objects.filter(dni=profile.dni).exclude(pk=profile.pk).exists():
+            notify_duplicate("DNI duplicado detectado en acceso", f"El DNI {profile.dni} está asociado a más de un perfil.", f"login-dni:{profile.dni}")
 
         if profile.blocked_until and profile.blocked_until > now:
             raise serializers.ValidationError(
@@ -126,6 +144,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(max_length=160, write_only=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     worker_code = serializers.CharField(source='account_profile.worker_code', max_length=40)
+    dni = serializers.CharField(source='account_profile.dni', max_length=8, required=False, allow_blank=True)
     specialty = serializers.CharField(source='account_profile.specialty', max_length=100, allow_blank=True)
     active = serializers.BooleanField(source='account_profile.active', required=False)
     temporary_password = serializers.CharField(write_only=True, min_length=10, required=False)
@@ -133,16 +152,31 @@ class TechnicianSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
         fields = (
-            'id', 'full_name', 'email', 'worker_code', 'specialty', 'active', 'temporary_password',
+            'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'active', 'temporary_password',
         )
 
     def validate_worker_code(self, value):
+        value = value.strip().upper()
         queryset = AccountProfile.objects.filter(worker_code__iexact=value)
         if self.instance:
             queryset = queryset.exclude(user=self.instance)
         if queryset.exists():
             raise serializers.ValidationError('Este código de trabajador ya está registrado.')
-        return value.strip()
+        return value
+
+    def validate_dni(self, value):
+        if not str(value or '').strip():
+            return ''
+        value = normalize_employee_dni(value)
+        queryset = AccountProfile.objects.filter(dni=value)
+        if self.instance:
+            queryset = queryset.exclude(user=self.instance)
+        if queryset.exists():
+            notify_duplicate("Intento de código de trabajador duplicado", f"El código {value} ya está registrado.", f"register-worker:{value}")
+        if queryset.exists():
+            notify_duplicate("Intento de DNI duplicado", f"El DNI {value} ya está registrado en otro perfil.", f"register-dni:{value}")
+            raise serializers.ValidationError("Este DNI ya está registrado en otro perfil.")
+        return value
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

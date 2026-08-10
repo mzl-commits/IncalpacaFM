@@ -17,6 +17,7 @@ class AccountProfile(models.Model):
         get_user_model(), related_name="account_profile", on_delete=models.CASCADE
     )
     worker_code = models.CharField(max_length=40, unique=True)
+    dni = models.CharField(max_length=8, blank=True, default="", db_index=True)
     role = models.CharField(max_length=20, choices=Role.choices)
     specialty = models.CharField(max_length=100, blank=True)
     must_change_password = models.BooleanField(default=True)

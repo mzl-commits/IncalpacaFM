@@ -5,6 +5,7 @@ export type Technician = {
   full_name: string;
   email: string;
   worker_code: string;
+  dni: string;
   specialty: string;
   active: boolean;
 };
