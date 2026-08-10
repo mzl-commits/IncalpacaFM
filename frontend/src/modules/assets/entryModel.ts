@@ -94,6 +94,7 @@ export interface RegisteredAsset {
   fmCode: string | null;
   publicToken: string;
   publicUrl: string;
+  photoUrl: string | null;
   qrDataUrl: string;
   createdAt: string;
   createdBy: string;

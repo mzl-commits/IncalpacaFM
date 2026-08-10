@@ -258,7 +258,7 @@ export function AssetInventoryPage() {
           {!isLoading && filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((asset) => (
             <Link to={`/bienes/${asset.id}`} key={asset.id} className="asset-master-row">
               <div className="asset-master-icon">
-                <Package />
+                {asset.photoUrl ? <img src={asset.photoUrl} alt="" /> : <Package />}
               </div>
               <div>
                 <strong>{asset.draft.name}</strong>

@@ -67,6 +67,7 @@ function mapAsset(item: AssetApiRecord): RegisteredAsset {
     fmCode: item.fm_code ?? (item.display_code && item.display_code !== item.code ? item.display_code : null),
     publicToken: item.public_token,
     publicUrl: item.public_url,
+    photoUrl: item.photo_url ?? null,
     qrDataUrl: "",
     createdAt: item.created_at,
     createdBy: item.registered_by_name,
