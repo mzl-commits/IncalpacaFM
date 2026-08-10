@@ -22,14 +22,14 @@ class AssignmentListView(generics.ListAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
     serializer_class = AssignmentSerializer
     queryset = AssetAssignment.objects.select_related(
-        'asset', 'responsible', 'location', 'delivery_act').order_by('-start_date')
+        'asset', 'asset__location_map', 'responsible', 'location', 'delivery_act').order_by('-start_date')
 
 
 class AssignmentDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
     serializer_class = AssignmentSerializer
     queryset = AssetAssignment.objects.select_related(
-        'asset', 'responsible', 'location', 'delivery_act').prefetch_related(
+        'asset', 'asset__location_map', 'responsible', 'location', 'delivery_act').prefetch_related(
         'delivery_act__evidence', 'delivery_act__signatures',
         'asset__assignments__responsible', 'asset__assignments__location',
         'asset__repair_records')
