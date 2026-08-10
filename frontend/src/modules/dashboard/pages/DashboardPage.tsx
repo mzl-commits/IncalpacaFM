@@ -28,6 +28,9 @@ import {
   type AssignmentRecord,
 } from "@/modules/assignments/assignmentRepository";
 import { listRetirementRequests } from "@/modules/lifecycle/lifecycleRepository";
+import { listMateriales } from "@/modules/almacen/catalogoRepository";
+import { listTechnicians } from "@/modules/accounts/technicianRepository";
+import { listWorkRequests } from "@/modules/incidents/incidentRepository";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
@@ -42,6 +45,10 @@ type DashboardData = {
   assets: RegisteredAsset[];
   assignments: AssignmentRecord[];
   retirementRequests: RetirementRequest[];
+  workOrders: Awaited<ReturnType<typeof listWorkOrders>>;
+  workRequests: Awaited<ReturnType<typeof listWorkRequests>>;
+  technicians: Awaited<ReturnType<typeof listTechnicians>>;
+  materials: Awaited<ReturnType<typeof listMateriales>>;
 };
 
 type ActivityItem = {
@@ -57,6 +64,10 @@ const emptyData: DashboardData = {
   assets: [],
   assignments: [],
   retirementRequests: [],
+  workOrders: [],
+  workRequests: [],
+  technicians: [],
+  materials: [],
 };
 
 function formatDate(value: string) {
@@ -187,11 +198,15 @@ function AdministrativeDashboard() {
     setLoading(true);
     setError("");
 
-    const [assetsResult, assignmentsResult, retirementResult] =
+    const [assetsResult, assignmentsResult, retirementResult, workOrdersResult, workRequestsResult, techniciansResult, materialsResult] =
       await Promise.allSettled([
         listRegisteredAssets(),
         listAssignments(),
         listRetirementRequests(),
+        listWorkOrders(),
+        listWorkRequests(),
+        listTechnicians(),
+        listMateriales(),
       ]);
 
     const nextData: DashboardData = {
@@ -207,12 +222,20 @@ function AdministrativeDashboard() {
         retirementResult.status === "fulfilled"
           ? retirementResult.value
           : [],
+      workOrders: workOrdersResult.status === "fulfilled" ? workOrdersResult.value : [],
+      workRequests: workRequestsResult.status === "fulfilled" ? workRequestsResult.value : [],
+      technicians: techniciansResult.status === "fulfilled" ? techniciansResult.value : [],
+      materials: materialsResult.status === "fulfilled" ? materialsResult.value : [],
     };
 
     const failedSources = [
       assetsResult.status === "rejected" && "bienes",
       assignmentsResult.status === "rejected" && "asignaciones",
       retirementResult.status === "rejected" && "ciclo de vida",
+      workOrdersResult.status === "rejected" && "órdenes de trabajo",
+      workRequestsResult.status === "rejected" && "reportes",
+      techniciansResult.status === "rejected" && "técnicos",
+      materialsResult.status === "rejected" && "stock",
     ].filter(Boolean);
 
     setData(nextData);
@@ -256,6 +279,10 @@ function AdministrativeDashboard() {
     const assignmentCoverage = data.assets.length
       ? Math.round((assignedAssets / data.assets.length) * 100)
       : 0;
+    const lowStock = data.materials.filter((material) => !material.control_individual && material.cantidad_total <= 5).length;
+    const activeOrders = data.workOrders.filter((order) => !["CERRADA", "CANCELADA"].includes(order.status)).length;
+    const pendingReports = data.workRequests.filter((request) => !["CERRADA", "CANCELADA"].includes(request.status)).length;
+    const unassignedTechnicians = data.technicians.filter((technician) => technician.active).length;
 
     return {
       assignedAssets,
@@ -264,6 +291,10 @@ function AdministrativeDashboard() {
       pendingReview,
       pendingDisposal,
       assignmentCoverage,
+      lowStock,
+      activeOrders,
+      pendingReports,
+      technicianCount: unassignedTechnicians,
     };
   }, [data]);
 
@@ -314,7 +345,7 @@ function AdministrativeDashboard() {
       .slice(0, 6);
   }, [data]);
 
-  const totalPendientes = summary.pendingDisposal + summary.pendingReview + summary.unassignedAssets;
+  const totalPendientes = summary.pendingDisposal + summary.pendingReview + summary.unassignedAssets + summary.lowStock + summary.pendingReports;
 
   return (
     <div className="dashboard-page">
@@ -412,6 +443,16 @@ function AdministrativeDashboard() {
           </section>
 
           {/* MAIN GRID: PRIORIDADES DE HOY + ACCIONES RÁPIDAS */}
+          <section className="platform-overview" aria-labelledby="platform-overview-title">
+            <header className="platform-overview-header"><div><h2 id="platform-overview-title">Vista general de la plataforma</h2><p>Alertas y carga operativa de cada frente de Facility Management.</p></div><span>{totalPendientes} alertas activas</span></header>
+            <div className="platform-overview-grid">
+              <Link to="/almacen/catalogo" className={`platform-overview-item ${summary.lowStock ? "is-alert" : ""}`}><Package size={22} /><div><strong>Stock</strong><small>{summary.lowStock ? `${summary.lowStock} materiales bajo mínimo` : "Niveles dentro del mínimo"}</small></div><b>{summary.lowStock}</b></Link>
+              <Link to="/incidencias" className={`platform-overview-item ${summary.pendingReports ? "is-alert" : ""}`}><WarningCircle size={22} /><div><strong>Reportes</strong><small>{summary.pendingReports} solicitudes abiertas</small></div><b>{summary.pendingReports}</b></Link>
+              <Link to="/ordenes-trabajo" className="platform-overview-item"><Wrench size={22} /><div><strong>Órdenes de trabajo</strong><small>En curso o programadas</small></div><b>{summary.activeOrders}</b></Link>
+              <Link to="/administracion/tecnicos" className="platform-overview-item"><Clock size={22} /><div><strong>Equipo técnico</strong><small>Perfiles activos disponibles</small></div><b>{summary.technicianCount}</b></Link>
+            </div>
+          </section>
+
           <div className="dashboard-main-grid">
             {/* PRIORIDADES DE HOY */}
             <section className="priorities-panel" aria-labelledby="priorities-panel-title">
