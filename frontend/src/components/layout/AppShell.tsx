@@ -1,10 +1,12 @@
 import {
   ArrowRight,
+  ArrowUpRight,
   Barcode,
   CalendarBlank,
   CaretLeft,
   ChartBar,
   ChartLineUp,
+  ChartPieSlice,
   ClipboardText,
   Cube,
   CubeFocus,
@@ -20,11 +22,13 @@ import {
   Plus,
   ShieldCheck,
   SignOut,
+  Siren,
   SquaresFour,
   TreeStructure,
   Tag,
   Toolbox,
   UserCircle,
+  UserPlus,
   UserSwitch,
   UsersThree,
   WarningCircle,
@@ -177,28 +181,28 @@ const quickActions: QuickActionItem[] = [
   {
     to: "/bienes/entradas/nueva",
     label: "Registrar un bien",
-    icon: CubeFocus,
+    icon: Toolbox,
     color: "#2563EB",
     type: "bienes",
   },
   {
     to: "/asignaciones/nueva",
     label: "Crear una asignación",
-    icon: UserSwitch,
+    icon: UserPlus,
     color: "#7C3AED",
     type: "asignaciones",
   },
   {
     to: "/incidencias/nueva",
     label: "Reportar una incidencia",
-    icon: WarningDiamond,
-    color: "#EA580C",
+    icon: Siren,
+    color: "#E85D04",
     type: "incidencias",
   },
   {
     to: "/informes",
     label: "Abrir informes",
-    icon: ChartLineUp,
+    icon: ChartPieSlice,
     color: "#059669",
     type: "informes",
   },
@@ -564,7 +568,7 @@ export function AppShell() {
               <p>Selecciona una tarea para continuar.</p>
             </div>
             <button type="button" aria-label="Cerrar" onClick={closeQuickMenu}>
-              <X size={20} />
+              <X size={22} />
             </button>
           </header>
 
@@ -575,14 +579,14 @@ export function AppShell() {
                 to={to}
                 className={`quick-action-card action-type-${type}`}
                 onClick={closeQuickMenu}
-                style={{ "--action-color": color, "--stagger-delay": `${(index + 1) * 30}ms` } as React.CSSProperties}
+                style={{ "--action-color": color, "--stagger-delay": `${(index + 1) * 40}ms` } as React.CSSProperties}
               >
                 <span className="quick-action-top-accent" />
                 <div className="quick-action-icon-box">
-                  <Icon size={32} weight="duotone" color={color} />
+                  <Icon size={40} weight="duotone" color={color} />
                 </div>
                 <span className="quick-action-label">{label}</span>
-                <ArrowRight size={20} className="quick-action-arrow" />
+                <ArrowUpRight size={22} className="quick-action-arrow" />
               </NavLink>
             ))}
           </nav>
