@@ -4,7 +4,9 @@ import {
   CalendarBlank,
   CaretLeft,
   ChartBar,
+  ChartLineUp,
   ClipboardText,
+  Cube,
   DotsThree,
   Files,
   GearSix,
@@ -22,8 +24,10 @@ import {
   Tag,
   Toolbox,
   UserCircle,
+  UserSwitch,
   UsersThree,
   WarningCircle,
+  WarningDiamond,
   Wrench,
   X,
 } from "@phosphor-icons/react";
@@ -151,26 +155,18 @@ const modules: ModuleGroup[] = [
   },
 ];
 
-const mobilePrimary: NavItem[] = [
+const railItems: NavItem[] = [
   { to: "/", label: "Inicio", icon: House, end: true },
   { to: "/bienes", label: "Bienes", icon: ListDashes, end: true },
   { to: "/mapa", label: "Mapa", icon: MapTrifold, end: true },
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
 
-import {
-  ArrowRight as IconoirArrowRight,
-  Package as IconoirPackage,
-  Reports as IconoirReports,
-  UserPlus as IconoirUserPlus,
-  WarningTriangle as IconoirWarningTriangle,
-  Xmark as IconoirXmark,
-} from "iconoir-react";
-
 interface QuickActionItem {
   to: string;
   label: string;
-  icon: React.ComponentType<{ width?: number; height?: number; color?: string; className?: string }>;
+  category: string;
+  icon: React.ComponentType<{ size?: number; weight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone"; color?: string; className?: string }>;
   color: string;
   type: string;
 }
@@ -179,29 +175,33 @@ const quickActions: QuickActionItem[] = [
   {
     to: "/bienes/entradas/nueva",
     label: "Registrar un bien",
-    icon: IconoirPackage,
+    category: "Activos",
+    icon: Cube,
     color: "#2563EB",
     type: "bienes",
   },
   {
     to: "/asignaciones/nueva",
     label: "Crear una asignación",
-    icon: IconoirUserPlus,
+    category: "Custodia",
+    icon: UserSwitch,
     color: "#7C3AED",
     type: "asignaciones",
   },
   {
     to: "/incidencias/nueva",
     label: "Reportar una incidencia",
-    icon: IconoirWarningTriangle,
-    color: "#EA580C",
+    category: "Mantenimiento",
+    icon: WarningDiamond,
+    color: "#E85D04",
     type: "incidencias",
   },
   {
     to: "/informes",
     label: "Abrir informes",
-    icon: IconoirReports,
-    color: "#059669",
+    category: "Reportes",
+    icon: ChartLineUp,
+    color: "#00875A",
     type: "informes",
   },
 ];
@@ -563,15 +563,15 @@ export function AppShell() {
           <header className="quick-actions-header">
             <div>
               <h2 id="quick-actions-title">Nueva acción</h2>
-              <p>Selecciona qué deseas realizar.</p>
+              <p>¿Qué deseas hacer?</p>
             </div>
             <button type="button" aria-label="Cerrar" onClick={closeQuickMenu}>
-              <IconoirXmark width={18} height={18} />
+              <X size={18} />
             </button>
           </header>
 
           <nav className="quick-actions-list" aria-label="Acciones globales">
-            {quickActions.map(({ to, label, icon: Icon, type, color }) => (
+            {quickActions.map(({ to, label, category, icon: Icon, type, color }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -579,12 +579,15 @@ export function AppShell() {
                 onClick={closeQuickMenu}
                 style={{ "--action-color": color } as React.CSSProperties}
               >
-                <span className="quick-action-accent-bar" />
+                <span className="quick-action-accent-line" />
                 <div className="quick-action-icon">
-                  <Icon width={22} height={22} color={color} />
+                  <Icon size={24} weight="duotone" color={color} />
                 </div>
-                <span className="quick-action-label">{label}</span>
-                <IconoirArrowRight width={16} height={16} className="quick-action-arrow" />
+                <div className="quick-action-text-block">
+                  <span className="quick-action-title">{label}</span>
+                  <span className="quick-action-category">{category}</span>
+                </div>
+                <ArrowRight size={16} className="quick-action-arrow" />
               </NavLink>
             ))}
           </nav>
