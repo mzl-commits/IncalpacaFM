@@ -155,12 +155,14 @@ const modules: ModuleGroup[] = [
   },
 ];
 
-const railItems: NavItem[] = [
+const mobilePrimary: NavItem[] = [
   { to: "/", label: "Inicio", icon: House, end: true },
   { to: "/bienes", label: "Bienes", icon: ListDashes, end: true },
   { to: "/mapa", label: "Mapa", icon: MapTrifold, end: true },
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
+
+const railItems = mobilePrimary;
 
 interface QuickActionItem {
   to: string;
