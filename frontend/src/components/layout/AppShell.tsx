@@ -102,6 +102,14 @@ const groups: Array<{
     ],
   },
   {
+    id: "requester",
+    label: "Mis solicitudes",
+    icon: ListChecks,
+    paths: ["/incidencias"],
+    roles: ["SOLICITANTE"],
+    items: [{ to: "/incidencias", label: "Mis reportes", icon: ListChecks, end: true }],
+  },
+  {
     id: "team",
     label: "Equipo",
     icon: UsersThree,
@@ -225,7 +233,7 @@ export function AppShell() {
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
-  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : "Administrador / Planner";
+  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : user?.role === "SOLICITANTE" ? "Usuario solicitante" : "Administrador / Planner";
   const initials =
     user?.fullName
       .split(" ")
@@ -235,10 +243,13 @@ export function AppShell() {
       .toUpperCase() || "SG";
   const technicianMode = user?.role === "TECNICO";
   const supervisorMode = user?.role === "SUPERVISOR";
+  const requesterMode = user?.role === "SOLICITANTE";
   const roleGroups = groups.filter(
     (group) => !group.roles || Boolean(user && group.roles.includes(user.role)),
   );
-  const visibleGroups = supervisorMode
+  const visibleGroups = requesterMode
+    ? roleGroups.filter((group) => group.id === "requester")
+    : supervisorMode
     ? roleGroups.filter((group) => group.id === "operations").map((group) => ({ ...group, items: group.items.filter((item) => item.to === "/supervision") }))
     : technicianMode
       ? roleGroups
@@ -254,12 +265,16 @@ export function AppShell() {
             ),
           }))
       : roleGroups;
-  const visibleMobilePrimary = technicianMode
+  const visibleMobilePrimary = requesterMode
+    ? mobilePrimary.filter((item) => item.to === "/")
+    : technicianMode
     ? mobilePrimary.filter((item) => item.to === "/")
     : supervisorMode
       ? []
       : mobilePrimary;
-  const visibleQuickActions = technicianMode
+  const visibleQuickActions = requesterMode
+    ? []
+    : technicianMode
     ? quickActions.filter((item) => item.to === "/incidencias/nueva")
     : supervisorMode
       ? []

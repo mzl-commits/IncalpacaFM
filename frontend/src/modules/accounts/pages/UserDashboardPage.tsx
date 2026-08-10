@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowClockwise, IdentificationBadge, MapPin, Package, ShieldCheck, WarningCircle, Wrench } from "@phosphor-icons/react";
 
 import { ReportIncidentModal } from "@/modules/incidents/components/ReportIncidentModal";
+import { getWorkRequestAssetDisplayCode, listWorkRequests } from "@/modules/incidents/incidentRepository";
+import { requestStatusLabels, requestTypeLabels } from "@/modules/incidents/incidentModel";
 import { fetchUserDashboard } from "../api/userDashboardApi";
 
 export default function UserDashboardPage() {
@@ -14,6 +16,10 @@ export default function UserDashboardPage() {
     queryKey: ["userDashboard"],
     queryFn: fetchUserDashboard,
   });
+  const reportsQuery = useQuery({ queryKey: ["myReports"], queryFn: listWorkRequests });
+  const reports = reportsQuery.data ?? [];
+  const activeReports = reports.filter((report) => !["RECHAZADA", "CONVERTIDA_EN_OT"].includes(report.status));
+  const pastReports = reports.filter((report) => ["RECHAZADA", "CONVERTIDA_EN_OT"].includes(report.status));
 
   const handleReportIssue = (assetId?: string) => {
     setPrefilledAssetId(assetId ?? null);
@@ -90,10 +96,25 @@ export default function UserDashboardPage() {
               </div>
             )}
           </section>
+
+          <section className="user-reports-section">
+            <header className="dashboard-section-heading">
+              <div><h2>Mis reportes</h2><p>Consulta el estado de tus solicitudes y su historial.</p></div>
+              <button className="button button-secondary button-sm" type="button" onClick={() => handleReportIssue()}>Nuevo reporte</button>
+            </header>
+            {reportsQuery.isLoading ? <div className="data-panel user-reports-loading">Cargando tus reportes…</div> : reportsQuery.isError ? <div className="dashboard-partial-error" role="alert"><WarningCircle size={18} /><span>No se pudieron cargar tus reportes.</span><button className="button button-secondary button-sm" type="button" onClick={() => void reportsQuery.refetch()}>Reintentar</button></div> : <>
+              <div className="user-report-group"><h3>En seguimiento <span>{activeReports.length}</span></h3>{activeReports.length ? activeReports.map((report) => <ReportRow key={report.id} report={report} />) : <div className="data-panel user-report-empty">No tienes reportes activos.</div>}</div>
+              <div className="user-report-group"><h3>Reportes pasados <span>{pastReports.length}</span></h3>{pastReports.length ? pastReports.map((report) => <ReportRow key={report.id} report={report} />) : <div className="data-panel user-report-empty">Aquí aparecerán tus reportes cerrados o rechazados.</div>}</div>
+            </>}
+          </section>
         </>
       )}
 
       {isReportModalOpen && <ReportIncidentModal onClose={() => { setIsReportModalOpen(false); setPrefilledAssetId(null); }} prefilledAssetId={prefilledAssetId} assignedAssets={data?.assigned_assets} />}
     </section>
   );
+}
+
+function ReportRow({ report }: { report: Awaited<ReturnType<typeof listWorkRequests>>[number] }) {
+  return <article className="data-panel user-report-row"><div><strong>{report.code}</strong><span>{requestTypeLabels[report.requestType]} · {getWorkRequestAssetDisplayCode(report) || "Sin bien asociado"}</span><small>{report.description}</small></div><div className={`status status-${report.status === "RECHAZADA" ? "error" : report.status === "CONVERTIDA_EN_OT" ? "success" : "warning"}`}>{requestStatusLabels[report.status]}</div><Link className="button button-secondary button-sm" to={`/incidencias/${report.id}`}>Ver reporte</Link></article>;
 }
