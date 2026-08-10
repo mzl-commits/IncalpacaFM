@@ -20,7 +20,7 @@ interface LocationMarkerPickerProps {
 }
 
 function clamp(value: number) {
-  return Math.min(1, Math.max(0, value));
+  return Number(Math.min(1, Math.max(0, value)).toFixed(8));
 }
 
 export function LocationMarkerPicker({
