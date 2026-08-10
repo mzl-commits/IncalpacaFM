@@ -23,6 +23,7 @@ import {
   Toolbox,
   UserCircle,
   UsersThree,
+  WarningCircle,
   Wrench,
   X,
 } from "@phosphor-icons/react";
@@ -160,7 +161,7 @@ const mobilePrimary: NavItem[] = [
 const quickActions: NavItem[] = [
   { to: "/bienes/entradas/nueva", label: "Registrar un bien", icon: Package },
   { to: "/asignaciones/nueva", label: "Crear una asignación", icon: ClipboardText },
-  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: ListChecks },
+  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: WarningCircle },
   { to: "/informes", label: "Abrir informes", icon: ChartBar },
 ];
 
@@ -518,24 +519,40 @@ export function AppShell() {
         }}
       >
         <section className="quick-actions-sheet" aria-labelledby="quick-actions-title">
-          <header>
+          <header className="quick-actions-header">
             <div>
-              <span>Centro de acciones</span>
-              <h2 id="quick-actions-title">¿Qué deseas iniciar?</h2>
+              <h2 id="quick-actions-title">Nueva acción</h2>
+              <p>Selecciona una tarea para continuar.</p>
             </div>
-            <button type="button" aria-label="Cerrar acciones rápidas" onClick={closeQuickMenu}>
-              <X />
+            <button type="button" aria-label="Cerrar" onClick={closeQuickMenu}>
+              <X size={18} />
             </button>
           </header>
 
-          <nav aria-label="Acciones globales">
-            {quickActions.map(({ to, label, icon: Icon }) => (
-              <NavLink key={to} to={to} onClick={closeQuickMenu}>
-                <Icon size={22} weight="duotone" />
-                <span>{label}</span>
-                <ArrowRight size={18} />
-              </NavLink>
-            ))}
+          <nav className="quick-actions-matrix" aria-label="Acciones globales">
+            {quickActions.map(({ to, label, icon: Icon }) => {
+              const actionType = to.includes("bienes")
+                ? "bienes"
+                : to.includes("asignaciones")
+                  ? "asignaciones"
+                  : to.includes("incidencias")
+                    ? "incidencias"
+                    : "informes";
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={`quick-action-card action-type-${actionType}`}
+                  onClick={closeQuickMenu}
+                >
+                  <div className="quick-action-icon-box">
+                    <Icon size={20} />
+                  </div>
+                  <span className="quick-action-label">{label}</span>
+                  <ArrowRight size={16} className="quick-action-arrow" />
+                </NavLink>
+              );
+            })}
           </nav>
         </section>
       </dialog>
