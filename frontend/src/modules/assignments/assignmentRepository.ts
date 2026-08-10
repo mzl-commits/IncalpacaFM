@@ -5,7 +5,7 @@ export type AssignmentRecord = {
   id: string;
   asset: { id: string; code: string; display_code?: string | null; name: string; brand: string; model: string; condition: string; assignment_status: string };
   responsible: { id: string; reference: string; type: "PERSONA" | "AREA" | "ESPACIO_COMUN"; name: string; area: string };
-  location: { id: string; zone: string; building: string; area: string; room: string; specific_location: string } | null;
+  location: { id: string; zone: string; building: string; area: string; room: string; specific_location: string; reference_map: { id: string; version: number; original_filename: string; image_url: string } | null; marker: { x: string; y: string } | null } | null;
   start_date: string;
   end_date: string | null;
   status: "ACTIVA" | "FINALIZADA" | "ANULADA";
