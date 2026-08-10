@@ -158,11 +158,52 @@ const mobilePrimary: NavItem[] = [
   { to: "/informes", label: "Informes", icon: ChartBar, end: true },
 ];
 
-const quickActions: NavItem[] = [
-  { to: "/bienes/entradas/nueva", label: "Registrar un bien", icon: Package },
-  { to: "/asignaciones/nueva", label: "Crear una asignación", icon: ClipboardText },
-  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: WarningCircle },
-  { to: "/informes", label: "Abrir informes", icon: ChartBar },
+import {
+  ArrowRight as IconoirArrowRight,
+  Package as IconoirPackage,
+  Reports as IconoirReports,
+  UserPlus as IconoirUserPlus,
+  WarningTriangle as IconoirWarningTriangle,
+  Xmark as IconoirXmark,
+} from "iconoir-react";
+
+interface QuickActionItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ width?: number; height?: number; color?: string; className?: string }>;
+  color: string;
+  type: string;
+}
+
+const quickActions: QuickActionItem[] = [
+  {
+    to: "/bienes/entradas/nueva",
+    label: "Registrar un bien",
+    icon: IconoirPackage,
+    color: "#2563EB",
+    type: "bienes",
+  },
+  {
+    to: "/asignaciones/nueva",
+    label: "Crear una asignación",
+    icon: IconoirUserPlus,
+    color: "#7C3AED",
+    type: "asignaciones",
+  },
+  {
+    to: "/incidencias/nueva",
+    label: "Reportar una incidencia",
+    icon: IconoirWarningTriangle,
+    color: "#EA580C",
+    type: "incidencias",
+  },
+  {
+    to: "/informes",
+    label: "Abrir informes",
+    icon: IconoirReports,
+    color: "#059669",
+    type: "informes",
+  },
 ];
 
 function isGroupActive(pathname: string, paths: string[]) {
@@ -522,37 +563,30 @@ export function AppShell() {
           <header className="quick-actions-header">
             <div>
               <h2 id="quick-actions-title">Nueva acción</h2>
-              <p>Selecciona una tarea para continuar.</p>
+              <p>Selecciona qué deseas realizar.</p>
             </div>
             <button type="button" aria-label="Cerrar" onClick={closeQuickMenu}>
-              <X size={18} />
+              <IconoirXmark width={18} height={18} />
             </button>
           </header>
 
-          <nav className="quick-actions-matrix" aria-label="Acciones globales">
-            {quickActions.map(({ to, label, icon: Icon }) => {
-              const actionType = to.includes("bienes")
-                ? "bienes"
-                : to.includes("asignaciones")
-                  ? "asignaciones"
-                  : to.includes("incidencias")
-                    ? "incidencias"
-                    : "informes";
-              return (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={`quick-action-card action-type-${actionType}`}
-                  onClick={closeQuickMenu}
-                >
-                  <div className="quick-action-icon-box">
-                    <Icon size={20} />
-                  </div>
-                  <span className="quick-action-label">{label}</span>
-                  <ArrowRight size={16} className="quick-action-arrow" />
-                </NavLink>
-              );
-            })}
+          <nav className="quick-actions-list" aria-label="Acciones globales">
+            {quickActions.map(({ to, label, icon: Icon, type, color }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={`quick-action-row action-type-${type}`}
+                onClick={closeQuickMenu}
+                style={{ "--action-color": color } as React.CSSProperties}
+              >
+                <span className="quick-action-accent-bar" />
+                <div className="quick-action-icon">
+                  <Icon width={22} height={22} color={color} />
+                </div>
+                <span className="quick-action-label">{label}</span>
+                <IconoirArrowRight width={16} height={16} className="quick-action-arrow" />
+              </NavLink>
+            ))}
           </nav>
         </section>
       </dialog>
