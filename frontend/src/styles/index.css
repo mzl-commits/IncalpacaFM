@@ -3623,4 +3623,234 @@ td { padding: 13px 14px; }
   vertical-align: middle;
   color: #000000;
 }
->>>>>>> a6fd638 (feat(ui): rediseño UX/UI sidebar overlay 2 niveles, catálogo de materiales y filas intercaladas zebra striping)
+
+/* ============================================================
+   INTERACCIÓN HOVER NEGRO/BLANCO (MODAL CENTRO DE ACCIONES)
+   ============================================================ */
+
+@keyframes actionHoverIn {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  55% {
+    transform: translateY(-5px) scale(1.015);
+  }
+  100% {
+    transform: translateY(-4px) scale(1.012);
+  }
+}
+
+@keyframes actionIconHover {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14) rotate(-3deg);
+  }
+  100% {
+    transform: scale(1.06) rotate(0deg);
+  }
+}
+
+.quick-actions-dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: 100vw;
+  max-height: 100dvh;
+}
+
+.quick-actions-dialog[open] {
+  display: grid;
+  place-items: center;
+}
+
+.quick-actions-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.quick-actions-sheet {
+  width: 680px;
+  max-width: calc(100vw - 32px);
+  background: #FFFFFF;
+  border: 1px solid #E2E2E2;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.16) !important;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  overflow: hidden;
+}
+
+.quick-actions-sheet header {
+  padding: 24px 28px 20px 28px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid #EEEEEE;
+}
+
+.quick-actions-sheet header span {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #737373;
+}
+
+.quick-actions-sheet header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #111111;
+  margin: 4px 0 0 0;
+}
+
+.quick-actions-sheet header button {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #F4F4F4;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111111;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.quick-actions-sheet header button:hover {
+  background: #EAEAEA;
+  border-color: #D5D5D5;
+  transform: rotate(5deg);
+}
+
+/* 2x2 GRID MATRIX */
+.quick-actions-sheet nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 24px 28px 28px 28px;
+}
+
+@media (max-width: 600px) {
+  .quick-actions-sheet nav {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+}
+
+/* CARD NORMAL STATE */
+.quick-actions-sheet nav a {
+  min-height: 96px;
+  padding: 20px 22px;
+  background: #FFFFFF;
+  border: 1px solid #DEDEDE;
+  color: #222222;
+  border-radius: 12px;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 220ms ease,
+              border-color 220ms ease,
+              color 220ms ease,
+              transform 220ms cubic-bezier(.2,.8,.2,1),
+              box-shadow 220ms ease;
+}
+
+.quick-actions-sheet nav a svg:first-child {
+  color: #555555;
+  flex-shrink: 0;
+  transition: color 220ms ease, transform 350ms ease-in-out;
+}
+
+.quick-actions-sheet nav a span {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+  flex: 1;
+  transition: color 220ms ease;
+}
+
+.quick-actions-sheet nav a svg:last-child {
+  color: #8A8A8A;
+  opacity: 0.55;
+  flex-shrink: 0;
+  transform: translateX(-2px);
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1),
+              opacity 180ms ease,
+              color 180ms ease;
+}
+
+/* SUBTLE SPECULAR GRADIENT OVERLAY ON HOVER */
+.quick-actions-sheet nav a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 45%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+/* HOVER STATE (BLACK BACKGROUND, WHITE ICON, WHITE TEXT, WHITE ARROW) */
+.quick-actions-sheet nav a:hover {
+  background: #111111;
+  border-color: #111111;
+  color: #FFFFFF;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  animation: actionHoverIn 300ms cubic-bezier(.2,.8,.2,1) forwards;
+}
+
+.quick-actions-sheet nav a:hover::after {
+  opacity: 1;
+}
+
+.quick-actions-sheet nav a:hover span {
+  color: #FFFFFF;
+}
+
+.quick-actions-sheet nav a:hover svg:first-child {
+  color: #FFFFFF;
+  animation: actionIconHover 350ms ease-in-out forwards;
+}
+
+.quick-actions-sheet nav a:hover svg:last-child {
+  color: #FFFFFF;
+  opacity: 1;
+  transform: translateX(5px);
+}
+
+/* CLICK / ACTIVE STATE */
+.quick-actions-sheet nav a:active {
+  transform: translateY(-2px) scale(0.985);
+  transition: transform 90ms ease;
+}
+
+/* FOCUS VISIBLE ACCESSIBILITY */
+.quick-actions-sheet nav a:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 3px;
+}
+
+/* ACCESSIBILITY: PREFERS REDUCED MOTION */
+@media (prefers-reduced-motion: reduce) {
+  .quick-actions-sheet nav a,
+  .quick-actions-sheet nav a *,
+  .quick-actions-sheet nav a:hover,
+  .quick-actions-sheet nav a:hover svg:first-child {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}
