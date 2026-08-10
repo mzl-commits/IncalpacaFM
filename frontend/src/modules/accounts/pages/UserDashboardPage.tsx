@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetchUserDashboard } from "../api/userDashboardApi";
 import { ReportIncidentModal } from "@/modules/incidents/components/ReportIncidentModal";
-import { WarningCircle, Package, IdentificationBadge, Warning, Info, Wrench } from "@phosphor-icons/react";
+import { WarningCircle, Package, IdentificationBadge, Wrench } from "@phosphor-icons/react";
 
 export default function UserDashboardPage() {
   const navigate = useNavigate();

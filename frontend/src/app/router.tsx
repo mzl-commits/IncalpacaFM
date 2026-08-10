@@ -4,7 +4,6 @@ import { AppShell } from "@/components/layout/AppShell";
 import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 import { ProtectedRoute } from "@/modules/accounts/ProtectedRoute";
 import { RoleRoute } from "@/modules/accounts/RoleRoute";
-import { TaxonomyCatalogPage } from "@/modules/taxonomy/pages/TaxonomyCatalogPage";
 import { TaxonomyFormPage } from "@/modules/taxonomy/pages/TaxonomyFormPage";
 import { FmCodeCatalogPage } from "@/modules/taxonomy/pages/FmCodeCatalogPage";
 import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";

@@ -82,7 +82,6 @@ export function AssetMapOverviewPage() {
   );
   const mappedCount = locations.filter((item) => item.activeMap).length;
   const selectedAssets = selectedLocation ? assetsByLocation.get(selectedLocation.id) ?? [] : [];
-  const selectedAssigned = selectedAssets.filter((asset) => asset.assignmentStatus !== "Sin asignar").length;
   const selectedAlerts = selectedAssets.filter((asset) => asset.draft.criticality === "Crítica" || asset.draft.condition === "Requiere revisión").length;
   const ready = !locationsQuery.isPending && !assetsQuery.isPending;
   const hasError = locationsQuery.isError || assetsQuery.isError;

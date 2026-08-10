@@ -121,7 +121,7 @@ export function InspeccionFormPage() {
     const idsHijas = new Set(hijasActivas.map((h) => h.id));
     setPiezasLote(idsHijas);
   }
-}, [esEstuche, piezaId]);
+}, [esEstuche, hijasActivas]);
 
   // Recalcula el total inspeccionado automáticamente según el lote,
   // solo para materiales con control individual (donde sí hay piezas que contar).
@@ -160,7 +160,8 @@ export function InspeccionFormPage() {
     const marcando = !contenedoresMarcados.has(pieza.id);
     setContenedoresMarcados((prev) => {
       const next = new Set(prev);
-      marcando ? next.add(pieza.id) : next.delete(pieza.id);
+      if (marcando) next.add(pieza.id);
+      else next.delete(pieza.id);
       return next;
     });
     const hijas = await listPiezas({ padre: pieza.id });

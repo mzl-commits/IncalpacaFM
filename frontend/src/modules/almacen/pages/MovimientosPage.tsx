@@ -31,10 +31,6 @@ export function MovimientosPage() {
   });
 
   const hoy = new Date().toISOString().slice(0, 10);
-  const prestadasDeHoy = prestadas.filter((p) => {
-    const fechaMov = p.ultimo_movimiento?.fecha?.slice(0, 10);
-    return fechaMov === hoy;
-  });
   const prestadasAntiguas = prestadas.filter((p) => {
     const fechaMov = p.ultimo_movimiento?.fecha?.slice(0, 10);
     return fechaMov && fechaMov < hoy;
