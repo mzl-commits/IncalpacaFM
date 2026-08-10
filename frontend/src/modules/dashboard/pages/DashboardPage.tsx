@@ -115,7 +115,10 @@ function TechnicianDashboard() {
 
   const activeOrder = orders.find((order) => order.status === "EN_PROCESO" && order.activeWorkSession);
   const actionableOrders = orders
-    .filter((order) => ["PROGRAMADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(order.status))
+    .filter((order) =>
+      ["PROGRAMADA", "EN_PROCESO", "REPROCESO"].includes(order.status) ||
+      (order.status === "DEVUELTA" && order.scheduledDate <= today),
+    )
     .sort((left, right) => left.scheduledDate.localeCompare(right.scheduledDate));
   const nextOrder = activeOrder ?? actionableOrders.find((order) => order.scheduledDate >= today) ?? actionableOrders[0];
   const todayOrders = orders.filter((order) => order.scheduledDate === today);
@@ -149,7 +152,7 @@ function TechnicianDashboard() {
           <div className="technician-dashboard-focus-copy">
             <span>{activeOrder ? "Sesión en curso" : "Siguiente acción"}</span>
             <h2 id="next-task-title">{nextOrder ? `${nextOrder.code} · ${getWorkOrderAssetDisplayCode(nextOrder) || nextOrder.requestCode}` : "No tienes órdenes pendientes"}</h2>
-            <p>{nextOrder ? `${workOrderStatusLabels[nextOrder.status]} · programada para ${formatDate(nextOrder.scheduledDate)}` : "Tu agenda está al día. Revisa tu jornada para consultar los registros de esta semana."}</p>
+            <p>{nextOrder ? `${getWorkOrderStatusLabel(nextOrder)} · programada para ${formatDate(nextOrder.scheduledDate)}` : "Tu agenda está al día. Revisa tu jornada para consultar los registros de esta semana."}</p>
             {nextOrder && <Link className="button button-primary" to={`/ordenes-trabajo/${nextOrder.id}${["PROGRAMADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(nextOrder.status) ? "/ejecutar" : ""}`}><Play size={18} weight="fill" />{activeOrder ? "Volver al temporizador" : "Abrir orden"}</Link>}
           </div>
           <dl><div><dt>Para hoy</dt><dd>{todayOrders.length}</dd><small>Órdenes programadas</small></div><div><dt>En atención</dt><dd>{activeOrder ? "1" : "0"}</dd><small>Sesiones activas</small></div></dl>

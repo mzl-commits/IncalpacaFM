@@ -1,4 +1,4 @@
-﻿export const SPECIALTIES = [
+export const SPECIALTIES = [
   "ELECTRICIDAD",
   "CARPINTERIA",
   "SOLDADURA",
@@ -36,6 +36,14 @@ export const WORK_ORDER_STATUSES = [
 ] as const;
 
 export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
+
+export type WorkOrderType = "OT" | "OL" | "OS";
+
+export const workOrderTypeLabels: Record<WorkOrderType, string> = {
+  OT: "Orden de trabajo",
+  OL: "Orden de limpieza",
+  OS: "Orden de servicio",
+};
 
 export const specialtyLabels: Record<Specialty, string> = {
   ELECTRICIDAD: "Electricidad",
@@ -89,7 +97,7 @@ export function getWorkOrderReturnInfo(workOrder: WorkOrderReturnFields) {
       statusLabel: "Devuelta por administración",
       title: "Orden devuelta por administración",
       comment: getComment(workOrder.administrator_validation.comment, "Sin motivo administrativo registrado."),
-      nextStep: "Corrige lo indicado y vuelve a enviar la orden a supervisión.",
+      nextStep: "Programa o abre la OT de corrección vinculada para atender lo observado.",
     };
   }
 
@@ -99,7 +107,7 @@ export function getWorkOrderReturnInfo(workOrder: WorkOrderReturnFields) {
       statusLabel: "Devuelta por supervisión",
       title: "Orden devuelta por supervisión",
       comment: getComment(workOrder.supervisor_validation.comment, "Sin motivo del supervisor registrado."),
-      nextStep: "Corrige lo indicado, registra la evidencia y vuelve a enviarla a supervisión.",
+      nextStep: "Programa o abre la OT de corrección vinculada para atender lo observado.",
     };
   }
 
@@ -108,7 +116,7 @@ export function getWorkOrderReturnInfo(workOrder: WorkOrderReturnFields) {
     statusLabel: "Devuelta para corrección",
     title: "Orden devuelta para corrección",
     comment: "Revisa las observaciones registradas antes de continuar.",
-    nextStep: "Corrige lo indicado y vuelve a enviar la orden a supervisión.",
+    nextStep: "Programa o abre la OT de corrección vinculada para atender lo observado.",
   };
 }
 

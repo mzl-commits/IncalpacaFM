@@ -141,6 +141,11 @@ class PublicIncidentReportingTests(TestCase):
         )
         self.assertEqual(context.status_code, 200)
         self.assertEqual(context.json()['displayCode'], self.asset.code)
+        self.assertEqual(context.json()['locationId'], str(self.location.id))
+        self.assertEqual(context.json()['zone'], self.location.zone)
+        self.assertEqual(context.json()['building'], self.location.building)
+        self.assertEqual(context.json()['area'], self.location.area)
+        self.assertEqual(context.json()['room'], self.location.room)
 
         response = self.client.post(
             f'/api/v1/public/assets/{self.asset.public_token}/report/',
@@ -184,10 +189,10 @@ class PublicIncidentReportingTests(TestCase):
         response = self.client.post(
             '/api/v1/incidents/public/',
             {
-                'reporterName': 'Solicitante QR',
-                'reporterEmail': 'solicitante.qr@example.com',
-                'reporterDni': '87654321',
-                'reporterWorkerCode': 'QR-001',
+                'requesterName': 'Solicitante QR',
+                'requesterEmail': 'solicitante.qr@example.com',
+                'requesterDni': '87654321',
+                'requesterWorkerCode': 'QR-001',
                 'assetToken': self.asset.public_token,
                 'zone': 'Texto no confiable',
                 'building': 'Texto no confiable',

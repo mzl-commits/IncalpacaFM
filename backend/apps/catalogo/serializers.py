@@ -24,12 +24,16 @@ class SubcategoriaSerializer(serializers.ModelSerializer):
 class PiezaSerializer(serializers.ModelSerializer):
     material_nombre = serializers.CharField(source="material.nombre", read_only=True)
     material_medida = serializers.CharField(source="material.medida", read_only=True, default="")
+    tiene_hijas = serializers.BooleanField(read_only=True, default=False)
 
     class Meta:
         model = Pieza
-        fields = ["id", "material", "material_nombre", "material_medida", "codigo", "estado", "foto", "padre", "creado_en"]
-        read_only_fields = ["codigo", "creado_en", "material_nombre", "material_medida"]
-
+        fields = [
+            "id", "material", "material_nombre", "material_medida",
+            "codigo", "estado", "foto", "padre", "creado_en", "tiene_hijas",
+        ]
+        read_only_fields = ["codigo", "creado_en", "material_nombre", "material_medida", "tiene_hijas"]
+        
 class PiezaAnidadaSerializer(serializers.ModelSerializer):
     """Versión resumida para mostrar piezas dentro del detalle de un Material."""
     piezas_hijas = serializers.SerializerMethodField()
@@ -64,7 +68,7 @@ class MaterialSerializer(serializers.ModelSerializer):
             "id", "subcategoria", "subcategoria_nombre", "categoria_nombre",
             "subcategoria_plantilla_inspeccion", "subcategoria_plantilla_inspeccion_nombre",
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
-            "grosor_mm", "largo_mm", "ubicacion_fisica",
+            "grosor_mm", "largo_mm", "ubicacion_fisica", "precio",
             "tipo_control", "control_individual", "cantidad_total",
             "activo", "creado_en",
         ]
@@ -388,4 +392,4 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
             mat_hija.recalcular_cantidad()
             contenedor.material.recalcular_cantidad()
 
-        return creadas
+        return creadas

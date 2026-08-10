@@ -71,7 +71,13 @@ class InspeccionViewSet(viewsets.ModelViewSet):
     def vencidas(self, request):
         limite = timezone.now() - timedelta(days=90)  # o lógica de trimestre, según definamos
         materiales_inspeccionables = Material.objects.filter(
-            subcategoria__plantilla_inspeccion__isnull=False, activo=True
+            subcategoria__plantilla_inspeccion__isnull=False,
+            subcategoria__categoria__requiere_inspeccion=True,
+            tipo_control="retornable",
+            es_componente=False,
+            activo=True,
+            subcategoria__activo=True,
+            subcategoria__categoria__activo=True,
         )
         resultado = []
 
@@ -79,7 +85,14 @@ class InspeccionViewSet(viewsets.ModelViewSet):
             piezas_hoja = material.piezas.exclude(estado="Baja").filter(piezas_hijas__isnull=True)
             pendientes = []
             for pieza in piezas_hoja:
-                ultima = pieza.inspecciones.order_by("-fecha").first()
+                # Busca la inspección más reciente: individual (FK) O por lote (M2M piezas_lote)
+                ultima_ind  = pieza.inspecciones.order_by("-fecha").first()
+                ultima_lote = pieza.inspecciones_grupales.order_by("-fecha").first()
+                if ultima_ind and ultima_lote:
+                    ultima = ultima_ind if ultima_ind.fecha >= ultima_lote.fecha else ultima_lote
+                else:
+                    ultima = ultima_ind or ultima_lote
+
                 if not ultima or ultima.fecha < limite:
                     pendientes.append({"pieza_id": pieza.id, "pieza_codigo": pieza.codigo})
 

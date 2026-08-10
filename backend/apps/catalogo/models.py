@@ -8,7 +8,17 @@ class Categoria(models.Model):
         help_text="Prefijo de letras usado en el código de catálogo (ej. H, G, C)."
     )
     descripcion = models.TextField(blank=True)
-    activo = models.BooleanField(default=True)
+    activo = models.BooleanField(
+        default=True,
+        help_text="Si se desactiva, los materiales de esta categoría dejarán de aparecer en préstamos, inspecciones y demás procesos operativos.",
+    )
+
+    requiere_inspeccion = models.BooleanField(
+        default=False,
+        help_text="Si está activo, los materiales de esta categoría pueden ser "
+                   "inspeccionados (ej. Herramientas). Categorías como consumibles "
+                   "o eléctricos no retornables deben dejarlo desactivado.",
+    )
 
     class Meta:
         verbose_name_plural = "Categorías"
@@ -78,6 +88,10 @@ class Material(models.Model):
         max_length=100, blank=True,
         help_text="Dónde encontrar este material físicamente, ej. 'Caja de brocas, Estante 3'."
     )
+    precio = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Precio de referencia de este material. Para estuches, es el precio del conjunto completo (no de piezas hijas individuales)."
+    )
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
     control_individual = models.BooleanField(default=False)
 
@@ -105,16 +119,28 @@ class Material(models.Model):
         return f"{self.codigo} - {self.nombre}"
 
     def save(self, *args, **kwargs):
+        if not self.pk:
+            self.activo = True
         if not self.codigo:
-            from apps.catalogo.services import generar_codigo_material
-            self.codigo = generar_codigo_material(self.subcategoria.categoria)
+            if self.es_componente:
+                from apps.catalogo.services import generar_codigo_material_componente
+                self.codigo = generar_codigo_material_componente()
+            else:
+                from apps.catalogo.services import generar_codigo_material
+                self.codigo = generar_codigo_material(self.subcategoria.categoria)
         super().save(*args, **kwargs)
 
     def recalcular_cantidad(self):
-        """Recalcula cantidad_total contando piezas activas (no 'Baja')."""
+        """Recalcula cantidad_total contando piezas activas (no 'Baja').
+        Incluye piezas sueltas de este material + items dentro de estuches de este material."""
         if self.control_individual:
-            total = self.piezas.exclude(estado="Baja").count()
+            directas = self.piezas.exclude(estado="Baja").filter(piezas_hijas__isnull=True).count()
+            hijas_en_estuches = Pieza.objects.filter(
+                padre__material=self
+            ).exclude(estado="Baja").exclude(padre__estado="Baja").count()
+            total = directas + hijas_en_estuches
             Material.objects.filter(pk=self.pk).update(cantidad_total=total)
+
 
 class Pieza(models.Model):
     ESTADO_CHOICES = [
@@ -127,7 +153,7 @@ class Pieza(models.Model):
     material = models.ForeignKey(
         Material, on_delete=models.PROTECT, related_name="piezas"
     )
-    codigo = models.CharField(max_length=5, unique=True, blank=True)
+    codigo = models.CharField(max_length=5, unique=True, blank=True, null=True, default=None)
     estado = models.CharField(
         max_length=15, choices=ESTADO_CHOICES, default="Disponible"
     )
@@ -152,7 +178,7 @@ class Pieza(models.Model):
         ordering = ["codigo"]
 
     def __str__(self):
-        return f"{self.codigo} ({self.material.nombre})"
+        return f"{self.codigo or '—'} ({self.material.nombre})"
 
     def save(self, *args, **kwargs):
         if not self.codigo:

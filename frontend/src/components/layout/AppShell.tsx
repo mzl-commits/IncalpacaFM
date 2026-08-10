@@ -95,7 +95,7 @@ const groups: Array<{
       { to: "/ordenes-trabajo/recomendaciones", label: "Asignación recomendada", icon: Lightning },
       {
         to: "/ordenes-trabajo",
-        label: "Órdenes de trabajo",
+        label: "Órdenes operativas",
         icon: Toolbox,
       },
       { to: "/supervision", label: "Revisión de OT", icon: ShieldCheck },
@@ -197,7 +197,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/asignaciones")) return ["Activos y espacios", "Asignaciones"];
   if (pathname.startsWith("/incidencias")) return ["Atención y mantenimiento", "Reportes"];
   if (pathname.startsWith("/supervision")) return ["Supervisión", "Revisión de OT"];
-  if (pathname.startsWith("/ordenes-trabajo")) return ["Atención y mantenimiento", "Órdenes de trabajo"];
+  if (pathname.startsWith("/ordenes-trabajo")) return ["Atención y mantenimiento", "Órdenes operativas"];
   if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];

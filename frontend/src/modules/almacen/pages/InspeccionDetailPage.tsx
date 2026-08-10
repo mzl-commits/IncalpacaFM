@@ -139,7 +139,7 @@ export function InspeccionDetailPage() {
               <div>
                 <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Acción tomada</dt>
                 <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
-                  {accionInspeccionLabels[inspeccion.accion_tomada] ?? inspeccion.accion_tomada}
+                  {(accionInspeccionLabels as any)[inspeccion.accion_tomada] ?? inspeccion.accion_tomada}
                 </dd>
               </div>
 
@@ -161,13 +161,13 @@ export function InspeccionDetailPage() {
                 </strong>
               </div>
               <div className="inspeccion-respuestas">
-                {inspeccion.respuestas.map((r) => (
+                {inspeccion.respuestas.map((r: any) => (
                   <div key={r.id} className="respuesta-row">
                     <span style={{ fontSize: 13 }}>{r.criterio_texto}</span>
                     <span>
                       <StatusBadge
                         value={r.valor}
-                        label={valorRespuestaLabels[r.valor] ?? r.valor}
+                        label={(valorRespuestaLabels as any)[r.valor] ?? r.valor}
                       />
                     </span>
                     <span className="respuesta-observacion">
@@ -205,11 +205,11 @@ export function InspeccionDetailPage() {
 
           <h2>Resultado</h2>
           <div style={{ marginTop: 8 }}>
-            <StatusBadge value={inspeccion.resultado_general} label={resultadoInspeccionLabels[inspeccion.resultado_general]} />
+            <StatusBadge value={inspeccion.resultado_general} label={(resultadoInspeccionLabels as any)[inspeccion.resultado_general]} />
           </div>
 
           <div className="help-note" style={{ marginTop: 16 }}>
-            {accionInspeccionLabels[inspeccion.accion_tomada] ?? inspeccion.accion_tomada}
+            {(accionInspeccionLabels as any)[inspeccion.accion_tomada] ?? inspeccion.accion_tomada}
           </div>
 
           <hr style={{ margin: "20px 0", borderColor: "#dfe6ef" }} />

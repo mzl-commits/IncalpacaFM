@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, ArrowRight, ClipboardText, Package, PencilSimple, Plus, Trash, WarningCircle,
+  ArrowLeft, ArrowRight, CaretDown, ClipboardText, Package, PencilSimple, Plus, Trash, WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { deleteMaterial, deleteMaterialForzado, deletePieza, desvinculaPieza, getMaterialDetalle, agregarHijaInline } from "@/modules/almacen/catalogoRepository";
+import { labelPieza } from "@/utils/pieza";
 import { listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
 import { STOCK_MINIMO, tipoControlLabels } from "@/modules/almacen/types";
@@ -41,6 +42,7 @@ export function MaterialDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false); // eslint-disable-line -- kept for safety
   // "idle" | "confirming" | "force_required" | "force_confirming"
   const [deleteStep, setDeleteStep] = useState<"idle" | "confirming" | "force_required" | "force_confirming">("idle");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const deleteMut = useMutation({
     mutationFn: () => deleteMaterial(materialId),
@@ -101,41 +103,41 @@ export function MaterialDetailPage() {
           <h1>{material.nombre}</h1>
           <p>{material.subcategoria_nombre} · {material.categoria_nombre}</p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link
-            className="button button-secondary"
-            to={`/almacen/catalogo/${material.id}/editar`}
-          >
-            <PencilSimple size={16} /> Editar
-          </Link>
-          <Link
-            className="button button-secondary"
-            to={`/almacen/movimientos/nuevo?material=${material.id}`}
-          >
-            <ArrowRight size={16} /> Registrar movimiento
-          </Link>
+        <div className="material-header-actions">
           {material.control_individual && (
             <Link
-              className="button button-secondary"
-              to={`/almacen/inspecciones/nueva?material=${material.id}`}
-            >
-              <ClipboardText size={16} /> Nueva inspección
-            </Link>
-          )}
-          {material.control_individual && (
-            <Link
-              className="button button-primary"
+              className="button button-primary button-sm"
               to={`/almacen/catalogo/${material.id}/alta-piezas`}
             >
-              <Plus size={16} /> Alta de piezas
+              <Plus size={14} /> Alta de piezas
             </Link>
           )}
+          <Link
+            className="button button-secondary button-sm"
+            to={`/almacen/movimientos/nuevo?material=${material.id}`}
+          >
+            <ArrowRight size={14} /> Registrar movimiento
+          </Link>
+          {material.control_individual && (
+            <Link
+              className="button button-secondary button-sm"
+              to={`/almacen/inspecciones/nueva?material=${material.id}`}
+            >
+              <ClipboardText size={14} /> Nueva inspección
+            </Link>
+          )}
+          <Link
+            className="button button-secondary button-sm"
+            to={`/almacen/catalogo/${material.id}/editar`}
+          >
+            <PencilSimple size={14} /> Editar
+          </Link>
           <button
-            className="button"
-            style={{ background: "var(--error, #dc2626)", color: "#fff", borderColor: "transparent" }}
+            type="button"
+            className="button button-danger-subtle button-sm"
             onClick={() => setDeleteStep("confirming")}
           >
-            <Trash size={16} /> Eliminar
+            <Trash size={14} /> Eliminar
           </button>
         </div>
       </div>
@@ -272,6 +274,14 @@ export function MaterialDetailPage() {
               <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Tipo de control</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{tipoControlLabels[material.tipo_control]}</dd></div>
               <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Control individual</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Ubicación física</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.ubicacion_fisica || "—"}</dd></div>
+              <div>
+                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Precio de referencia</dt>
+                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                  {material.precio !== null && material.precio !== undefined && material.precio !== ""
+                    ? `S/ ${Number(material.precio).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : "—"}
+                </dd>
+              </div>
               <div>
                 <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Cantidad / Piezas</dt>
                 <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
@@ -548,7 +558,7 @@ function PiezaTreeRow({
           {delStep === "idle" && (
             <button
               type="button"
-              title="Agregar pieza hija a este estuche"
+              title="Agregar item a este estuche"
               style={{
                 background: "transparent", border: 0,
                 color: "var(--accent, #6366f1)", cursor: "pointer",
@@ -557,7 +567,7 @@ function PiezaTreeRow({
               }}
               onClick={() => { setMostrarFormHija((v) => !v); setHijaError(""); }}
             >
-              <Plus size={13} /> Pieza
+              <Plus size={13} /> Item
             </button>
           )}
 
@@ -580,7 +590,7 @@ function PiezaTreeRow({
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>
                 {esContenedor
-                  ? `¿Eliminar estuche + ${pieza.total_hijas} piezas hijas?`
+                  ? `¿Eliminar estuche + ${pieza.total_hijas} items?`
                   : "¿Eliminar pieza?"}
               </span>
               {esContenedor && (
@@ -625,7 +635,7 @@ function PiezaTreeRow({
           {delStep === "confirmed" && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>
-                ⚠️ Se borrarán {pieza.total_hijas} piezas hijas también.
+                ⚠️ Se borrarán {pieza.total_hijas} items también.
               </span>
               <button
                 style={{
@@ -662,7 +672,7 @@ function PiezaTreeRow({
           borderRadius: 8, border: "1px dashed var(--accent, #6366f1)",
         }}>
           <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: "var(--accent, #6366f1)" }}>
-            + Agregar pieza hija al estuche
+            + Agregar item al estuche
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "end" }}>
             <label style={{ fontSize: 12 }}>
@@ -754,7 +764,7 @@ function PiezaHijaRow({
   return (
     <div className="pieza-tree-hija" style={{ alignItems: "center" }}>
       <Package size={12} style={{ color: "var(--muted)", flexShrink: 0 }} />
-      <span className="pieza-code">{pieza.codigo}</span>
+      <span className="pieza-code">{labelPieza(pieza)}</span>
       {(pieza.material_nombre || pieza.material_medida) && (
         <span style={{ fontSize: 11, color: "var(--muted)" }}>
           {[pieza.material_nombre, pieza.material_medida].filter(Boolean).join(" · ")}
