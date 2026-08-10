@@ -30,6 +30,7 @@ import { listRetirementRequests } from "@/modules/lifecycle/lifecycleRepository"
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
+import UserDashboardPage from "@/modules/accounts/pages/UserDashboardPage";
 import {
   retirementStatusLabels,
   type RetirementRequest,
@@ -638,5 +639,6 @@ function AdministrativeDashboard() {
 
 export function DashboardPage() {
   const { user } = useAuth();
+  if (user?.role === "SOLICITANTE") return <UserDashboardPage />;
   return user?.role === "TECNICO" ? <TechnicianDashboard /> : <AdministrativeDashboard />;
 }

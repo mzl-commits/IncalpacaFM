@@ -411,6 +411,20 @@ tbody tr:hover td { background: #f8f8f8; }
 .supervisor-review-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0; color: var(--muted); font-size: 0.82rem; }
 .supervisor-loading-state { display: grid; min-height: 220px; place-items: center; gap: 12px; color: var(--muted); }
 .supervisor-loading-state .skeleton { width: min(100%, 420px); height: 8px; }
+.user-reports-section { margin-top: 34px; }
+.user-report-group { display: grid; gap: 9px; margin-top: 18px; }
+.user-report-group > h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.95rem; }
+.user-report-group > h3 span { display: inline-grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--surface-raised); color: var(--muted); font-size: 0.72rem; }
+.user-report-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 15px 18px; }
+.user-report-row > div:first-child { display: grid; min-width: 0; gap: 3px; }
+.user-report-row strong { font-size: 0.88rem; }
+.user-report-row span, .user-report-row small { overflow: hidden; color: var(--muted); font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.user-report-row .status { color: var(--text); white-space: nowrap; }
+.user-report-empty, .user-reports-loading { padding: 18px; color: var(--muted); font-size: 0.82rem; }
+@media (max-width: 760px) {
+  .user-report-row { grid-template-columns: 1fr auto; }
+  .user-report-row .button { grid-column: 1 / -1; justify-self: start; }
+}
 
 @media (max-width: 640px) {
   .user-profile-panel { align-items: flex-start; flex-wrap: wrap; }
