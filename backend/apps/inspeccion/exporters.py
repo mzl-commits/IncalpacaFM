@@ -8,9 +8,9 @@ from openpyxl.styles import Font
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 
 TEMPLATE_PATH = Path(__file__).resolve().parent / "plantillas" / "Formato_Inspeccion.xlsx"
@@ -274,7 +274,14 @@ TITULOS_PDF = {
     HOJA_CON_CABLE: "FORMATO DE INSPECCIÓN DE HERRAMIENTAS ELÉCTRICAS CON CABLE",
 }
 
-AZUL_INCALPACA = colors.HexColor("#0f1f3d")
+# Paleta profesional en escala de grises (reemplaza el azul saturado anterior).
+GRIS_OSCURO = colors.HexColor("#2b2f36")     # títulos de tabla, líneas fuertes
+GRIS_MEDIO = colors.HexColor("#6b7280")      # texto secundario
+GRIS_CLARO = colors.HexColor("#f3f4f6")      # zebra striping
+GRIS_BORDE = colors.HexColor("#c9ccd1")      # bordes de tabla
+NEGRO_TEXTO = colors.HexColor("#1a1c20")
+
+LOGO_PATH = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "public" / "logo-incalpaca.png"
 
 
 def generar_pdf_inspeccion(inspeccion):
@@ -284,45 +291,83 @@ def generar_pdf_inspeccion(inspeccion):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
-        topMargin=1.2 * cm, bottomMargin=1.2 * cm,
+        topMargin=0.9 * cm, bottomMargin=0.9 * cm,
         leftMargin=1.5 * cm, rightMargin=1.5 * cm,
     )
     styles = getSampleStyleSheet()
     titulo_style = ParagraphStyle(
-        "TituloInspeccion", parent=styles["Title"], fontSize=13, leading=16,
-        textColor=colors.white, alignment=TA_CENTER,
+        "TituloInspeccion", parent=styles["Title"], fontSize=12.5, leading=15,
+        textColor=NEGRO_TEXTO, alignment=TA_CENTER, fontName="Helvetica-Bold",
     )
     subtitulo_style = ParagraphStyle(
-        "Subtitulo", parent=styles["Normal"], fontSize=8, textColor=colors.white,
+        "Subtitulo", parent=styles["Normal"], fontSize=8, textColor=GRIS_MEDIO,
         alignment=TA_CENTER,
-    )
-    seccion_style = ParagraphStyle(
-        "Seccion", parent=styles["Heading3"], fontSize=10, textColor=colors.white,
     )
     elementos = []
 
-    # ── Encabezado ──
+    # ── Encabezado (sin bloques de color; logo + reglas finas en gris) ──
     codigo_doc = _codigo_documento(inspeccion)
     fecha_emision = _fecha_emision_hoy()
     meta_style = ParagraphStyle(
         "MetaDoc", parent=styles["Normal"], fontSize=7.5,
-        textColor=colors.white, alignment=TA_CENTER,
+        textColor=GRIS_MEDIO, alignment=TA_RIGHT, leading=10,
     )
+    empresa_style = ParagraphStyle(
+        "Empresa", parent=styles["Normal"], fontSize=11.5,
+        textColor=NEGRO_TEXTO, fontName="Helvetica-Bold", leading=13,
+    )
+    empresa_sub_style = ParagraphStyle(
+        "EmpresaSub", parent=styles["Normal"], fontSize=7, textColor=GRIS_MEDIO, leading=9,
+    )
+
+    if LOGO_PATH.exists():
+        logo_img = Image(str(LOGO_PATH), width=1.05 * cm, height=1.05 * cm)
+    else:
+        logo_img = Paragraph("", styles["Normal"])
+
+    marca_cell = Table(
+        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facilities Management</font>", empresa_style)]],
+        colWidths=[1.3 * cm, 6 * cm],
+    )
+    marca_cell.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (0, 0), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    meta_cell = Paragraph(
+        f"Código: <b>{codigo_doc}</b><br/>Fecha de emisión: <b>{fecha_emision}</b>", meta_style
+    )
+
+    fila_superior = Table(
+        [[marca_cell, meta_cell]],
+        colWidths=[11 * cm, 7 * cm],
+    )
+    fila_superior.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    elementos.append(fila_superior)
+    elementos.append(Spacer(1, 6))
+
     encabezado = Table(
-        [[Paragraph("INCALPACA", ParagraphStyle("logo", fontSize=16, textColor=colors.white, fontName="Helvetica-Bold"))],
-         [Paragraph(titulo, titulo_style)],
-         [Paragraph("Área: Mantenimiento de Servicios Generales", subtitulo_style)],
-         [Paragraph(f"Código: <b>{codigo_doc}</b>  |  Fecha de emisión: <b>{fecha_emision}</b>", meta_style)]],
+        [[Paragraph(titulo, titulo_style)],
+         [Paragraph("Área: Mantenimiento de Servicios Generales", subtitulo_style)]],
         colWidths=[18 * cm],
     )
     encabezado.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), AZUL_INCALPACA),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LINEBELOW", (0, -1), (-1, -1), 1, GRIS_OSCURO),
     ]))
     elementos.append(encabezado)
-    elementos.append(Spacer(1, 10))
+    elementos.append(Spacer(1, 7))
 
     # ── Datos generales ──
     inspector_nombre = (
@@ -351,45 +396,70 @@ def generar_pdf_inspeccion(inspeccion):
     tabla_datos.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, 0), (0, -1), GRIS_OSCURO),
+        ("TEXTCOLOR", (2, 0), (2, -1), GRIS_OSCURO),
+        ("TEXTCOLOR", (1, 0), (1, -1), NEGRO_TEXTO),
+        ("TEXTCOLOR", (3, 0), (3, -1), NEGRO_TEXTO),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("GRID", (0, 0), (-1, -1), 0.4, GRIS_BORDE),
+        ("BACKGROUND", (0, 0), (0, -1), GRIS_CLARO),
+        ("BACKGROUND", (2, 0), (2, -1), GRIS_CLARO),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     elementos.append(tabla_datos)
-    elementos.append(Spacer(1, 10))
+    elementos.append(Spacer(1, 7))
 
     # ── Criterios ──
+    criterio_texto_style = ParagraphStyle(
+        "CriterioTexto", parent=styles["Normal"], fontSize=8, leading=9.6,
+    )
+    criterio_obs_style = ParagraphStyle(
+        "CriterioObs", parent=styles["Normal"], fontSize=7.5, leading=9,
+    )
     data = [["N°", "Criterio de inspección", "Cumple", "No cumple", "No aplica", "Obs."]]
     for resp in inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"):
         data.append([
             resp.criterio.orden,
-            Paragraph(resp.criterio.texto, styles["Normal"]),
+            Paragraph(resp.criterio.texto, criterio_texto_style),
             "X" if resp.valor == "cumple" else "",
             "X" if resp.valor == "no_cumple" else "",
             "X" if resp.valor == "no_aplica" else "",
-            resp.observacion,
+            Paragraph(resp.observacion, criterio_obs_style) if resp.observacion else "",
         ])
 
     tabla = Table(data, colWidths=[1.2 * cm, 7.3 * cm, 1.9 * cm, 2.1 * cm, 1.9 * cm, 3.6 * cm], repeatRows=1)
     tabla.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), AZUL_INCALPACA),
+        ("BACKGROUND", (0, 0), (-1, 0), GRIS_OSCURO),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("ALIGN", (0, 0), (0, -1), "CENTER"),
         ("ALIGN", (2, 0), (4, -1), "CENTER"),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("GRID", (0, 0), (-1, -1), 0.4, GRIS_BORDE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f2f5fa")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, GRIS_CLARO]),
     ]))
     elementos.append(tabla)
-    elementos.append(Spacer(1, 12))
+    elementos.append(Spacer(1, 6))
 
     # ── Resultado y acción ──
+    # Nota: se usa notación de casilla en texto plano "[X]" / "[ ]" en vez de
+    # los caracteres unicode ☑/☐, que no existen en Helvetica y se imprimían
+    # como recuadros negros sólidos (glifo faltante).
     def _marca(activo):
-        return "\u2611" if activo else "\u2610"
+        return "[X]" if activo else "[  ]"
+
+    seccion_heading_style = ParagraphStyle(
+        "SeccionHeading", parent=styles["Normal"], fontSize=8.5, fontName="Helvetica-Bold",
+        textColor=GRIS_OSCURO, spaceBefore=0, spaceAfter=2,
+    )
+    seccion_body_style = ParagraphStyle(
+        "SeccionBody", parent=styles["Normal"], fontSize=8, leading=12,
+    )
 
     if hoja_nombre != HOJA_MANUALES:
         resultado_txt = (
@@ -404,37 +474,66 @@ def generar_pdf_inspeccion(inspeccion):
             f"{_marca(inspeccion.accion_tomada == 'dar_baja')} Dar de baja &nbsp;&nbsp;"
             f"{_marca(inspeccion.accion_tomada == 'reemplazar')} Reemplazar"
         )
-        elementos.append(Paragraph("<b>RESULTADO DE LA INSPECCIÓN</b>", styles["Heading4"]))
-        elementos.append(Paragraph(resultado_txt, styles["Normal"]))
-        elementos.append(Spacer(1, 6))
-        elementos.append(Paragraph("<b>ACCIÓN TOMADA</b>", styles["Heading4"]))
-        elementos.append(Paragraph(accion_txt, styles["Normal"]))
+        elementos.append(Paragraph("RESULTADO DE LA INSPECCIÓN", seccion_heading_style))
+        elementos.append(Paragraph(resultado_txt, seccion_body_style))
+        elementos.append(Spacer(1, 3))
+        elementos.append(Paragraph("ACCIÓN TOMADA", seccion_heading_style))
+        elementos.append(Paragraph(accion_txt, seccion_body_style))
     else:
         aptas_txt = (
             f"{_marca(not inspeccion.cantidad_no_apta)} Todas las herramientas inspeccionadas se encuentran aptas.<br/>"
             f"{_marca(bool(inspeccion.cantidad_no_apta))} Existen herramientas con observaciones."
         )
-        elementos.append(Paragraph("<b>RESULTADO FINAL</b>", styles["Heading4"]))
-        elementos.append(Paragraph(aptas_txt, styles["Normal"]))
+        elementos.append(Paragraph("RESULTADO FINAL", seccion_heading_style))
+        elementos.append(Paragraph(aptas_txt, seccion_body_style))
 
-    elementos.append(Spacer(1, 10))
-    elementos.append(Paragraph("<b>OBSERVACIONES GENERALES</b>", styles["Heading4"]))
-    elementos.append(Paragraph(inspeccion.observaciones or "-", styles["Normal"]))
-    elementos.append(Spacer(1, 24))
+    obs_heading_style = ParagraphStyle(
+        "ObsHeading", parent=styles["Heading4"], fontSize=9, textColor=GRIS_OSCURO,
+        spaceBefore=0, spaceAfter=2,
+    )
+    obs_style = ParagraphStyle("ObsBody", parent=styles["Normal"], fontSize=8, leading=11)
+    elementos.append(Spacer(1, 4))
+    elementos.append(Paragraph("OBSERVACIONES GENERALES", obs_heading_style))
+    elementos.append(Paragraph(inspeccion.observaciones or "-", obs_style))
+    elementos.append(Spacer(1, 3))
 
-    # ── Firmas ──
+    # ── Firmas (más espacio en blanco para firmar a mano, letras reducidas) ──
+    # Se agrupa en KeepTogether para que la fila de nombres/roles nunca quede
+    # separada del resto del bloque en un salto de página.
+    firma_label_style = ParagraphStyle(
+        "FirmaLabel", parent=styles["Normal"], fontSize=8, fontName="Helvetica-Bold",
+        textColor=NEGRO_TEXTO, alignment=TA_CENTER,
+    )
+    firma_dato_style = ParagraphStyle(
+        "FirmaDato", parent=styles["Normal"], fontSize=7.5, textColor=GRIS_MEDIO,
+        alignment=TA_CENTER, leading=11,
+    )
     firmas = Table(
-        [["Inspector", "Supervisor SST / Mantenimiento", "Responsable del Área"],
-         ["Fecha: ____________", "Fecha: ____________", "Fecha: ____________"]],
+        [
+            ["", "", ""],  # espacio en blanco para la firma manuscrita
+            [Paragraph("Inspector", firma_label_style),
+             Paragraph("Supervisor SST / Mantenimiento", firma_label_style),
+             Paragraph("Responsable del Área", firma_label_style)],
+            [Paragraph("Nombre: _____________________", firma_dato_style),
+             Paragraph("Nombre: _____________________", firma_dato_style),
+             Paragraph("Nombre: _____________________", firma_dato_style)],
+            [Paragraph("Fecha: ____ / ____ / ______", firma_dato_style),
+             Paragraph("Fecha: ____ / ____ / ______", firma_dato_style),
+             Paragraph("Fecha: ____ / ____ / ______", firma_dato_style)],
+        ],
         colWidths=[6 * cm, 6 * cm, 6 * cm],
+        rowHeights=[0.9 * cm, None, None, None],
     )
     firmas.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("LINEABOVE", (0, 0), (-1, 0), 0.7, colors.black),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+        ("LINEABOVE", (0, 1), (-1, 1), 0.8, GRIS_OSCURO),
+        ("TOPPADDING", (0, 1), (-1, 1), 3),
+        ("TOPPADDING", (0, 2), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 0),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 2),
     ]))
-    elementos.append(firmas)
+    elementos.append(KeepTogether(firmas))
 
     doc.build(elementos)
     buffer.seek(0)

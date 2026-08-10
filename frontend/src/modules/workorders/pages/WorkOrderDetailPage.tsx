@@ -17,6 +17,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
+import { MaterialesOTAdminSection } from "@/modules/workorders/components/MaterialesOTAdminSection";
 import {
   adminPriorityLabels,
   getWorkOrderReturnInfo,
@@ -597,9 +598,13 @@ export function WorkOrderDetailPage() {
           <Wrench size={22} />
           <h2>{orderCopy.executionTitle}</h2>
         </div>
-        <p className="detail-empty">
-          {orderCopy.executionEmpty}
-        </p>
+        {isAdmin ? (
+          <MaterialesOTAdminSection workOrderId={workOrder.id} emptyMessage={orderCopy.executionEmpty} />
+        ) : (
+          <p className="detail-empty">
+            {orderCopy.executionEmpty}
+          </p>
+        )}
 
         {canRegisterProgress && (
           <div className="work-order-detail-actions">

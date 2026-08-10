@@ -19,11 +19,13 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
   const [observaciones, setObservaciones] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const esPorCaja = material.unidad_manejo === "caja" && !!material.unidades_por_caja;
+
   const mutation = useMutation({
     mutationFn: async () => {
       const cantidadNum = Number(cantidad);
       if (!cantidadNum || cantidadNum <= 0) {
-        throw new Error("Ingresa una cantidad válida mayor a 0.");
+        throw new Error(esPorCaja ? "Ingresa una cantidad de cajas válida mayor a 0." : "Ingresa una cantidad válida mayor a 0.");
       }
       if (!user) {
         throw new Error("No hay usuario autenticado.");
@@ -31,7 +33,7 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
 
       const input = {
         material_id: material.id,
-        cantidad: cantidadNum,
+        ...(esPorCaja ? { cantidad_cajas: cantidadNum } : { cantidad: cantidadNum }),
         responsable_id: user.userId,
         observaciones: observaciones.trim() || undefined,
       };
@@ -95,7 +97,7 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
 
         <div>
           <label style={{ display: "block", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>
-            Cantidad
+            {esPorCaja ? "Cantidad de cajas" : "Cantidad"}
           </label>
           <input
             type="number"
@@ -104,6 +106,11 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
             onChange={(e) => setCantidad(e.target.value)}
             style={{ ...inputStyle, width: 100 }}
           />
+          {esPorCaja && cantidad && (
+            <small style={{ display: "block", fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+              = {Number(cantidad) * (material.unidades_por_caja ?? 0)} unidades
+            </small>
+          )}
         </div>
 
         <div style={{ flex: 1, minWidth: 160 }}>
