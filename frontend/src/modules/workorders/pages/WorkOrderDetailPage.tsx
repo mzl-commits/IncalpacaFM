@@ -5,6 +5,7 @@ import {
   CheckCircle,
   ClockCounterClockwise,
   ClipboardText,
+  FileText,
   MapPin,
   ShieldCheck,
   Stethoscope,
@@ -17,8 +18,10 @@ import { Link, useParams } from "react-router-dom";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
+import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
 import {
   adminPriorityLabels,
+  getWorkOrderStatusLabel,
   getWorkOrderReturnInfo,
   specialtyLabels,
   workOrderStatusLabels,
@@ -28,6 +31,7 @@ import {
   adminReviewWorkOrder,
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
+  listWorkOrders,
   scheduleWorkOrderCorrection,
   updateServiceOrderStatus,
 } from "@/modules/workorders/workOrderRepository";
@@ -135,6 +139,61 @@ function getValidationLabel(data: Record<string, unknown> | undefined, returnedL
   return data.approved ? "Aprobada" : "Devuelta";
 }
 
+function getServiceOrderDetails(notes?: string) {
+  const details = {
+    provider: "No registrado",
+    documentCode: "No registrado",
+    amount: "No registrado",
+    observations: "",
+  };
+
+  (notes || "").split("\n").forEach((line) => {
+    const [rawLabel, ...rawValue] = line.split(":");
+    const label = rawLabel.trim().toLowerCase();
+    const value = rawValue.join(":").trim();
+    if (!value) return;
+    if (label === "proveedor") details.provider = value;
+    if (label === "orden de compra o servicio") details.documentCode = value;
+    if (label === "monto") details.amount = value;
+    if (label === "observaciones") details.observations = value;
+  });
+
+  return details;
+}
+
+function getStringList(data: Record<string, unknown> | undefined, key: string) {
+  const value = data?.[key];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [];
+}
+
+function getServiceStatusCopy(workOrder: WorkOrder) {
+  const serviceStatus = typeof workOrder.administrator_validation?.serviceStatus === "string"
+    ? workOrder.administrator_validation.serviceStatus
+    : "";
+  if (workOrder.status === "CERRADA" || serviceStatus === "CERRADA") {
+    return {
+      title: "Servicio externo cerrado",
+      description: "El proveedor terminó el servicio y administración cerró la OS.",
+    };
+  }
+  if (workOrder.status === "CANCELADA" || serviceStatus === "CANCELADA") {
+    return {
+      title: "OS cancelada",
+      description: "La orden quedó cancelada por decisión administrativa.",
+    };
+  }
+  if (workOrder.status === "EN_PROCESO" || serviceStatus === "EN_COORDINACION") {
+    return {
+      title: "OS en coordinación",
+      description: "Administración está coordinando el servicio con el proveedor.",
+    };
+  }
+  return {
+    title: "OS programada",
+    description: "La orden está registrada y pendiente de coordinación administrativa.",
+  };
+}
+
 export function WorkOrderDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -153,6 +212,8 @@ export function WorkOrderDetailPage() {
   const [serviceComment, setServiceComment] = useState("");
   const [serviceError, setServiceError] = useState("");
   const [savingServiceStatus, setSavingServiceStatus] = useState(false);
+  const [serviceAttachments, setServiceAttachments] = useState<string[]>([]);
+  const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -164,6 +225,7 @@ export function WorkOrderDetailPage() {
       setCorrectionNotes(order.administratorNotes || "");
       setRequest(await getWorkRequestById(order.requestId));
     });
+    void listWorkOrders().then(setOrders);
   }, [id]);
 
   async function handleAdminReview(approved: boolean) {
@@ -198,6 +260,18 @@ export function WorkOrderDetailPage() {
       setCorrectionError("Las horas estimadas deben estar entre 1 y 16.");
       return;
     }
+    const conflicts = findScheduleConflicts({
+      orders,
+      operatorId: workOrder.operatorId,
+      dates: [correctionDate],
+      startTime: correctionTime,
+      plannedHours: correctionHours,
+      currentOrderId: workOrder.id,
+    });
+    if (conflicts.length) {
+      setCorrectionError(`El operario ya tiene una orden en ese horario: ${conflicts.map((order) => order.code).join(", ")}.`);
+      return;
+    }
 
     setSavingCorrection(true);
     setCorrectionError("");
@@ -228,9 +302,12 @@ export function WorkOrderDetailPage() {
     setSavingServiceStatus(true);
     setServiceError("");
     try {
-      const updated = await updateServiceOrderStatus(workOrder.id, action, serviceComment.trim());
+      const previousAttachments = getStringList(workOrder.administrator_validation, "attachments");
+      const nextAttachments = Array.from(new Set([...previousAttachments, ...serviceAttachments]));
+      const updated = await updateServiceOrderStatus(workOrder.id, action, serviceComment.trim(), nextAttachments);
       setWorkOrder(updated);
       setServiceComment("");
+      setServiceAttachments([]);
     } catch {
       setServiceError("No se pudo actualizar el estado de la OS.");
     } finally {
@@ -259,6 +336,13 @@ export function WorkOrderDetailPage() {
   const isServiceOrder = workOrder.orderType === "OS" || workOrder.code.startsWith("OS-");
   const isCleaningOrder = workOrder.orderType === "OL" || workOrder.code.startsWith("OL-");
   const orderCopy = {
+    typeCode: isServiceOrder ? "OS" : isCleaningOrder ? "OL" : "OT",
+    typeName: isServiceOrder ? "Servicio externo" : isCleaningOrder ? "Limpieza" : "Mantenimiento",
+    typeHelp: isServiceOrder
+      ? "Administración coordina y cierra esta orden con proveedor."
+      : isCleaningOrder
+        ? "Responsable de limpieza registra avance y evidencias."
+        : "Operario técnico registra avance, diagnóstico y evidencias.",
     singular: isServiceOrder ? "orden de servicio" : isCleaningOrder ? "orden de limpieza" : "orden de trabajo",
     singularTitle: isServiceOrder ? "Orden de servicio" : isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
     detailTitle: isServiceOrder ? "Detalle de orden de servicio" : isCleaningOrder ? "Detalle de orden de limpieza" : "Detalle de orden de trabajo",
@@ -293,7 +377,7 @@ export function WorkOrderDetailPage() {
   const isAdmin = user?.role === "ADMINISTRADOR";
   const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
   const isAssignedTechnician = user?.id === workOrder.operatorId;
-  const canRegisterProgress = isAssignedTechnician && ![
+  const canRegisterProgress = isAssignedTechnician && !isServiceOrder && !workOrder.correctionWorkOrderId && ![
     "CERRADA",
     "CANCELADA",
     "PENDIENTE_DE_SUPERVISION",
@@ -320,6 +404,10 @@ export function WorkOrderDetailPage() {
   const correctionSchedule = getCorrectionSchedule(workOrder);
   const hasLinkedCorrection = Boolean(workOrder.correctionWorkOrderId);
   const canScheduleCorrection = isAdmin && Boolean(returnInfo) && !correctionSchedule && !hasLinkedCorrection;
+  const serviceDetails = getServiceOrderDetails(workOrder.administratorNotes);
+  const serviceStatusCopy = getServiceStatusCopy(workOrder);
+  const savedServiceAttachments = getStringList(workOrder.administrator_validation, "attachments");
+  const serviceCommentSaved = getTextValue(workOrder.administrator_validation, "comment", "Sin comentario administrativo registrado.");
 
   return (
     <section>
@@ -336,9 +424,13 @@ export function WorkOrderDetailPage() {
         </Link>
       </div>
 
-      <div className="detail-header data-panel">
+      <div className={`detail-header data-panel work-order-detail-hero is-${orderCopy.typeCode.toLowerCase()}`}>
         <div>
           <span className="detail-code">{workOrder.code}</span>
+          <span className="work-order-detail-type">
+            <strong>{orderCopy.typeCode}</strong>
+            <small>{orderCopy.typeName}</small>
+          </span>
           <h2>{request?.description ?? orderCopy.defaultDescription}</h2>
           <p>
             Solicitud de origen:{" "}
@@ -347,26 +439,61 @@ export function WorkOrderDetailPage() {
             </Link>
           </p>
         </div>
-        <span className={`status ${statusClass[workOrder.status]}`}>
-          {workOrderStatusLabels[workOrder.status]}
-        </span>
+        <div className="work-order-detail-status">
+          <span className={`status ${statusClass[workOrder.status]}`}>
+            {getWorkOrderStatusLabel(workOrder)}
+          </span>
+          <small>{orderCopy.typeHelp}</small>
+        </div>
       </div>
 
       {isServiceOrder && (
         <article className="data-panel detail-card service-order-admin-card">
-          <div className="detail-card-heading">
-            <Briefcase size={22} />
-            <h2>Gestión administrativa de OS</h2>
+          <div className="service-order-admin-heading">
+            <div>
+              <span>Servicio externo</span>
+              <h2>Gestion administrativa de OS</h2>
+              <p>Esta orden se controla desde administracion. No se envia a agenda tecnica ni requiere supervisor.</p>
+            </div>
+            <span className={`status ${statusClass[workOrder.status]}`}>
+              {getWorkOrderStatusLabel(workOrder)}
+            </span>
           </div>
-          <p className="detail-empty">
-            Esta orden corresponde a un servicio externo. No se envía a agenda técnica ni requiere supervisor.
-          </p>
-          <dl className="detail-list">
+
+          <dl className="service-order-summary">
+            <div><dt>Proveedor</dt><dd>{serviceDetails.provider}</dd></div>
+            <div><dt>Orden de compra o servicio</dt><dd>{serviceDetails.documentCode}</dd></div>
+            <div><dt>Monto</dt><dd>{serviceDetails.amount}</dd></div>
             <div><dt>Fecha del servicio</dt><dd>{formatDate(workOrder.scheduledDate)}</dd></div>
-            <div><dt>Estado actual</dt><dd>{workOrderStatusLabels[workOrder.status]}</dd></div>
-            <div><dt>Registro administrativo</dt><dd>{workOrder.administratorNotes || "Sin datos administrativos."}</dd></div>
-            <div><dt>Última actualización</dt><dd>{formatDateTime(workOrder.updatedAt)}</dd></div>
           </dl>
+
+          <dl className="service-order-secondary">
+            <div><dt>Solicitud vinculada</dt><dd>{workOrder.requestCode}</dd></div>
+            <div><dt>Ultima actualizacion</dt><dd>{formatDateTime(workOrder.updatedAt)}</dd></div>
+            <div><dt>Observaciones</dt><dd>{serviceDetails.observations || "Sin observaciones adicionales."}</dd></div>
+          </dl>
+
+          <div className="service-order-status-panel">
+            <div>
+              <strong>{serviceStatusCopy.title}</strong>
+              <p>{serviceStatusCopy.description}</p>
+            </div>
+            <dl>
+              <div><dt>Comentario</dt><dd>{serviceCommentSaved}</dd></div>
+              <div>
+                <dt>Adjuntos</dt>
+                <dd>
+                  {savedServiceAttachments.length ? (
+                    <span className="service-attachment-list">
+                      {savedServiceAttachments.map((name) => (
+                        <span key={name}><FileText size={14} />{name}</span>
+                      ))}
+                    </span>
+                  ) : "Sin adjuntos registrados."}
+                </dd>
+              </div>
+            </dl>
+          </div>
 
           {isAdmin && !["CERRADA", "CANCELADA"].includes(workOrder.status) && (
             <form className="admin-review-form" onSubmit={(event) => event.preventDefault()}>
@@ -379,6 +506,26 @@ export function WorkOrderDetailPage() {
                   placeholder="Ej. Servicio coordinado con proveedor, pendiente de factura o conformidad."
                 />
               </label>
+
+              <label className="field field-wide">
+                <span>Adjuntos de la OS</span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={(event) => {
+                    setServiceAttachments(Array.from(event.target.files ?? []).map((file) => file.name));
+                  }}
+                />
+                <small>Cotizacion, orden de compra, factura, conformidad u otro sustento.</small>
+              </label>
+
+              {serviceAttachments.length > 0 && (
+                <div className="service-attachment-preview">
+                  {serviceAttachments.map((name) => (
+                    <span key={name}><FileText size={14} />{name}</span>
+                  ))}
+                </div>
+              )}
 
               {serviceError && <div className="form-error">{serviceError}</div>}
 
@@ -473,7 +620,7 @@ export function WorkOrderDetailPage() {
           </div>
           <div>
             <span>3. Administrador</span>
-            <strong>{needsAdminReview ? "Pendiente de decision" : getValidationLabel(workOrder.administrator_validation)}</strong>
+            <strong>{needsAdminReview ? "Esperando decisión" : getValidationLabel(workOrder.administrator_validation)}</strong>
             <small>{needsAdminReview ? orderCopy.adminPendingHelp : adminRegisteredComment}</small>
           </div>
           <div>
@@ -555,6 +702,18 @@ export function WorkOrderDetailPage() {
                   placeholder={orderCopy.correctionPlaceholder}
                 />
               </label>
+              <div className="field field-wide">
+                <OperatorAvailabilityPanel
+                  orders={orders}
+                  operatorId={workOrder.operatorId}
+                  operatorName={workOrder.operatorName}
+                  selectedDate={correctionDate}
+                  startTime={correctionTime}
+                  plannedHours={correctionHours}
+                  currentOrderId={workOrder.id}
+                  title="Disponibilidad para corrección"
+                />
+              </div>
             </div>
             {correctionError && <div className="form-error">{correctionError}</div>}
             {correctionSuccess && <div className="form-success">{correctionSuccess}</div>}
@@ -609,7 +768,7 @@ export function WorkOrderDetailPage() {
           <dl className="detail-list">
             <div><dt>Especialidad</dt><dd>{specialtyLabels[workOrder.specialty]}</dd></div>
             <div><dt>Prioridad administrativa</dt><dd>{adminPriorityLabels[workOrder.adminPriority]}</dd></div>
-            <div><dt>Estado actual</dt><dd>{workOrderStatusLabels[workOrder.status]}</dd></div>
+            <div><dt>Estado actual</dt><dd>{getWorkOrderStatusLabel(workOrder)}</dd></div>
             <div><dt>Solicitud de origen</dt><dd>{workOrder.requestCode}</dd></div>
             {getWorkOrderAssetDisplayCode(workOrder) && (
               <div><dt>Bien asociado</dt><dd>{workOrder.assetId ? <Link className="detail-link" to={`/bienes/${workOrder.assetId}`}>{getWorkOrderAssetDisplayCode(workOrder)}</Link> : getWorkOrderAssetDisplayCode(workOrder)}</dd></div>
@@ -667,7 +826,7 @@ export function WorkOrderDetailPage() {
               <div><dt>Ambiente</dt><dd>{request.room}</dd></div>
             </dl>
           ) : (
-            <p className="detail-empty">No se encontro la solicitud relacionada.</p>
+            <p className="detail-empty">No se encontró la solicitud relacionada. Revisa la orden desde el listado principal.</p>
           )}
         </article>
       </div>
@@ -680,25 +839,44 @@ export function WorkOrderDetailPage() {
         <p>{workOrder.administratorNotes || "No se registraron indicaciones adicionales."}</p>
       </article>
 
-      {!isServiceOrder && <article className="data-panel detail-card work-order-actions-card">
+      {!isServiceOrder && <article className="data-panel detail-card work-order-actions-card technician-next-action-card">
         <div className="detail-card-heading">
           <Wrench size={22} />
-          <h2>{orderCopy.executionTitle}</h2>
+          <h2>Siguiente paso</h2>
         </div>
-        <p className="detail-empty">
-          {orderCopy.executionEmpty}
-        </p>
 
-        {canRegisterProgress && (
-          <div className="work-order-detail-actions">
-            <Link className="button button-primary" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
-              {orderCopy.progressButton}
-            </Link>
-            <Link className="button button-secondary" to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}>
-              <Stethoscope size={18} />
-              {orderCopy.diagnosisButton}
-            </Link>
-          </div>
+        {canRegisterProgress ? (
+          <>
+            <div className="technician-next-action-copy">
+              <strong>
+                {workOrder.status === "EN_PROCESO"
+                  ? isCleaningOrder ? "Continúa la limpieza" : "Continúa el trabajo"
+                  : workOrder.progressPercentage > 0
+                    ? isCleaningOrder ? "Reanuda la limpieza" : "Reanuda el trabajo"
+                    : isCleaningOrder ? "Inicia la limpieza" : "Inicia el trabajo"}
+              </strong>
+              <p>Desde ahí podrás registrar tiempo, avance y evidencias en orden.</p>
+            </div>
+            <div className="work-order-detail-actions">
+              <Link className="button button-primary" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
+                {workOrder.status === "EN_PROCESO"
+                  ? isCleaningOrder ? "Continuar limpieza" : "Continuar trabajo"
+                  : workOrder.progressPercentage > 0
+                    ? isCleaningOrder ? "Reanudar limpieza" : "Reanudar trabajo"
+                    : isCleaningOrder ? "Iniciar limpieza" : "Iniciar trabajo"}
+              </Link>
+              <Link className="technician-optional-link" to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}>
+                <Stethoscope size={16} />
+                {orderCopy.diagnosisButton} opcional
+              </Link>
+            </div>
+          </>
+        ) : (
+          <p className="detail-empty">
+            {workOrder.correctionWorkOrderId
+              ? "Esta orden ya tiene una corrección vinculada. Abre la nueva orden para continuar."
+              : "No hay acciones pendientes para el técnico en este momento."}
+          </p>
         )}
       </article>}
     </section>

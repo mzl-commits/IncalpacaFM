@@ -13,7 +13,6 @@ import {
   adminPriorityLabels,
   getWorkOrderStatusLabel,
   specialtyLabels,
-  workOrderStatusLabels,
   type WorkOrderStatus,
 } from "@/modules/workorders/workOrderModel";
 import {
@@ -274,8 +273,8 @@ export function SupervisorWorkOrderReviewPage() {
                 <tr>
                   <td colSpan={8} className="empty-row">
                     {activeTab === "pending"
-                      ? "No tienes órdenes pendientes de supervisión."
-                      : "Todavia no tienes órdenes revisadas."}
+                      ? "No hay órdenes listas para revisar. Cuando el técnico termine una OT u OL, aparecerá aquí."
+                      : "Aún no hay revisiones registradas. Tus aprobaciones y devoluciones aparecerán aquí."}
                   </td>
                 </tr>
               )}
@@ -297,13 +296,13 @@ export function SupervisorWorkOrderReviewPage() {
               >
                 <span className="supervisor-card-topline">
                   <strong>{order.code}</strong>
-                  <span className={`status ${statusClass[order.status]}`}>{workOrderStatusLabels[order.status]}</span>
+                  <span className={`status ${statusClass[order.status]}`}>{getWorkOrderStatusLabel(order)}</span>
                 </span>
                 <span>{getWorkOrderAssetDisplayCode(order) || order.requestCode}</span>
                 <small>{order.operatorName} · {formatDuration(order.startedAt, order.finishedAt)}</small>
               </button>
             ))}
-            {!visibleOrders.length && <div className="supervisor-empty-state"><SealCheck size={24} /><strong>{activeTab === "pending" ? "Bandeja despejada" : "Sin revisiones registradas"}</strong><span>{activeTab === "pending" ? "Las OT terminadas aparecerán aquí para tu revisión." : "Las decisiones que registres quedarán disponibles aquí."}</span></div>}
+            {!visibleOrders.length && <div className="supervisor-empty-state"><SealCheck size={24} /><strong>{activeTab === "pending" ? "Bandeja despejada" : "Sin revisiones registradas"}</strong><span>{activeTab === "pending" ? "Cuando el técnico termine una OT u OL, aparecerá aquí para tu revisión." : "Tus aprobaciones y devoluciones quedarán disponibles aquí."}</span></div>}
           </div>
         </article>
 
@@ -397,7 +396,7 @@ export function SupervisorWorkOrderReviewPage() {
           <div className="evidence-empty-note">
             <WarningCircle size={22} />
             <span>Sin orden seleccionada</span>
-            <p>Cuando un operario termine una orden, aparecerá aqui para revisión.</p>
+            <p>Selecciona una orden de la lista para revisar tiempos, evidencias y comentarios.</p>
           </div>
         )}
         </article>

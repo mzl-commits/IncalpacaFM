@@ -1,5 +1,5 @@
 import { ArrowLeft, FloppyDisk } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useLocations } from "@/modules/assets/locationMapQueries";
@@ -11,6 +11,9 @@ interface ServiceOrderFormState {
   documentCode: string;
   amount: string;
   serviceDate: string;
+  zone: string;
+  building: string;
+  area: string;
   locationId: string;
   notes: string;
 }
@@ -25,6 +28,9 @@ const initialForm: ServiceOrderFormState = {
   documentCode: "",
   amount: "",
   serviceDate: today(),
+  zone: "",
+  building: "",
+  area: "",
   locationId: "",
   notes: "",
 };
@@ -32,6 +38,10 @@ const initialForm: ServiceOrderFormState = {
 function moneyValue(value: string) {
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function unique(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right, "es"));
 }
 
 export function ServiceOrderCreatePage() {
@@ -44,6 +54,63 @@ export function ServiceOrderCreatePage() {
 
   function updateField<K extends keyof ServiceOrderFormState>(field: K, value: ServiceOrderFormState[K]) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  const zoneOptions = useMemo(() => unique(locations.map((item) => item.zone)), [locations]);
+  const buildingOptions = useMemo(
+    () => unique(locations.filter((item) => item.zone === form.zone).map((item) => item.building)),
+    [form.zone, locations],
+  );
+  const areaOptions = useMemo(
+    () => unique(locations.filter((item) => item.zone === form.zone && item.building === form.building).map((item) => item.area)),
+    [form.building, form.zone, locations],
+  );
+  const roomOptions = useMemo(
+    () => locations
+      .filter((item) => item.zone === form.zone && item.building === form.building && item.area === form.area)
+      .sort((left, right) => left.room.localeCompare(right.room, "es") || left.locationCode.localeCompare(right.locationCode, "es")),
+    [form.area, form.building, form.zone, locations],
+  );
+  const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
+
+  useEffect(() => {
+    setForm((current) => {
+      if (current.zone || zoneOptions.length !== 1) return current;
+      return { ...current, zone: zoneOptions[0] };
+    });
+  }, [zoneOptions]);
+
+  useEffect(() => {
+    setForm((current) => {
+      if (!current.zone || current.building || buildingOptions.length !== 1) return current;
+      return { ...current, building: buildingOptions[0] };
+    });
+  }, [buildingOptions]);
+
+  useEffect(() => {
+    setForm((current) => {
+      if (!current.building || current.area || areaOptions.length !== 1) return current;
+      return { ...current, area: areaOptions[0] };
+    });
+  }, [areaOptions]);
+
+  useEffect(() => {
+    setForm((current) => {
+      if (!current.area || current.locationId || roomOptions.length !== 1) return current;
+      return { ...current, locationId: roomOptions[0].id };
+    });
+  }, [roomOptions]);
+
+  function selectZone(zone: string) {
+    setForm((current) => ({ ...current, zone, building: "", area: "", locationId: "" }));
+  }
+
+  function selectBuilding(building: string) {
+    setForm((current) => ({ ...current, building, area: "", locationId: "" }));
+  }
+
+  function selectArea(area: string) {
+    setForm((current) => ({ ...current, area, locationId: "" }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -162,17 +229,51 @@ export function ServiceOrderCreatePage() {
               <input type="date" value={form.serviceDate} onChange={(event) => updateField("serviceDate", event.target.value)} />
             </label>
 
-            <label className="field field-wide">
-              <span>Ubicación *</span>
-              <select value={form.locationId} onChange={(event) => updateField("locationId", event.target.value)} disabled={locationsQuery.isPending}>
-                <option value="">{locationsQuery.isPending ? "Cargando ubicaciones..." : "Seleccionar ubicación"}</option>
-                {locations.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.locationCode ? `${item.locationCode} - ` : ""}{item.building} / {item.area} / {item.room}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="field field-wide service-location-picker">
+              <span>Ubicacion *</span>
+              <div className="service-location-grid">
+                <label className="field">
+                  <span>Zona</span>
+                  <select value={form.zone} onChange={(event) => selectZone(event.target.value)} disabled={locationsQuery.isPending}>
+                    <option value="">{locationsQuery.isPending ? "Cargando..." : "Seleccionar zona"}</option>
+                    {zoneOptions.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Edificio</span>
+                  <select value={form.building} onChange={(event) => selectBuilding(event.target.value)} disabled={!form.zone}>
+                    <option value="">{form.zone ? "Seleccionar edificio" : "Primero zona"}</option>
+                    {buildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Area</span>
+                  <select value={form.area} onChange={(event) => selectArea(event.target.value)} disabled={!form.building}>
+                    <option value="">{form.building ? "Seleccionar area" : "Primero edificio"}</option>
+                    {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Ambiente</span>
+                  <select value={form.locationId} onChange={(event) => updateField("locationId", event.target.value)} disabled={!form.area}>
+                    <option value="">{form.area ? "Seleccionar ambiente" : "Primero area"}</option>
+                    {roomOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.locationCode ? `${item.locationCode} - ` : ""}{item.room}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {selectedLocation && (
+                <small>
+                  Seleccionado: {selectedLocation.zone} / {selectedLocation.building} / {selectedLocation.area} / {selectedLocation.room}
+                </small>
+              )}
+            </div>
 
             <label className="field field-wide">
               <span>Servicio solicitado *</span>

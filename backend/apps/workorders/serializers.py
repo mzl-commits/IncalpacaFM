@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -43,6 +43,36 @@ def next_correction_code(order):
         if not WorkOrder.objects.filter(code=code).exists():
             return code
         index += 1
+
+
+def schedule_end(scheduled_date, scheduled_start_time, planned_hours):
+    return datetime.combine(scheduled_date, scheduled_start_time) + timedelta(hours=max(1, int(planned_hours or 1)))
+
+
+def validate_technician_availability(technician, scheduled_date, scheduled_start_time, planned_hours, exclude_order_id=None):
+    occupied_statuses = {
+        WorkOrder.Status.SCHEDULED,
+        WorkOrder.Status.IN_PROGRESS,
+        WorkOrder.Status.RETURNED,
+    }
+    requested_start = datetime.combine(scheduled_date, scheduled_start_time)
+    requested_end = schedule_end(scheduled_date, scheduled_start_time, planned_hours)
+    queryset = WorkOrder.objects.filter(
+        technician=technician,
+        scheduled_date=scheduled_date,
+        status__in=occupied_statuses,
+    ).exclude(order_type=WorkOrder.OrderType.SERVICE)
+    if exclude_order_id:
+        queryset = queryset.exclude(pk=exclude_order_id)
+
+    for existing in queryset:
+        existing_start = datetime.combine(existing.scheduled_date, existing.scheduled_start_time)
+        existing_end = schedule_end(existing.scheduled_date, existing.scheduled_start_time, existing.planned_hours)
+        if requested_start < existing_end and existing_start < requested_end:
+            raise serializers.ValidationError({
+                "scheduledStartTime": f"El operario ya tiene la orden {existing.code} en ese horario."
+            })
+
 
 def active_work_session(order):
     for session in reversed(order.work_sessions or []):
@@ -301,6 +331,13 @@ class WorkOrderSerializer(serializers.ModelSerializer):
                 entity="Incident",
                 entity_id=incident.id,
                 after={"code": incident.code, "status": incident.status},
+            )
+        if order_type != WorkOrder.OrderType.SERVICE:
+            validate_technician_availability(
+                technician,
+                validated_data["scheduled_date"],
+                validated_data.get("scheduled_start_time") or time(8, 0),
+                validated_data.get("planned_hours") or 1,
             )
         sequence = WorkOrder.objects.select_for_update().filter(order_type=order_type).count() + 1
         order = WorkOrder.objects.create(
@@ -663,6 +700,14 @@ class WorkOrderActionSerializer(serializers.Serializer):
                     "action": f"Esta orden ya tiene una corrección vinculada: {existing_correction.code}."
                 })
 
+            validate_technician_availability(
+                order.technician,
+                parsed_date,
+                parsed_time,
+                parsed_hours,
+                exclude_order_id=order.id,
+            )
+
             correction_order = WorkOrder.objects.create(
                 code=next_correction_code(order),
                 incident=order.incident,
@@ -706,21 +751,29 @@ class WorkOrderActionSerializer(serializers.Serializer):
             order.incident.status = Incident.Status.IN_PROGRESS
             order.incident.save(update_fields=("status", "updated_at"))
         elif action == "SERVICE_START":
+            service_payload = {
+                **(order.administrator_validation or {}),
+                **self.validated_data["payload"],
+            }
             order.status = WorkOrder.Status.IN_PROGRESS
             order.started_at = order.started_at or now
             order.administrator_validation = {
-                **self.validated_data["payload"],
+                **service_payload,
                 "serviceStatus": "EN_COORDINACION",
                 "at": now.isoformat(),
                 "by": request.user.get_full_name(),
             }
         elif action == "SERVICE_CLOSE":
+            service_payload = {
+                **(order.administrator_validation or {}),
+                **self.validated_data["payload"],
+            }
             order.status = WorkOrder.Status.CLOSED
             order.progress_percentage = 100
             order.finished_at = order.finished_at or now
             order.closed_at = now
             order.administrator_validation = {
-                **self.validated_data["payload"],
+                **service_payload,
                 "approved": True,
                 "serviceStatus": "CERRADA",
                 "at": now.isoformat(),
@@ -729,10 +782,14 @@ class WorkOrderActionSerializer(serializers.Serializer):
             order.incident.status = Incident.Status.CLOSED
             order.incident.save(update_fields=("status", "updated_at"))
         elif action == "SERVICE_CANCEL":
+            service_payload = {
+                **(order.administrator_validation or {}),
+                **self.validated_data["payload"],
+            }
             order.status = WorkOrder.Status.CANCELLED
             order.closed_at = now
             order.administrator_validation = {
-                **self.validated_data["payload"],
+                **service_payload,
                 "approved": False,
                 "serviceStatus": "CANCELADA",
                 "at": now.isoformat(),

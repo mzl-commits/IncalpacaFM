@@ -9,7 +9,8 @@ import {
   adminPriorityLabels,
   type AdminPriority,
 } from "@/modules/workorders/workOrderModel";
-import { createWorkOrder } from "@/modules/workorders/workOrderRepository";
+import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
+import { createWorkOrder, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 
 interface RoutineCleaningFormState {
   description: string;
@@ -101,12 +102,14 @@ export function RoutineCleaningOrderCreatePage() {
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [form, setForm] = useState<RoutineCleaningFormState>(initialForm);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
+    void listWorkOrders().then(setOrders);
   }, []);
 
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
@@ -157,11 +160,22 @@ export function RoutineCleaningOrderCreatePage() {
       return;
     }
     if (!routineDates.length) {
-      setError("El rango elegido no tiene fechas para los dias seleccionados.");
+      setError("El rango elegido no tiene fechas para los días seleccionados.");
       return;
     }
     if (routineDates.length > 60) {
-      setError("Genera maximo 60 OL por vez para mantener la agenda ordenada.");
+      setError("Genera máximo 60 OL por vez para mantener la agenda ordenada.");
+      return;
+    }
+    const conflicts = findScheduleConflicts({
+      orders,
+      operatorId: form.operatorId,
+      dates: routineDates,
+      startTime: form.scheduledStartTime,
+      plannedHours: form.plannedHours,
+    });
+    if (conflicts.length) {
+      setError(`La rutina se cruza con órdenes ya programadas: ${conflicts.slice(0, 4).map((order) => order.code).join(", ")}${conflicts.length > 4 ? "..." : ""}.`);
       return;
     }
 
@@ -194,7 +208,7 @@ export function RoutineCleaningOrderCreatePage() {
           progressPercentage: 0,
         });
       }
-      navigate("/ordenes-trabajo?orderType=OL");
+      navigate("/órdenes-trabajo?orderType=OL");
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
       setError(detail || "No se pudo generar la rutina de limpieza.");
@@ -207,11 +221,11 @@ export function RoutineCleaningOrderCreatePage() {
     <section>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Mantenimiento / Ordenes / OL rutinaria</p>
+          <p className="breadcrumb">Mantenimiento / Órdenes / OL rutinaria</p>
           <h1>Crear OL rutinaria</h1>
-          <p>Programa varias limpiezas para un ambiente segun dias y rango de fechas.</p>
+          <p>Programa varias limpiezas para un ambiente según días y rango de fechas.</p>
         </div>
-        <Link className="button button-secondary" to="/ordenes-trabajo/nueva">
+        <Link className="button button-secondary" to="/órdenes-trabajo/nueva">
           <ArrowLeft size={18} />
           Volver
         </Link>
@@ -224,7 +238,7 @@ export function RoutineCleaningOrderCreatePage() {
               <span className="section-number">1</span>
               <div>
                 <h2>Rutina de limpieza</h2>
-                <p>Define el trabajo repetitivo, el ambiente y los dias en que debe aparecer en agenda.</p>
+                <p>Define el trabajo repetitivo, el ambiente y los días en que debe aparecer en agenda.</p>
               </div>
             </div>
           </div>
@@ -245,7 +259,7 @@ export function RoutineCleaningOrderCreatePage() {
             <label className="field">
               <span>Ubicacion *</span>
               <select value={form.locationId} onChange={(event) => updateField("locationId", event.target.value)} disabled={locationsQuery.isPending}>
-                <option value="">{locationsQuery.isPending ? "Cargando ubicaciones..." : "Seleccionar ubicacion"}</option>
+                <option value="">{locationsQuery.isPending ? "Cargando ubicaciónes..." : "Seleccionar ubicación"}</option>
                 {locations.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.locationCode ? `${item.locationCode} - ` : ""}{item.building} / {item.area} / {item.room}
@@ -277,7 +291,7 @@ export function RoutineCleaningOrderCreatePage() {
               <span className="section-number">2</span>
               <div>
                 <h2>Responsables y calendario</h2>
-                <p>El sistema generara una OL por cada fecha que coincida con los dias marcados.</p>
+                <p>El sistema generará una OL por cada fecha que coincida con los días marcados.</p>
               </div>
             </div>
           </div>
@@ -296,8 +310,20 @@ export function RoutineCleaningOrderCreatePage() {
                   <option key={operator.id} value={operator.id}>{operator.full_name} - {operator.specialty || "Sin especialidad"}</option>
                 ))}
               </select>
-              {!cleaningTechnicians.length && <small>No hay responsables de limpieza activos. Registralos en Equipo tecnico.</small>}
+              {!cleaningTechnicians.length && <small>No hay responsables de limpieza activos. Regístralos en Equipo técnico.</small>}
             </label>
+
+            <div className="field field-wide">
+              <OperatorAvailabilityPanel
+                orders={orders}
+                operatorId={form.operatorId}
+                operatorName={form.operatorName}
+                selectedDates={routineDates}
+                startTime={form.scheduledStartTime}
+                plannedHours={form.plannedHours}
+                title="Disponibilidad del responsable de limpieza"
+              />
+            </div>
 
             <label className="field">
               <span>Apoyo de limpieza</span>
@@ -360,7 +386,7 @@ export function RoutineCleaningOrderCreatePage() {
                   </button>
                 ))}
               </div>
-              <small>{routineDates.length ? `Se generaran ${routineDates.length} OL.` : "Selecciona rango y dias para calcular las OL."}</small>
+              <small>{routineDates.length ? `Se generarán ${routineDates.length} OL.` : "Selecciona rango y días para calcular las OL."}</small>
             </fieldset>
 
             <label className="field field-wide">
@@ -368,6 +394,7 @@ export function RoutineCleaningOrderCreatePage() {
               <textarea value={form.administratorNotes} onChange={(event) => updateField("administratorNotes", event.target.value)} rows={4} maxLength={1000} />
               <small>{form.administratorNotes.length} / 1000 caracteres</small>
             </label>
+
           </div>
         </div>
 
@@ -384,7 +411,7 @@ export function RoutineCleaningOrderCreatePage() {
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-actions">
-          <Link className="button button-secondary" to="/ordenes-trabajo/nueva">Cancelar</Link>
+          <Link className="button button-secondary" to="/órdenes-trabajo/nueva">Cancelar</Link>
           <button className="button button-primary" type="submit" disabled={saving}>
             <FloppyDisk size={18} weight="bold" />
             {saving ? "Generando..." : "Generar rutina"}
@@ -394,3 +421,5 @@ export function RoutineCleaningOrderCreatePage() {
     </section>
   );
 }
+
+
