@@ -115,6 +115,20 @@ export async function adminReviewWorkOrder(
   notifyChanges();
   return data;
 }
+
+export async function updateServiceOrderStatus(
+  id: string,
+  action: "SERVICE_START" | "SERVICE_CLOSE" | "SERVICE_CANCEL",
+  comment: string,
+  attachments: string[] = [],
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action,
+    payload: { comment, attachments },
+  });
+  notifyChanges();
+  return data;
+}
 export async function pauseWorkOrder(id: string): Promise<WorkOrder> {
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
     action: "PAUSE",
