@@ -503,7 +503,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
             if action in technical_actions or action.startswith('SUPERVISOR_') or action in {'CONFORM', 'REOPEN'}:
                 raise PermissionDenied('Esta acción corresponde al operario, supervisor o solicitante.')
         expected_statuses = {
-            'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.RETURNED, WorkOrder.Status.IN_PROGRESS},
+            'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.PENDING_RESCHEDULE, WorkOrder.Status.RETURNED, WorkOrder.Status.IN_PROGRESS},
             'PAUSE': {WorkOrder.Status.IN_PROGRESS},
             'PROGRESS': {WorkOrder.Status.IN_PROGRESS},
             'SUPERVISOR_APPROVE': {WorkOrder.Status.SUPERVISION},
