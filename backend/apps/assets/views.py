@@ -153,11 +153,14 @@ class UserDashboardView(APIView):
 
     def get(self, request):
         try:
-            worker_code = request.user.account_profile.worker_code
+            worker_code = request.user.account_profile.worker_code.strip()
         except AccountProfile.DoesNotExist:
             return Response({'detail': 'Perfil de cuenta no encontrado.'}, status=404)
         from apps.assets.models import AssignableResponsible
-        responsible = AssignableResponsible.objects.filter(external_reference=worker_code, active=True).first()
+        responsible = AssignableResponsible.objects.filter(external_reference__iexact=worker_code, active=True).first()
+        if responsible is None:
+            username = (request.user.username or "").strip()
+            responsible = AssignableResponsible.objects.filter(external_reference__iexact=username, active=True).first()
         return Response({
             'profile': {'display_name': responsible.display_name if responsible else request.user.get_full_name(), 'area_name': responsible.area_name if responsible else '', 'worker_code': worker_code},
             'assigned_assets': _assets_for_responsible(responsible) if responsible else [],
