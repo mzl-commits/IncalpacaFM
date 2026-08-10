@@ -3849,6 +3849,7 @@ td { padding: 13px 14px; }
 .routine-preview span { margin-top: 3px; color: var(--muted); font-size: 13px; }
 /* ============================================================
 <<<<<<< HEAD
+<<<<<<< HEAD
    REDISEÑO UX/UI COMMAND PANEL / ACTION LAUNCHER (MODAL NUEVA ACCIÓN)
    ============================================================ */
 
@@ -3858,12 +3859,19 @@ td { padding: 13px 14px; }
     transform: translateY(6px) scale(0.99);
 =======
    REDISEÑO UX/UI COMMAND PALETTE / ACTION LAUNCHER (MODAL NUEVA ACCIÓN)
+=======
+   REDISEÑO UX/UI PROFESIONAL DEL MODAL "NUEVA ACCIÓN" (GRID 2x2)
+>>>>>>> feature/rediseno-ui-sidebar-catalogo
    ============================================================ */
 
-@keyframes paletteEntry {
+@keyframes modalSheetEntry {
   from {
     opacity: 0;
+<<<<<<< HEAD
     transform: translateY(8px) scale(0.985);
+>>>>>>> feature/rediseno-ui-sidebar-catalogo
+=======
+    transform: translateY(10px) scale(0.985);
 >>>>>>> feature/rediseno-ui-sidebar-catalogo
   }
   to {
@@ -3893,6 +3901,44 @@ td { padding: 13px 14px; }
 >>>>>>> feature/rediseno-ui-sidebar-catalogo
 }
 
+@keyframes cardStagger {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes iconContainerPulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.10);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes iconRotate {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(-3deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(0deg) scale(1.05);
+  }
+}
+
 .quick-actions-dialog {
   padding: 0;
   border: none;
@@ -3907,42 +3953,29 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.45);
-<<<<<<< HEAD
-  backdrop-filter: blur(1.5px);
-}
-
-.quick-actions-sheet {
-  width: 540px;
-  max-width: calc(100vw - 32px);
-  background: #FFFFFF;
-  border: 1px solid #D8D8D8;
-=======
+  background: rgba(0, 0, 0, 0.46);
   backdrop-filter: blur(2px);
 }
 
 .quick-actions-sheet {
-  width: 520px;
-  max-width: calc(100vw - 32px);
+  width: 720px;
+  max-width: calc(100vw - 40px);
   background: #FFFFFF;
   border: 1px solid #DADADA;
->>>>>>> feature/rediseno-ui-sidebar-catalogo
-  border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
+  border-radius: 14px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.20) !important;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   overflow: hidden;
-<<<<<<< HEAD
-  animation: modalEntry 200ms ease-out forwards;
+  animation: modalSheetEntry 210ms ease-out forwards;
 }
 
-/* HEADER */
-.quick-actions-header {
-  padding: 22px 24px 18px 24px;
-=======
-  animation: paletteEntry 200ms ease-out forwards;
+@media (min-width: 1400px) {
+  .quick-actions-sheet {
+    width: 740px;
+  }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   .quick-actions-sheet {
     width: calc(100vw - 24px);
   }
@@ -3950,7 +3983,7 @@ td { padding: 13px 14px; }
 
 /* HEADER */
 .quick-actions-header {
-  padding: 20px 22px 16px 22px;
+  padding: 30px 32px 26px 32px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -3959,163 +3992,192 @@ td { padding: 13px 14px; }
 
 .quick-actions-header h2 {
   font-family: "Inter", sans-serif !important;
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   color: #111111;
   margin: 0;
 }
 
 .quick-actions-header p {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 400;
-  line-height: 1.4;
-  color: #777777;
-  margin: 2px 0 0 0;
+  line-height: 1.45;
+  color: #666666;
+  margin: 6px 0 0 0;
 }
 
 .quick-actions-header button {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #F5F5F5;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #111111;
   cursor: pointer;
-  transition: background 150ms ease;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
   flex-shrink: 0;
 }
 
 .quick-actions-header button:hover {
-  background: #F0F0F0;
+  background: #EAEAEA;
+  border-color: #D5D5D5;
+  transform: rotate(4deg);
 }
 
-/* VERTICAL SINGLE-CONTAINER LIST */
-.quick-actions-list {
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 4px;
-}
-
-.quick-action-row {
-  position: relative;
-  height: 70px;
-  padding: 0 18px;
+/* 2x2 GRID MATRIX AREA */
+.quick-actions-matrix {
   display: grid;
-  grid-template-columns: 34px 1fr auto;
-  gap: 12px;
-  align-items: center;
-  background: #FFFFFF;
-  border-top: 1px solid #E8E8E8;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 180ms ease, transform 180ms ease;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 22px 32px 32px 32px;
 }
 
-@media (max-width: 560px) {
-  .quick-action-row {
-    height: 72px;
+@media (max-width: 600px) {
+  .quick-actions-matrix {
+    grid-template-columns: 1fr;
+    padding: 18px 20px 24px 20px;
   }
 }
 
-/* ACCENT LINE ON HOVER */
-.quick-action-accent-line {
+/* ACTION CARD */
+.quick-action-card {
+  min-height: 125px;
+  padding: 22px 22px;
+  background: #FFFFFF;
+  border: 1px solid #DEDEDE;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  text-decoration: none;
+  color: #171717;
+  transition: transform 200ms ease, border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+  animation: cardStagger 180ms ease-out forwards;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
+@media (max-width: 600px) {
+  .quick-action-card {
+    min-height: 100px;
+    padding: 18px;
+  }
+}
+
+/* TOP ACCENT BAR ON HOVER */
+.quick-action-top-accent {
   position: absolute;
   left: 0;
-  top: calc(50% - 12px);
-  width: 3px;
-  height: 24px;
-  border-radius: 0 3px 3px 0;
+  top: 0;
+  width: 100%;
+  height: 3px;
   background: var(--action-color);
-  opacity: 0;
-  transform: scaleY(0.4);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 220ms ease;
 }
 
-.quick-action-row:hover .quick-action-accent-line {
-  opacity: 1;
-  transform: scaleY(1);
+.quick-action-card:hover .quick-action-top-accent {
+  transform: scaleX(1);
 }
 
-.quick-action-icon {
+/* ICON CONTAINER BOX */
+.quick-action-icon-box {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 180ms ease;
+  flex-shrink: 0;
+  transition: background-color 180ms ease;
 }
 
-.quick-action-row:hover .quick-action-icon {
-  transform: translateX(2px) scale(1.08);
+@media (max-width: 600px) {
+  .quick-action-icon-box {
+    width: 54px;
+    height: 54px;
+  }
 }
 
-.quick-action-text-block {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+/* ACTION SPECIFIC CONTAINER BACKGROUNDS */
+.quick-action-card.action-type-bienes .quick-action-icon-box {
+  background: #EAF1FF;
 }
 
-.quick-action-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111111;
-  line-height: 1.3;
-  transition: color 180ms ease;
+.quick-action-card.action-type-asignaciones .quick-action-icon-box {
+  background: #F1EAFE;
 }
 
-.quick-action-category {
-  font-size: 11px;
-  font-weight: 500;
-  color: #8A8A8A;
-  margin-top: 2px;
-  transition: color 180ms ease;
+.quick-action-card.action-type-incidencias .quick-action-icon-box {
+  background: #FFF0E8;
+}
+
+.quick-action-card.action-type-informes .quick-action-icon-box {
+  background: #E7F6F0;
+}
+
+/* HOVER MICRO-PULSE & MICRO-ROTATION ON ICON */
+.quick-action-card:hover .quick-action-icon-box {
+  animation: iconContainerPulse 450ms ease-in-out forwards;
+}
+
+.quick-action-card:hover .quick-action-icon-box svg {
+  animation: iconRotate 450ms ease-in-out forwards;
+}
+
+.quick-action-label {
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: #171717;
+  flex: 1;
 }
 
 .quick-action-arrow {
-  opacity: 0.35;
-  color: #111111;
-  justify-self: end;
+  color: #A0A0A0;
+  opacity: 0.75;
+  flex-shrink: 0;
   transition: transform 180ms ease, opacity 180ms ease, color 180ms ease;
 }
 
-/* HOVER STATE (ROW TO BLACK, TEXT TO WHITE, ICON RETAINS FUNCTIONAL COLOR) */
-.quick-action-row:hover {
-  background: #111111;
+/* HOVER & ACTIVE CARD STATES */
+.quick-action-card:hover {
+  background: #FAFAFA;
+  border-color: #BDBDBD;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
 }
 
-.quick-action-row:hover .quick-action-title {
-  color: #FFFFFF;
-}
-
-.quick-action-row:hover .quick-action-category {
-  color: #BDBDBD;
-}
-
-.quick-action-row:hover .quick-action-arrow {
+.quick-action-card:hover .quick-action-arrow {
+  color: #111111;
   opacity: 1;
-  color: #FFFFFF;
-  transform: translateX(4px);
+  transform: translateX(5px);
 }
 
-.quick-action-row:active {
-  transform: scale(0.995);
+.quick-action-card:active {
+  transform: translateY(-1px) scale(0.99);
   transition: transform 80ms ease;
 }
 
-.quick-action-row:focus-visible {
+.quick-action-card:focus-visible {
   outline: 2px solid #111111;
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 
 /* ACCESSIBILITY: PREFERS-REDUCED-MOTION */
 @media (prefers-reduced-motion: reduce) {
   .quick-actions-sheet,
-  .quick-action-row,
-  .quick-action-row *,
-  .quick-action-row:hover {
+  .quick-action-card,
+  .quick-action-card *,
+  .quick-action-card:hover {
     animation: none !important;
     transition-duration: 0.01ms !important;
     transform: none !important;
