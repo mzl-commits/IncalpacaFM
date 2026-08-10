@@ -172,7 +172,10 @@ export function MovimientosPage() {
                     <div style={{ fontSize: 11, color: "var(--muted)" }}>{mov.material_codigo}</div>
                   </td>
                   <td style={{ fontSize: 12, fontFamily: "ui-monospace, monospace" }}>
-                    {mov.pieza_codigo ?? `${mov.cantidad} u.`}
+                    {mov.pieza_codigo
+                      ?? (mov.cantidad_cajas
+                        ? `${mov.cantidad_cajas} caja(s) · ${mov.cantidad} u.`
+                        : `${mov.cantidad} u.`)}
                   </td>
                   <td><StatusBadge value={mov.tipo} label={mov.tipo_display} /></td>
                   <td style={{ fontSize: 12 }}>{mov.responsable_nombre}</td>

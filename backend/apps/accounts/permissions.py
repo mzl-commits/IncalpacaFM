@@ -61,3 +61,17 @@ class IsAlmaceneroOrAdministratorWrite(BasePermission):
             AccountProfile.Role.ADMIN,
             AccountProfile.Role.ALMACENERO,
         }
+
+
+class IsInspectorOrAdministrator(BasePermission):
+    """
+    Requiere rol ADMINISTRADOR o INSPECTOR. Se usará para el CRUD de
+    plantillas de criterios de inspección (tarea pendiente aparte).
+    """
+    message = "Esta acción requiere permisos de Administrador o Inspector."
+
+    def has_permission(self, request, view):
+        return user_role(request.user) in {
+            AccountProfile.Role.ADMIN,
+            AccountProfile.Role.INSPECTOR,
+        }

@@ -6,9 +6,10 @@ import { listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { listWorkRequests } from "@/modules/incidents/incidentRepository";
 
 const SPECIALTIES = ["Electricista", "Gasfitero", "Carpintero", "Soldador", "Mecanico", "Pintor", "Climatizacion", "Limpieza", "Jardineria", "Multitecnico"];
-const ROLE_OPTIONS: Array<{ value: "TECNICO" | "ALMACENERO"; label: string }> = [
+const ROLE_OPTIONS: Array<{ value: "TECNICO" | "ALMACENERO" | "INSPECTOR"; label: string }> = [
   { value: "TECNICO", label: "Técnico" },
   { value: "ALMACENERO", label: "Almacenero" },
+  { value: "INSPECTOR", label: "Inspector" },
 ];
 const emptyForm: TechnicianInput = { full_name: "", email: "", worker_code: "", specialty: "", active: true, temporary_password: "", role: "TECNICO" };
 
@@ -63,7 +64,7 @@ export function TechnicianManagementPage() {
     }
   }
 
-  const roleLabel = (role: "TECNICO" | "ALMACENERO") => role === "ALMACENERO" ? "Almacenero" : "Técnico";
+  const roleLabel = (role: "TECNICO" | "ALMACENERO" | "INSPECTOR") => role === "ALMACENERO" ? "Almacenero" : role === "INSPECTOR" ? "Inspector" : "Técnico";
 
   return (
     <section className="technician-management-page">
@@ -131,7 +132,7 @@ export function TechnicianManagementPage() {
                       </Link>
                     </td>
                     <td>
-                      <span className={`status ${person.role === "ALMACENERO" ? "status-info" : "status-neutral"}`}>
+                      <span className={`status ${person.role === "ALMACENERO" ? "status-info" : person.role === "INSPECTOR" ? "status-warning" : "status-neutral"}`}>
                         {roleLabel(person.role ?? "TECNICO")}
                       </span>
                     </td>
@@ -185,7 +186,7 @@ export function TechnicianManagementPage() {
             </label>
             <label className="field">
               <span>Rol *</span>
-              <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as "TECNICO" | "ALMACENERO" })}>
+              <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as "TECNICO" | "ALMACENERO" | "INSPECTOR" })}>
                 {ROLE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
             </label>
@@ -215,4 +216,3 @@ export function TechnicianManagementPage() {
     </section>
   );
 }
-

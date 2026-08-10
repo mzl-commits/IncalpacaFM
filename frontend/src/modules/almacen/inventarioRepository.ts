@@ -30,7 +30,10 @@ export async function listChecklistPrestados(opts: {
 
 export interface SalidaMaterialInput {
   material_id: number;
-  cantidad: number;
+  /** En unidades. Opcional si se envía cantidad_cajas (el backend la recalcula). */
+  cantidad?: number;
+  /** Si el material se maneja por caja: número de cajas. El backend calcula el total en unidades. */
+  cantidad_cajas?: number;
   responsable_id: number;
   referencia_externa?: string;
   observaciones?: string;
@@ -67,7 +70,10 @@ export async function registrarSalidaPieza(
 
 export interface EntradaMaterialInput {
   material_id: number;
-  cantidad: number;
+  /** En unidades. Opcional si se envía cantidad_cajas (el backend la recalcula). */
+  cantidad?: number;
+  /** Si el material se maneja por caja: número de cajas. El backend calcula el total en unidades. */
+  cantidad_cajas?: number;
   responsable_id: number;
   observaciones?: string;
 }
@@ -92,7 +98,10 @@ export async function registrarEntradaPieza(input: EntradaPiezaInput): Promise<M
 
 export interface BajaMaterialInput {
   material_id: number;
-  cantidad: number;
+  /** En unidades. Opcional si se envía cantidad_cajas (el backend la recalcula). */
+  cantidad?: number;
+  /** Si el material se maneja por caja: número de cajas. El backend calcula el total en unidades. */
+  cantidad_cajas?: number;
   responsable_id: number;
   observaciones?: string;
 }

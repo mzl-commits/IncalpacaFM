@@ -69,6 +69,7 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
                 responsable=responsable,
                 referencia_externa=data.get("referencia_externa", ""),
                 observaciones=data.get("observaciones", ""),
+                cantidad_cajas=data.get("cantidad_cajas"),
             )
             return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
@@ -115,6 +116,7 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
                 cantidad=data["cantidad"],
                 responsable=responsable,
                 observaciones=data.get("observaciones", ""),
+                cantidad_cajas=data.get("cantidad_cajas"),
             )
             return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
@@ -150,6 +152,7 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
                 cantidad=data["cantidad"],
                 responsable=responsable,
                 observaciones=data.get("observaciones", ""),
+                cantidad_cajas=data.get("cantidad_cajas"),
             )
             return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:

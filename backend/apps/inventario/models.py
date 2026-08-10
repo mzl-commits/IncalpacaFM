@@ -18,8 +18,13 @@ class Movimiento(models.Model):
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     cantidad = models.PositiveIntegerField(
         default=1,
-        help_text="Para materiales sin control individual, cantidad que sale/entra/se da de baja. "
-                   "Para piezas individuales, siempre 1."
+        help_text="Para materiales sin control individual, cantidad que sale/entra/se da de baja "
+                   "SIEMPRE expresada en unidades. Para piezas individuales, siempre 1."
+    )
+    cantidad_cajas = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Si el material se maneja por caja, número de cajas que originaron este "
+                   "movimiento. 'cantidad' sigue siendo el total en unidades (cajas × unidades/caja).",
     )
     fecha = models.DateTimeField(auto_now_add=True)
     responsable = models.ForeignKey(

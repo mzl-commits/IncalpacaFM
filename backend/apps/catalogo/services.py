@@ -4,14 +4,13 @@ import string
 
 def generar_codigo_material(categoria):
     """Genera código correlativo: prefijo + consecutivo de 4 dígitos (ej. H0013).
-    Solo cuenta entre materiales visibles (es_componente=False); los
-    materiales-componente no afectan este contador."""
+    Cuenta TODOS los materiales con ese prefijo (visibles y componentes/ocultos),
+    porque el código debe ser único en toda la tabla sin importar visibilidad."""
 
     largo_prefijo = len(categoria.prefijo)
     ultimo = (
         Material.objects.filter(
             codigo__regex=rf"^{categoria.prefijo}\d+$",
-            es_componente=False,
         )
         .order_by("-codigo")
         .first()

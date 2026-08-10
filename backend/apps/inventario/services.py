@@ -5,10 +5,12 @@ from apps.catalogo.models import Material, Pieza
 from apps.inventario.models import Movimiento
 import uuid
 
-def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones=""):
+def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones="", cantidad_cajas=None):
     """
     Para materiales NO retornables (o retornables sin control individual, ej. brocas sueltas):
     descuenta cantidad_total de inmediato y deja el registro histórico.
+    'cantidad' siempre está en unidades; 'cantidad_cajas' es solo trazabilidad opcional
+    cuando el material se maneja por caja.
     """
     if material.control_individual:
         raise ValidationError(
@@ -24,6 +26,7 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
             material=material,
             tipo="salida",
             cantidad=cantidad,
+            cantidad_cajas=cantidad_cajas,
             responsable=responsable,
             referencia_externa=referencia_externa,
             observaciones=observaciones,
@@ -34,11 +37,12 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
     return mov
 
 
-def registrar_entrada_material(material: Material, cantidad: int, responsable, observaciones=""):
+def registrar_entrada_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None):
     """Reingreso de stock (ej. compra nueva, o una pieza que finalmente aparece)."""
     with transaction.atomic():
         mov = Movimiento.objects.create(
             material=material, tipo="entrada", cantidad=cantidad,
+            cantidad_cajas=cantidad_cajas,
             responsable=responsable, observaciones=observaciones,
         )
         Material.objects.filter(pk=material.pk).update(
@@ -47,7 +51,7 @@ def registrar_entrada_material(material: Material, cantidad: int, responsable, o
     return mov
 
 
-def registrar_baja_material(material: Material, cantidad: int, responsable, observaciones=""):
+def registrar_baja_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None):
     """Confirma pérdida/rotura de cantidad no reconciliada (ej. brocas)."""
     # No se puede dar de baja más de lo que hay en stock
     if cantidad > material.cantidad_total:
@@ -57,6 +61,7 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
     with transaction.atomic():
         mov = Movimiento.objects.create(
             material=material, tipo="baja", cantidad=cantidad,
+            cantidad_cajas=cantidad_cajas,
             responsable=responsable, observaciones=observaciones,
         )
         Material.objects.filter(pk=material.pk).update(

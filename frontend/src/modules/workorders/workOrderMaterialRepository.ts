@@ -13,6 +13,8 @@ export interface WorkOrderMaterial {
   tipoLabel: string;
   esBloqueante: boolean;
   porcentajeRequerido: number | null;
+  adquirido: boolean;
+  adquiridoEn: string | null;
   registradoPorNombre: string;
   creadoEn: string;
   actualizadoEn: string;
@@ -60,6 +62,16 @@ export async function marcarMaterialBloqueante(
 ): Promise<WorkOrderMaterial> {
   const { data } = await api.post<WorkOrderMaterial>(
     `/work-orders/${workOrderId}/materiales/${materialId}/marcar-bloqueante/`,
+  );
+  return data;
+}
+
+export async function marcarMaterialAdquirido(
+  workOrderId: string,
+  materialId: string,
+): Promise<WorkOrderMaterial> {
+  const { data } = await api.patch<WorkOrderMaterial>(
+    `/work-orders/${workOrderId}/materiales/${materialId}/marcar-adquirido/`,
   );
   return data;
 }

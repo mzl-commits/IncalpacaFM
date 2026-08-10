@@ -1,4 +1,3 @@
-
 import uuid
 
 from django.conf import settings
@@ -205,6 +204,11 @@ class WorkOrderMaterial(models.Model):
         blank=True,
         help_text="Porcentaje de avance de la OT en que el material es requerido (0-100)."
     )
+    adquirido = models.BooleanField(
+        default=False,
+        help_text="True cuando el administrador confirma que el material bloqueante ya fue comprado/conseguido.",
+    )
+    adquirido_en = models.DateTimeField(null=True, blank=True)
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="materiales_registrados_en_ot",

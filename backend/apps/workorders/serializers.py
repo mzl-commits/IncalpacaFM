@@ -857,6 +857,8 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
             "tipoLabel",
             "esBloqueante",
             "porcentajeRequerido",
+            "adquirido",
+            "adquiridoEn",
             "registradoPorNombre",
             "creadoEn",
             "actualizadoEn",
@@ -865,6 +867,8 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
     # camelCase mapping
     esBloqueante = serializers.BooleanField(source="es_bloqueante", read_only=True)
     porcentajeRequerido = serializers.IntegerField(source="porcentaje_requerido", read_only=True)
+    adquirido = serializers.BooleanField(read_only=True)
+    adquiridoEn = serializers.DateTimeField(source="adquirido_en", read_only=True)
 
     def get_registradoPorNombre(self, obj) -> str:
         return obj.registrado_por.get_full_name() or obj.registrado_por.username
