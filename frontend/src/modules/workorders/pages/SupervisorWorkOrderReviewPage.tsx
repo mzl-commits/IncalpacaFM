@@ -1,5 +1,6 @@
 import {
   ArrowSquareOut,
+  ArrowClockwise,
   CheckCircle,
   NotePencil,
   SealCheck,
@@ -80,22 +81,32 @@ export function SupervisorWorkOrderReviewPage() {
   const [comment, setComment] = useState("");
   const [activeTab, setActiveTab] = useState<ReviewTab>("pending");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function refresh() {
-      const nextOrders = await listWorkOrders();
-      if (!active) return;
-      setOrders(nextOrders);
-      const requestedOrder = requestedOrderId
-        ? nextOrders.find((order) => order.id === requestedOrderId)
-        : undefined;
-      if (requestedOrder) {
-        setSelectedId(requestedOrder.id);
-        setActiveTab(requestedOrder.status === "PENDIENTE_DE_SUPERVISION" ? "pending" : "reviewed");
-      } else {
-        setSelectedId((current) => current || nextOrders[0]?.id || "");
+      setLoading(true);
+      setLoadError("");
+      try {
+        const nextOrders = await listWorkOrders();
+        if (!active) return;
+        setOrders(nextOrders);
+        const requestedOrder = requestedOrderId
+          ? nextOrders.find((order) => order.id === requestedOrderId)
+          : undefined;
+        if (requestedOrder) {
+          setSelectedId(requestedOrder.id);
+          setActiveTab(requestedOrder.status === "PENDIENTE_DE_SUPERVISION" ? "pending" : "reviewed");
+        } else {
+          setSelectedId((current) => current || nextOrders[0]?.id || "");
+        }
+      } catch {
+        if (active) setLoadError("No se pudo cargar la bandeja de supervisión. Comprueba tu conexión e inténtalo de nuevo.");
+      } finally {
+        if (active) setLoading(false);
       }
     }
 
@@ -161,12 +172,21 @@ export function SupervisorWorkOrderReviewPage() {
   return (
     <section className="supervisor-review-page">
       <div className="page-heading">
-        <div>
+        <div className="supervisor-heading-copy">
           <p className="breadcrumb">Supervisión / Órdenes de trabajo</p>
           <h1>Revisión del supervisor</h1>
           <p>Revisa solo tus órdenes pendientes y las que ya validaste.</p>
         </div>
       </div>
+
+      <div className="supervisor-review-toolbar">
+        <span>Actualiza la bandeja para ver las últimas órdenes terminadas.</span>
+        <button className="button button-secondary button-sm" type="button" onClick={() => { setLoading(true); void listWorkOrders().then(setOrders).catch(() => setLoadError("No se pudo actualizar la bandeja." )).finally(() => setLoading(false)); }} disabled={loading}>
+          <ArrowClockwise size={16} className={loading ? "is-spinning" : ""} /> Actualizar
+        </button>
+      </div>
+
+      {loadError && <div className="dashboard-partial-error" role="alert"><WarningCircle size={20} /><span>{loadError}</span></div>}
 
       <div className="metrics-grid">
         <article>
@@ -191,7 +211,7 @@ export function SupervisorWorkOrderReviewPage() {
         </article>
       </div>
 
-      <div className="supervisor-review-workspace">
+      {loading && !orders.length ? <div className="data-panel supervisor-loading-state"><div className="skeleton skeleton-block" /><span>Cargando órdenes de supervisión…</span></div> : <div className="supervisor-review-workspace">
         <article className="data-panel detail-card supervisor-review-table">
           <div className="detail-card-heading supervisor-review-heading">
             <div>
@@ -401,7 +421,7 @@ export function SupervisorWorkOrderReviewPage() {
           </div>
         )}
         </article>
-      </div>
+      </div>}
     </section>
   );
 }
