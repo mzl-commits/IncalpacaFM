@@ -3,6 +3,8 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics, permissions, response, serializers, status, views
+from openpyxl import load_workbook
+from django.db import transaction
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth import get_user_model
 
@@ -60,6 +62,54 @@ class TechnicianListCreateView(generics.ListCreateAPIView):
         return get_user_model().objects.select_related('account_profile').filter(
             account_profile__role=AccountProfile.Role.TECHNICIAN
         ).order_by('first_name', 'last_name', 'username')
+
+
+class TechnicianImportView(views.APIView):
+    permission_classes = [IsAdministrator]
+
+    def post(self, request):
+        upload = request.FILES.get("file")
+        if not upload or not upload.name.lower().endswith((".xlsx", ".xlsm")):
+            return response.Response({"detail": "Adjunta un archivo Excel .xlsx o .xlsm."}, status=400)
+        try:
+            workbook = load_workbook(upload, read_only=True, data_only=True)
+            sheet = workbook.active
+            rows = list(sheet.iter_rows(values_only=True))
+        except Exception:
+            return response.Response({"detail": "No se pudo leer el archivo Excel."}, status=400)
+        if not rows:
+            return response.Response({"detail": "El archivo no contiene filas."}, status=400)
+        headers = {str(value or "").strip().lower().replace(" ", "_"): index for index, value in enumerate(rows[0])}
+        required = {"nombre", "codigo_trabajador", "dni"}
+        if not required.issubset(headers):
+            return response.Response({"detail": "Columnas requeridas: nombre, codigo_trabajador y dni. Opcionales: correo, especialidad, activo, contraseña_temporal."}, status=400)
+        result = {"created": 0, "updated": 0, "errors": []}
+        for number, row in enumerate(rows[1:], start=2):
+            values = {key: (row[index] if index < len(row) else "") for key, index in headers.items()}
+            try:
+                full_name = str(values.get("nombre") or "").strip()
+                worker_code = str(values.get("codigo_trabajador") or "").strip().upper()
+                dni = "".join(ch for ch in str(values.get("dni") or "") if ch.isdigit())
+                if not full_name or not worker_code or len(dni) != 8:
+                    raise ValueError("nombre, codigo_trabajador y DNI de 8 dígitos son obligatorios")
+                with transaction.atomic():
+                    existing = AccountProfile.objects.filter(worker_code__iexact=worker_code).select_related("user").first()
+                    if existing:
+                        if existing.dni and existing.dni != dni:
+                            raise ValueError("el código ya existe con otro DNI")
+                        existing.dni = dni
+                        existing.specialty = str(values.get("especialidad") or "").strip()
+                        existing.save(update_fields=("dni", "specialty"))
+                        result["updated"] += 1
+                    else:
+                        first_name, _, last_name = full_name.partition(" ")
+                        password = str(values.get("contraseña_temporal") or "Importar2026!")
+                        user = get_user_model().objects.create_user(username=worker_code.lower(), password=password, first_name=first_name, last_name=last_name, email=str(values.get("correo") or ""), is_active=True)
+                        AccountProfile.objects.create(user=user, worker_code=worker_code, dni=dni, specialty=str(values.get("especialidad") or "").strip(), role=AccountProfile.Role.TECHNICIAN, must_change_password=True)
+                        result["created"] += 1
+            except Exception as exc:
+                result["errors"].append({"fila": number, "detalle": str(exc)})
+        return response.Response(result, status=201 if not result["errors"] else 207)
 
 
 class TechnicianDetailView(generics.RetrieveUpdateAPIView):
