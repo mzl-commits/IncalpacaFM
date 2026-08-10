@@ -203,6 +203,8 @@ export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [routeSection, routeTitle] = getRouteContext(location.pathname);
+
   const roleModules = modules.filter(
     (mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)),
   );
