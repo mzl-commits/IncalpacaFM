@@ -375,6 +375,9 @@ export function AssetDetailPage() {
       {tab === "overview" && (
         <div className="asset-record-layout">
           <section className="detail-section">
+            <div className="asset-detail-photo-wrap">
+              {asset.photo_url ? <img src={asset.photo_url} alt={`Fotografía registrada de ${asset.name}`} /> : <div className="asset-detail-photo-empty"><Tag size={30} /><span>Este bien no tiene fotografía registrada</span></div>}
+            </div>
             <h2>Información del bien</h2>
             <p className="record-description">{asset.description}</p>
             <dl className="record-facts">

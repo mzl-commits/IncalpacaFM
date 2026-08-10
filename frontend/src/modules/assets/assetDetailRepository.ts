@@ -2,7 +2,7 @@ import { api } from "@/services/api";
 
 export type AssetDetailRecord = {
   id: string; code: string; fm_code: string | null; display_code?: string; public_token: string; public_url: string; entry_type_label: string;
-  name: string; description: string; brand: string; model: string; serial_number: string | null;
+  name: string; description: string; brand: string; model: string; serial_number: string | null; photo_url: string | null;
   condition: string; criticality: string; administrative_status: string; operational_status: string;
   assignment_status: string; registered_by_name: string; created_at: string;
   taxonomy_detail: { id?: string; prefix?: string; name?: string; asset_type: string; category: string; subcategory: string; specialty: string } | null;

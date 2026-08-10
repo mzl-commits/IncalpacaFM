@@ -78,6 +78,7 @@ export default function UserDashboardPage() {
                 {data.assigned_assets.map((asset) => (
                   <article key={asset.id} className="data-panel user-asset-card">
                     {asset.repair_status && <div className="user-asset-repair-note"><Wrench size={14} weight="fill" /> En reparación: {asset.repair_status}</div>}
+                    {asset.photo_url && <img className="user-asset-photo" src={asset.photo_url} alt={`Fotografía de ${asset.name}`} />}
                     <div className="user-asset-card-body">
                       <h3 title={asset.name}>{asset.name}</h3>
                       <p className="user-asset-code">{asset.fm_code || asset.code}</p>
