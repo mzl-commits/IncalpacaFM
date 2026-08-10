@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.assets.models import Asset, AssetAssignment, AssignableResponsible, Location
+from apps.assets.location_map_serializers import LocationMapSummarySerializer
 from apps.privacy.services import record_privacy_event
 
 from .models import AssignmentOperation, DeliveryAct, DeliveryEvidence, DeliverySignature
@@ -66,9 +67,18 @@ class AssignmentSerializer(serializers.ModelSerializer):
     def get_location(self, obj) -> dict | None:
         if not obj.location:
             return None
+        reference_map = getattr(obj.asset, 'location_map', None)
+        if reference_map is None:
+            reference_map = obj.location.reference_maps.filter(active=True).first()
+        marker = None
+        if reference_map is not None and obj.asset.location_map_id == reference_map.id:
+            if obj.asset.location_marker_x is not None and obj.asset.location_marker_y is not None:
+                marker = {'x': str(obj.asset.location_marker_x), 'y': str(obj.asset.location_marker_y)}
         return {'id': str(obj.location_id), 'zone': obj.location.zone, 'building': obj.location.building,
                 'area': obj.location.area, 'room': obj.location.room,
-                'specific_location': obj.location.specific_location}
+                'specific_location': obj.location.specific_location,
+                'reference_map': LocationMapSummarySerializer(reference_map, context=self.context).data if reference_map else None,
+                'marker': marker}
 
     def get_delivery_status(self, obj) -> str:
         if obj.asset.assignment_status == 'En traslado':
