@@ -1,13 +1,24 @@
-import { Package, Plus, WarningCircle, CaretRight, CaretLeft, MapPin, FolderPlus } from "@phosphor-icons/react";
+import {
+  CaretLeft,
+  CaretRight,
+  Cube,
+  FolderPlus,
+  Funnel,
+  House,
+  MagnifyingGlass,
+  MapTrifold,
+  Package,
+  Plus,
+  Stack,
+  WarningCircle,
+  X,
+} from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
-import { StatCard } from "@/components/shared/StatCard";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listMateriales, listCategorias, listSubcategorias } from "@/modules/almacen/catalogoRepository";
+import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 
@@ -17,6 +28,7 @@ export function CatalogoPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   const { data: materiales = [], isLoading } = useQuery({
     queryKey: ["materiales", values],
@@ -53,212 +65,353 @@ export function CatalogoPage() {
     (m) => !m.control_individual && m.cantidad_total < STOCK_MINIMO,
   ).length;
 
-  // Filtros activos
+  // Active filters list
   const activeFilters = useMemo(() => {
     const filters = [];
     if (values.q)
       filters.push({ key: "q", label: "Búsqueda", value: values.q, onRemove: () => setValue("q", "") });
     if (values.categoria) {
       const cat = categorias.find((c) => String(c.id) === values.categoria);
-      filters.push({ key: "categoria", label: "Categoría", value: cat?.nombre ?? values.categoria, onRemove: () => { setValue("categoria", ""); setValue("subcategoria", ""); } });
+      filters.push({
+        key: "categoria",
+        label: "Categoría",
+        value: cat?.nombre ?? values.categoria,
+        onRemove: () => {
+          setValue("categoria", "");
+          setValue("subcategoria", "");
+        },
+      });
     }
     if (values.subcategoria) {
       const sub = subcategorias.find((s) => String(s.id) === values.subcategoria);
       filters.push({ key: "subcategoria", label: "Subcategoría", value: sub?.nombre ?? values.subcategoria, onRemove: () => setValue("subcategoria", "") });
     }
     if (values.control_individual)
-      filters.push({ key: "control_individual", label: "Tipo", value: values.control_individual === "true" ? "Con piezas individuales" : "Consumibles", onRemove: () => setValue("control_individual", "") });
+      filters.push({
+        key: "control_individual",
+        label: "Tipo",
+        value: values.control_individual === "true" ? "Con piezas individuales" : "Consumibles",
+        onRemove: () => setValue("control_individual", ""),
+      });
     return filters;
   }, [values, categorias, subcategorias, setValue]);
 
-  const categoriaOptions = buildFilterOptions(categorias.map((c) => ({ value: String(c.id), label: c.nombre })).map(o => o.value), Object.fromEntries(categorias.map((c) => [String(c.id), c.nombre])));
-  const subcategoriaOptions = buildFilterOptions(subcategorias.map((s) => String(s.id)), Object.fromEntries(subcategorias.map((s) => [String(s.id), s.nombre])));
+  const categoriaOptions = buildFilterOptions(
+    categorias.map((c) => ({ value: String(c.id), label: c.nombre })).map((o) => o.value),
+    Object.fromEntries(categorias.map((c) => [String(c.id), c.nombre])),
+  );
+  const subcategoriaOptions = buildFilterOptions(
+    subcategorias.map((s) => String(s.id)),
+    Object.fromEntries(subcategorias.map((s) => [String(s.id), s.nombre])),
+  );
 
   return (
-    <section>
-      <div className="page-heading">
+    <div className="almacen-catalogo-view">
+      {/* BREADCRUMB & HEADER */}
+      <nav className="breadcrumb-nav" aria-label="Miga de pan">
+        <Link to="/" title="Inicio">
+          <House size={15} />
+        </Link>
+        <span className="breadcrumb-separator">/</span>
+        <span>Almacén</span>
+        <span className="breadcrumb-separator">/</span>
+        <strong>Catálogo</strong>
+      </nav>
+
+      <header className="page-header-row">
         <div>
-          <p className="breadcrumb">Inicio / Almacén / Catálogo</p>
-          <h1>Catálogo de materiales</h1>
-          <p>Ficha maestra de herramientas y materiales del almacén.</p>
+          <h1 className="page-title">Catálogo de materiales</h1>
+          <p className="page-description">Ficha maestra de herramientas y materiales del almacén.</p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="header-actions">
           <button
-            className="button button-secondary"
+            type="button"
+            className="btn-secondary"
             onClick={() => setMostrarGestionCat((v) => !v)}
             title="Administrar categorías y subcategorías"
           >
-            <FolderPlus size={16} />
-            Categorías
+            <FolderPlus size={18} />
+            <span>Categorías</span>
           </button>
           <button
-            className="button button-secondary"
+            type="button"
+            className="btn-secondary"
             onClick={() => setMostrarCroquis((v) => !v)}
-            title="Croquis del almacén (próximamente)"
+            title="Croquis del almacén"
           >
-            <MapPin size={16} />
-            Croquis del almacén
+            <MapTrifold size={18} />
+            <span>Croquis del almacén</span>
           </button>
-          <Link className="button button-primary" to="/almacen/catalogo/nuevo">
-            <Plus />
-            Nuevo material
+          <Link className="btn-primary" to="/almacen/catalogo/nuevo">
+            <Plus size={18} weight="bold" />
+            <span>Nuevo material</span>
           </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Panel interactivo de gestión CRUD de Categorías y Subcategorías */}
+      {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE CATEGORÍAS */}
       {mostrarGestionCat && (
         <GestionCategoriasPanel onClose={() => setMostrarGestionCat(false)} />
       )}
 
-      {/* Croquis del almacén — carrusel con imágenes de prueba */}
-      {mostrarCroquis && (
-        <CroquisCarrusel />
-      )}
+      {/* CROQUIS DEL ALMACÉN - CARRUSEL */}
+      {mostrarCroquis && <CroquisCarrusel />}
 
-      {/* Stats */}
-      <div className="almacen-stats">
-        <StatCard icon={<Package size={20} />} value={totalActivos} label="Materiales activos" />
-        <StatCard icon={<Package size={20} />} value={conControlIndividual} label="Con piezas individuales" />
-        <StatCard icon={<Package size={20} />} value={consumibles} label="Consumibles" />
-        <StatCard
-          icon={<WarningCircle size={20} />}
-          value={stockBajo}
-          label="Stock bajo"
-          sublabel={`Menos de ${STOCK_MINIMO} unidades`}
-          variant={stockBajo > 0 ? "warning" : "default"}
-        />
-      </div>
+      {/* COMPACT KPI CARDS */}
+      <section className="kpi-grid" aria-label="Indicadores del catálogo">
+        <article className="kpi-card" aria-label={`Materiales activos: ${totalActivos}`}>
+          <div className="kpi-card-top">
+            <Cube size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{totalActivos}</div>
+            <div className="kpi-label">Materiales activos</div>
+          </div>
+        </article>
 
-      <div className="data-panel">
-        <ListFilterPanel
-          title="Buscar materiales"
-          description="Busca por nombre, código de material, marca, modelo o código de pieza."
-          searchLabel="Buscar"
-          searchPlaceholder="Ej: H0013, Bosch, GSB 550, 3WADV…"
-          searchValue={values.q}
-          onSearchChange={(v) => setValue("q", v)}
-          resultCount={materiales.length}
-          totalCount={materiales.length}
-          activeFilters={activeFilters}
-          onClear={clearFilters}
-          quickFilters={[
-            {
-              key: "ci",
-              label: "Con piezas individuales",
-              count: conControlIndividual,
-              active: values.control_individual === "true",
-              onSelect: () => setValue("control_individual", values.control_individual === "true" ? "" : "true"),
-            },
-            {
-              key: "consumibles",
-              label: "Consumibles",
-              count: consumibles,
-              active: values.control_individual === "false",
-              onSelect: () => setValue("control_individual", values.control_individual === "false" ? "" : "false"),
-            },
-            {
-              key: "bajo",
-              label: "Stock bajo",
-              count: stockBajo,
-              active: false,
-              onSelect: () => { setValue("control_individual", "false"); },
-            },
-          ]}
-        >
-          <FilterSelect
-            label="Categoría"
-            value={values.categoria}
-            onChange={(v) => { setValue("categoria", v); setValue("subcategoria", ""); }}
-            options={categoriaOptions}
-            allLabel="Todas las categorías"
-          />
-          <FilterSelect
-            label="Subcategoría"
-            value={values.subcategoria}
-            onChange={(v) => setValue("subcategoria", v)}
-            options={subcategoriaOptions}
-            allLabel="Todas las subcategorías"
-            disabled={!values.categoria}
-          />
-        </ListFilterPanel>
+        <article className="kpi-card" aria-label={`Con piezas individuales: ${conControlIndividual}`}>
+          <div className="kpi-card-top">
+            <Stack size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{conControlIndividual}</div>
+            <div className="kpi-label">Con piezas individuales</div>
+          </div>
+        </article>
 
-        <div className="table-scroll">
-          <table>
+        <article className="kpi-card" aria-label={`Consumibles: ${consumibles}`}>
+          <div className="kpi-card-top">
+            <Package size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{consumibles}</div>
+            <div className="kpi-label">Consumibles</div>
+          </div>
+        </article>
+
+        <article className="kpi-card" aria-label={`Stock bajo: ${stockBajo}`}>
+          <div className="kpi-card-top">
+            <WarningCircle size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{stockBajo}</div>
+            <div className="kpi-label">Stock bajo</div>
+            <div className="kpi-sublabel">Menos de {STOCK_MINIMO} unidades</div>
+          </div>
+        </article>
+      </section>
+
+      {/* WORKSPACE DATA PANEL */}
+      <section className="catalog-data-panel" aria-label="Listado de catálogo">
+        <div className="panel-toolbar-header">
+          <div className="panel-toolbar-title">
+            <Funnel size={18} />
+            <span>Buscar materiales</span>
+          </div>
+          <div className="panel-toolbar-count">
+            <strong>{materiales.length}</strong> de {materiales.length} resultados
+          </div>
+        </div>
+
+        <form className="panel-search-bar" onSubmit={(e) => e.preventDefault()} role="search">
+          <div className="search-input-wrapper">
+            <MagnifyingGlass size={18} className="search-input-icon" />
+            <input
+              type="search"
+              className="search-input"
+              value={values.q}
+              onChange={(e) => setValue("q", e.target.value)}
+              placeholder="Buscar por código, nombre, marca o categoría"
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-filter-toggle"
+            onClick={() => setFiltrosAbiertos((v) => !v)}
+            aria-expanded={filtrosAbiertos}
+          >
+            <Funnel size={18} />
+            <span>Filtros</span>
+            {activeFilters.length > 0 && <span>({activeFilters.length})</span>}
+          </button>
+        </form>
+
+        {filtrosAbiertos && (
+          <div className="advanced-filters-panel">
+            <div className="filter-select-group">
+              <div className="filter-select-field">
+                <label htmlFor="cat-select">Categoría</label>
+                <select
+                  id="cat-select"
+                  value={values.categoria}
+                  onChange={(e) => {
+                    setValue("categoria", e.target.value);
+                    setValue("subcategoria", "");
+                  }}
+                >
+                  <option value="">Todas las categorías</option>
+                  {categoriaOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-select-field">
+                <label htmlFor="subcat-select">Subcategoría</label>
+                <select
+                  id="subcat-select"
+                  value={values.subcategoria}
+                  onChange={(e) => setValue("subcategoria", e.target.value)}
+                  disabled={!values.categoria}
+                >
+                  <option value="">Todas las subcategorías</option>
+                  {subcategoriaOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-select-field">
+                <label htmlFor="tipo-select">Tipo de control</label>
+                <select
+                  id="tipo-select"
+                  value={values.control_individual}
+                  onChange={(e) => setValue("control_individual", e.target.value)}
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="true">Con piezas individuales</option>
+                  <option value="false">Consumibles</option>
+                </select>
+              </div>
+            </div>
+
+            {activeFilters.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>Filtros activos:</span>
+                {activeFilters.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={f.onRemove}
+                    style={{
+                      background: "#FFFFFF",
+                      border: "1px solid #000000",
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span>{f.label}: <strong>{f.value}</strong></span>
+                    <X size={12} />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    textDecoration: "underline",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    marginLeft: "auto",
+                  }}
+                >
+                  Restablecer filtros
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ width: "100%", overflowX: "auto" }}>
+          <table className="catalog-table">
             <thead>
               <tr>
-                <th>Código</th>
+                <th style={{ width: 110 }}>Código</th>
                 <th>Nombre</th>
                 <th>Categoría</th>
-                <th>Tipo</th>
-                <th>Stock / Piezas</th>
-                <th>Ubicación</th>
-                <th></th>
+                <th style={{ width: 140 }}>Tipo</th>
+                <th style={{ width: 150 }}>Stock / Piezas</th>
+                <th style={{ width: 160 }}>Ubicación</th>
+                <th style={{ width: 50 }}></th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={7} className="empty-row">Cargando materiales…</td>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "32px 0" }}>
+                    Cargando materiales…
+                  </td>
                 </tr>
               )}
               {!isLoading && materiales.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="empty-row">No hay materiales con esos criterios.</td>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "32px 0" }}>
+                    No hay materiales que coincidan con los criterios de búsqueda.
+                  </td>
                 </tr>
               )}
               {materiales.map((m) => {
                 const stockAlerta = !m.control_individual && m.cantidad_total < STOCK_MINIMO;
-                // Detectar si la búsqueda parece un código de pieza (alfanumérico corto, sin espacios)
                 const busquedaPieza = values.q && /^[A-Z0-9]{4,8}$/i.test(values.q.trim());
                 return (
-                  <tr key={m.id} className={stockAlerta ? "stock-alert-row" : ""}>
+                  <tr key={m.id}>
                     <td>
-                      <code className="pieza-code">{m.codigo}</code>
+                      <span className="code-cell">{m.codigo}</span>
                     </td>
                     <td>
-                      <strong>{m.nombre}</strong>
-                      {m.marca && <div style={{ fontSize: 12, color: "var(--muted)" }}>{m.marca} {m.modelo}</div>}
+                      <div className="name-title">{m.nombre}</div>
+                      {m.marca && (
+                        <div className="name-subtitle">
+                          {m.marca} {m.modelo}
+                        </div>
+                      )}
                       {busquedaPieza && (
-                        <div style={{
-                          fontSize: 11, color: "var(--primary, #2563eb)",
-                          marginTop: 2, display: "flex", alignItems: "center", gap: 4,
-                        }}>
+                        <div style={{ fontSize: 11, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                           <Package size={10} />
-                          Contiene pieza: <code style={{ fontWeight: 600 }}>{values.q?.toUpperCase()}</code>
+                          Contiene pieza: <strong>{values.q?.toUpperCase()}</strong>
                         </div>
                       )}
                     </td>
                     <td>
-                      {m.categoria_nombre}
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{m.subcategoria_nombre}</div>
+                      <div className="category-title">{m.categoria_nombre}</div>
+                      {m.subcategoria_nombre && (
+                        <div className="category-subtitle">{m.subcategoria_nombre}</div>
+                      )}
                     </td>
                     <td>
-                      <StatusBadge
-                        value={m.control_individual ? "individual" : "consumible"}
-                        label={m.control_individual ? "Piezas" : "Consumible"}
-                      />
+                      <span className="type-badge">
+                        {m.control_individual ? "Piezas" : "Consumible"}
+                      </span>
                     </td>
                     <td>
                       {m.control_individual ? (
-                        <span>{m.cantidad_total} piezas</span>
+                        <span className="stock-text">{m.cantidad_total} piezas</span>
                       ) : (
-                        <span className={stockAlerta ? "stock-alert-badge" : ""}>
-                          {stockAlerta && <WarningCircle size={13} />}
+                        <span className={`stock-text ${stockAlerta ? "stock-alert-text" : ""}`}>
+                          {stockAlerta && <WarningCircle size={14} />}
                           {m.cantidad_total} unid.
                         </span>
                       )}
                     </td>
-                    <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                      {m.ubicacion_fisica || "—"}
-                    </td>
+                    <td style={{ fontSize: 13 }}>{m.ubicacion_fisica || "—"}</td>
                     <td>
                       <Link
                         to={`/almacen/catalogo/${m.id}`}
-                        className="table-action"
+                        className="row-action-btn"
                         aria-label={`Ver detalle de ${m.nombre}`}
+                        title="Ver detalle"
                       >
-                        <CaretRight size={16} />
+                        <CaretRight size={17} />
                       </Link>
                     </td>
                   </tr>
@@ -267,8 +420,8 @@ export function CatalogoPage() {
             </tbody>
           </table>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
@@ -277,18 +430,18 @@ export function CatalogoPage() {
 const SLIDES = [
   {
     src: "/croquis_almacen_1.png",
-    titulo: "Plano general del almac\u00e9n",
-    desc: "Vista superior con todas las zonas de almacenamiento (A1\u2013A3, B1\u2013B3, C1\u2013C2).",
+    titulo: "Plano general del almacén",
+    desc: "Vista superior con todas las zonas de almacenamiento (A1–A3, B1–B3, C1–C2).",
   },
   {
     src: "/croquis_almacen_2.png",
-    titulo: "Vista isom\u00e9trica por zonas",
-    desc: "Zona A = Herramientas Manuales \u00b7 Zona B = El\u00e9ctricas \u00b7 Zona C = Consumibles.",
+    titulo: "Vista isométrica por zonas",
+    desc: "Zona A = Herramientas Manuales · Zona B = Eléctricas · Zona C = Consumibles.",
   },
   {
     src: "/croquis_almacen_3.png",
-    titulo: "Mapa de ubicaciones por c\u00f3digo",
-    desc: "Referencia r\u00e1pida: c\u00f3digo de secci\u00f3n + tipo de herramienta almacenada.",
+    titulo: "Mapa de ubicaciones por código",
+    desc: "Referencia rápida: código de sección + tipo de herramienta almacenada.",
   },
 ];
 
@@ -299,109 +452,38 @@ function CroquisCarrusel() {
   const current = SLIDES[slide];
 
   return (
-    <div
-      style={{
-        background: "var(--surface, #fff)",
-        borderRadius: 12,
-        border: "1px solid var(--border, #e5e7eb)",
-        overflow: "hidden",
-        marginBottom: 8,
-        boxShadow: "0 2px 12px rgba(0,0,0,.06)",
-      }}
-    >
-      {/* Cabecera */}
-      <div
-        style={{
-          padding: "14px 20px",
-          borderBottom: "1px solid var(--border, #e5e7eb)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <MapPin size={18} style={{ color: "var(--primary, #2563eb)" }} weight="fill" />
-          <strong style={{ fontSize: 15 }}>Croquis del almac\u00e9n</strong>
-          <span
-            style={{
-              fontSize: 11, padding: "2px 8px", borderRadius: 20,
-              background: "#fef3c7", color: "#92400e",
-              border: "1px solid #fcd34d",
-            }}
-          >
-            Im\u00e1genes de prueba
-          </span>
+    <div className="croquis-carrusel-card">
+      <div className="croquis-header">
+        <div className="croquis-header-title">
+          <MapTrifold size={18} />
+          <strong>Croquis del almacén</strong>
         </div>
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+        <span className="croquis-counter">
           {slide + 1} / {SLIDES.length}
         </span>
       </div>
 
-      {/* Imagen */}
-      <div style={{ position: "relative", background: "#f8fafc" }}>
-        <img
-          src={current.src}
-          alt={current.titulo}
-          style={{
-            width: "100%",
-            maxHeight: 480,
-            objectFit: "contain",
-            display: "block",
-          }}
-        />
+      <div className="croquis-body">
+        <img src={current.src} alt={current.titulo} className="croquis-img" />
 
-        {/* Botones prev/next */}
-        <button
-          onClick={prev}
-          style={{
-            position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
-            background: "rgba(255,255,255,.9)", border: "1px solid var(--border, #d1d5db)",
-            borderRadius: "50%", width: 36, height: 36, display: "flex",
-            alignItems: "center", justifyContent: "center", cursor: "pointer",
-            boxShadow: "0 2px 8px rgba(0,0,0,.1)",
-          }}
-          title="Anterior"
-        >
+        <button type="button" onClick={prev} className="croquis-nav-btn btn-prev" title="Anterior">
           <CaretLeft size={18} />
         </button>
-        <button
-          onClick={next}
-          style={{
-            position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-            background: "rgba(255,255,255,.9)", border: "1px solid var(--border, #d1d5db)",
-            borderRadius: "50%", width: 36, height: 36, display: "flex",
-            alignItems: "center", justifyContent: "center", cursor: "pointer",
-            boxShadow: "0 2px 8px rgba(0,0,0,.1)",
-          }}
-          title="Siguiente"
-        >
+        <button type="button" onClick={next} className="croquis-nav-btn btn-next" title="Siguiente">
           <CaretRight size={18} />
         </button>
       </div>
 
-      {/* Pie: t\u00edtulo + descripci\u00f3n + dots */}
-      <div style={{ padding: "14px 20px" }}>
-        <strong style={{ fontSize: 14, display: "block", marginBottom: 4 }}>
-          {current.titulo}
-        </strong>
-        <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 12px" }}>
-          {current.desc}
-        </p>
-        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+      <div className="croquis-footer">
+        <strong className="croquis-footer-title">{current.titulo}</strong>
+        <p className="croquis-footer-desc">{current.desc}</p>
+        <div className="croquis-dots">
           {SLIDES.map((_, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => setSlide(i)}
-              style={{
-                width: i === slide ? 22 : 8,
-                height: 8,
-                borderRadius: 4,
-                background: i === slide ? "var(--primary, #2563eb)" : "var(--border, #d1d5db)",
-                border: "none",
-                cursor: "pointer",
-                transition: "width .2s, background .2s",
-                padding: 0,
-              }}
+              className={`croquis-dot ${i === slide ? "is-active" : ""}`}
               title={SLIDES[i].titulo}
             />
           ))}

@@ -91,12 +91,12 @@ export async function createInspeccion(
 
 /** Abre el Excel en nueva pestaña. Usa window.open para evitar manejo de blobs. */
 export function exportarExcel(id: number): void {
-  const base = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1";
+  const base = import.meta.env.VITE_API_URL ?? "/api/v1";
   window.open(`${base}/inspecciones/${id}/exportar-excel/`, "_blank");
 }
 
 /** Abre el PDF en nueva pestaña. */
 export function exportarPdf(id: number): void {
-  const base = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1";
+  const base = import.meta.env.VITE_API_URL ?? "/api/v1";
   window.open(`${base}/inspecciones/${id}/exportar-pdf/`, "_blank");
 }
