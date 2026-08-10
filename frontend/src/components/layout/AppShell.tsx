@@ -7,6 +7,7 @@ import {
   ChartLineUp,
   ClipboardText,
   Cube,
+  CubeFocus,
   DotsThree,
   Files,
   GearSix,
@@ -167,7 +168,6 @@ const railItems = mobilePrimary;
 interface QuickActionItem {
   to: string;
   label: string;
-  category: string;
   icon: React.ComponentType<{ size?: number; weight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone"; color?: string; className?: string }>;
   color: string;
   type: string;
@@ -177,15 +177,13 @@ const quickActions: QuickActionItem[] = [
   {
     to: "/bienes/entradas/nueva",
     label: "Registrar un bien",
-    category: "Activos",
-    icon: Cube,
+    icon: CubeFocus,
     color: "#2563EB",
     type: "bienes",
   },
   {
     to: "/asignaciones/nueva",
     label: "Crear una asignación",
-    category: "Custodia",
     icon: UserSwitch,
     color: "#7C3AED",
     type: "asignaciones",
@@ -193,17 +191,15 @@ const quickActions: QuickActionItem[] = [
   {
     to: "/incidencias/nueva",
     label: "Reportar una incidencia",
-    category: "Mantenimiento",
     icon: WarningDiamond,
-    color: "#E85D04",
+    color: "#EA580C",
     type: "incidencias",
   },
   {
     to: "/informes",
     label: "Abrir informes",
-    category: "Reportes",
     icon: ChartLineUp,
-    color: "#00875A",
+    color: "#059669",
     type: "informes",
   },
 ];
@@ -565,31 +561,28 @@ export function AppShell() {
           <header className="quick-actions-header">
             <div>
               <h2 id="quick-actions-title">Nueva acción</h2>
-              <p>¿Qué deseas hacer?</p>
+              <p>Selecciona una tarea para continuar.</p>
             </div>
             <button type="button" aria-label="Cerrar" onClick={closeQuickMenu}>
-              <X size={18} />
+              <X size={20} />
             </button>
           </header>
 
-          <nav className="quick-actions-list" aria-label="Acciones globales">
-            {quickActions.map(({ to, label, category, icon: Icon, type, color }) => (
+          <nav className="quick-actions-matrix" aria-label="Acciones globales">
+            {quickActions.map(({ to, label, icon: Icon, type, color }, index) => (
               <NavLink
                 key={to}
                 to={to}
-                className={`quick-action-row action-type-${type}`}
+                className={`quick-action-card action-type-${type}`}
                 onClick={closeQuickMenu}
-                style={{ "--action-color": color } as React.CSSProperties}
+                style={{ "--action-color": color, "--stagger-delay": `${(index + 1) * 30}ms` } as React.CSSProperties}
               >
-                <span className="quick-action-accent-line" />
-                <div className="quick-action-icon">
-                  <Icon size={24} weight="duotone" color={color} />
+                <span className="quick-action-top-accent" />
+                <div className="quick-action-icon-box">
+                  <Icon size={32} weight="duotone" color={color} />
                 </div>
-                <div className="quick-action-text-block">
-                  <span className="quick-action-title">{label}</span>
-                  <span className="quick-action-category">{category}</span>
-                </div>
-                <ArrowRight size={16} className="quick-action-arrow" />
+                <span className="quick-action-label">{label}</span>
+                <ArrowRight size={20} className="quick-action-arrow" />
               </NavLink>
             ))}
           </nav>
