@@ -313,328 +313,228 @@ function AdministrativeDashboard() {
       .slice(0, 6);
   }, [data]);
 
-  const hasAlerts =
-    summary.pendingDisposal > 0 ||
-    summary.pendingReview > 0 ||
-    summary.unassignedAssets > 0;
+  const totalPendientes = summary.pendingDisposal + summary.pendingReview + summary.unassignedAssets;
 
   return (
-    <section className="dashboard-page">
-      <div className="dashboard-heading">
+    <div className="dashboard-page">
+      {/* ENCABEZADO RESUMEN OPERATIVO */}
+      <header className="dashboard-header-row">
         <div>
-          <p className="breadcrumb">Inicio / Panel operativo</p>
-          <h1>{getGreeting()}, Facility Management</h1>
-          <p>
-            Resumen de la situación actual de los bienes y las acciones
-            que requieren atención.
+          <h1 className="dashboard-title">Resumen operativo</h1>
+          <p className="dashboard-description">
+            Estado actual de bienes, asignaciones y solicitudes.
           </p>
         </div>
 
-        <div className="dashboard-heading-actions">
+        <div className="dashboard-header-actions">
           <button
-            className="button button-secondary"
             type="button"
+            className="btn-secondary"
             onClick={() => void loadDashboard()}
             disabled={loading}
+            title="Actualizar datos"
           >
             <ArrowClockwise
               size={18}
               className={loading ? "is-spinning" : ""}
             />
-            Actualizar
+            <span>Actualizar</span>
           </button>
           <Link
-            className="button button-primary"
+            className="btn-primary"
             to="/bienes/entradas/nueva"
           >
             <Plus size={18} weight="bold" />
-            Registrar bien
+            <span>Registrar bien</span>
           </Link>
         </div>
-      </div>
+      </header>
 
       {error && (
         <div className="dashboard-partial-error" role="status">
-          <WarningCircle size={20} />
+          <WarningCircle size={18} />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <>
-          <section className="dashboard-overview">
-            <div className="dashboard-overview-intro data-panel skeleton" style={{ minHeight: "140px", border: "none" }}></div>
-            <dl className="dashboard-stat-list">
-               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
-               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
-               <div className="data-panel skeleton" style={{ minHeight: "100px", border: "none" }} />
-            </dl>
-          </section>
-          
-          <div className="dashboard-main-grid">
-            <section className="dashboard-priorities data-panel skeleton" style={{ minHeight: "300px", border: "none" }}></section>
-            <aside className="dashboard-quick-actions data-panel skeleton" style={{ minHeight: "300px", border: "none" }}></aside>
+        <div className="dashboard-loading-skeleton">
+          <div className="skeleton-box" style={{ height: 120, borderRadius: 10, background: "#EAEAEA", marginBottom: 20 }} />
+          <div className="skeleton-grid" style={{ display: "grid", gridTemplateColumns: "1.7fr 0.9fr", gap: 20, marginBottom: 20 }}>
+            <div className="skeleton-box" style={{ height: 220, borderRadius: 10, background: "#EAEAEA" }} />
+            <div className="skeleton-box" style={{ height: 220, borderRadius: 10, background: "#EAEAEA" }} />
           </div>
-          
-          <section className="dashboard-activity data-panel skeleton" style={{ minHeight: "240px", marginTop: "24px", border: "none" }}></section>
-        </>
+          <div className="skeleton-box" style={{ height: 240, borderRadius: 10, background: "#EAEAEA" }} />
+        </div>
       ) : (
         <>
-          <section
-            className="dashboard-overview"
-            aria-labelledby="dashboard-overview-title"
-          >
-            <div className="dashboard-overview-intro">
-              <span>Estado general</span>
-              <h2 id="dashboard-overview-title">
-                {summary.assignmentCoverage}% de los bienes tienen
-                responsable vigente
-              </h2>
-              <p>
-                {summary.assignedAssets} de {data.assets.length} bienes
-                registrados se encuentran asignados.
-              </p>
+          {/* FRANJA EJECUTIVA (ESTADO GENERAL) */}
+          <section className="executive-banner" aria-label="Estado general de bienes">
+            <div className="banner-coverage-col">
+              <span className="banner-label">COBERTURA DE ASIGNACIÓN</span>
+              <div className="banner-big-number">{summary.assignmentCoverage}%</div>
               <div
-                className="dashboard-coverage-track"
+                className="banner-progress-track"
                 role="progressbar"
                 aria-label="Cobertura de asignación"
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={summary.assignmentCoverage}
               >
-                <span
+                <div
+                  className="banner-progress-fill"
                   style={{ width: `${summary.assignmentCoverage}%` }}
                 />
               </div>
+              <span className="banner-subtext">
+                {summary.assignedAssets} de {data.assets.length} con responsable
+              </span>
             </div>
 
-            <dl className="dashboard-stat-list">
-              <div>
-                <dt>Bienes registrados</dt>
-                <dd>{data.assets.length}</dd>
-                <small>Inventario total</small>
+            <div className="banner-kpis-grid">
+              <div className="banner-kpi-item">
+                <span className="kpi-item-label">BIENES REGISTRADOS</span>
+                <div className="kpi-item-number">{data.assets.length}</div>
+                <span className="kpi-item-sub">Inventario total</span>
               </div>
-              <div>
-                <dt>Asignaciones activas</dt>
-                <dd>{summary.activeAssignments}</dd>
-                <small>Custodias vigentes</small>
+              <div className="banner-kpi-item">
+                <span className="kpi-item-label">ASIGNACIONES ACTIVAS</span>
+                <div className="kpi-item-number">{summary.activeAssignments}</div>
+                <span className="kpi-item-sub">Custodias vigentes</span>
               </div>
-              <div>
-                <dt>Evaluaciones de baja</dt>
-                <dd>{summary.pendingReview}</dd>
-                <small>Pendientes de FM</small>
+              <div className="banner-kpi-item">
+                <span className="kpi-item-label">EVALUACIONES DE BAJA</span>
+                <div className="kpi-item-number">{summary.pendingReview}</div>
+                <span className="kpi-item-sub">Pendientes de FM</span>
               </div>
-            </dl>
+            </div>
           </section>
 
+          {/* MAIN GRID: PRIORIDADES DE HOY + ACCIONES RÁPIDAS */}
           <div className="dashboard-main-grid">
-            <section
-              className="dashboard-priorities data-panel"
-              aria-labelledby="dashboard-priorities-title"
-            >
-              <header className="dashboard-section-heading">
-                <div>
-                  <h2 id="dashboard-priorities-title">
-                    Prioridades de hoy
-                  </h2>
-                  <p>Ordenadas por impacto operativo.</p>
-                </div>
-                {hasAlerts && (
-                  <span className="dashboard-alert-count">
-                    {summary.pendingDisposal +
-                      summary.pendingReview +
-                      summary.unassignedAssets}
-                  </span>
-                )}
+            {/* PRIORIDADES DE HOY */}
+            <section className="priorities-panel" aria-labelledby="priorities-panel-title">
+              <header className="panel-header">
+                <h2 id="priorities-panel-title" className="panel-title">PRIORIDADES</h2>
+                <span className="panel-badge-counter">{totalPendientes} pendientes</span>
               </header>
 
-              <div className="dashboard-alert-list">
+              <div className="priorities-list">
                 {summary.pendingDisposal > 0 && (
-                  <Link
-                    className="dashboard-alert is-critical"
-                    to="/bienes/ciclo-vida/bajas"
-                  >
-                    <Warning weight="fill" />
-                    <span>
-                      <strong>
-                        {summary.pendingDisposal}{" "}
-                        {summary.pendingDisposal === 1
-                          ? "bien espera"
-                          : "bienes esperan"}{" "}
-                        disposición final
-                      </strong>
-                      <small>
-                        La baja fue aprobada; falta documentar el cierre.
-                      </small>
+                  <Link to="/bienes/ciclo-vida/bajas" className="priority-row">
+                    <span className="priority-number">
+                      {String(summary.pendingDisposal).padStart(2, "0")}
                     </span>
-                    <ArrowRight />
+                    <span className="priority-text">Bienes esperan disposición final</span>
+                    <CaretRight size={18} className="priority-arrow" />
                   </Link>
                 )}
 
                 {summary.pendingReview > 0 && (
-                  <Link
-                    className="dashboard-alert is-warning"
-                    to="/bienes/ciclo-vida/bajas"
-                  >
-                    <Archive />
-                    <span>
-                      <strong>
-                        {summary.pendingReview}{" "}
-                        {summary.pendingReview === 1
-                          ? "solicitud requiere"
-                          : "solicitudes requieren"}{" "}
-                        evaluación
-                      </strong>
-                      <small>
-                        Revisa diagnóstico, costos y evidencias técnicas.
-                      </small>
+                  <Link to="/bienes/ciclo-vida/bajas" className="priority-row">
+                    <span className="priority-number">
+                      {String(summary.pendingReview).padStart(2, "0")}
                     </span>
-                    <ArrowRight />
+                    <span className="priority-text">Solicitudes por evaluar</span>
+                    <CaretRight size={18} className="priority-arrow" />
                   </Link>
                 )}
 
                 {summary.unassignedAssets > 0 && (
-                  <Link
-                    className="dashboard-alert is-info"
-                    to="/asignaciones/nueva"
-                  >
-                    <ClipboardText />
-                    <span>
-                      <strong>
-                        {summary.unassignedAssets}{" "}
-                        {summary.unassignedAssets === 1
-                          ? "bien no tiene"
-                          : "bienes no tienen"}{" "}
-                        responsable
-                      </strong>
-                      <small>
-                        Incluye bienes disponibles o recientemente devueltos.
-                      </small>
+                  <Link to="/asignaciones/nueva" className="priority-row">
+                    <span className="priority-number">
+                      {String(summary.unassignedAssets).padStart(2, "0")}
                     </span>
-                    <ArrowRight />
+                    <span className="priority-text">Bienes sin responsable</span>
+                    <CaretRight size={18} className="priority-arrow" />
                   </Link>
                 )}
 
-                {!hasAlerts && (
-                  <div className="dashboard-all-clear">
-                    <CheckCircle size={30} weight="fill" />
-                    <span>
-                      <strong>Sin acciones críticas pendientes</strong>
-                      <small>
-                        La operación se encuentra al día.
-                      </small>
-                    </span>
+                {totalPendientes === 0 && (
+                  <div className="priority-empty-row">
+                    <CheckCircle size={22} weight="fill" />
+                    <span>Sin acciones críticas pendientes. La operación se encuentra al día.</span>
                   </div>
                 )}
               </div>
             </section>
 
-            <aside
-              className="dashboard-quick-actions data-panel"
-              aria-labelledby="dashboard-actions-title"
-            >
-              <header className="dashboard-section-heading">
-                <div>
-                  <h2 id="dashboard-actions-title">Acciones rápidas</h2>
-                  <p>Inicia las tareas más frecuentes.</p>
-                </div>
+            {/* ACCIONES RÁPIDAS COMO MATRIZ 2x2 */}
+            <section className="quick-actions-panel" aria-labelledby="actions-panel-title">
+              <header className="panel-header">
+                <h2 id="actions-panel-title" className="panel-title">ACCIONES RÁPIDAS</h2>
               </header>
-              <nav aria-label="Acciones rápidas del panel">
-                <Link to="/bienes/entradas/nueva">
-                  <Package />
-                  <span>
-                    <strong>Registrar bien</strong>
-                    <small>Ingreso e identificación QR</small>
-                  </span>
-                  <ArrowRight />
+              <nav className="actions-matrix" aria-label="Acciones rápidas del panel">
+                <Link to="/bienes/entradas/nueva" className="action-matrix-item">
+                  <Package size={22} />
+                  <span>Registrar bien</span>
                 </Link>
-                <Link to="/asignaciones/nueva">
-                  <ClipboardText />
-                  <span>
-                    <strong>Nueva asignación</strong>
-                    <small>Responsable, entrega y firmas</small>
-                  </span>
-                  <ArrowRight />
+                <Link to="/asignaciones/nueva" className="action-matrix-item">
+                  <ClipboardText size={22} />
+                  <span>Nueva asignación</span>
                 </Link>
-                <Link to="/bienes/qr">
-                  <QrCode />
-                  <span>
-                    <strong>Gestionar QR</strong>
-                    <small>Consultar o descargar etiquetas</small>
-                  </span>
-                  <ArrowRight />
+                <Link to="/bienes/qr" className="action-matrix-item">
+                  <QrCode size={22} />
+                  <span>Gestionar QR</span>
                 </Link>
-                <Link to="/bienes/ciclo-vida/bajas">
-                  <Archive />
-                  <span>
-                    <strong>Evaluar bajas</strong>
-                    <small>Decisiones y disposición final</small>
-                  </span>
-                  <ArrowRight />
+                <Link to="/bienes/ciclo-vida/bajas" className="action-matrix-item">
+                  <Archive size={22} />
+                  <span>Evaluar bajas</span>
                 </Link>
               </nav>
-            </aside>
+            </section>
           </div>
 
-          <section
-            className="dashboard-activity data-panel"
-            aria-labelledby="dashboard-activity-title"
-          >
-            <header className="dashboard-section-heading">
-              <div>
-                <h2 id="dashboard-activity-title">
-                  Actividad reciente
-                </h2>
-                <p>Últimos cambios registrados en el sistema.</p>
-              </div>
+          {/* ACTIVIDAD RECIENTE (UNA SOLA LISTA CRONOLÓGICA) */}
+          <section className="activity-panel" aria-labelledby="activity-panel-title">
+            <header className="panel-header">
+              <h2 id="activity-panel-title" className="panel-title">Actividad reciente</h2>
               {lastUpdated && (
-                <small>
+                <span className="panel-time-label">
                   Actualizado a las{" "}
                   {lastUpdated.toLocaleTimeString("es-PE", {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
-                </small>
+                </span>
               )}
             </header>
 
-            {activities.length ? (
-              <div className="dashboard-activity-list">
-                {activities.map((activity) => (
-                  <Link to={activity.to} key={activity.id}>
-                    <span
-                      className={`dashboard-activity-icon is-${activity.type}`}
-                    >
-                      {activity.type === "asset" && <Package />}
-                      {activity.type === "assignment" && (
-                        <ClipboardText />
-                      )}
-                      {activity.type === "retirement" && <Archive />}
-                    </span>
-                    <span>
-                      <strong>{activity.title}</strong>
-                      <small>{activity.detail}</small>
-                    </span>
-                    <time dateTime={activity.date}>
-                      {formatDate(activity.date)}
-                    </time>
-                    <ArrowRight />
-                  </Link>
-                ))}
+            {activities.length > 0 ? (
+              <div className="activity-list-container">
+                <table className="activity-table">
+                  <tbody>
+                    {activities.map((activity, idx) => (
+                      <tr key={activity.id} className={idx % 2 === 1 ? "row-alt" : ""}>
+                        <td className="activity-title-cell">
+                          <div className="activity-title-wrapper">
+                            {activity.type === "asset" && <Package size={16} />}
+                            {activity.type === "assignment" && <ClipboardText size={16} />}
+                            {activity.type === "retirement" && <Archive size={16} />}
+                            <strong>{activity.title}</strong>
+                          </div>
+                        </td>
+                        <td className="activity-detail-cell">{activity.detail}</td>
+                        <td className="activity-date-cell">{formatDate(activity.date)}</td>
+                        <td className="activity-action-cell">
+                          <Link to={activity.to} className="activity-row-btn" title="Ver detalle">
+                            <CaretRight size={16} />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
-              <div className="dashboard-empty-activity">
-                <Package size={28} />
-                <strong>Aún no hay actividad registrada</strong>
-                <p>
-                  Los movimientos de bienes aparecerán aquí.
-                </p>
+              <div className="activity-empty-state">
+                <span>Aún no hay actividad registrada en la plataforma.</span>
               </div>
             )}
           </section>
         </>
       )}
-    </section>
+    </div>
   );
 }
 
