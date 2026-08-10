@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { ClockCounterClockwise, Eye, MagnifyingGlass, ShieldCheck, UserCircle, WarningCircle, X } from "@phosphor-icons/react";
+import { ClockCounterClockwise, DownloadSimple, Eye, MagnifyingGlass, ShieldCheck, UserCircle, WarningCircle, X } from "@phosphor-icons/react";
 import { useMemo, useRef, useState } from "react";
 import { fetchAuditEvents, type AuditEvent } from "../auditRepository";
+import { downloadExcelCsv } from "@/utils/exportCsv";
 
 const entityLabels: Record<string, string> = { Asset: "Bien", Assignment: "Asignación", Incident: "Incidencia", WorkOrder: "Orden de trabajo", Taxonomy: "Taxonomía", LocationMap: "Mapa de ambiente" };
 const actionLabels: Record<string, string> = {
@@ -61,6 +62,10 @@ export function AuditLogPage() {
     detailRef.current?.showModal();
   }
 
+  function exportAudit() {
+    downloadExcelCsv(`auditoria-sgtb-${new Date().toISOString().slice(0, 10)}.csv`, ["Fecha y hora", "Acción", "Entidad", "Responsable", "Referencia", "Correlación"], rows.map((item) => [formatDate(item.created_at), readableAction(item.action), entityLabels[item.entity] ?? item.entity, item.actor_name, item.entity_id, item.correlation_id]));
+  }
+
   return (
     <section className="registry-page audit-page">
       <header className="page-heading registry-heading"><div><h1>Auditoría del sistema</h1><p>Revisa quién realizó cada cambio, sobre qué registro y con qué resultado.</p></div></header>
@@ -72,7 +77,7 @@ export function AuditLogPage() {
           <label><span>Entidad</span><select value={entity} onChange={(event) => setEntity(event.target.value)}><option value="ALL">Todas las entidades</option>{entities.map((value) => <option value={value} key={value}>{entityLabels[value] ?? value}</option>)}</select></label>
           <label><span>Fecha exacta</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
         </div>
-        <div className="registry-result-heading"><div><h2 id="audit-results-title">Actividad registrada</h2><p>{rows.length} evento(s) con los filtros actuales</p></div>{(query || entity !== "ALL" || date) && <button className="button button-secondary" type="button" onClick={() => { setQuery(""); setEntity("ALL"); setDate(""); }}>Limpiar filtros</button>}</div>
+        <div className="registry-result-heading"><div><h2 id="audit-results-title">Actividad registrada</h2><p>{rows.length} evento(s) con los filtros actuales</p></div><div className="registry-result-actions"><button className="button button-secondary" type="button" onClick={exportAudit} disabled={!rows.length}><DownloadSimple size={18} />Exportar Excel</button>{(query || entity !== "ALL" || date) && <button className="button button-secondary" type="button" onClick={() => { setQuery(""); setEntity("ALL"); setDate(""); }}>Limpiar filtros</button>}</div></div>
 
         {events.isLoading ? <div className="registry-state" aria-busy="true">Cargando la bitácora...</div> : events.isError ? <div className="registry-state is-error"><WarningCircle size={28} /><strong>No se pudo consultar la auditoría</strong><button className="button button-secondary" type="button" onClick={() => events.refetch()}>Reintentar</button></div> : rows.length === 0 ? <div className="registry-state"><ClockCounterClockwise size={30} /><strong>No hay eventos para estos criterios</strong><span>Amplía la fecha o limpia los filtros.</span></div> : (
           <div className="registry-table-wrap"><table className="registry-table audit-table"><thead><tr><th>Fecha y hora</th><th>Acción</th><th>Entidad</th><th>Responsable</th><th>Referencia</th><th><span className="sr-only">Acción</span></th></tr></thead><tbody>{rows.map((item) => <tr key={item.id}><td>{formatDate(item.created_at)}</td><td><strong>{readableAction(item.action)}</strong></td><td><span className="audit-entity">{entityLabels[item.entity] ?? item.entity}</span></td><td><div className="audit-actor"><UserCircle size={19} /><span>{item.actor_name}</span></div></td><td><code>{item.entity_id}</code></td><td><button className="table-action" type="button" onClick={() => openDetail(item)}><Eye size={17} /> Detalle</button></td></tr>)}</tbody></table></div>

@@ -84,7 +84,7 @@ const modules: ModuleGroup[] = [
     shortLabel: "Almacén",
     icon: Toolbox,
     paths: ["/almacen"],
-    roles: ["ADMINISTRADOR"],
+    roles: ["ADMINISTRADOR", "TECNICO"],
     items: [
       { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true, count: "10" },
       { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
@@ -141,7 +141,7 @@ const modules: ModuleGroup[] = [
       { to: "/administracion/modelos", label: "Modelos de bienes", icon: Tag },
       { to: "/administracion/mapas-ambientes", label: "Mapas de ambientes", icon: MapTrifold },
       { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree, count: "2" },
-      { to: "/administracion/reportantes", label: "Historial de reportantes", icon: UserCircle },
+      { to: "/administracion/reportantes", label: "Usuarios que reportaron", icon: UserCircle },
       { to: "/documentos", label: "Documentos", icon: Files },
       { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
     ],

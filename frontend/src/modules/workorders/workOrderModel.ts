@@ -24,6 +24,7 @@ export type AdminPriority = (typeof ADMIN_PRIORITIES)[number];
 
 export const WORK_ORDER_STATUSES = [
   "PROGRAMADA",
+  "PENDIENTE_REPROGRAMACION",
   "ASIGNADA",
   "EN_PROCESO",
   "PENDIENTE_DE_SUPERVISION",
@@ -68,6 +69,7 @@ export const adminPriorityLabels: Record<AdminPriority, string> = {
 
 export const workOrderStatusLabels: Record<WorkOrderStatus, string> = {
   PROGRAMADA: "Lista para iniciar",
+  PENDIENTE_REPROGRAMACION: "En espera de reprogramación",
   ASIGNADA: "Asignada",
   EN_PROCESO: "En atención",
   PENDIENTE_DE_SUPERVISION: "Esperando revisión del supervisor",

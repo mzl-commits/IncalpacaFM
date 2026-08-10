@@ -63,6 +63,7 @@ const terminalStatuses = new Set<WorkOrderStatus>([
 
 const statusClass: Record<WorkOrderStatus, string> = {
   PROGRAMADA: "status-neutral",
+  PENDIENTE_REPROGRAMACION: "status-error",
   ASIGNADA: "status-warning",
   EN_PROCESO: "status-warning",
   PENDIENTE_DE_SUPERVISION: "status-neutral",

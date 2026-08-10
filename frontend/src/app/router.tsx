@@ -105,7 +105,7 @@ export const router = createBrowserRouter([
       {
         path: "mi-jornada",
         element: (
-          <RoleRoute allowedRoles={["TECNICO"]}>
+          <RoleRoute allowedRoles={["TECNICO", "ADMINISTRADOR"]}>
             <TechnicianSchedulePage />
           </RoleRoute>
         ),
