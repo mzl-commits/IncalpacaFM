@@ -3848,18 +3848,35 @@ td { padding: 13px 14px; }
 .routine-preview strong, .routine-preview span { display: block; }
 .routine-preview span { margin-top: 3px; color: var(--muted); font-size: 13px; }
 /* ============================================================
-   REDISEÑO UX/UI PROFESIONAL DEL MODAL "NUEVA ACCIÓN"
+   REDISEÑO UX/UI COMMAND PANEL / ACTION LAUNCHER (MODAL NUEVA ACCIÓN)
    ============================================================ */
 
-@keyframes actionPulse {
-  0% {
+@keyframes modalEntry {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
     transform: translateY(0) scale(1);
   }
-  45% {
-    transform: translateY(-2px) scale(1.018);
+}
+
+@keyframes iconHeartbeat {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  35% {
+    transform: scale(1.16) rotate(-3deg);
+  }
+  58% {
+    transform: scale(1.07);
+  }
+  78% {
+    transform: scale(1.13);
   }
   100% {
-    transform: translateY(-1px) scale(1);
+    transform: scale(1.08);
   }
 }
 
@@ -3871,24 +3888,31 @@ td { padding: 13px 14px; }
   max-height: 100dvh;
 }
 
+.quick-actions-dialog[open] {
+  display: grid;
+  place-items: center;
+}
+
 .quick-actions-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(1px);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(1.5px);
 }
 
 .quick-actions-sheet {
-  width: 580px;
+  width: 540px;
   max-width: calc(100vw - 32px);
   background: #FFFFFF;
-  border: 1px solid #E0E0E0;
-  border-radius: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16) !important;
+  border: 1px solid #D8D8D8;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   overflow: hidden;
+  animation: modalEntry 200ms ease-out forwards;
 }
 
+/* HEADER */
 .quick-actions-header {
-  padding: 24px 24px 18px 24px;
+  padding: 22px 24px 18px 24px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -3896,13 +3920,13 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-header h2 {
-  font-size: 23px;
+  font-family: "Inter", sans-serif !important;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
   color: #111111;
   margin: 0;
-  font-family: "Inter", sans-serif !important;
 }
 
 .quick-actions-header p {
@@ -3914,11 +3938,11 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-header button {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3929,114 +3953,105 @@ td { padding: 13px 14px; }
 }
 
 .quick-actions-header button:hover {
-  background: #F1F1F1;
+  background: #EEEEEE;
 }
 
-.quick-actions-matrix {
+/* VERTICAL LIST */
+.quick-actions-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-action-row {
+  position: relative;
+  height: 68px;
+  padding: 0 20px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  padding: 0 24px 24px 24px;
-}
-
-@media (max-width: 540px) {
-  .quick-actions-matrix {
-    grid-template-columns: 1fr;
-  }
-}
-
-.quick-action-card {
-  min-height: 92px;
-  padding: 18px;
+  grid-template-columns: 32px 1fr 32px;
+  align-items: center;
+  column-gap: 12px;
   background: #FFFFFF;
-  border: 1px solid #E5E5E5;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  cursor: pointer;
+  border-top: 1px solid #E5E5E5;
   text-decoration: none;
-  color: #111111;
-  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
 }
 
-.quick-action-card:hover {
-  animation: actionPulse 700ms ease-in-out forwards;
-  background: #FAFAFA;
-  border-color: #BBBBBB;
-}
-
-.quick-action-card:active {
-  transform: scale(0.985) !important;
-  transition: transform 90ms ease !important;
-}
-
-.quick-action-card:focus-visible {
-  outline: 2px solid #000000;
-  outline-offset: 2px;
-}
-
-.quick-action-icon-box {
-  width: 40px;
-  height: 40px;
-  border-radius: 99px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+/* ACCENT BAR ON HOVER */
+.quick-action-accent-bar {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--action-color);
+  transform: scaleY(0);
   transition: transform 180ms ease;
 }
 
-.quick-action-card:hover .quick-action-icon-box {
-  transform: scale(1.08) rotate(-2deg);
+.quick-action-row:hover .quick-action-accent-bar {
+  transform: scaleY(1);
 }
 
-/* ACCIONES ESPECÍFICAS CON ACCENTOS DE COLOR */
-.quick-action-card.action-type-bienes .quick-action-icon-box {
-  background: rgba(37, 99, 235, 0.10);
-  color: #2563EB;
+.quick-action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.quick-action-card.action-type-asignaciones .quick-action-icon-box {
-  background: rgba(124, 58, 237, 0.10);
-  color: #7C3AED;
-}
-
-.quick-action-card.action-type-incidencias .quick-action-icon-box {
-  background: rgba(234, 88, 12, 0.10);
-  color: #EA580C;
-}
-
-.quick-action-card.action-type-informes .quick-action-icon-box {
-  background: rgba(5, 150, 105, 0.10);
-  color: #059669;
+.quick-action-row:hover .quick-action-icon svg {
+  animation: iconHeartbeat 550ms ease-in-out forwards;
 }
 
 .quick-action-label {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.3;
   color: #111111;
-  flex: 1;
+  line-height: 1.3;
+  transition: color 180ms ease;
 }
 
 .quick-action-arrow {
-  color: #777777;
-  opacity: 0.55;
-  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  opacity: 0.35;
+  color: #111111;
+  justify-self: end;
   transition: transform 180ms ease, opacity 180ms ease, color 180ms ease;
 }
 
-.quick-action-card:hover .quick-action-arrow {
-  color: #000000;
-  opacity: 1;
-  transform: translateX(3px);
+/* HOVER TRANSFORMATION (ROW TO BLACK, TEXT TO WHITE, ICON RETAINS COLOR) */
+.quick-action-row:hover {
+  background: #111111;
 }
 
+.quick-action-row:hover .quick-action-label {
+  color: #FFFFFF;
+}
+
+.quick-action-row:hover .quick-action-arrow {
+  opacity: 1;
+  color: #FFFFFF;
+  transform: translateX(5px);
+}
+
+.quick-action-row:active {
+  transform: scale(0.99);
+  transition: transform 80ms ease;
+}
+
+.quick-action-row:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: -2px;
+}
+
+/* PREFERS-REDUCED-MOTION ACCESSIBILITY */
 @media (prefers-reduced-motion: reduce) {
-  .quick-action-card,
-  .quick-action-card *,
-  .quick-action-card:hover {
+  .quick-actions-sheet,
+  .quick-action-row,
+  .quick-action-row *,
+  .quick-action-row:hover {
     animation: none !important;
     transition-duration: 0.01ms !important;
     transform: none !important;
