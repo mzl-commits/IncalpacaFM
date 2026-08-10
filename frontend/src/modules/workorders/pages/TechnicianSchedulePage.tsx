@@ -1,11 +1,11 @@
-import { ArrowLeft, ArrowRight, CalendarBlank, Clock, ListChecks } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CalendarBlank, Clock, ListChecks, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
-import { getWorkOrderStatusLabel, workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
+import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
 
-const DAY_LABELS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
+const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const HOUR_RAIL = ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00"];
 
 type TechnicianOrder = Awaited<ReturnType<typeof listWorkOrders>>[number];
@@ -76,7 +76,7 @@ function getTaskActionLabel(order: TechnicianOrder) {
   const tone = getTaskTone(order);
   if (tone === "active") return isCleaningOrder(order) ? "Continuar limpieza" : "Continuar trabajo";
   if (tone === "pending") return isCleaningOrder(order) ? "Iniciar limpieza" : "Iniciar trabajo";
-  if (tone === "returned") return "Revisar correccion";
+  if (tone === "returned") return "Revisar corrección";
   return "Ver detalle";
 }
 
@@ -94,6 +94,13 @@ function getTaskSortValue(order: TechnicianOrder) {
 
 function sortTechnicianTasks(left: TechnicianOrder, right: TechnicianOrder) {
   return getTaskSortValue(left) - getTaskSortValue(right);
+}
+
+function countByTone(orders: TechnicianOrder[]) {
+  return orders.reduce((summary, order) => {
+    summary[getTaskTone(order)] += 1;
+    return summary;
+  }, { active: 0, pending: 0, returned: 0, done: 0, closed: 0 } as Record<TechnicianTaskTone, number>);
 }
 
 function formatHours(minutes: number) {
@@ -159,14 +166,19 @@ export function TechnicianSchedulePage() {
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const startKey = toDateKey(days[0]);
   const endKey = toDateKey(days[6]);
-  const weekOrders = orders.filter((order) => order.scheduledDate >= startKey && order.scheduledDate <= endKey);
+  const todayKey = toDateKey(new Date());
+  const technicianOrders = orders.filter((order) => order.orderType !== "OS" && !order.code.startsWith("OS-"));
+  const weekOrders = technicianOrders.filter((order) => order.scheduledDate >= startKey && order.scheduledDate <= endKey);
+  const todayOrders = weekOrders.filter((order) => order.scheduledDate === todayKey).sort(sortTechnicianTasks);
+  const todaySummary = countByTone(todayOrders);
+  const attentionNow = todayOrders.filter((order) => ["active", "pending", "returned"].includes(getTaskTone(order))).slice(0, 3);
   const plannedHours = weekOrders.reduce((total, order) => total + (order.plannedHours || 2), 0);
   const plannedMinutes = plannedHours * 60;
-  const workedMinutes = orders.reduce((total, order) => total + registeredMinutes(order, startKey, endKey), 0);
+  const workedMinutes = technicianOrders.reduce((total, order) => total + registeredMinutes(order, startKey, endKey), 0);
   const pendingMinutes = Math.max(plannedMinutes - workedMinutes, 0);
   const completed = weekOrders.filter((order) => getTaskTone(order) === "done" || getTaskTone(order) === "closed").length;
   const hoursProgress = plannedMinutes ? Math.min(100, Math.round((workedMinutes / plannedMinutes) * 100)) : 0;
-  const completedHistory = orders
+  const completedHistory = technicianOrders
     .filter((order) => order.status === "CERRADA" || order.progressPercentage === 100)
     .sort((left, right) => new Date(right.closedAt ?? right.finishedAt ?? right.updatedAt).getTime() - new Date(left.closedAt ?? left.finishedAt ?? left.updatedAt).getTime())
     .slice(0, 8);
@@ -178,9 +190,9 @@ export function TechnicianSchedulePage() {
         <div>
           <p className="breadcrumb">Mi trabajo / Agenda semanal</p>
           <h1>Mi agenda de trabajo</h1>
-          <p>Distingue rapido que tienes pendiente, que esta en proceso y que ya terminaste.</p>
+          <p>Distingue rápido qué tienes pendiente, qué está en proceso y qué ya terminaste.</p>
         </div>
-        <Link className="button button-secondary" to="/ordenes-trabajo"><ListChecks size={18} />Ver mis ordenes</Link>
+        <Link className="button button-secondary" to="/ordenes-trabajo"><ListChecks size={18} />Ver mis órdenes</Link>
       </header>
 
       <section className="technician-week-toolbar" aria-label="Semana mostrada">
@@ -195,8 +207,40 @@ export function TechnicianSchedulePage() {
         <p className="technician-hours-progress-copy"><strong>{formatHours(workedMinutes)}</strong> registradas de <strong>{formatHours(plannedMinutes)}</strong> programadas</p>
         <dl className="technician-hours-summary">
           <div><dt>Por registrar</dt><dd>{formatHours(pendingMinutes)}</dd><small>Para completar tu carga programada</small></div>
-          <div><dt>Ordenes listas</dt><dd>{completed} / {weekOrders.length}</dd><small>Finalizadas o cerradas esta semana</small></div>
+          <div><dt>Órdenes listas</dt><dd>{completed} / {weekOrders.length}</dd><small>Finalizadas o cerradas esta semana</small></div>
         </dl>
+      </section>
+
+      <section className="technician-today-focus" aria-labelledby="today-focus-title">
+        <header>
+          <div>
+            <span>Enfoque de hoy</span>
+            <h2 id="today-focus-title">{todayOrders.length ? `${todayOrders.length} ${todayOrders.length === 1 ? "orden asignada" : "órdenes asignadas"}` : "Sin órdenes para hoy"}</h2>
+          </div>
+          <dl>
+            <div><dt>En proceso</dt><dd>{todaySummary.active}</dd></div>
+            <div><dt>Por hacer</dt><dd>{todaySummary.pending}</dd></div>
+            <div><dt>Por corregir</dt><dd>{todaySummary.returned}</dd></div>
+            <div><dt>Realizadas</dt><dd>{todaySummary.done + todaySummary.closed}</dd></div>
+          </dl>
+        </header>
+        {attentionNow.length ? (
+          <div className="technician-today-focus-list">
+            {attentionNow.map((order) => (
+              <Link key={order.id} to={getExecutionPath(order)} className={`technician-today-item is-${getTaskTone(order)} ${getOrderTypeClass(order)}`}>
+                <span><b>{getTaskLabel(order)}</b><i>{getOrderTypeLabel(order)}</i></span>
+                <strong>{order.code}</strong>
+                <small>{getWorkOrderAssetDisplayCode(order) || order.requestCode}</small>
+                <em>{getTaskActionLabel(order)}</em>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="technician-today-empty">
+            <WarningCircle size={22} />
+            <span>{todayOrders.length ? "Lo de hoy ya está realizado o en cierre." : "No tienes trabajos programados para hoy."}</span>
+          </div>
+        )}
       </section>
 
       <div className="technician-task-legend" aria-label="Leyenda de agenda">
@@ -220,7 +264,13 @@ export function TechnicianSchedulePage() {
                 const dayOrders = weekOrders.filter((order) => order.scheduledDate === dateKey).sort(sortTechnicianTasks);
                 const isToday = dateKey === toDateKey(new Date());
                 return <section className={`technician-day ${isToday ? "is-today" : ""}`} key={dateKey}>
-                  <header><span>{DAY_LABELS[index]}</span><strong>{day.getDate()}</strong></header>
+                  <header>
+                    <span>{DAY_LABELS[index]}</span>
+                    <div>
+                      <strong>{day.getDate()}</strong>
+                      <small>{dayOrders.length ? `${dayOrders.filter((order) => ["active", "pending", "returned"].includes(getTaskTone(order))).length} pendientes` : "Libre"}</small>
+                    </div>
+                  </header>
                   <div>
                     {dayOrders.length ? dayOrders.map((order) => (
                       <Link key={order.id} to={getExecutionPath(order)} className={`technician-task is-${getTaskTone(order)} ${getOrderTypeClass(order)}`}>
@@ -243,7 +293,7 @@ export function TechnicianSchedulePage() {
               const dayOrders = weekOrders.filter((order) => order.scheduledDate === dateKey).sort(sortTechnicianTasks);
               const isToday = dateKey === toDateKey(new Date());
               return <section className={`technician-mobile-day ${isToday ? "is-today" : ""}`} key={dateKey}>
-                <header><span>{isToday ? "Hoy - " : ""}{DAY_LABELS[index]}</span><strong>{day.toLocaleDateString("es-PE", { day: "numeric", month: "long" })}</strong><small>{dayOrders.length ? `${dayOrders.length} ${dayOrders.length === 1 ? "orden" : "ordenes"}` : "Sin tareas"}</small></header>
+                <header><span>{isToday ? "Hoy - " : ""}{DAY_LABELS[index]}</span><strong>{day.toLocaleDateString("es-PE", { day: "numeric", month: "long" })}</strong><small>{dayOrders.length ? `${dayOrders.length} ${dayOrders.length === 1 ? "orden" : "órdenes"}` : "Sin tareas"}</small></header>
                 {dayOrders.map((order) => {
                   const orderMinutes = registeredMinutes(order, startKey, endKey);
                   return <Link to={getExecutionPath(order)} className={`technician-mobile-task is-${getTaskTone(order)} ${getOrderTypeClass(order)}`} key={order.id}>
@@ -263,15 +313,15 @@ export function TechnicianSchedulePage() {
         {weekOrders.length ? <div className="table-scroll"><table><thead><tr><th>Orden</th><th>Tipo</th><th>Bien / solicitud</th><th>Programada</th><th>Previsto</th><th>Registrado</th><th>Avance</th></tr></thead><tbody>{[...weekOrders].sort(sortTechnicianTasks).map((order) => {
           const orderMinutes = registeredMinutes(order, startKey, endKey);
           return <tr key={order.id} className={`is-${getTaskTone(order)}`}><td><Link to={`/ordenes-trabajo/${order.id}`}>{order.code}</Link></td><td><span className={`technician-order-type ${getOrderTypeClass(order)}`}>{getOrderTypeLabel(order)}</span></td><td>{getWorkOrderAssetDisplayCode(order) || order.requestCode}</td><td>{new Date(`${order.scheduledDate}T00:00:00`).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}</td><td>{order.plannedHours || 2} h</td><td>{formatHours(orderMinutes)}</td><td>{getTaskLabel(order)} - {order.progressPercentage} %</td></tr>;
-        })}</tbody></table></div> : <div className="technician-empty-state"><CalendarBlank size={28} /><strong>No tienes ordenes programadas esta semana</strong><p>Cambia de semana para revisar tu agenda anterior o futura.</p></div>}
+        })}</tbody></table></div> : <div className="technician-empty-state"><CalendarBlank size={28} /><strong>No tienes órdenes programadas esta semana</strong><p>Cambia de semana para revisar tu agenda anterior o futura.</p></div>}
       </section>
 
       <section className="technician-work-history" aria-labelledby="work-history-title">
-        <header><div><h2 id="work-history-title">Historial de trabajo realizado</h2><p>Ultimas ordenes completadas y el tiempo registrado por el temporizador.</p></div>{completedHistory.length > 0 && <strong>{formatHours(completedMinutes)} acumuladas</strong>}</header>
+        <header><div><h2 id="work-history-title">Historial de trabajo realizado</h2><p>Últimas órdenes completadas y el tiempo registrado por el temporizador.</p></div>{completedHistory.length > 0 && <strong>{formatHours(completedMinutes)} acumuladas</strong>}</header>
         {completedHistory.length ? <div>{completedHistory.map((order) => {
           const completedAt = order.closedAt ?? order.finishedAt ?? order.updatedAt;
-          return <Link key={order.id} to={`/ordenes-trabajo/${order.id}`}><span><strong>{order.code}</strong><small>{getOrderTypeLabel(order)} - {getWorkOrderAssetDisplayCode(order) || order.requestCode}</small></span><dl><div><dt>Finalizada</dt><dd>{formatHistoryDate(completedAt)}</dd></div><div><dt>Tiempo registrado</dt><dd>{formatHours(totalWorkedMinutes(order))}</dd></div><div><dt>Resultado</dt><dd>{workOrderStatusLabels[order.status]}</dd></div></dl></Link>;
-        })}</div> : <div className="technician-history-empty"><Clock size={28} /><span><strong>Aun no hay ordenes finalizadas</strong><small>Cuando completes una orden, quedara registrada aqui junto con sus horas.</small></span></div>}
+          return <Link key={order.id} to={`/ordenes-trabajo/${order.id}`}><span><strong>{order.code}</strong><small>{getOrderTypeLabel(order)} - {getWorkOrderAssetDisplayCode(order) || order.requestCode}</small></span><dl><div><dt>Finalizada</dt><dd>{formatHistoryDate(completedAt)}</dd></div><div><dt>Tiempo registrado</dt><dd>{formatHours(totalWorkedMinutes(order))}</dd></div><div><dt>Resultado</dt><dd>{getWorkOrderStatusLabel(order)}</dd></div></dl></Link>;
+        })}</div> : <div className="technician-history-empty"><Clock size={28} /><span><strong>Aún no hay órdenes finalizadas</strong><small>Cuando completes una orden, quedará registrada aquí junto con sus horas.</small></span></div>}
       </section>
     </section>
   );

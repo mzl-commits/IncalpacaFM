@@ -35,8 +35,10 @@ def participant_queryset(request):
     ).prefetch_related("traceability_photos", "correction_orders")
     role = user_role(request.user)
     if role == AccountProfile.Role.TECHNICIAN:
+        queryset = queryset.exclude(order_type=WorkOrder.OrderType.SERVICE)
         queryset = queryset.filter(Q(technician=request.user) | Q(supporting_technicians=request.user)).distinct()
     elif role == AccountProfile.Role.SUPERVISOR:
+        queryset = queryset.exclude(order_type=WorkOrder.OrderType.SERVICE)
         queryset = queryset.filter(supervisor=request.user)
     return queryset
 
