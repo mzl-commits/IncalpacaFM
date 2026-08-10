@@ -796,6 +796,24 @@ tr:hover td { background: var(--surface-muted); }
 .technician-editor form { display: grid; gap: 15px; padding: 20px; }
 .technician-editor .switch-row { min-height: 0; background: #f9f9f9; }
 .technician-editor .button { width: 100%; }
+.technician-editor.modal-widget { right: 28px; bottom: 28px; width: min(460px, calc(100vw - 40px)); max-height: calc(100vh - 56px); overflow: auto; border: 1px solid #cfcfcf; box-shadow: 0 12px 28px rgb(25 25 25 / .16); }
+.technician-editor > header { position: sticky; top: 0; z-index: 1; align-items: center; padding: 20px 22px; background: #fafafa; }
+.technician-editor > header > svg { flex: 0 0 auto; width: 30px; height: 30px; padding: 6px; border-radius: 8px; background: #222; color: #fff; }
+.technician-editor > header > div { flex: 1; min-width: 0; }
+.technician-editor > header h2 { font-size: 20px; letter-spacing: -.015em; }
+.technician-editor > header p { max-width: 30ch; line-height: 1.4; }
+.technician-editor form { gap: 13px; padding: 22px; }
+.technician-editor form::before { content: "Datos de acceso y perfil"; margin-bottom: -2px; color: #666; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.technician-editor .field { gap: 6px; }
+.technician-editor .field > span { color: #292929; font-size: 12px; font-weight: 750; }
+.technician-editor .field input { min-height: 46px; }
+.technician-editor .field:nth-of-type(5) { margin-top: 7px; padding-top: 16px; border-top: 1px solid #e6e6e6; }
+.technician-editor .field:nth-of-type(7) { padding: 14px; border: 1px solid #d9d9d9; border-radius: 8px; background: #f6f6f6; }
+.technician-editor .field:nth-of-type(7) input { border-color: #bcbcbc; background: #fff; font-size: 18px; font-weight: 750; }
+.technician-editor .field:nth-of-type(7) small { color: #555; }
+.technician-editor .switch-row { margin-top: 2px; padding: 12px 14px; border: 1px solid #e1e1e1; border-radius: 8px; }
+.technician-editor .button { min-height: 48px; margin-top: 4px; }
+@media (max-width: 620px) { .technician-editor.modal-widget { right: 12px; bottom: 12px; width: calc(100vw - 24px); max-height: calc(100vh - 24px); } .technician-editor > header, .technician-editor form { padding: 16px; } }
 @media (max-width: 980px) { .technician-management-layout { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .planning-queue > a { grid-template-columns: 1fr auto; gap: 6px 12px; }.planning-queue a small { grid-column: 1 / -1; }.planning-queue a b { grid-column: 1 / -1; } }
 .technician-detail-page { display: grid; gap: 20px; }

@@ -7,6 +7,8 @@ export type Technician = {
   worker_code: string;
   dni: string;
   specialty: string;
+  position: string;
+  hourly_rate: number;
   active: boolean;
 };
 

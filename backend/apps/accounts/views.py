@@ -99,13 +99,15 @@ class TechnicianImportView(views.APIView):
                             raise ValueError("el código ya existe con otro DNI")
                         existing.dni = dni
                         existing.specialty = str(values.get("especialidad") or "").strip()
-                        existing.save(update_fields=("dni", "specialty"))
+                        existing.position = str(values.get("cargo") or values.get("posicion") or "").strip()
+                        existing.hourly_rate = values.get("tarifa_hora") or values.get("cuota_hora") or 0
+                        existing.save(update_fields=("dni", "specialty", "position", "hourly_rate"))
                         result["updated"] += 1
                     else:
                         first_name, _, last_name = full_name.partition(" ")
                         password = str(values.get("contraseña_temporal") or "Importar2026!")
                         user = get_user_model().objects.create_user(username=worker_code.lower(), password=password, first_name=first_name, last_name=last_name, email=str(values.get("correo") or ""), is_active=True)
-                        AccountProfile.objects.create(user=user, worker_code=worker_code, dni=dni, specialty=str(values.get("especialidad") or "").strip(), role=AccountProfile.Role.TECHNICIAN, must_change_password=True)
+                        AccountProfile.objects.create(user=user, worker_code=worker_code, dni=dni, specialty=str(values.get("especialidad") or "").strip(), position=str(values.get("cargo") or values.get("posicion") or "").strip(), hourly_rate=values.get("tarifa_hora") or values.get("cuota_hora") or 0, role=AccountProfile.Role.TECHNICIAN, must_change_password=True)
                         result["created"] += 1
             except Exception as exc:
                 result["errors"].append({"fila": number, "detalle": str(exc)})
