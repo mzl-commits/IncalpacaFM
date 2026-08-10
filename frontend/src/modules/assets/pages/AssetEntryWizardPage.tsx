@@ -248,6 +248,7 @@ export function AssetEntryWizardPage() {
       ...current,
       taxonomyId: item.id,
       taxonomyPrefix: item.prefix,
+      fmCode: item.nextCodePreview ?? "",
       taxonomyVersion: item.sourceVersion,
       taxonomySnapshot: {
         name: item.name,
@@ -379,6 +380,7 @@ export function AssetEntryWizardPage() {
       {draft.classificationPending
         ? <div className="form-grid"><Field label="Justificación" error={errors.classificationPendingReason} required wide><textarea rows={3} value={draft.classificationPendingReason} onChange={(e) => setField("classificationPendingReason", e.target.value)} /></Field></div>
         : <TaxonomyPicker selectedId={draft.taxonomyId} onSelect={applyTaxonomy} error={errors.taxonomyId} />}
+      {!draft.classificationPending && draft.taxonomyId && <div className="form-grid"><Field label="Código FM a asignar" hint="Se muestra el siguiente código disponible y puedes modificarlo antes de registrar." error={errors.fmCode}><input value={draft.fmCode} maxLength={32} placeholder={`${draft.taxonomyPrefix || "PREFIJO"}-0000`} onChange={(e) => setField("fmCode", e.target.value.toUpperCase().replace(/\s/g, ""))} /></Field></div>}
       <div className="conditional-fields">
         <h3>Gestión del catálogo</h3>
         <div className="form-grid">
