@@ -113,16 +113,20 @@ class Location(UUIDModel):
     source_version = models.CharField(max_length=80, blank=True)
     requires_review = models.BooleanField(default=False)
     review_notes = models.CharField(max_length=240, blank=True)
+    site = models.CharField(max_length=100, blank=True, default='')
     zone = models.CharField(max_length=100)
     building = models.CharField(max_length=100)
+    level = models.CharField(max_length=100, blank=True, default='')
     area = models.CharField(max_length=100)
     room = models.CharField(max_length=100)
     specific_location = models.CharField(max_length=160, blank=True)
+    headcount = models.PositiveIntegerField(null=True, blank=True, verbose_name="Usuarios (Capacidad)")
+    square_meters = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Tamaño (m2)")
     common_space = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=('zone', 'building', 'area', 'room', 'location_code'), name='uq_asset_location')]
+        constraints = [models.UniqueConstraint(fields=('site', 'zone', 'building', 'level', 'area', 'room', 'location_code'), name='uq_asset_location')]
 
     def __str__(self):
         code = f'{self.location_code} · ' if self.location_code else ''

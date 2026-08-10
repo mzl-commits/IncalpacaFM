@@ -9,12 +9,13 @@ import {
   MapPin,
   Package,
   SquaresFour,
+  Users,
   WarningCircle,
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { listRegisteredAssets } from "../assetEntryRepository";
 import { useLocationMapImage, useLocations } from "../locationMapQueries";
 import type { LocationOption } from "../locationMapTypes";
@@ -34,6 +35,15 @@ function environmentLabel(count: number) {
   return `${count} ${count === 1 ? "ambiente" : "ambientes"}`;
 }
 
+function capacityLabel(location: LocationOption) {
+  const users = location.assignedUsers.length;
+  return location.headcount == null ? `${users} usuarios` : `${users}/${location.headcount} usuarios`;
+}
+
+function areaLabel(squareMeters: number | null) {
+  return squareMeters == null ? "m² pendiente" : `${new Intl.NumberFormat("es-PE", { maximumFractionDigits: 2 }).format(squareMeters)} m²`;
+}
+
 export function AssetMapOverviewPage() {
   const locationsQuery = useLocations();
   const assetsQuery = useQuery({ queryKey: ["assets", "map-overview"], queryFn: listRegisteredAssets });
@@ -43,6 +53,8 @@ export function AssetMapOverviewPage() {
   const [selectedLocationId, setSelectedLocationId] = useState("");
   const [query, setQuery] = useState("");
   const [imageFilter, setImageFilter] = useState<ImageFilter>("ALL");
+  const [activeTab, setActiveTab] = useState<"assets" | "users">("assets");
+  const navigate = useNavigate();
 
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const assets = useMemo(() => assetsQuery.data ?? [], [assetsQuery.data]);
@@ -131,7 +143,7 @@ export function AssetMapOverviewPage() {
 
           {selectedLocation && <aside className="asset-map-overview-inspector" aria-live="polite">
             <header><button className="asset-map-inspector-back" type="button" onClick={() => setSelectedLocationId("")}><ArrowLeft /> Cerrar detalle</button><span>{selectedLocation.zone} / {selectedLocation.building} / {selectedLocation.area}</span><h2>{selectedLocation.locationCode ? `${selectedLocation.locationCode} · ` : ""}{selectedLocation.room}</h2></header>
-            <dl className="asset-map-location-summary"><div><dt>Bienes</dt><dd>{selectedAssets.length}</dd></div><div><dt>Asignados</dt><dd>{selectedAssigned}</dd></div><div><dt>Alertas</dt><dd>{selectedAlerts}</dd></div></dl>
+            <dl className="asset-map-location-summary"><div><dt>Bienes</dt><dd>{selectedAssets.length}</dd></div><div><dt>Usuarios</dt><dd>{capacityLabel(selectedLocation)}</dd></div><div><dt>Superficie</dt><dd>{areaLabel(selectedLocation.squareMeters)}</dd></div><div><dt>Alertas</dt><dd>{selectedAlerts}</dd></div></dl>
             {selectedLocation.activeMap ? <section className="asset-map-room-preview"><header><strong>Imagen referencial</strong><span>Versión {selectedLocation.activeMap.version}</span></header>{locationImageQuery.data ? <div><img src={locationImageQuery.data} alt={`Referencia visual de ${selectedLocation.room}`} />{selectedAssets.map((asset) => {
               const marker = asset.locationDetail?.marker;
               if (!marker || marker.mapId !== selectedLocation.activeMap?.id) return null;
@@ -139,7 +151,21 @@ export function AssetMapOverviewPage() {
               return <Link to={`/bienes/${asset.id}`} className="asset-map-room-pin" style={style} key={asset.id} aria-label={`Abrir ${asset.draft.name}`}><MapPin weight="fill" /></Link>;
             })}</div> : <div className="asset-map-image-loading">Cargando imagen protegida…</div>}</section>
             : <section className="asset-map-reference-empty"><ImageSquare weight="duotone" /><div><strong>Sin imagen referencial</strong><p>La ubicación taxonómica sigue disponible. Puedes cargar una imagen desde Administración.</p></div><Link to="/administracion/mapas-ambientes">Agregar imagen</Link></section>}
-            <section className="asset-map-location-assets"><header><strong>Bienes del ambiente</strong><span>{selectedAssets.length}</span></header>{selectedAssets.length ? <div>{selectedAssets.map((asset) => <Link to={`/bienes/${asset.id}`} key={asset.id}><span><strong>{asset.fmCode ?? asset.code}</strong><small>{asset.draft.name}</small></span><i className={`status ${asset.assignmentStatus === "Sin asignar" ? "status-warning" : "status-success"}`}>{asset.assignmentStatus}</i><ArrowSquareOut /></Link>)}</div> : <div className="asset-map-no-assets"><Package /><span>No hay bienes registrados en este ambiente.</span></div>}</section>
+            <section className="asset-map-location-tabs">
+              <div className="tab-list">
+                <button type="button" role="tab" aria-selected={activeTab === "assets"} className={activeTab === "assets" ? "is-active" : ""} onClick={() => setActiveTab("assets")}>Bienes ({selectedAssets.length})</button>
+                <button type="button" role="tab" aria-selected={activeTab === "users"} className={activeTab === "users" ? "is-active" : ""} onClick={() => setActiveTab("users")}>Usuarios ({selectedLocation.assignedUsers?.length || 0})</button>
+              </div>
+              {activeTab === "assets" ? (
+                <div className="tab-panel">
+                  {selectedAssets.length ? <div className="asset-map-location-assets">{selectedAssets.map((asset) => <Link to={`/bienes/${asset.id}`} key={asset.id}><span><strong>{asset.fmCode ?? asset.code}</strong><small>{asset.draft.name}</small></span><i className={`status ${asset.assignmentStatus === "Sin asignar" ? "status-warning" : "status-success"}`}>{asset.assignmentStatus}</i><ArrowSquareOut /></Link>)}</div> : <div className="asset-map-no-assets"><Package /><span>No hay bienes registrados en este ambiente.</span></div>}
+                </div>
+              ) : (
+                <div className="tab-panel">
+                  {selectedLocation.assignedUsers?.length ? <div className="asset-map-location-assets">{selectedLocation.assignedUsers.map((user) => <button type="button" className="asset-map-user-link" onClick={() => navigate(`/usuarios/${user.id}`)} key={user.id}><span><strong>{user.name}</strong><small>{user.area || "Sin área específica"}</small></span><ArrowSquareOut /></button>)}</div> : <div className="asset-map-no-assets"><Users /><span>No hay usuarios asignados a bienes en este ambiente.</span></div>}
+                </div>
+              )}
+            </section>
             <p className="asset-map-location-path"><CheckCircle weight="fill" />{fullLocation(selectedLocation)}</p>
           </aside>}
         </div>
@@ -162,7 +188,7 @@ function EnvironmentGrid({ locations, assetsByLocation, selectedId, onSelect }: 
   if (!locations.length) return <EmptyGrid />;
   return <div className="asset-map-environment-grid">{locations.map((location) => {
     const count = assetsByLocation.get(location.id)?.length ?? 0;
-    return <button type="button" className={`asset-map-environment-tile ${selectedId === location.id ? "is-selected" : ""}`} key={location.id} onClick={() => onSelect(location.id)} aria-pressed={selectedId === location.id}><span className="asset-map-environment-heading"><i className={location.activeMap ? "has-image" : ""}><ImageSquare weight={location.activeMap ? "fill" : "regular"} /></i><span><strong>{location.room}</strong><small>{location.locationCode || "Código local pendiente"}</small></span></span><span className="asset-map-environment-path">{location.building} · {location.area}</span><span className="asset-map-environment-meta"><b><Package /> {count} {count === 1 ? "bien" : "bienes"}</b><em>{location.activeMap ? `Imagen v${location.activeMap.version}` : "Sin imagen"}</em></span>{location.requiresReview && <span className="asset-map-review-flag"><WarningCircle /> Requiere revisión</span>}</button>;
+    return <button type="button" className={`asset-map-environment-tile ${selectedId === location.id ? "is-selected" : ""}`} key={location.id} onClick={() => onSelect(location.id)} aria-pressed={selectedId === location.id}><span className="asset-map-environment-heading"><i className={location.activeMap ? "has-image" : ""}><ImageSquare weight={location.activeMap ? "fill" : "regular"} /></i><span><strong>{location.room}</strong><small>{location.locationCode || "Código local pendiente"}</small></span></span><span className="asset-map-environment-path">{location.building} · {location.area}</span><span className="asset-map-environment-meta"><b><Package /> {count} {count === 1 ? "bien" : "bienes"}</b><em>{areaLabel(location.squareMeters)}</em></span><span className="asset-map-capacity"><Users /> {capacityLabel(location)}</span>{location.requiresReview && <span className="asset-map-review-flag"><WarningCircle /> Requiere revisión</span>}</button>;
   })}</div>;
 }
 

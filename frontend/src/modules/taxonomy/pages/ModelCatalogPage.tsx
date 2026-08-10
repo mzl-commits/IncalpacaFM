@@ -54,13 +54,16 @@ export function ModelCatalogPage() {
 
   return (
     <div className="taxonomy-layout">
-      <header className="page-heading">
+      <header className="page-heading taxonomy-page-heading">
         <Link to="/administracion" className="back-link">
           <ArrowLeft size={18} />
           <span>Volver a Administración</span>
         </Link>
-        <h1>Modelos de Bienes</h1>
-        <p>Gestiona el catálogo de marcas y modelos disponibles para los bienes.</p>
+        <div>
+          <p className="breadcrumb">Administración / Catálogo</p>
+          <h1>Modelos de bienes</h1>
+          <p>Administra las marcas y referencias disponibles para registrar activos.</p>
+        </div>
       </header>
 
       <div className="taxonomy-container">
@@ -68,7 +71,7 @@ export function ModelCatalogPage() {
 
         <main className="taxonomy-main">
           <header className="taxonomy-toolbar">
-            <h2 className="taxonomy-toolbar-title">Modelos Registrados</h2>
+            <div><h2 className="taxonomy-toolbar-title">Modelos registrados</h2><p className="taxonomy-toolbar-caption">{models.length} referencias en el catálogo</p></div>
             <button className="button button-primary" onClick={handleOpenNew}>
               <Plus size={18} weight="bold" />
               <span>Nuevo modelo</span>
@@ -117,14 +120,18 @@ export function ModelCatalogPage() {
                         <td className="action-cell">
                           <button
                             className="icon-button"
+                            type="button"
                             onClick={() => handleOpenEdit(model)}
+                            aria-label={`Editar ${model.brand} ${model.name}`}
                             title="Editar"
                           >
                             <PencilSimple size={18} />
                           </button>
                           <button
                             className="icon-button"
+                            type="button"
                             onClick={() => handleDelete(model.id)}
+                            aria-label={`Eliminar ${model.brand} ${model.name}`}
                             style={{ color: "var(--error)" }}
                             title="Eliminar"
                           >
@@ -142,34 +149,34 @@ export function ModelCatalogPage() {
       </div>
 
       {isModalOpen && (
-        <dialog open className="modal-backdrop" style={{ display: "grid", placeItems: "center", background: "rgba(0,0,0,0.5)", position: "fixed", inset: 0, zIndex: 100 }}>
-          <form className="modal-content form-panel" onSubmit={handleSave} style={{ minWidth: 400, padding: 24 }}>
+        <dialog open className="taxonomy-model-dialog">
+          <form className="modal-content form-panel" onSubmit={handleSave}>
             <h2 style={{ marginTop: 0 }}>{editingModel ? "Editar Modelo" : "Nuevo Modelo"}</h2>
             
-            <div className="field-group" style={{ marginBottom: 16 }}>
-              <label>Marca</label>
+            <div className="field-group">
+              <label htmlFor="model-brand">Marca</label>
               <input 
+                id="model-brand"
                 type="text" 
                 value={formData.brand} 
                 onChange={(e) => setFormData({...formData, brand: e.target.value})} 
                 required 
-                style={{ width: "100%", padding: 8 }}
               />
             </div>
             
-            <div className="field-group" style={{ marginBottom: 16 }}>
-              <label>Modelo</label>
+            <div className="field-group">
+              <label htmlFor="model-name">Modelo</label>
               <input 
+                id="model-name"
                 type="text" 
                 value={formData.name} 
                 onChange={(e) => setFormData({...formData, name: e.target.value})} 
                 required 
-                style={{ width: "100%", padding: 8 }}
               />
             </div>
             
-            <div className="field-group" style={{ marginBottom: 24 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="field-group model-active-toggle">
+              <label>
                 <input 
                   type="checkbox" 
                   checked={formData.isActive} 
@@ -179,7 +186,7 @@ export function ModelCatalogPage() {
               </label>
             </div>
             
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <div className="form-actions">
               <button type="button" className="button" onClick={() => setIsModalOpen(false)}>Cancelar</button>
               <button type="submit" className="button button-primary">Guardar</button>
             </div>

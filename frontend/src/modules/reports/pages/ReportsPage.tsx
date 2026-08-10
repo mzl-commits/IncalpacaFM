@@ -36,6 +36,7 @@ import {
 } from "@/modules/workorders/workOrderRepository";
 import { specialtyLabels, workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
 import type { WorkOrder } from "@/modules/workorders/types";
+import { DetailedReportsSection } from "./DetailedReportsSection";
 
 type PeriodKey = "30d" | "90d" | "year" | "all";
 type ReportScope = "corporate" | "local";
@@ -950,6 +951,8 @@ export function ReportsPage() {
               )}
             </section>
           </div>
+
+          <DetailedReportsSection />
         </>
       )}
     </section>

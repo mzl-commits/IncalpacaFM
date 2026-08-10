@@ -14,7 +14,8 @@ export type AuditEvent = {
   created_at: string;
 };
 
-export async function fetchAuditEvents() {
-  const { data } = await api.get<AuditEvent[]>("/audit/events/");
+export async function fetchAuditEvents(filters?: Record<string, string>) {
+  const params = new URLSearchParams(filters);
+  const { data } = await api.get<AuditEvent[]>(`/audit/events/?${params.toString()}`);
   return data;
 }

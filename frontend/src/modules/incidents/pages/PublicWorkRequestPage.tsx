@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "@/services/api";
+import { createClientId } from "@/utils/uuid";
 
 type ImpactAnswer = "" | "SI" | "NO";
 type AffectedPeople = "" | "SOLO_YO" | "VARIAS_PERSONAS" | "TODA_EL_AREA";
@@ -221,7 +222,7 @@ export function PublicWorkRequestPage() {
         evidence: form.photoName
           ? [
               {
-                id: crypto.randomUUID(),
+                id: createClientId("evidence"),
                 name: form.photoName,
                 mimeType: "image/*",
                 size: 0,

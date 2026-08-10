@@ -18,8 +18,10 @@ class Command(BaseCommand):
         created = updated = 0
         for row in rows:
             _, was_created = Location.objects.update_or_create(
+                site=row.get("site", ""),
                 zone=row["zone"],
                 building=row["building"],
+                level=row.get("level", ""),
                 area=row["area"],
                 room=row["room"],
                 location_code=row["location_code"],
