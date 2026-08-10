@@ -295,6 +295,7 @@ export const router = createBrowserRouter([
         lazy: administratorLazyRoute(() => import("@/modules/reports/pages/WorkOrderReportsPage"), "WorkOrderReportsPage"),
       },
       { path: "informes/plantillas", lazy: administratorLazyRoute(() => import("@/modules/reports/pages/ReportTemplatesPage"), "ReportTemplatesPage") },
+
       {
         path: "notificaciones",
         lazy: lazyRoute(
@@ -357,6 +358,14 @@ export const router = createBrowserRouter([
             <TechnicianDetailPage />
           </RoleRoute>
         ),
+      },
+      {
+        path: "mi-perfil",
+        lazy: lazyRoute(() => import("@/modules/accounts/pages/UserDashboardPage"), "default"),
+      },
+      {
+        path: "usuarios/:id",
+        lazy: lazyRoute(() => import("@/modules/accounts/pages/UserBetaProfilePage"), "UserBetaProfilePage"),
       },
       {
         path: "administracion/taxonomia/nueva",

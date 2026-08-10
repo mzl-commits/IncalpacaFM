@@ -1,5 +1,25 @@
 /* Taxonomy administration and the asset-entry taxonomy picker. */
 
+.taxonomy-layout { display: grid; gap: 1.5rem; min-width: 0; }
+.taxonomy-page-heading { display: grid; gap: .35rem; }
+.taxonomy-page-heading > div { display: grid; gap: .15rem; }
+.taxonomy-page-heading h1 { margin: .2rem 0 .1rem; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.04em; }
+.taxonomy-page-heading > p { max-width: 62ch; }
+.taxonomy-container { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; min-width: 0; }
+.taxonomy-main { min-width: 0; }
+.taxonomy-toolbar { align-items: end; display: flex; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
+.taxonomy-toolbar-title { margin: 0; font-size: 1.25rem; letter-spacing: -.02em; }
+.taxonomy-toolbar-caption { color: var(--muted); font-size: .8rem; margin: .25rem 0 0; }
+.taxonomy-model-dialog { align-items: center; background: rgb(18 18 18 / .48); border: 0; display: grid; inset: 0; justify-content: center; padding: 1rem; position: fixed; width: 100%; z-index: 100; }
+.taxonomy-model-dialog::backdrop { background: transparent; }
+.taxonomy-model-dialog .form-panel { display: grid; gap: 1rem; margin: 0; max-width: 32rem; padding: 1.5rem; width: min(100%, 32rem); }
+.taxonomy-model-dialog h2 { margin: 0; }
+.taxonomy-model-dialog .field-group { display: grid; gap: .4rem; }
+.taxonomy-model-dialog .field-group label { color: var(--text); font-size: .85rem; font-weight: 700; }
+.taxonomy-model-dialog .field-group input:not([type="checkbox"]) { min-height: 2.75rem; width: 100%; }
+.taxonomy-model-dialog .model-active-toggle label { align-items: center; display: flex; gap: .5rem; font-weight: 600; }
+.taxonomy-model-dialog .form-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: .25rem; }
+
 .taxonomy-section-nav {
   display: flex;
   gap: 4px;
@@ -1212,6 +1232,11 @@
 }
 
 @media (max-width: 720px) {
+  .taxonomy-toolbar { align-items: stretch; flex-direction: column; }
+  .taxonomy-toolbar .button { width: 100%; }
+  .taxonomy-model-dialog { padding: .75rem; }
+  .taxonomy-model-dialog .form-actions { flex-direction: column-reverse; }
+  .taxonomy-model-dialog .form-actions .button { width: 100%; }
   .taxonomy-section-nav {
     margin: 16px -12px 0;
     padding-inline: 12px;

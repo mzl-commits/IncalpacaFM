@@ -1,5 +1,6 @@
 ﻿import { api } from "@/services/api";
 import type { WorkOrder } from "./types";
+import { createClientId } from "@/utils/uuid";
 
 export const WORK_ORDERS_UPDATED_EVENT = "sgtb:work-orders-updated";
 
@@ -57,7 +58,7 @@ export async function registerWorkOrderProgress(
   input: RegisterProgressInput,
 ): Promise<WorkOrder> {
   const evidence = input.evidenceNames.map((name) => ({
-    id: crypto.randomUUID(),
+    id: createClientId("evidence"),
     name,
     mimeType: "image/*",
     size: 0,

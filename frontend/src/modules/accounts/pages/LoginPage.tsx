@@ -21,7 +21,9 @@ export function LoginPage() {
     setError("");
     try {
       const loggedUser = await login({ workerCode: workerCode.trim(), password });
-      const defaultPath = loggedUser.role === "SUPERVISOR" ? "/supervision" : "/";
+      let defaultPath = "/";
+      if (loggedUser.role === "SUPERVISOR") defaultPath = "/supervision";
+      if (loggedUser.role === "SOLICITANTE") defaultPath = "/mi-perfil";
       navigate((location.state as { from?: string } | null)?.from ?? defaultPath, {
         replace: true,
       });
@@ -92,6 +94,7 @@ export function LoginPage() {
             <span>Administrador: admin / Montescoli3</span>
             <span>Operario: tecnico / Montescoli3</span>
             <span>Supervisor: supervisor / 12345</span>
+            <span>Usuario (Solicitante): usuario / Montescoli3</span>
           </aside>
         </form>
       </section>

@@ -457,6 +457,18 @@ export function AssignmentWizardPage() {
                   ))}
                 </select>
               </label>
+              {draft.location_id && (() => {
+                const loc = locations.find((x) => x.id === draft.location_id);
+                if (loc && loc.headcount != null && loc.current_users >= loc.headcount) {
+                  return (
+                    <div className="form-alert" role="alert" style={{ marginTop: '-1rem', marginBottom: '1.5rem', background: 'var(--color-warning-subtle)', color: 'var(--color-warning-bold)' }}>
+                      <WarningCircle />
+                      Advertencia de aforo: Este ambiente ha alcanzado o superado su capacidad máxima ({loc.current_users} de {loc.headcount} usuarios).
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               <label className="field">
                 <span>Condición de entrega</span>
                 <select value={draft.condition} onChange={(e) => set("condition", e.target.value)}>

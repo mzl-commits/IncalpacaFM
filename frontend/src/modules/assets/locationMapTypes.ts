@@ -23,8 +23,11 @@ export interface LocationOption {
   area: string;
   room: string;
   specificLocation: string;
+  headcount: number | null;
+  squareMeters: number | null;
   commonSpace: boolean;
   active: boolean;
   displayName: string;
   activeMap: LocationMapSummary | null;
+  assignedUsers: { id: string; name: string; area: string }[];
 }

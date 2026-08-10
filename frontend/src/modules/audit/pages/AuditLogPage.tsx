@@ -45,7 +45,7 @@ export function AuditLogPage() {
   const [date, setDate] = useState("");
   const [selected, setSelected] = useState<AuditEvent | null>(null);
   const detailRef = useRef<HTMLDialogElement>(null);
-  const events = useQuery({ queryKey: ["audit-events"], queryFn: fetchAuditEvents });
+  const events = useQuery<AuditEvent[]>({ queryKey: ["audit-events"], queryFn: () => fetchAuditEvents() });
 
   const entities = useMemo(() => Array.from(new Set((events.data ?? []).map((item) => item.entity))).sort(), [events.data]);
   const rows = useMemo(() => {
