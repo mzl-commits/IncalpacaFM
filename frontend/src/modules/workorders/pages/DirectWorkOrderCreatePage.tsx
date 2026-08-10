@@ -98,7 +98,9 @@ export function DirectWorkOrderCreatePage() {
 
   const selectedAsset = assets.find((asset) => asset.id === form.assetId) ?? null;
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
-  const availableSpecialties = isCleaningOrder ? ["LIMPIEZA" as Specialty] : SPECIALTIES;
+  const availableSpecialties = isCleaningOrder
+    ? ["LIMPIEZA" as Specialty]
+    : SPECIALTIES.filter((specialty) => specialty !== "SERVICIO_EXTERNO");
   const assignableTechnicians = useMemo(
     () => isCleaningOrder ? technicians.filter(hasCleaningSpecialty) : technicians,
     [isCleaningOrder, technicians],

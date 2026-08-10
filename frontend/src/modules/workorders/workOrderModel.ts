@@ -9,6 +9,7 @@ export const SPECIALTIES = [
   "PINTURA",
   "LIMPIEZA",
   "JARDINERIA",
+  "SERVICIO_EXTERNO",
 ] as const;
 
 export type Specialty = (typeof SPECIALTIES)[number];
@@ -56,6 +57,7 @@ export const specialtyLabels: Record<Specialty, string> = {
   PINTURA: "Pintura",
   LIMPIEZA: "Limpieza",
   JARDINERIA: "Jardinería",
+  SERVICIO_EXTERNO: "Servicio externo",
 };
 
 export const adminPriorityLabels: Record<AdminPriority, string> = {

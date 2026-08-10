@@ -411,6 +411,9 @@ class WorkOrderActionSerializer(serializers.Serializer):
             "CONFORM",
             "REOPEN",
             "RESCHEDULE_CORRECTION",
+            "SERVICE_START",
+            "SERVICE_CLOSE",
+            "SERVICE_CANCEL",
         )
     )
     percentage = serializers.IntegerField(required=False, min_value=0, max_value=100)
@@ -472,11 +475,19 @@ class WorkOrderActionSerializer(serializers.Serializer):
             'CONFORM': {WorkOrder.Status.CONFORMITY},
             'REOPEN': {WorkOrder.Status.CONFORMITY},
             'RESCHEDULE_CORRECTION': {WorkOrder.Status.RETURNED},
+            'SERVICE_START': {WorkOrder.Status.SCHEDULED},
+            'SERVICE_CLOSE': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.IN_PROGRESS},
+            'SERVICE_CANCEL': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.IN_PROGRESS},
         }
         allowed_statuses = expected_statuses.get(action)
         if allowed_statuses and order.status not in allowed_statuses:
             raise serializers.ValidationError({
                 'action': 'La acción no corresponde al estado actual de la orden.'
+            })
+
+        if action.startswith("SERVICE_") and order.order_type != WorkOrder.OrderType.SERVICE:
+            raise serializers.ValidationError({
+                'action': 'Esta acciÃ³n solo corresponde a una OS.'
             })
 
         if action == "START":
@@ -694,6 +705,39 @@ class WorkOrderActionSerializer(serializers.Serializer):
             }
             order.incident.status = Incident.Status.IN_PROGRESS
             order.incident.save(update_fields=("status", "updated_at"))
+        elif action == "SERVICE_START":
+            order.status = WorkOrder.Status.IN_PROGRESS
+            order.started_at = order.started_at or now
+            order.administrator_validation = {
+                **self.validated_data["payload"],
+                "serviceStatus": "EN_COORDINACION",
+                "at": now.isoformat(),
+                "by": request.user.get_full_name(),
+            }
+        elif action == "SERVICE_CLOSE":
+            order.status = WorkOrder.Status.CLOSED
+            order.progress_percentage = 100
+            order.finished_at = order.finished_at or now
+            order.closed_at = now
+            order.administrator_validation = {
+                **self.validated_data["payload"],
+                "approved": True,
+                "serviceStatus": "CERRADA",
+                "at": now.isoformat(),
+                "by": request.user.get_full_name(),
+            }
+            order.incident.status = Incident.Status.CLOSED
+            order.incident.save(update_fields=("status", "updated_at"))
+        elif action == "SERVICE_CANCEL":
+            order.status = WorkOrder.Status.CANCELLED
+            order.closed_at = now
+            order.administrator_validation = {
+                **self.validated_data["payload"],
+                "approved": False,
+                "serviceStatus": "CANCELADA",
+                "at": now.isoformat(),
+                "by": request.user.get_full_name(),
+            }
         elif action in {"CONFORM", "REOPEN"}:
             accepted = action == "CONFORM"
             order.conformity = {
