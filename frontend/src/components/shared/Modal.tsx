@@ -32,9 +32,14 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
         inset: 0,
         background: "rgba(0, 0, 0, 0.45)",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
+        paddingTop: 50,
+        paddingBottom: 20,
+        paddingLeft: 16,
+        paddingRight: 16,
         zIndex: 1000,
+        overflowY: "auto",
       }}
       onClick={onClose}
     >

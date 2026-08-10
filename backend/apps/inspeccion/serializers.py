@@ -94,12 +94,30 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     )
                 })
 
-        # La plantilla usada debe coincidir con la plantilla asignada a la subcategoría del material
+        # El material debe ser retornable, pertenecer a una categoría que
+        # requiera inspección, y su subcategoría debe tener una plantilla asignada.
         material = data.get("material")
         plantilla = data.get("plantilla")
-        if material and plantilla:
+        if material:
+            categoria = material.subcategoria.categoria
             plantilla_esperada = material.subcategoria.plantilla_inspeccion
-            if plantilla_esperada and plantilla != plantilla_esperada:
+
+            if material.tipo_control != "retornable":
+                raise serializers.ValidationError({
+                    "material": "Los materiales no retornables no requieren inspección."
+                })
+            if not categoria.requiere_inspeccion or not plantilla_esperada:
+                raise serializers.ValidationError({
+                    "material": (
+                        f"Los materiales de la categoría '{categoria.nombre}' "
+                        "no requieren inspección."
+                    )
+                })
+            if not material.activo or not material.subcategoria.activo or not categoria.activo:
+                raise serializers.ValidationError({
+                    "material": "No se puede realizar una inspección de un material, subcategoría o categoría inactiva."
+                })
+            if plantilla and plantilla != plantilla_esperada:
                 raise serializers.ValidationError({
                     "plantilla": (
                         f"Esta subcategoría requiere la plantilla '{plantilla_esperada.nombre}'."
@@ -149,6 +167,17 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
             inspeccion = Inspeccion.objects.create(**validated_data)
             if piezas_lote_data:
                 inspeccion.piezas_lote.set(piezas_lote_data)
+            elif inspeccion.tipo == "individual" and inspeccion.pieza:
+                # Si la pieza inspeccionada es un contenedor, sus hijas activas
+                # quedan registradas también en piezas_lote automáticamente.
+                from apps.catalogo.models import Pieza
+                hijas_ids = list(
+                    Pieza.objects.filter(padre=inspeccion.pieza)
+                    .exclude(estado="Baja")
+                    .values_list("id", flat=True)
+                )
+                if hijas_ids:
+                    inspeccion.piezas_lote.set(hijas_ids)
 
             for resp in respuestas_data:
                 criterio = Criterio.objects.get(pk=resp["criterio_id"])

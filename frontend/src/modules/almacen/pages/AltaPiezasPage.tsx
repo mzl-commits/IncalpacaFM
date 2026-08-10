@@ -8,6 +8,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { labelPieza } from "@/utils/pieza";
 
 import {
   altaEstucheInline,
@@ -162,8 +163,7 @@ export function AltaPiezasPage() {
                 {esEstuche && (
                   <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>
                     {contenedoras.length} estuche{contenedoras.length !== 1 ? "s" : ""}{" "}
-                    · {hijas.length} pieza{hijas.length !== 1 ? "s" : ""} hija
-                    {hijas.length !== 1 ? "s" : ""}
+                    · {hijas.length} item{hijas.length !== 1 ? "s" : ""}
                   </p>
                 )}
               </div>
@@ -204,8 +204,7 @@ export function AltaPiezasPage() {
                             color: "var(--muted)",
                           }}
                         >
-                          {misHijas.length} pieza{misHijas.length !== 1 ? "s" : ""} hija
-                          {misHijas.length !== 1 ? "s" : ""}
+                          {misHijas.length} item{misHijas.length !== 1 ? "s" : ""}
                         </span>
                       </div>
                       {/* Filas hijas */}
@@ -222,9 +221,9 @@ export function AltaPiezasPage() {
                           }}
                         >
                           <Package size={13} style={{ color: "var(--muted)", flexShrink: 0 }} />
-                          <code className="pieza-code">{hija.codigo}</code>
+                          <code className="pieza-code">{labelPieza(hija)}</code>
                           <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                            Pieza hija
+                            Item
                           </span>
                         </div>
                       ))}
@@ -350,7 +349,7 @@ export function AltaPiezasPage() {
             >
               <div className="form-section-heading">
                 <span>Opción B</span>
-                <h2>Estuche con piezas hijas</h2>
+                <h2>Estuche con items</h2>
                 <p>
                   Contenedor que agrupa piezas de distintos tipos. Ej: set de llaves
                   Allen con varias medidas, estuche de mecánico.
@@ -367,7 +366,7 @@ export function AltaPiezasPage() {
                   }}
                 >
                   <Package size={13} />
-                  El estuche y cada pieza hija reciben su propio código.
+                  El estuche y cada item reciben su propio código.
                 </span>
               </div>
             </div>
@@ -502,7 +501,7 @@ export function AltaPiezasPage() {
   return (
     <section>
       <Header
-        titulo="Estuche con piezas hijas"
+        titulo="Estuche con items"
         subtitulo={`Estuche: ${material.codigo} — ${material.nombre}`}
       />
       <div className="wizard-layout">
@@ -634,8 +633,7 @@ export function AltaPiezasPage() {
                 {numEstuches} estuche{numEstuches !== 1 ? "s" : ""} × {totalPiezasPorEstuche} pieza
                 {totalPiezasPorEstuche !== 1 ? "s" : ""} ={" "}
                 <strong>
-                  {totalPiezasGlobal} pieza{totalPiezasGlobal !== 1 ? "s" : ""} hija
-                  {totalPiezasGlobal !== 1 ? "s" : ""}
+                  {totalPiezasGlobal} item{totalPiezasGlobal !== 1 ? "s" : ""}
                 </strong>{" "}
                 + {numEstuches} estuche{numEstuches !== 1 ? "s" : ""} contenedor
                 {numEstuches !== 1 ? "es" : ""} ={" "}

@@ -2,6 +2,7 @@ import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { labelPieza } from "@/utils/pieza";
 
 import {
   listMateriales,
@@ -17,12 +18,13 @@ import {
 } from "@/modules/almacen/inventarioRepository";
 import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
+import { Combobox } from "../components/shared/Combobox";
 
-function Field({ label, required, error, hint, children }: {
-  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode;
+function Field({ label, required, error, hint, children, wide }: {
+  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
 }) {
   return (
-    <label className={`field ${error ? "has-error" : ""}`}>
+    <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
       <span>{label}{required && <b aria-hidden="true"> *</b>}</span>
       {children}
       {hint && !error && <small style={{ color: "var(--muted)", fontSize: 12 }}>{hint}</small>}
@@ -76,7 +78,7 @@ export function MovimientoFormPage() {
   });
 
   const pieza = piezas.find((p) => p.id === piezaId);
-  const esContenedor = pieza && pieza.padre === null;
+  const esContenedor = pieza && pieza.tiene_hijas;
 
   // F2: hijas disponibles del estuche seleccionado
   const { data: hijasDisponibles = [] } = useQuery({
@@ -229,39 +231,42 @@ export function MovimientoFormPage() {
             </div>
             <div className="form-grid">
               <Field label="Material" required>
-                <select
-                  value={materialId || ""}
-                  onChange={(e) => { setMaterialId(Number(e.target.value)); setPiezaId(0); setTodasHijas(true); setHijasSeleccionadas(new Set()); }}
-                >
-                  <option value="">Seleccionar material…</option>
-                  {materiales.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.codigo} — {m.nombre}
-                    </option>
-                  ))}
-                </select>
+                <Combobox
+                  value={materialId}
+                  selectedLabel={material ? `${material.codigo} — ${material.nombre}` : ""}
+                  placeholder="Buscar por código o nombre…"
+                  onChange={(id) => { setMaterialId(id); setPiezaId(0); setTodasHijas(true); setHijasSeleccionadas(new Set()); }}
+                  fetchOptions={async (q) => {
+                    const res = await listMateriales({ q });
+                    return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
+                  }}
+                />
               </Field>
 
               {/* Si control_individual: selector de pieza */}
               {material?.control_individual ? (
                 <Field label="Pieza" required>
-                  <select
-                    value={piezaId || ""}
-                    onChange={(e) => {
-                      setPiezaId(Number(e.target.value));
-                      setTodasHijas(true);
-                      setHijasSeleccionadas(new Set());
+                  <Combobox
+                    value={piezaId}
+                    selectedLabel={
+                      pieza
+                        ? `${pieza.codigo} — ${pieza.material_nombre}${pieza.material_medida ? ` (${pieza.material_medida})` : ""} · ${pieza.estado}${pieza.tiene_hijas ? " [estuche]" : ""}`
+                        : ""
+                    }
+                    placeholder="Buscar por código…"
+                    onChange={(id) => { setPiezaId(id); setTodasHijas(true); setHijasSeleccionadas(new Set()); }}
+                    fetchOptions={async (q) => {
+                      const params =
+                        tipo === "salida" ? { material: materialId, estado: "Disponible", sin_padre: true, q }
+                        : tipo === "entrada" ? { material: materialId, estado: "Prestado", q }
+                        : { material: materialId, q };
+                      const res = await listPiezas(params);
+                      return res.map((p) => ({
+                        id: p.id,
+                        label: `${p.codigo} — ${p.material_nombre}${p.material_medida ? ` (${p.material_medida})` : ""} · ${p.estado}${p.tiene_hijas ? " [estuche]" : ""}`,
+                      }));
                     }}
-                  >
-                    <option value="">Seleccionar pieza…</option>
-                    {/* F4: muestra nombre del material junto al código */}
-                    {piezas.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.codigo} — {p.material_nombre}{p.material_medida ? ` (${p.material_medida})` : ""} · {p.estado}
-                        {p.padre === null ? " [estuche]" : ""}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </Field>
               ) : material ? (
                 <Field label="Cantidad" required>
@@ -281,12 +286,12 @@ export function MovimientoFormPage() {
               <div style={{ marginTop: 16 }}>
                 <div className="aviso-estuche">
                   <strong>Este es un estuche contenedor.</strong>
-                  {" "}Elige qué piezas hijas incluir en la salida:
+                  {" "}Elige qué items incluir en la salida:
                 </div>
 
                 {hijasDisponibles.length === 0 ? (
                   <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
-                    No hay piezas hijas disponibles en este estuche.
+                    No hay items disponibles en este estuche.
                   </p>
                 ) : (
                   <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
@@ -312,7 +317,7 @@ export function MovimientoFormPage() {
                           onChange={() => toggleHija(h.id)}
                         />
                         <span>
-                          <b>{h.codigo}</b>
+                          <b>{labelPieza(h)}</b>
                           {h.material_nombre && (
                             <span style={{ color: "var(--muted)", marginLeft: 6 }}>
                               {h.material_nombre}{h.material_medida ? ` (${h.material_medida})` : ""}
@@ -397,7 +402,7 @@ export function MovimientoFormPage() {
           {material?.control_individual ? (
             <div className="help-note">
               Selecciona la pieza física específica (por código y nombre).
-              {tipo === "salida" && <><br />Si es un estuche, puedes elegir cuáles piezas hijas incluir.</>}
+              {tipo === "salida" && <><br />Si es un estuche, puedes elegir cuáles items incluir.</>}
             </div>
           ) : material ? (
             <div className="help-note">Este material es consumible. Indica la cantidad a mover.</div>

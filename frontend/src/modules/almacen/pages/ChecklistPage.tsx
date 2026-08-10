@@ -2,6 +2,7 @@ import { CheckCircle, Package, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { labelPieza } from "@/utils/pieza";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
@@ -190,11 +191,11 @@ function ChecklistRow({
         checked={devuelta}
         disabled={devuelta || cargando}
         onChange={(e) => onCheck(e.target.checked)}
-        aria-label={`Marcar como devuelta la pieza ${pieza.codigo}`}
+        aria-label={`Marcar como devuelta ${labelPieza(pieza)}`}
       />
       <div className="checklist-row-info">
         <strong>
-          <code className="pieza-code">{pieza.codigo}</code>{" "}
+          <code className="pieza-code">{labelPieza(pieza)}</code>{" "}
           — {pieza.material_nombre}
           {pieza.padre_codigo && (
             <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: 6 }}>
@@ -215,7 +216,7 @@ function ChecklistRow({
             }}
           >
             <Package size={12} />
-            Estuche incompleto — {hijasPrestadas} pieza{hijasPrestadas !== 1 ? "s" : ""} hija{hijasPrestadas !== 1 ? "s" : ""} aún prestada{hijasPrestadas !== 1 ? "s" : ""}
+            Estuche incompleto — {hijasPrestadas} item{hijasPrestadas !== 1 ? "s" : ""} aún prestado{hijasPrestadas !== 1 ? "s" : ""}
           </span>
         )}
         <small>

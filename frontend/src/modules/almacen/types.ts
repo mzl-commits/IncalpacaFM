@@ -92,16 +92,17 @@ export interface PiezaBase {
   material: number;
   material_nombre: string;
   material_medida: string;
-  codigo: string;
+  codigo: string | null;
   estado: EstadoPieza;
   foto: string | null;
   padre: number | null;
   creado_en: string;
+  tiene_hijas: boolean;
 }
 
 export interface PiezaAnidada {
   id: number;
-  codigo: string;
+  codigo: string | null;
   estado: EstadoPieza;
   foto: string | null;
   material_nombre?: string;
@@ -127,6 +128,7 @@ export interface Material {
   grosor_mm: string | null;
   largo_mm: string | null;
   ubicacion_fisica: string;
+  precio: string | number | null;
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
@@ -149,6 +151,7 @@ export interface MaterialCreatePayload {
   grosor_mm: string;
   largo_mm: string;
   ubicacion_fisica: string;
+  precio?: string | number | null;
   tipo_control: TipoControl;
   control_individual: boolean;
   // foto se envía aparte como FormData si existe
@@ -192,7 +195,7 @@ export interface Movimiento {
 
 export interface PiezaPrestada {
   id: number;
-  codigo: string;
+  codigo: string | null;
   estado: EstadoPieza;
   material: number;
   material_codigo: string;

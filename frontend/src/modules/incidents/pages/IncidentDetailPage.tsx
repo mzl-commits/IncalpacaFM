@@ -23,6 +23,7 @@ import {
   getWorkRequestById,
   updateWorkRequest,
 } from "@/modules/incidents/incidentRepository";
+import type { WorkRequest } from "@/modules/incidents/types";
 
 const statusClass: Record<RequestStatus, string> = {
   PENDIENTE: "status-warning",
@@ -50,6 +51,10 @@ const impactAnswerLabels: Record<string, string> = {
   TODA_EL_AREA: "Toda el area",
 };
 
+function getOtherIssueCategoryDetail(request: WorkRequest) {
+  const detail = request.impactAssessment?.answers?.otherIssueCategoryDetail ?? request.impactAssessment?.answers?.otherRequestDetail;
+  return typeof detail === "string" ? detail.trim() : "";
+}
 function labelImpactAnswer(value?: string) {
   return value ? impactAnswerLabels[value] ?? value : "No indicado";
 }
@@ -201,12 +206,32 @@ export function IncidentDetailPage() {
 
           <div className="admin-evaluation-actions">
             {request.status === "APROBADA" && (
-                <Link
-                className="button button-primary"
-                to={`/ordenes-trabajo/nueva/${request.id}`}
-                >
-                Generar orden de trabajo
-                </Link>
+              <div className="request-derivation-panel">
+                <div>
+                  <strong>Derivar solicitud</strong>
+                  <p>Selecciona el tipo de atención que se generará para esta solicitud.</p>
+                </div>
+
+                <div className="request-derivation-options">
+                  <Link className="request-derivation-option is-active" to={`/ordenes-trabajo/nueva/${request.id}`}>
+                    <span>OT</span>
+                    <strong>Orden de trabajo</strong>
+                    <small>Mantenimiento o reparación con operario y supervisor.</small>
+                  </Link>
+
+                  <button className="request-derivation-option" type="button" disabled>
+                    <span>OS</span>
+                    <strong>Orden de servicio</strong>
+                    <small>Pendiente de definir flujo de proveedor/servicio.</small>
+                  </button>
+
+                  <button className="request-derivation-option" type="button" disabled>
+                    <span>OL</span>
+                    <strong>Orden de limpieza</strong>
+                    <small>Pendiente de definir flujo de limpieza.</small>
+                  </button>
+                </div>
+              </div>
             )}
 
             {request.status === "PENDIENTE" && (
@@ -396,6 +421,12 @@ export function IncidentDetailPage() {
               <dt>Tipo de solicitud</dt>
               <dd>{requestTypeLabels[request.requestType]}</dd>
             </div>
+            {getOtherIssueCategoryDetail(request) && (
+              <div>
+                <dt>Detalle indicado</dt>
+                <dd>{getOtherIssueCategoryDetail(request)}</dd>
+              </div>
+            )}
 
             <div>
               <dt>Prioridad declarada</dt>
@@ -456,15 +487,7 @@ export function IncidentDetailPage() {
               <dt>Solicitud registrada</dt>
               <dd>{requestTypeLabels[request.requestType]}</dd>
             </div>
-
-            {request.impactAssessment.answers?.otherRequestDetail ? (
-              <div>
-                <dt>Detalle indicado por la persona</dt>
-                <dd>{request.impactAssessment.answers.otherRequestDetail}</dd>
-              </div>
-            ) : null}
-
-            {request.impactAssessment.answers?.assetCondition ? (
+{request.impactAssessment.answers?.assetCondition ? (
               <div>
                 <dt>Estado informado</dt>
                 <dd>{reportedConditionLabels[request.impactAssessment.answers.assetCondition] ?? request.impactAssessment.answers.assetCondition}</dd>

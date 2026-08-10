@@ -18,6 +18,7 @@ export interface WorkRequestImpactAssessment {
   answers?: {
     issueCategory?: string;
     otherRequestDetail?: string;
+    otherIssueCategoryDetail?: string;
     assetCondition?: string;
     startedWhen?: string;
     stopsWork?: "SI" | "NO";

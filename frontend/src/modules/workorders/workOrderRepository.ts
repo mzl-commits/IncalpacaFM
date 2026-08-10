@@ -1,4 +1,4 @@
-﻿import { api } from "@/services/api";
+import { api } from "@/services/api";
 import type { WorkOrder } from "./types";
 import { createClientId } from "@/utils/uuid";
 
@@ -17,8 +17,18 @@ export async function listWorkOrders(): Promise<WorkOrder[]> {
   return data;
 }
 
+export type WorkOrderCreatePayload = Partial<Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">> & {
+  technicianWorkerCode?: string;
+  technicianWorkerCodes?: string[];
+  directRequestDescription?: string;
+  directRequestType?: string;
+  directAssetId?: string | null;
+  directLocationId?: string | null;
+  orderType?: "OT" | "OL" | "OS";
+};
+
 export async function createWorkOrder(
-  workOrder: Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt"> & { technicianWorkerCode?: string; technicianWorkerCodes?: string[] },
+  workOrder: WorkOrderCreatePayload,
 ): Promise<WorkOrder> {
   const { data } = await api.post<WorkOrder>("/work-orders/", {
     ...workOrder,
@@ -124,5 +134,22 @@ export async function addWorkOrderCost(id: string, input: { category: string; de
 }
 export async function generateWorkOrderReport(id: string): Promise<{ id: string; downloadPath: string }> {
   const { data } = await api.post<{ id: string; downloadPath: string }>(`/work-orders/${id}/reports/`);
+  return data;
+}
+
+export async function scheduleWorkOrderCorrection(
+  id: string,
+  input: {
+    scheduledDate: string;
+    scheduledStartTime: string;
+    plannedHours: number;
+    administratorNotes: string;
+  },
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: "RESCHEDULE_CORRECTION",
+    payload: input,
+  });
+  notifyChanges();
   return data;
 }

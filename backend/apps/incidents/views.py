@@ -1,4 +1,4 @@
-﻿from uuid import UUID
+from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
@@ -107,6 +107,7 @@ class PublicAssetIncidentCreateView(APIView):
         asset = get_object_or_404(
             Asset.objects.select_related("location"), public_token=token
         )
+        location = asset.location
         return Response({
             "displayCode": asset.fm_code or asset.code,
             "name": asset.name,
@@ -114,9 +115,14 @@ class PublicAssetIncidentCreateView(APIView):
                 f"/api/v1/public/assets/{asset.public_token}/photo/"
             ) if asset.photo else None,
             "generalLocation": (
-                f"{asset.location.building} / {asset.location.area}"
-                if asset.location else "Por confirmar"
+                f"{location.building} / {location.area}"
+                if location else "Por confirmar"
             ),
+            "locationId": str(location.id) if location else "",
+            "zone": location.zone if location else "",
+            "building": location.building if location else "",
+            "area": location.area if location else "",
+            "room": location.room if location else "",
         })
 
     @extend_schema(request=PublicAssetIncidentSerializer, responses={201: OpenApiTypes.OBJECT})
@@ -179,9 +185,7 @@ class PublicIncidentTrackingView(generics.RetrieveAPIView):
         queryset = Incident.objects.select_related(
             "requester",
             "asset",
-            "work_order",
-            "work_order__technician",
-        )
+        ).prefetch_related("work_orders__technician", "work_orders__satisfaction")
         try:
             UUID(token)
             return get_object_or_404(queryset, pk=token)
@@ -192,7 +196,7 @@ class PublicIncidentConformityView(APIView):
 
     @transaction.atomic
     def post(self, request, token):
-        queryset = Incident.objects.select_related("work_order")
+        queryset = Incident.objects.prefetch_related("work_orders__satisfaction")
         try:
             UUID(token)
             incident = get_object_or_404(queryset, pk=token)

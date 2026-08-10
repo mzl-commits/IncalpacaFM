@@ -1,9 +1,18 @@
-from .models import PrivacyAcknowledgement, PrivacyNotice
+﻿from .models import PrivacyAcknowledgement, PrivacyNotice
+
+
+def get_active_notice_for_context(context: str):
+    """Devuelve el aviso vigente sin depender de filtros JSON no soportados por SQLite."""
+    notices = PrivacyNotice.objects.filter(active=True).order_by("-effective_from")
+    for notice in notices:
+        if context in (notice.contexts or []):
+            return notice
+    return None
 
 
 def record_privacy_event(*, request, context: str, subject_reference: str = ""):
     """Guarda la versión vigente del aviso para un flujo que trata datos personales."""
-    notice = PrivacyNotice.objects.filter(active=True, contexts__contains=[context]).order_by("-effective_from").first()
+    notice = get_active_notice_for_context(context)
     if not notice:
         return None
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
