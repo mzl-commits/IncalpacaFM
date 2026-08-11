@@ -1,4 +1,5 @@
-﻿import uuid
+import uuid
+from datetime import datetime, time
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -10,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import AccountProfile
 from apps.assets.file_validation import validate_uploaded_file
+from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
 from apps.incidents.models import Incident
 from apps.notifications.services import (
@@ -20,8 +22,28 @@ from apps.notifications.services import (
 from apps.notifications.monitoring import queue_work_order_alerts
 from apps.privacy.services import record_privacy_event
 
-from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderPhoto
+from apps.catalogo.models import Material
+from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto
 
+
+def root_work_order(order):
+    current = order
+    seen = set()
+    while current.correction_of_id and current.correction_of_id not in seen:
+        seen.add(current.id)
+        current = current.correction_of
+    return current
+
+
+def next_correction_code(order):
+    root = root_work_order(order)
+    prefix = f"{root.code}-C"
+    index = WorkOrder.objects.filter(code__startswith=prefix).count() + 1
+    while True:
+        code = f"{prefix}{index}"
+        if not WorkOrder.objects.filter(code=code).exists():
+            return code
+        index += 1
 
 def active_work_session(order):
     for session in reversed(order.work_sessions or []):
@@ -41,8 +63,13 @@ def effective_work_minutes(order):
     return round(total_seconds / 60)
 
 class WorkOrderSerializer(serializers.ModelSerializer):
-    requestId = serializers.UUIDField(source="incident_id")
+    requestId = serializers.UUIDField(source="incident_id", required=False, allow_null=True)
     requestCode = serializers.CharField(source="incident.code", read_only=True)
+    orderType = serializers.CharField(source="order_type", required=False)
+    directRequestDescription = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    directRequestType = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    directAssetId = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    directLocationId = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     assetId = serializers.SerializerMethodField()
     assetCode = serializers.SerializerMethodField()
     assetDisplayCode = serializers.SerializerMethodField()
@@ -72,6 +99,10 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     technicianWorkerCode = serializers.CharField(write_only=True, required=False)
     technicianWorkerCodes = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
     supervisorWorkerCode = serializers.CharField(write_only=True, required=False)
+    correctionOfId = serializers.SerializerMethodField()
+    correctionOfCode = serializers.SerializerMethodField()
+    correctionWorkOrderId = serializers.SerializerMethodField()
+    correctionWorkOrderCode = serializers.SerializerMethodField()
 
     class Meta:
         model = WorkOrder
@@ -80,6 +111,11 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "code",
             "requestId",
             "requestCode",
+            "orderType",
+            "directRequestDescription",
+            "directRequestType",
+            "directAssetId",
+            "directLocationId",
             "assetId",
             "assetCode",
             "assetDisplayCode",
@@ -113,11 +149,31 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "technicianWorkerCode",
             "technicianWorkerCodes",
             "supervisorWorkerCode",
+            "correctionOfId",
+            "correctionOfCode",
+            "correctionWorkOrderId",
+            "correctionWorkOrderCode",
             "createdAt",
             "updatedAt",
         )
         read_only_fields = ("id", "code", "status", "advances", "workSessions")
 
+    def _latest_correction_order(self, obj):
+        return obj.correction_orders.order_by("-created_at").first()
+
+    def get_correctionOfId(self, obj) -> str | None:
+        return str(obj.correction_of_id) if obj.correction_of_id else None
+
+    def get_correctionOfCode(self, obj) -> str | None:
+        return obj.correction_of.code if obj.correction_of_id else None
+
+    def get_correctionWorkOrderId(self, obj) -> str | None:
+        order = self._latest_correction_order(obj)
+        return str(order.id) if order else None
+
+    def get_correctionWorkOrderCode(self, obj) -> str | None:
+        order = self._latest_correction_order(obj)
+        return order.code if order else None
     def get_effectiveWorkMinutes(self, obj) -> int:
         return effective_work_minutes(obj)
 
@@ -171,7 +227,13 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         request = self.context["request"]
-        incident_id = validated_data.pop("incident_id")
+        incident_id = validated_data.pop("incident_id", None)
+        direct_order = not incident_id
+        direct_description = validated_data.pop("directRequestDescription", "").strip()
+        order_type = validated_data.get("order_type") or WorkOrder.OrderType.WORK
+        direct_request_type = validated_data.pop("directRequestType", "").strip() or ("OL directa" if order_type == WorkOrder.OrderType.CLEANING else "OT directa")
+        direct_asset_id = validated_data.pop("directAssetId", None)
+        direct_location_id = validated_data.pop("directLocationId", None)
         technician_code = validated_data.pop("technicianWorkerCode", "tecnico")
         technician_codes = validated_data.pop("technicianWorkerCodes", [])
         supervisor_code = validated_data.pop("supervisorWorkerCode", "supervisor")
@@ -181,10 +243,69 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             account_profile__role=AccountProfile.Role.TECHNICIAN,
         )
         supervisor = users.get(account_profile__worker_code=supervisor_code)
-        incident = Incident.objects.select_for_update().get(pk=incident_id)
-        sequence = WorkOrder.objects.select_for_update().count() + 1
+        if incident_id:
+            incident = Incident.objects.select_for_update().get(pk=incident_id)
+        else:
+            if not direct_description:
+                raise serializers.ValidationError({"directRequestDescription": "Describe la orden que se va a ejecutar."})
+            asset = None
+            if direct_asset_id:
+                asset = Asset.objects.select_related("location", "location_map").filter(pk=direct_asset_id).first()
+                if not asset:
+                    raise serializers.ValidationError({"directAssetId": "Selecciona un bien valido."})
+                direct_location_id = direct_location_id or asset.location_id
+            if not direct_location_id:
+                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicacion para la orden."})
+            location = Location.objects.filter(pk=direct_location_id, active=True).first()
+            if not location:
+                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicacion valida."})
+            location_map = None
+            if asset and asset.location_map_id and asset.location_id == location.id:
+                location_map = asset.location_map
+            if not location_map:
+                location_map = location.reference_maps.filter(active=True).first()
+            location_snapshot = {
+                "locationId": str(location.id),
+                "zone": location.zone,
+                "building": location.building,
+                "area": location.area,
+                "room": location.room,
+                "locationMapId": str(location_map.id) if location_map else None,
+                "locationMarkerX": float(asset.location_marker_x) if asset and asset.location_marker_x is not None else None,
+                "locationMarkerY": float(asset.location_marker_y) if asset and asset.location_marker_y is not None else None,
+            }
+            incident_sequence = Incident.objects.select_for_update().count() + 1
+            incident = Incident.objects.create(
+                code=f"SOL-{timezone.localdate().year}-{incident_sequence:04d}",
+                requester=request.user,
+                asset=asset,
+                request_type=direct_request_type,
+                description=direct_description,
+                requester_priority=validated_data.get("admin_priority", "MEDIA"),
+                status=Incident.Status.IN_PROGRESS,
+                location_snapshot=location_snapshot,
+                requester_contact={
+                    "name": request.user.get_full_name() or request.user.username,
+                    "email": request.user.email,
+                    "source": "ADMIN_DIRECT_ORDER",
+                },
+                impact_assessment={
+                    "createdByAdmin": True,
+                    "source": "ADMIN_DIRECT_ORDER",
+                    "orderType": order_type,
+                    "specialty": validated_data.get("specialty", ""),
+                },
+            )
+            record_audit(
+                request=request,
+                action="INCIDENT_CREATED_BY_ADMIN_FOR_WORK_ORDER",
+                entity="Incident",
+                entity_id=incident.id,
+                after={"code": incident.code, "status": incident.status},
+            )
+        sequence = WorkOrder.objects.select_for_update().filter(order_type=order_type).count() + 1
         order = WorkOrder.objects.create(
-            code=f"OT-{timezone.localdate().year}-{sequence:04d}",
+            code=f"{order_type}-{timezone.localdate().year}-{sequence:04d}",
             incident=incident,
             technician=technician,
             supervisor=supervisor,
@@ -243,17 +364,18 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             entity=order,
             discriminator='planner',
         )
-        queue_incident_requester(
-            event='INCIDENT_REVIEW_SCHEDULED',
-            incident=incident,
-            subject=f'Revisión programada para tu reporte {incident.code}',
-            body=(
-                f'Programamos la revisión de tu reporte {incident.code} para el '
-                f'{order.scheduled_date.strftime("%d/%m/%Y")}. '
-                'Te avisaremos cuando la revisión haya sido aprobada.'
-            ),
-            discriminator=order.code,
-        )
+        if not direct_order:
+            queue_incident_requester(
+                event='INCIDENT_REVIEW_SCHEDULED',
+                incident=incident,
+                subject=f'Revisión programada para tu reporte {incident.code}',
+                body=(
+                    f'Programamos la revisión de tu reporte {incident.code} para el '
+                    f'{order.scheduled_date.strftime("%d/%m/%Y")}. '
+                    'Te avisaremos cuando la revisión haya sido aprobada.'
+                ),
+                discriminator=order.code,
+            )
         return order
 
 
@@ -289,6 +411,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
             "ADMIN_RETURN",
             "CONFORM",
             "REOPEN",
+            "RESCHEDULE_CORRECTION",
         )
     )
     percentage = serializers.IntegerField(required=False, min_value=0, max_value=100)
@@ -330,12 +453,15 @@ class WorkOrderActionSerializer(serializers.Serializer):
             if order.technician_id != request.user.id and not order.supporting_technicians.filter(pk=request.user.id).exists():
                 raise PermissionDenied('Solo los técnicos asignados pueden actualizar esta orden.')
             if action not in technical_actions:
-                raise PermissionDenied('Esta accion corresponde a la validación administrativa.')
+                raise PermissionDenied('Esta acción corresponde a la validación administrativa.')
         elif role == AccountProfile.Role.SUPERVISOR:
             if order.supervisor_id != request.user.id:
-                raise PermissionDenied('Solo el supervisor asignado puede revisar está orden.')
+                raise PermissionDenied('Solo el supervisor asignado puede revisar esta orden.')
             if action not in {'SUPERVISOR_APPROVE', 'SUPERVISOR_RETURN'}:
-                raise PermissionDenied('Esta accion corresponde al administrador o al operario.')
+                raise PermissionDenied('Esta acción corresponde al administrador o al operario.')
+        elif role == AccountProfile.Role.ADMIN:
+            if action in technical_actions or action.startswith('SUPERVISOR_') or action in {'CONFORM', 'REOPEN'}:
+                raise PermissionDenied('Esta acción corresponde al operario, supervisor o solicitante.')
         expected_statuses = {
             'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.RETURNED, WorkOrder.Status.IN_PROGRESS},
             'PAUSE': {WorkOrder.Status.IN_PROGRESS},
@@ -346,14 +472,23 @@ class WorkOrderActionSerializer(serializers.Serializer):
             'ADMIN_RETURN': {WorkOrder.Status.ADMIN_REVIEW},
             'CONFORM': {WorkOrder.Status.CONFORMITY},
             'REOPEN': {WorkOrder.Status.CONFORMITY},
+            'RESCHEDULE_CORRECTION': {WorkOrder.Status.RETURNED},
         }
         allowed_statuses = expected_statuses.get(action)
         if allowed_statuses and order.status not in allowed_statuses:
             raise serializers.ValidationError({
-                'action': 'La accion no corresponde al estado actual de la orden.'
+                'action': 'La acción no corresponde al estado actual de la orden.'
             })
 
         if action == "START":
+            if order.status == WorkOrder.Status.RETURNED and order.correction_orders.exists():
+                raise serializers.ValidationError({
+                    "action": "Esta orden ya tiene una OT de corrección vinculada. Abre la nueva OT para continuar."
+                })
+            if order.status == WorkOrder.Status.RETURNED and order.scheduled_date > timezone.localdate():
+                raise serializers.ValidationError({
+                    'action': 'La corrección aún no está programada para hoy.'
+                })
             if active_work_session(order):
                 raise serializers.ValidationError({
                     'action': 'Ya hay una sesión de trabajo activa.'
@@ -419,6 +554,46 @@ class WorkOrderActionSerializer(serializers.Serializer):
             ]
             order.progress_percentage = percentage
             order.started_at = order.started_at or now
+
+            # Check for necessary_no_blocking materials whose required progress percentage is met
+            # and check if they still lack stock to notify administrators
+            from apps.workorders.models import WorkOrderMaterial
+            from apps.notifications.services import queue_for_administrators
+            
+            materiales_pendientes = order.materiales_usados.filter(
+                tipo=WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE,
+                es_bloqueante=False,
+                porcentaje_requerido__isnull=False,
+                porcentaje_requerido__lte=percentage
+            ).select_related("material")
+            
+            for m in materiales_pendientes:
+                insuficiente = False
+                if m.material.control_individual:
+                    from apps.catalogo.models import Pieza
+                    disponibles = Pieza.objects.filter(material=m.material, estado="Disponible").count()
+                    if m.cantidad > disponibles:
+                        insuficiente = True
+                else:
+                    if m.cantidad > m.material.cantidad_total:
+                        insuficiente = True
+                
+                if insuficiente:
+                    m.es_bloqueante = True
+                    m.save(update_fields=["es_bloqueante", "actualizado_en"])
+                    
+                    operator_name = request.user.get_full_name() or request.user.username
+                    queue_for_administrators(
+                        event="MATERIAL_BLOQUEANTE",
+                        subject=f"Material urgente en {order.code} por avance ({percentage}%)",
+                        body=(
+                            f"El técnico {operator_name} ha alcanzado el {percentage}% de avance en la OT {order.code} "
+                            f"y requiere el material '{m.material.nombre}' (cantidad: {m.cantidad}) "
+                            f"el cual no cuenta con stock disponible. Se ha marcado como bloqueante."
+                        ),
+                        entity=order,
+                        discriminator=f"bloqueante_avance:{m.id}"
+                    )
             if percentage == 100:
                 finish_photo = self.validated_data.get("finishPhoto")
                 if not WorkOrderPhoto.objects.filter(work_order=order, stage=WorkOrderPhoto.Stage.FINISH).exists():
@@ -455,6 +630,10 @@ class WorkOrderActionSerializer(serializers.Serializer):
             order.status = (
                 WorkOrder.Status.ADMIN_REVIEW if approved else WorkOrder.Status.RETURNED
             )
+            if not approved:
+                snapshot = {**(order.recommendation_snapshot or {})}
+                snapshot.pop("correctionSchedule", None)
+                order.recommendation_snapshot = snapshot
         elif action.startswith("ADMIN_"):
             approved = action.endswith("APPROVE")
             order.administrator_validation = {
@@ -470,6 +649,92 @@ class WorkOrderActionSerializer(serializers.Serializer):
             if approved:
                 order.incident.status = Incident.Status.CLOSED
                 order.incident.save(update_fields=("status", "updated_at"))
+            else:
+                snapshot = {**(order.recommendation_snapshot or {})}
+                snapshot.pop("correctionSchedule", None)
+                order.recommendation_snapshot = snapshot
+        elif action == "RESCHEDULE_CORRECTION":
+            payload = self.validated_data["payload"]
+            scheduled_date = payload.get("scheduledDate")
+            scheduled_start_time = payload.get("scheduledStartTime") or "08:00"
+            planned_hours = payload.get("plannedHours") or 2
+            notes = str(payload.get("administratorNotes") or "").strip()
+
+            try:
+                parsed_date = datetime.fromisoformat(str(scheduled_date)).date()
+            except (TypeError, ValueError):
+                raise serializers.ValidationError({
+                    'scheduledDate': 'Selecciona una fecha válida para la corrección.'
+                })
+            if parsed_date < timezone.localdate():
+                raise serializers.ValidationError({
+                    'scheduledDate': 'La fecha de corrección no puede estar en el pasado.'
+                })
+            try:
+                parsed_time = time.fromisoformat(str(scheduled_start_time))
+            except ValueError:
+                raise serializers.ValidationError({
+                    'scheduledStartTime': 'Selecciona una hora válida para la corrección.'
+                })
+            try:
+                parsed_hours = int(planned_hours)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError({
+                    'plannedHours': 'Ingresa las horas estimadas.'
+                })
+            if parsed_hours < 1 or parsed_hours > 16:
+                raise serializers.ValidationError({
+                    'plannedHours': 'Las horas estimadas deben estar entre 1 y 16.'
+                })
+
+            existing_correction = order.correction_orders.order_by("-created_at").first()
+            if existing_correction:
+                raise serializers.ValidationError({
+                    "action": f"Esta orden ya tiene una corrección vinculada: {existing_correction.code}."
+                })
+
+            correction_order = WorkOrder.objects.create(
+                code=next_correction_code(order),
+                incident=order.incident,
+                correction_of=order,
+                technician=order.technician,
+                supervisor=order.supervisor,
+                specialty=order.specialty,
+                admin_priority=order.admin_priority,
+                status=WorkOrder.Status.SCHEDULED,
+                scheduled_date=parsed_date,
+                scheduled_start_time=parsed_time,
+                planned_hours=parsed_hours,
+                administrator_notes=notes,
+                created_by=request.user,
+                recommendation_snapshot={
+                    "correctionOfId": str(order.id),
+                    "correctionOfCode": order.code,
+                    "correctionReason": (
+                        order.administrator_validation.get("comment")
+                        or order.supervisor_validation.get("comment")
+                        or "Corrección solicitada."
+                    ),
+                    "scheduledBy": request.user.get_full_name() or request.user.username,
+                    "scheduledAt": now.isoformat(),
+                },
+            )
+            correction_order.supporting_technicians.set(order.supporting_technicians.all())
+            order.recommendation_snapshot = {
+                **(order.recommendation_snapshot or {}),
+                "correctionWorkOrderId": str(correction_order.id),
+                "correctionWorkOrderCode": correction_order.code,
+                "correctionSchedule": {
+                    "scheduledDate": parsed_date.isoformat(),
+                    "scheduledStartTime": parsed_time.strftime("%H:%M"),
+                    "plannedHours": parsed_hours,
+                    "administratorNotes": notes,
+                    "scheduledBy": request.user.get_full_name() or request.user.username,
+                    "scheduledAt": now.isoformat(),
+                },
+            }
+            order.incident.status = Incident.Status.IN_PROGRESS
+            order.incident.save(update_fields=("status", "updated_at"))
         elif action in {"CONFORM", "REOPEN"}:
             accepted = action == "CONFORM"
             order.conformity = {
@@ -499,20 +764,34 @@ class WorkOrderActionSerializer(serializers.Serializer):
             )
         elif action.startswith('SUPERVISOR_'):
             outcome = 'aprobó' if action.endswith('APPROVE') else 'devolvió'
-            queue_notification(
-                event='SUPERVISOR_REVIEW',
-                recipient=order.technician,
-                subject=f'Revisión de supervisor para {order.code}',
-                body=f'El supervisor {outcome} la orden {order.code}.',
-                entity=order,
-                discriminator=action,
-            )
+            if action.endswith('APPROVE'):
+                queue_notification(
+                    event='SUPERVISOR_REVIEW',
+                    recipient=order.technician,
+                    subject=f'Revisión de supervisor para {order.code}',
+                    body=f'El supervisor {outcome} la orden {order.code}.',
+                    entity=order,
+                    discriminator=action,
+                )
             queue_for_administrators(
                 event='SUPERVISOR_REVIEW',
                 subject=f'Revisión registrada para {order.code}',
                 body=f'El supervisor {outcome} la orden {order.code}.',
                 entity=order,
                 discriminator=action,
+            )
+        elif action == 'RESCHEDULE_CORRECTION':
+            correction_order = order.correction_orders.order_by("-created_at").first() or order
+            queue_notification(
+                event='WORK_ORDER_CORRECTION_SCHEDULED',
+                recipient=correction_order.technician,
+                subject=f'Corrección programada para {correction_order.code}',
+                body=(
+                    f'La corrección {correction_order.code} vinculada a {order.code} fue programada para '
+                    f'{correction_order.scheduled_date.isoformat()} a las {correction_order.scheduled_start_time.strftime("%H:%M")}.'
+                ),
+                entity=correction_order,
+                discriminator='correction-scheduled',
             )
         elif action == 'ADMIN_APPROVE':
             queue_incident_requester(
@@ -546,3 +825,106 @@ class WorkOrderActionSerializer(serializers.Serializer):
             after={"status": order.status, "progress": order.progress_percentage},
         )
         return order
+
+
+class WorkOrderMaterialSerializer(serializers.ModelSerializer):
+    """Serializer de lectura para un WorkOrderMaterial."""
+    materialNombre = serializers.CharField(source="material.nombre", read_only=True)
+    materialCodigo = serializers.CharField(source="material.codigo", read_only=True)
+    materialPrecio = serializers.DecimalField(
+        source="material.precio", max_digits=10, decimal_places=2,
+        allow_null=True, read_only=True,
+    )
+    materialStock = serializers.IntegerField(source="material.cantidad_total", read_only=True)
+    tipoLabel = serializers.CharField(source="get_tipo_display", read_only=True)
+    registradoPorNombre = serializers.SerializerMethodField()
+    creadoEn = serializers.DateTimeField(source="creado_en", read_only=True)
+    actualizadoEn = serializers.DateTimeField(source="actualizado_en", read_only=True)
+    workOrderCode = serializers.CharField(source="work_order.code", read_only=True)
+
+    class Meta:
+        model = WorkOrderMaterial
+        fields = (
+            "id",
+            "workOrderCode",
+            "material",
+            "materialNombre",
+            "materialCodigo",
+            "materialPrecio",
+            "materialStock",
+            "cantidad",
+            "tipo",
+            "tipoLabel",
+            "esBloqueante",
+            "porcentajeRequerido",
+            "adquirido",
+            "adquiridoEn",
+            "registradoPorNombre",
+            "creadoEn",
+            "actualizadoEn",
+        )
+
+    # camelCase mapping
+    esBloqueante = serializers.BooleanField(source="es_bloqueante", read_only=True)
+    porcentajeRequerido = serializers.IntegerField(source="porcentaje_requerido", read_only=True)
+    adquirido = serializers.BooleanField(read_only=True)
+    adquiridoEn = serializers.DateTimeField(source="adquirido_en", read_only=True)
+
+    def get_registradoPorNombre(self, obj) -> str:
+        return obj.registrado_por.get_full_name() or obj.registrado_por.username
+
+
+class WorkOrderMaterialWriteSerializer(serializers.Serializer):
+    """Serializer de escritura para registrar/editar un WorkOrderMaterial."""
+    from apps.catalogo.models import Material as _Material
+
+    material = serializers.PrimaryKeyRelatedField(
+        queryset=Material.objects.none(),
+    )
+    cantidad = serializers.IntegerField(min_value=1)
+    tipo = serializers.ChoiceField(choices=["USADO", "NECESARIO_NO_BLOQUEANTE"])
+    porcentajeRequerido = serializers.IntegerField(
+        source="porcentaje_requerido",
+        min_value=0,
+        max_value=100,
+        required=False,
+        allow_null=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.catalogo.models import Material
+        # Sin filtro: se permiten tanto materiales "padre" (estuches completos)
+        # como materiales "hijos" (es_componente=True, piezas específicas de un
+        # estuche). La validación real de stock disponible ocurre en validate().
+        self.fields["material"].queryset = Material.objects.all()
+
+    def validate(self, attrs):
+        material = attrs["material"]
+        cantidad = attrs["cantidad"]
+        if material.control_individual:
+            from apps.catalogo.models import Pieza
+            disponibles = Pieza.objects.filter(
+                material=material, estado="Disponible"
+            ).count()
+            if cantidad > disponibles:
+                raise serializers.ValidationError(
+                    {"cantidad": f"Solo hay {disponibles} piezas disponibles de este material."}
+                )
+        else:
+            if cantidad > material.cantidad_total:
+                raise serializers.ValidationError(
+                    {"cantidad": f"Solo hay {material.cantidad_total} unidades disponibles de este material."}
+                )
+        return attrs
+
+
+class WorkOrderCostUpdateSerializer(serializers.ModelSerializer):
+    """Permite al administrador actualizar amount (y description) de un costo existente."""
+    class Meta:
+        model = WorkOrderCost
+        fields = ("amount", "description")
+        extra_kwargs = {
+            "amount": {"required": False, "allow_null": True},
+            "description": {"required": False},
+        }

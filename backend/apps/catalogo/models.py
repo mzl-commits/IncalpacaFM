@@ -67,11 +67,17 @@ class Material(models.Model):
         ("no_retornable", "No retornable"),
     ]
 
+<<<<<<< HEAD
     UNIDAD_MEDIDA_CHOICES = [
         ("mm", "Milímetros"),
         ("cm", "Centímetros"),
         ("in", "Pulgadas"),
         ("ft", "Pies"),
+=======
+    UNIDAD_MANEJO_CHOICES = [
+        ("unidad", "Unidad"),
+        ("caja", "Caja"),
+>>>>>>> origin/stock/integracion
     ]
 
     subcategoria = models.ForeignKey(
@@ -120,6 +126,18 @@ class Material(models.Model):
     # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).
     cantidad_total = models.PositiveIntegerField(default=0)
 
+    # Solo aplica a consumibles (control_individual=False). Indica si el stock
+    # de este material se maneja contando unidades sueltas o cajas cerradas.
+    # cantidad_total SIEMPRE queda expresado en unidades, sin importar el modo.
+    unidad_manejo = models.CharField(
+        max_length=10, choices=UNIDAD_MANEJO_CHOICES, default="unidad",
+        help_text="Cómo se cuenta el stock de este consumible: por unidad suelta o por caja.",
+    )
+    unidades_por_caja = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Cuántas unidades trae cada caja. Requerido si unidad_manejo='caja'.",
+    )
+
     activo = models.BooleanField(default=True)
     es_componente = models.BooleanField(
         default=False,
@@ -163,6 +181,11 @@ class Material(models.Model):
     def save(self, *args, **kwargs):
         if not self.pk:
             self.activo = True
+        # El manejo por caja solo tiene sentido para consumibles sin control
+        # individual; para el resto, se normaliza a "unidad" sin múltiplo.
+        if self.control_individual or self.unidad_manejo != "caja":
+            self.unidad_manejo = "unidad" if self.control_individual else self.unidad_manejo
+            self.unidades_por_caja = None
         if not self.codigo:
             if self.es_componente:
                 from apps.catalogo.services import generar_codigo_material_componente

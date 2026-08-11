@@ -70,6 +70,7 @@ export interface MaterialesParams {
   subcategoria?: number;
   control_individual?: boolean;
   inspeccionable?: boolean;
+  activo?: boolean;
   q?: string;
 }
 
@@ -80,6 +81,7 @@ export async function listMateriales(params: MaterialesParams = {}): Promise<Mat
   if (params.control_individual !== undefined)
     query.control_individual = params.control_individual;
   if (params.inspeccionable !== undefined) query.inspeccionable = params.inspeccionable;
+  if (params.activo !== undefined) query.activo = params.activo;
   if (params.q) query.q = params.q;
 
   const { data } = await api.get<Material[]>("/materiales/", { params: query });
@@ -88,6 +90,16 @@ export async function listMateriales(params: MaterialesParams = {}): Promise<Mat
 
 export async function getMaterialDetalle(id: number): Promise<MaterialDetalle> {
   const { data } = await api.get<MaterialDetalle>(`/materiales/${id}/`);
+  return data;
+}
+
+/**
+ * Devuelve los materiales "hijos" (tipos de piezas individuales) que
+ * pertenecen a un material contenedor (estuche). Vacío si el material
+ * no tiene piezas hijas registradas.
+ */
+export async function getMaterialesHijas(materialId: number): Promise<Material[]> {
+  const { data } = await api.get<Material[]>(`/materiales/${materialId}/materiales-hijas/`);
   return data;
 }
 
@@ -138,10 +150,7 @@ export async function altaPiezasSueltas(payload: AltaPiezasSueltasPayload): Prom
   return data;
 }
 
-export async function altaEstuche(payload: AltaEstuchePayload): Promise<PiezaBase[]> {
-  const { data } = await api.post<PiezaBase[]>("/materiales/alta-estuche/", payload);
-  return data;
-}
+
 
 // ─── Piezas ───────────────────────────────────────────────────────────────────
 

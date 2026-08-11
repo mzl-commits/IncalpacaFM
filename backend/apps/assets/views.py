@@ -53,7 +53,7 @@ class AssetListCreateView(generics.ListCreateAPIView):
         )
         if user_role(self.request.user) == AccountProfile.Role.TECHNICIAN:
             queryset = queryset.filter(
-                incidents__work_order__technician=self.request.user,
+                incidents__work_orders__technician=self.request.user,
             ).distinct()
         search = self.request.query_params.get('search', '').strip()
         if search:
@@ -128,7 +128,7 @@ class AssetDetailView(generics.RetrieveUpdateAPIView):
         ).prefetch_related('assignments__responsible', 'repair_records')
         if user_role(self.request.user) == AccountProfile.Role.TECHNICIAN:
             queryset = queryset.filter(
-                incidents__work_order__technician=self.request.user,
+                incidents__work_orders__technician=self.request.user,
             ).distinct()
         return queryset
 

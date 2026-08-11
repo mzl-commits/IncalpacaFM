@@ -7,6 +7,8 @@ export const STOCK_MINIMO = 5;
 
 export type TipoControl = "retornable" | "no_retornable";
 
+export type UnidadManejo = "unidad" | "caja";
+
 export type EstadoPieza = "Disponible" | "Prestado" | "Mantenimiento" | "Baja";
 
 export type TipoMovimiento = "salida" | "entrada" | "baja";
@@ -65,6 +67,11 @@ export const valorRespuestaLabels: Record<ValorRespuesta, string> = {
 export const tipoControlLabels: Record<TipoControl, string> = {
   retornable: "Retornable",
   no_retornable: "No retornable",
+};
+
+export const unidadManejoLabels: Record<UnidadManejo, string> = {
+  unidad: "Unidad",
+  caja: "Caja",
 };
 
 // ─── Catálogo ─────────────────────────────────────────────────────────────────
@@ -136,6 +143,7 @@ export interface Material {
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
+<<<<<<< HEAD
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
   /** Periodicidad de inspección en días, calculada por el backend. */
@@ -146,6 +154,10 @@ export interface Material {
    * categoría con requiere_inspeccion=True.
    */
   es_inspeccionable: boolean;
+=======
+  unidad_manejo: UnidadManejo;
+  unidades_por_caja: number | null;
+>>>>>>> origin/stock/integracion
   activo: boolean;
   creado_en: string;
 }
@@ -169,8 +181,14 @@ export interface MaterialCreatePayload {
   precio?: string | number | null;
   tipo_control: TipoControl;
   control_individual: boolean;
+<<<<<<< HEAD
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
+=======
+  unidad_manejo?: UnidadManejo;
+  unidades_por_caja?: number | string | null;
+  cantidad_total?: number;
+>>>>>>> origin/stock/integracion
   // foto se envía aparte como FormData si existe
 }
 
@@ -202,6 +220,7 @@ export interface Movimiento {
   tipo: TipoMovimiento;
   tipo_display: string;
   cantidad: number;
+  cantidad_cajas: number | null;
   fecha: string;
   responsable: number;
   responsable_nombre: string;

@@ -20,11 +20,11 @@ import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
 
-function Field({ label, required, error, hint, children }: {
-  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode;
+function Field({ label, required, error, hint, children, wide }: {
+  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
 }) {
   return (
-    <label className={`field ${error ? "has-error" : ""}`}>
+    <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
       <span>{label}{required && <b aria-hidden="true"> *</b>}</span>
       {children}
       {hint && !error && <small style={{ color: "var(--muted)", fontSize: 12 }}>{hint}</small>}
@@ -42,6 +42,7 @@ export function MovimientoFormPage() {
   const [materialId, setMaterialId] = useState<number>(preselMaterial);
   const [piezaId, setPiezaId] = useState<number>(0);
   const [cantidad, setCantidad] = useState(1);
+  const [cantidadCajas, setCantidadCajas] = useState(1);
   const [responsableId, setResponsableId] = useState<number>(0);
   const [referencia, setReferencia] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -198,9 +199,12 @@ export function MovimientoFormPage() {
         if (!piezaId) throw new Error("Selecciona una pieza.");
         return registrarBajaPieza({ pieza_id: piezaId, responsable_id: responsableId, observaciones });
       } else {
-        if (tipo === "salida") return registrarSalidaMaterial({ material_id: materialId, cantidad, responsable_id: responsableId, referencia_externa: referencia, observaciones });
-        if (tipo === "entrada") return registrarEntradaMaterial({ material_id: materialId, cantidad, responsable_id: responsableId, observaciones });
-        return registrarBajaMaterial({ material_id: materialId, cantidad, responsable_id: responsableId, observaciones });
+        const esPorCaja = material?.unidad_manejo === "caja";
+        const cantidadPayload = esPorCaja ? undefined : cantidad;
+        const cantidadCajasPayload = esPorCaja ? cantidadCajas : undefined;
+        if (tipo === "salida") return registrarSalidaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, referencia_externa: referencia, observaciones });
+        if (tipo === "entrada") return registrarEntradaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, observaciones });
+        return registrarBajaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, observaciones });
       }
     },
     onSuccess: (resp) => {
@@ -361,15 +365,37 @@ export function MovimientoFormPage() {
                   </Field>
                 )
               ) : material ? (
-                <Field label="Cantidad" required>
-                  <input
-                    type="number"
-                    min={1}
-                    max={tipo === "salida" || tipo === "baja" ? material.cantidad_total : undefined}
-                    value={cantidad}
-                    onChange={(e) => setCantidad(Number(e.target.value))}
-                  />
-                </Field>
+                material.unidad_manejo === "caja" ? (
+                  <Field
+                    label="Cantidad de cajas"
+                    required
+                    hint={`Cada caja trae ${material.unidades_por_caja ?? "?"} unidades · Total: ${
+                      cantidadCajas * (material.unidades_por_caja ?? 0)
+                    } unidades`}
+                  >
+                    <input
+                      type="number"
+                      min={1}
+                      max={
+                        tipo === "salida" || tipo === "baja"
+                          ? Math.floor(material.cantidad_total / (material.unidades_por_caja || 1))
+                          : undefined
+                      }
+                      value={cantidadCajas}
+                      onChange={(e) => setCantidadCajas(Number(e.target.value))}
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Cantidad" required>
+                    <input
+                      type="number"
+                      min={1}
+                      max={tipo === "salida" || tipo === "baja" ? material.cantidad_total : undefined}
+                      value={cantidad}
+                      onChange={(e) => setCantidad(Number(e.target.value))}
+                    />
+                  </Field>
+                )
               ) : null}
             </div>
 
@@ -636,7 +662,11 @@ export function MovimientoFormPage() {
               )}
             </div>
           ) : material ? (
-            <div className="help-note">Este material es consumible. Indica la cantidad a mover.</div>
+            <div className="help-note">
+              {material.unidad_manejo === "caja"
+                ? `Este material es consumible y se maneja por caja (${material.unidades_por_caja} unidades c/u). Indica cuántas cajas mover.`
+                : "Este material es consumible. Indica la cantidad a mover."}
+            </div>
           ) : null}
         </div>
       </form>

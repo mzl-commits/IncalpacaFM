@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { Package, Plus, WarningCircle, MapPin, Image } from "@phosphor-icons/react";
+=======
+import { Package, Plus, WarningCircle, CaretRight, MapPin, FolderPlus } from "@phosphor-icons/react";
+>>>>>>> origin/stock/integracion
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -8,7 +12,11 @@ import { buildFilterOptions, useListFilterParams } from "@/components/filters/fi
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listMateriales, listCategorias, listSubcategorias } from "@/modules/almacen/catalogoRepository";
+<<<<<<< HEAD
 import type { Material } from "@/modules/almacen/types";
+=======
+import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
+>>>>>>> origin/stock/integracion
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import { CroquisCarrusel } from "@/modules/almacen/components/CroquisCarrusel";
 
@@ -17,6 +25,7 @@ const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as 
 export function CatalogoPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
+  const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
 
   const { data: materiales = [], isLoading } = useQuery({
     queryKey: ["materiales", values],
@@ -100,8 +109,16 @@ export function CatalogoPage() {
         <div className="page-heading-actions">
           <button
             className="button button-secondary"
+            onClick={() => setMostrarGestionCat((v) => !v)}
+            title="Administrar categorías y subcategorías"
+          >
+            <FolderPlus size={16} />
+            Categorías
+          </button>
+          <button
+            className="button button-secondary"
             onClick={() => setMostrarCroquis((v) => !v)}
-            title="Croquis del almacén (próximamente)"
+            title="Croquis del almacén"
           >
             <MapPin size={16} />
             Croquis del almacén
@@ -113,9 +130,43 @@ export function CatalogoPage() {
         </div>
       </div>
 
-      {/* Croquis del almacén — carrusel con imágenes de prueba */}
+      {/* Panel interactivo de gestión CRUD de Categorías y Subcategorías */}
+      {mostrarGestionCat && (
+        <GestionCategoriasPanel onClose={() => setMostrarGestionCat(false)} />
+      )}
+
+      {/* Croquis del almacén — imagen fija */}
       {mostrarCroquis && (
-        <CroquisCarrusel />
+        <div
+          style={{
+            background: "var(--surface, #fff)",
+            borderRadius: 12,
+            border: "1px solid var(--border, #e5e7eb)",
+            overflow: "hidden",
+            marginBottom: 8,
+            boxShadow: "0 2px 12px rgba(0,0,0,.06)",
+          }}
+        >
+          <div
+            style={{
+              padding: "14px 20px",
+              borderBottom: "1px solid var(--border, #e5e7eb)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <MapPin size={18} style={{ color: "var(--primary, #2563eb)" }} weight="fill" />
+            <strong style={{ fontSize: 15 }}>Croquis del almacén</strong>
+          </div>
+          <div style={{ background: "#f8fafc" }}>
+            <img
+              src="/croquis_almacen.png"
+              alt="Croquis del almacén: plano en planta, vista isométrica y leyenda de inventario"
+              style={{ width: "100%", maxHeight: 640, objectFit: "contain", display: "block" }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Stats */}
@@ -204,6 +255,7 @@ export function CatalogoPage() {
       </div>
     </section>
   );
+<<<<<<< HEAD
 }
 
 // ─── Card de material ────────────────────────────────────────────────────────
@@ -265,4 +317,6 @@ function MaterialCard({ m, busquedaPieza, q }: { m: Material; busquedaPieza: boo
       </div>
     </Link>
   );
+=======
+>>>>>>> origin/stock/integracion
 }

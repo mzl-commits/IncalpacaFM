@@ -25,6 +25,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
         fields = [
             "id", "material", "material_codigo", "material_nombre",
             "pieza", "pieza_codigo", "tipo", "tipo_display", "cantidad",
+            "cantidad_cajas",
             "fecha", "responsable", "responsable_nombre", "referencia_externa",
             "lote_id", "observaciones",
         ]
@@ -34,6 +35,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
             return obj.responsable.get_full_name() or obj.responsable.username
         return "N/A"
 
+<<<<<<< HEAD
 class SalidaMaterialSerializer(serializers.Serializer):
     material_id = serializers.PrimaryKeyRelatedField(queryset=Material.objects.all())
     cantidad = serializers.IntegerField(min_value=1)
@@ -49,6 +51,54 @@ class SalidaMaterialSerializer(serializers.Serializer):
             referencia_externa=validated_data["referencia_externa"],
             observaciones=validated_data["observaciones"],
         )
+=======
+
+def _resolver_cantidad_por_caja(attrs):
+    """
+    Si se envió 'cantidad_cajas', recalcula 'cantidad' (en unidades) del lado
+    del servidor como cantidad_cajas * material.unidades_por_caja, en vez de
+    confiar en un total en unidades enviado manualmente. Devuelve attrs
+    modificado in-place. Lanza ValidationError si el material no se maneja
+    por caja. No valida que 'cantidad' quede presente al final: eso lo hace
+    cada serializer en su propio validate().
+    """
+    cantidad_cajas = attrs.get("cantidad_cajas")
+    if cantidad_cajas:
+        material = Material.objects.filter(pk=attrs.get("material_id")).first()
+        if material:
+            if material.unidad_manejo != "caja" or not material.unidades_por_caja:
+                raise serializers.ValidationError({
+                    "cantidad_cajas": f"'{material.nombre}' no se maneja por caja."
+                })
+            attrs["cantidad"] = cantidad_cajas * material.unidades_por_caja
+    return attrs
+
+
+class SalidaMaterialSerializer(serializers.Serializer):
+    material_id = serializers.IntegerField()
+    cantidad = serializers.IntegerField(min_value=1, required=False)
+    cantidad_cajas = serializers.IntegerField(min_value=1, required=False, allow_null=True, default=None)
+    responsable_id = serializers.IntegerField()
+    referencia_externa = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_material_id(self, value):
+        if not Material.objects.filter(pk=value).exists():
+            raise serializers.ValidationError("El material especificado no existe.")
+        return value
+
+    def validate_responsable_id(self, value):
+        if not User.objects.filter(pk=value).exists():
+            raise serializers.ValidationError("El usuario responsable especificado no existe.")
+        return value
+
+    def validate(self, attrs):
+        attrs = _resolver_cantidad_por_caja(attrs)
+        if not attrs.get("cantidad"):
+            raise serializers.ValidationError({"cantidad": "Indica la cantidad o la cantidad de cajas."})
+        return attrs
+
+>>>>>>> origin/stock/integracion
 
 class SalidaPiezaSerializer(serializers.Serializer):
     pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
@@ -73,6 +123,7 @@ class SalidaPiezaSerializer(serializers.Serializer):
         )
 
 class EntradaMaterialSerializer(serializers.Serializer):
+<<<<<<< HEAD
     material_id = serializers.PrimaryKeyRelatedField(queryset=Material.objects.all())
     cantidad = serializers.IntegerField(min_value=1)
     responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
@@ -85,6 +136,30 @@ class EntradaMaterialSerializer(serializers.Serializer):
             responsable=validated_data["responsable_id"],
             observaciones=validated_data["observaciones"],
         )
+=======
+    material_id = serializers.IntegerField()
+    cantidad = serializers.IntegerField(min_value=1, required=False)
+    cantidad_cajas = serializers.IntegerField(min_value=1, required=False, allow_null=True, default=None)
+    responsable_id = serializers.IntegerField()
+    observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_material_id(self, value):
+        if not Material.objects.filter(pk=value).exists():
+            raise serializers.ValidationError("El material especificado no existe.")
+        return value
+
+    def validate_responsable_id(self, value):
+        if not User.objects.filter(pk=value).exists():
+            raise serializers.ValidationError("El usuario responsable especificado no existe.")
+        return value
+
+    def validate(self, attrs):
+        attrs = _resolver_cantidad_por_caja(attrs)
+        if not attrs.get("cantidad"):
+            raise serializers.ValidationError({"cantidad": "Indica la cantidad o la cantidad de cajas."})
+        return attrs
+
+>>>>>>> origin/stock/integracion
 
 class EntradaPiezaSerializer(serializers.Serializer):
     pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
@@ -99,6 +174,7 @@ class EntradaPiezaSerializer(serializers.Serializer):
         )
 
 class BajaMaterialSerializer(serializers.Serializer):
+<<<<<<< HEAD
     material_id = serializers.PrimaryKeyRelatedField(queryset=Material.objects.all())
     cantidad = serializers.IntegerField(min_value=1)
     responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
@@ -111,6 +187,30 @@ class BajaMaterialSerializer(serializers.Serializer):
             responsable=validated_data["responsable_id"],
             observaciones=validated_data["observaciones"],
         )
+=======
+    material_id = serializers.IntegerField()
+    cantidad = serializers.IntegerField(min_value=1, required=False)
+    cantidad_cajas = serializers.IntegerField(min_value=1, required=False, allow_null=True, default=None)
+    responsable_id = serializers.IntegerField()
+    observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_material_id(self, value):
+        if not Material.objects.filter(pk=value).exists():
+            raise serializers.ValidationError("El material especificado no existe.")
+        return value
+
+    def validate_responsable_id(self, value):
+        if not User.objects.filter(pk=value).exists():
+            raise serializers.ValidationError("El usuario responsable especificado no existe.")
+        return value
+
+    def validate(self, attrs):
+        attrs = _resolver_cantidad_por_caja(attrs)
+        if not attrs.get("cantidad"):
+            raise serializers.ValidationError({"cantidad": "Indica la cantidad o la cantidad de cajas."})
+        return attrs
+
+>>>>>>> origin/stock/integracion
 
 class BajaPiezaSerializer(serializers.Serializer):
     pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())

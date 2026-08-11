@@ -29,8 +29,24 @@ import {
 } from "@/modules/almacen/types";
 import type { RespuestaInput } from "@/modules/almacen/inspeccionRepository";
 import { Combobox } from "../components/shared/Combobox";
+<<<<<<< HEAD
 import { Field } from "@/modules/almacen/components/shared/Field";
 import { EstucheGroup } from "@/modules/almacen/components/EstucheGroup";
+=======
+
+function Field({ label, required, error, hint, children, wide }: {
+  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
+}) {
+  return (
+    <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
+      <span>{label}{required && <b aria-hidden="true"> *</b>}</span>
+      {children}
+      {hint && !error && <small style={{ color: "var(--muted)", fontSize: 12 }}>{hint}</small>}
+      {error && <small className="field-error"><WarningCircle size={14} />{error}</small>}
+    </label>
+  );
+}
+>>>>>>> origin/stock/integracion
 
 export function InspeccionFormPage() {
   const qc = useQueryClient();

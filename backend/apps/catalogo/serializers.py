@@ -77,8 +77,12 @@ class MaterialSerializer(serializers.ModelSerializer):
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
             "unidad_medida", "grosor", "largo", "ubicacion_fisica", "precio",
             "tipo_control", "control_individual", "cantidad_total",
+<<<<<<< HEAD
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",
+=======
+            "unidad_manejo", "unidades_por_caja",
+>>>>>>> origin/stock/integracion
             "activo", "creado_en",
         ]
         # cantidad_total YA NO va aquí — ahora es editable
@@ -95,9 +99,34 @@ class MaterialSerializer(serializers.ModelSerializer):
             "control_individual",
             getattr(self.instance, "control_individual", False),
         )
+<<<<<<< HEAD
         # Con control individual, ignoramos cantidad_total enviada: se calcula solo desde las piezas.
+=======
+        # Si el material tiene control individual, ignoramos cualquier
+        # cantidad_total enviada: siempre se calcula solo desde las piezas.
+        # Tampoco aplica el manejo por caja (es exclusivo de consumibles).
+>>>>>>> origin/stock/integracion
         if control_individual:
             attrs.pop("cantidad_total", None)
+            attrs["unidad_manejo"] = "unidad"
+            attrs["unidades_por_caja"] = None
+            return attrs
+
+        unidad_manejo = attrs.get(
+            "unidad_manejo",
+            getattr(self.instance, "unidad_manejo", "unidad"),
+        )
+        unidades_por_caja = attrs.get(
+            "unidades_por_caja",
+            getattr(self.instance, "unidades_por_caja", None),
+        )
+        if unidad_manejo == "caja":
+            if not unidades_por_caja or unidades_por_caja < 1:
+                raise serializers.ValidationError({
+                    "unidades_por_caja": "Indica cuántas unidades trae cada caja para este consumible."
+                })
+        else:
+            attrs["unidades_por_caja"] = None
         return attrs
 
 class MaterialDetalleSerializer(MaterialSerializer):
