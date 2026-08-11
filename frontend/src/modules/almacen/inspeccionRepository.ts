@@ -29,6 +29,38 @@ export async function getPlantillaCriterio(id: number): Promise<PlantillaCriteri
   return data;
 }
 
+export async function createPlantillaCriterio(nombre: string): Promise<PlantillaCriterio> {
+  const { data } = await api.post<PlantillaCriterio>("/plantillas-criterios/", { nombre });
+  return data;
+}
+
+export async function updatePlantillaCriterio(id: number, nombre: string): Promise<PlantillaCriterio> {
+  const { data } = await api.patch<PlantillaCriterio>(`/plantillas-criterios/${id}/`, { nombre });
+  return data;
+}
+
+export async function deletePlantillaCriterio(id: number): Promise<void> {
+  await api.delete(`/plantillas-criterios/${id}/`);
+}
+
+export async function createCriterio(payload: { plantilla: number; texto: string; orden?: number }): Promise<Criterio> {
+  const { data } = await api.post<Criterio>("/criterios/", payload);
+  return data;
+}
+
+export async function updateCriterio(id: number, payload: { texto?: string; orden?: number }): Promise<Criterio> {
+  const { data } = await api.patch<Criterio>(`/criterios/${id}/`, payload);
+  return data;
+}
+
+export async function deleteCriterio(id: number): Promise<void> {
+  await api.delete(`/criterios/${id}/`);
+}
+
+export async function reordenarCriterios(items: Array<{ id: number; orden: number }>): Promise<void> {
+  await api.post("/criterios/reordenar/", items);
+}
+
 // ─── Inspecciones ─────────────────────────────────────────────────────────────
 
 export interface InspeccionesParams {
