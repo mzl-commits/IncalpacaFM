@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 import type {
   PlantillaCriterio,
+  Criterio,
   Inspeccion,
   VencidaItem,
   TipoInspeccion,
@@ -27,6 +28,34 @@ export async function listPlantillasCriterios(): Promise<PlantillaCriterio[]> {
 export async function getPlantillaCriterio(id: number): Promise<PlantillaCriterio> {
   const { data } = await api.get<PlantillaCriterio>(`/plantillas-criterios/${id}/`);
   return data;
+}
+
+export async function createPlantillaCriterio(nombre: string): Promise<PlantillaCriterio> {
+  const { data } = await api.post<PlantillaCriterio>("/plantillas-criterios/", { nombre });
+  return data;
+}
+
+export async function updatePlantillaCriterio(id: number, nombre: string): Promise<PlantillaCriterio> {
+  const { data } = await api.patch<PlantillaCriterio>(`/plantillas-criterios/${id}/`, { nombre });
+  return data;
+}
+
+export async function deletePlantillaCriterio(id: number): Promise<void> {
+  await api.delete(`/plantillas-criterios/${id}/`);
+}
+
+export async function createCriterio(payload: Pick<Criterio, "plantilla" | "texto" | "orden">): Promise<Criterio> {
+  const { data } = await api.post<Criterio>("/criterios/", payload);
+  return data;
+}
+
+export async function updateCriterio(id: number, payload: Pick<Criterio, "plantilla" | "texto" | "orden">): Promise<Criterio> {
+  const { data } = await api.patch<Criterio>(`/criterios/${id}/`, payload);
+  return data;
+}
+
+export async function deleteCriterio(id: number): Promise<void> {
+  await api.delete(`/criterios/${id}/`);
 }
 
 // ─── Inspecciones ─────────────────────────────────────────────────────────────

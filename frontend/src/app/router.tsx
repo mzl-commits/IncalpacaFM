@@ -395,6 +395,13 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "administracion/formularios",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/almacen/pages/InspectionTemplatesAdminPage"),
+          "InspectionTemplatesAdminPage",
+        ),
+      },
+      {
         path: "administracion/tecnicos/:id",
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
