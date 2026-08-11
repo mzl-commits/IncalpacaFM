@@ -277,6 +277,8 @@ export interface Inspeccion {
   resultado_general: ResultadoInspeccion;
   accion_tomada: AccionInspeccion;
   observaciones: string;
+  /** Periodicidad del material dueño (o del contenedor, si es pieza), en días. Requerido por TrimestreBadge. */
+  material_periodicidad_inspeccion_dias: number | null;
   respuestas: RespuestaCriterio[];
 }
 
