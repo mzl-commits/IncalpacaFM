@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { api } from "@/services/api";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
@@ -214,6 +215,7 @@ export function WorkOrderDetailPage() {
   const [savingServiceStatus, setSavingServiceStatus] = useState(false);
   const [serviceAttachments, setServiceAttachments] = useState<string[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
+  const [photoUrls, setPhotoUrls] = useState<{ start: string | null; finish: string | null }>({ start: null, finish: null });
 
   useEffect(() => {
     if (!id) return;
@@ -227,6 +229,37 @@ export function WorkOrderDetailPage() {
     });
     void listWorkOrders().then(setOrders);
   }, [id]);
+
+  useEffect(() => {
+    let disposed = false;
+    const objectUrls: string[] = [];
+    async function loadPhoto(url: string | null | undefined) {
+      if (!url) return null;
+      try {
+        const response = await api.get<Blob>(url, { responseType: "blob" });
+        const objectUrl = URL.createObjectURL(response.data);
+        objectUrls.push(objectUrl);
+        return objectUrl;
+      } catch {
+        return null;
+      }
+    }
+    if (!workOrder) {
+      setPhotoUrls({ start: null, finish: null });
+      return () => undefined;
+    }
+    void Promise.all([loadPhoto(workOrder.startPhoto), loadPhoto(workOrder.finishPhoto)])
+      .then(([start, finish]) => {
+        if (!disposed) setPhotoUrls({ start, finish });
+      })
+      .catch(() => {
+        if (!disposed) setPhotoUrls({ start: null, finish: null });
+      });
+    return () => {
+      disposed = true;
+      objectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl));
+    };
+  }, [workOrder?.id, workOrder?.startPhoto, workOrder?.finishPhoto]);
 
   async function handleAdminReview(approved: boolean) {
     if (!workOrder) return;
@@ -600,6 +633,27 @@ export function WorkOrderDetailPage() {
           />
         </div>
       </div>}
+
+      {!isServiceOrder && <article className="data-panel detail-card work-order-photo-evidence">
+        <div className="detail-card-heading">
+          <ClipboardText size={22} />
+          <div>
+            <h2>Evidencia fotográfica</h2>
+            <p>Comparativa visual del estado del trabajo antes y después de la atención.</p>
+          </div>
+        </div>
+        <div className="work-order-photo-grid">
+          {([
+            ["Antes", photoUrls.start, "Fotografía tomada antes de iniciar el trabajo."],
+            ["Después", photoUrls.finish, "Fotografía tomada al finalizar el trabajo."],
+          ] as const).map(([label, url, help]) => (
+            <figure className="work-order-photo-card" key={label}>
+              <figcaption><strong>{label}</strong><span>{url ? "Evidencia disponible" : "Sin evidencia"}</span></figcaption>
+              {url ? <img src={url} alt={`Estado del bien ${label.toLowerCase()}`} /> : <div className="work-order-photo-empty">{help}</div>}
+            </figure>
+          ))}
+        </div>
+      </article>}
 
       {!isServiceOrder && <article className="data-panel detail-card work-order-validation-card">
         <div className="detail-card-heading">

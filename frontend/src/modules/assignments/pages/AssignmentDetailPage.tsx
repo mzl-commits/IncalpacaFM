@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useLocationMapImage } from "@/modules/assets/locationMapQueries";
 import {
   getAssignment,
   getAssignmentAssetDisplayCode,
@@ -28,6 +29,7 @@ export function AssignmentDetailPage() {
   const [responsibleId, setResponsibleId] = useState("");
   const [locationId, setLocationId] = useState("");
   const [saving, setSaving] = useState(false);
+  const locationMapImage = useLocationMapImage(item?.location?.reference_map?.id);
   const operationDialogRef = useRef<HTMLDialogElement>(null);
   const operationTriggerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -161,9 +163,39 @@ export function AssignmentDetailPage() {
             </div>
             {item.location ? (
               <div
-                className="facility-map"
+                className="assignment-reference-map"
                 aria-label={`Ubicación: ${item.location.zone}, ${item.location.building}, ${item.location.area}, ${item.location.room}`}
               >
+                <nav className="assignment-location-breadcrumb" aria-label="Ruta de ubicación">
+                  <span>{item.location.zone}</span>
+                  <span aria-hidden="true">›</span>
+                  <span>{item.location.building}</span>
+                  <span aria-hidden="true">›</span>
+                  <span>{item.location.area}</span>
+                  <span aria-hidden="true">›</span>
+                  <strong>{item.location.room}</strong>
+                </nav>
+                {item.location.reference_map && locationMapImage.isPending && <div className="assignment-reference-map-loading" aria-label="Cargando imagen referencial" />}
+                {item.location.reference_map && locationMapImage.isError && (
+                  <div className="assignment-reference-map-empty" role="alert">No se pudo cargar la imagen referencial del ambiente.</div>
+                )}
+                {item.location.reference_map && locationMapImage.data && (
+                  <div className="assignment-reference-map-stage">
+                    <img src={locationMapImage.data} alt={`Imagen referencial de ${item.location.room}`} />
+                    {item.location.marker && (
+                      <span
+                        className="assignment-reference-map-marker"
+                        style={{ left: `${Number(item.location.marker.x) * 100}%`, top: `${Number(item.location.marker.y) * 100}%` }}
+                        aria-label={`Ubicación marcada: ${item.location.room}`}
+                      >
+                        <MapPin weight="fill" />
+                      </span>
+                    )}
+                  </div>
+                )}
+                {!item.location.reference_map && (
+                  <div className="assignment-reference-map-empty">Este ambiente todavía no tiene una imagen referencial cargada.</div>
+                )}
                 <div className="map-building">
                   <span className="map-caption">{item.location.zone}</span>
                   <strong>{item.location.building}</strong>
