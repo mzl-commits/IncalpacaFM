@@ -138,7 +138,8 @@ class IncidentSerializer(serializers.ModelSerializer):
         return self._location_float(obj, "locationMarkerY")
 
     def get_workOrderId(self, obj) -> str | None:
-        return str(obj.work_order.id) if hasattr(obj, "work_order") else None
+        order = obj.work_order
+        return str(order.id) if order else None
 
     def validate_status(self, value):
         aliases = {
@@ -387,6 +388,14 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     impactAnswers = serializers.DictField(required=True)
 
     def validate(self, attrs):
+        impact_answers = attrs.get("impactAnswers") or {}
+        if (
+            impact_answers.get("issueCategory") == "OTRO"
+            and not (str(impact_answers.get("otherIssueCategoryDetail", "")).strip() or str(impact_answers.get("otherRequestDetail", "")).strip())
+        ):
+            raise serializers.ValidationError(
+                {"impactAnswers": "Indica el detalle cuando el tipo de solicitud es Otro."}
+            )
         asset_token = attrs.get('assetToken', '').strip()
         zone = attrs.get('zone', '').strip()
         if not asset_token and not zone:
@@ -664,3 +673,5 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                     }
                 )
         return events
+
+

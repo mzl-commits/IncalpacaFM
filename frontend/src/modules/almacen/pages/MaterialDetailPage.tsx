@@ -349,6 +349,15 @@ export function MaterialDetailPage() {
                 <dt className="dt-label">Cantidad / Piezas</dt>
                 <dd className="dd-value">
                   {material.cantidad_total}{" "}
+                  {!material.control_individual && material.unidad_manejo === "caja" && material.unidades_por_caja && (
+                    <span style={{ color: "var(--muted)" }}>
+                      ({Math.floor(material.cantidad_total / material.unidades_por_caja)} cajas de {material.unidades_por_caja} u.
+                      {material.cantidad_total % material.unidades_por_caja !== 0
+                        ? ` + ${material.cantidad_total % material.unidades_por_caja} sueltas`
+                        : ""}
+                      )
+                    </span>
+                  )}{" "}
                   {stockAlerta && (
                     <span className="stock-alert-badge">
                       <WarningCircle size={13} /> Stock bajo
@@ -356,6 +365,7 @@ export function MaterialDetailPage() {
                   )}
                 </dd>
               </div>
+<<<<<<< HEAD
               {material.grosor && (
                 <div>
                   <dt className="dt-label">Grosor / Diámetro</dt>
@@ -368,6 +378,20 @@ export function MaterialDetailPage() {
                   <dd className="dd-value">{material.largo} {unidadMedidaAbrev[material.unidad_medida]}</dd>
                 </div>
               )}
+=======
+              {!material.control_individual && (
+                <div>
+                  <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Manejo de stock</dt>
+                  <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                    {material.unidad_manejo === "caja"
+                      ? `Por caja (${material.unidades_por_caja} u. c/u)`
+                      : "Por unidad"}
+                  </dd>
+                </div>
+              )}
+              {material.grosor_mm && <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Grosor (mm)</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.grosor_mm}</dd></div>}
+              {material.largo_mm && <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Largo (mm)</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.largo_mm}</dd></div>}
+>>>>>>> origin/stock/integracion
             </dl>
           </div>
 

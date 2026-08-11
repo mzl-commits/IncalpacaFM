@@ -351,8 +351,8 @@ class PublicAssetSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         incident = (
             obj.incidents.exclude(status='RECHAZADA')
-            .filter(~Q(status='CERRADA') | Q(work_order__isnull=False))
-            .select_related('work_order')
+            .filter(~Q(status='CERRADA') | Q(work_orders__isnull=False))
+            .distinct()
             .order_by('-updated_at')
             .first()
         )

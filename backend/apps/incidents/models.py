@@ -49,3 +49,6 @@ class Incident(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+    @property
+    def work_order(self):
+        return self.work_orders.order_by("-created_at").first()

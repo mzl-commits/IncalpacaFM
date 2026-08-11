@@ -46,8 +46,26 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     def salida_material(self, request):
         serializer = SalidaMaterialSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+<<<<<<< HEAD
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
+=======
+        data = serializer.validated_data
+        try:
+            material = Material.objects.get(pk=data["material_id"])
+            responsable = User.objects.get(pk=data["responsable_id"])
+            mov = registrar_salida_material(
+                material=material,
+                cantidad=data["cantidad"],
+                responsable=responsable,
+                referencia_externa=data.get("referencia_externa", ""),
+                observaciones=data.get("observaciones", ""),
+                cantidad_cajas=data.get("cantidad_cajas"),
+            )
+            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+>>>>>>> origin/stock/integracion
 
     @action(detail=False, methods=["post"], url_path="salida-pieza")
     def salida_pieza(self, request):
@@ -68,8 +86,25 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     def entrada_material(self, request):
         serializer = EntradaMaterialSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+<<<<<<< HEAD
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
+=======
+        data = serializer.validated_data
+        try:
+            material = Material.objects.get(pk=data["material_id"])
+            responsable = User.objects.get(pk=data["responsable_id"])
+            mov = registrar_entrada_material(
+                material=material,
+                cantidad=data["cantidad"],
+                responsable=responsable,
+                observaciones=data.get("observaciones", ""),
+                cantidad_cajas=data.get("cantidad_cajas"),
+            )
+            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+>>>>>>> origin/stock/integracion
 
     @action(detail=False, methods=["post"], url_path="entrada-pieza")
     def entrada_pieza(self, request):
@@ -82,8 +117,25 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     def baja_material(self, request):
         serializer = BajaMaterialSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+<<<<<<< HEAD
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
+=======
+        data = serializer.validated_data
+        try:
+            material = Material.objects.get(pk=data["material_id"])
+            responsable = User.objects.get(pk=data["responsable_id"])
+            mov = registrar_baja_material(
+                material=material,
+                cantidad=data["cantidad"],
+                responsable=responsable,
+                observaciones=data.get("observaciones", ""),
+                cantidad_cajas=data.get("cantidad_cajas"),
+            )
+            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+>>>>>>> origin/stock/integracion
 
     @action(detail=False, methods=["post"], url_path="baja-pieza")
     def baja_pieza(self, request):

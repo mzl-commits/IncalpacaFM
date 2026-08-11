@@ -79,7 +79,7 @@ const groups: Array<{
     label: "Almacén",
     icon: Toolbox,
     paths: ["/almacen"],
-    roles: ["ADMINISTRADOR"],
+    roles: ["ADMINISTRADOR", "ALMACENERO", "INSPECTOR"],
     items: [
       { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true },
       { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
@@ -94,12 +94,13 @@ const groups: Array<{
     label: "Atención y mantenimiento",
     icon: Wrench,
     paths: ["/incidencias", "/ordenes-trabajo"],
+    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
     items: [
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
       { to: "/ordenes-trabajo/recomendaciones", label: "Asignación recomendada", icon: Lightning },
       {
         to: "/ordenes-trabajo",
-        label: "Órdenes de trabajo",
+        label: "Órdenes operativas",
         icon: Toolbox,
       },
       { to: "/supervision", label: "Revisión de OT", icon: ShieldCheck },
@@ -118,6 +119,7 @@ const groups: Array<{
     label: "Control e informes",
     icon: ChartBar,
     paths: ["/informes"],
+    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
     items: [
       { to: "/informes", label: "Panel ejecutivo", icon: ChartBar, end: true },
       { to: "/informes/ordenes-trabajo", label: "Informes de OT", icon: Toolbox },
@@ -201,7 +203,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/asignaciones")) return ["Activos y espacios", "Asignaciones"];
   if (pathname.startsWith("/incidencias")) return ["Atención y mantenimiento", "Reportes"];
   if (pathname.startsWith("/supervision")) return ["Supervisión", "Revisión de OT"];
-  if (pathname.startsWith("/ordenes-trabajo")) return ["Atención y mantenimiento", "Órdenes de trabajo"];
+  if (pathname.startsWith("/ordenes-trabajo")) return ["Atención y mantenimiento", "Órdenes operativas"];
   if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
@@ -231,7 +233,7 @@ export function AppShell() {
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
-  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : "Administrador / Planner";
+  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : user?.role === "ALMACENERO" ? "Almacenero" : user?.role === "INSPECTOR" ? "Inspector" : user?.role === "SOLICITANTE" ? "Solicitante" : "Administrador / Planner";
   const initials =
     user?.fullName
       .split(" ")
@@ -241,11 +243,19 @@ export function AppShell() {
       .toUpperCase() || "SG";
   const technicianMode = user?.role === "TECNICO";
   const supervisorMode = user?.role === "SUPERVISOR";
+  const inspectorMode = user?.role === "INSPECTOR";
   const roleGroups = groups.filter(
     (group) => !group.roles || Boolean(user && group.roles.includes(user.role)),
   );
   const visibleGroups = supervisorMode
-    ? roleGroups.filter((group) => group.id === "operations").map((group) => ({ ...group, items: group.items.filter((item) => item.to === "/supervision") }))
+  ? roleGroups.filter((group) => group.id === "operations").map((group) => ({ ...group, items: group.items.filter((item) => item.to === "/supervision") }))
+  : inspectorMode
+    ? roleGroups
+        .filter((group) => group.id === "almacen")
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => item.to.startsWith("/almacen/inspecciones")),
+        }))
     : technicianMode
       ? roleGroups
           .filter((group) => group.id === "technician" || group.id === "operations")
@@ -262,7 +272,7 @@ export function AppShell() {
       : roleGroups;
   const visibleMobilePrimary = technicianMode
     ? mobilePrimary.filter((item) => item.to === "/")
-    : supervisorMode
+    : supervisorMode || inspectorMode
       ? []
       : mobilePrimary;
   const visibleMobileSecondary = visibleGroups
@@ -270,7 +280,7 @@ export function AppShell() {
     .filter((item) => !visibleMobilePrimary.some((primary) => primary.to === item.to));
   const visibleQuickActions = technicianMode
     ? quickActions.filter((item) => item.to === "/incidencias/nueva")
-    : supervisorMode
+    : supervisorMode || inspectorMode
       ? []
       : quickActions;
 

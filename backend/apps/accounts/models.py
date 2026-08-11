@@ -1,4 +1,3 @@
-
 import uuid
 
 from django.contrib.auth import get_user_model
@@ -11,6 +10,8 @@ class AccountProfile(models.Model):
         TECHNICIAN = "TECNICO", "Técnico"
         SUPERVISOR = "SUPERVISOR", "Supervisor"
         REQUESTER = "SOLICITANTE", "Solicitante"
+        ALMACENERO = "ALMACENERO", "Almacenero"
+        INSPECTOR = "INSPECTOR", "Inspector"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(

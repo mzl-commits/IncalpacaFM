@@ -3,13 +3,18 @@ import random
 import string
 
 def generar_codigo_material(categoria):
+<<<<<<< HEAD
     """Código correlativo: prefijo + 4 dígitos (ej. H0013). Ignora materiales-componente."""
+=======
+    """Genera código correlativo: prefijo + consecutivo de 4 dígitos (ej. H0013).
+    Cuenta TODOS los materiales con ese prefijo (visibles y componentes/ocultos),
+    porque el código debe ser único en toda la tabla sin importar visibilidad."""
+>>>>>>> origin/stock/integracion
 
     largo_prefijo = len(categoria.prefijo)
     ultimo = (
         Material.objects.filter(
             codigo__regex=rf"^{categoria.prefijo}\d+$",
-            es_componente=False,
         )
         .order_by("-codigo")
         .first()
