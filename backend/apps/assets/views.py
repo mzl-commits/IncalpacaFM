@@ -17,7 +17,7 @@ from apps.accounts.permissions import IsAdministrator, IsAuthenticatedReadAdmini
 from apps.audit.services import record_audit
 from config.schema import UserDashboardResponseSerializer
 
-from .models import Asset
+from .models import Asset, AssignableResponsible
 from .serializers import AssetClassificationSerializer, AssetDetailSerializer, AssetSerializer, PublicAssetSerializer
 
 
@@ -132,8 +132,12 @@ class TaxonomyModelListView(APIView):
         return Response(sorted(Asset.objects.filter(taxonomy_id=taxonomy_id).exclude(model__exact='').values_list('model', flat=True).distinct()))
 
 
-def _assets_for_responsible(responsible):
-    assets = Asset.objects.filter(assignments__responsible=responsible, assignments__status='ACTIVA').select_related('taxonomy', 'location').prefetch_related('incidents').distinct()
+def _assets_for_responsibles(responsibles):
+    """Return current assets assigned to any of the account's responsible records."""
+    assets = Asset.objects.filter(
+        assignments__responsible__in=responsibles,
+        assignments__status='ACTIVA',
+    ).select_related('taxonomy', 'location').prefetch_related('incidents').distinct()
     result = []
     for asset in assets:
         incident = next((item for item in asset.incidents.all() if item.status not in ['CERRADA', 'RECHAZADA']), None)
@@ -149,23 +153,52 @@ def _assets_for_responsible(responsible):
     return result
 
 
+def _responsibles_for_user(user):
+    """Resolve the different legacy references used when a person was assigned.
+
+    Assignments created before the user import can reference the worker code,
+    account-profile UUID, Django user UUID, username, or e-mail.  All of those
+    identifiers belong to the same signed-in person and must be considered so
+    the self-service dashboard never silently hides their assets.
+    """
+    profile = getattr(user, 'account_profile', None)
+    identifiers = {
+        value.strip()
+        for value in (
+            str(user.pk),
+            user.username or '',
+            user.email or '',
+            str(profile.pk) if profile else '',
+            profile.worker_code if profile else '',
+        )
+        if value and value.strip()
+    }
+    return AssignableResponsible.objects.filter(
+        external_reference__in=identifiers,
+        active=True,
+    )
+
+
 class UserDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(responses={200: UserDashboardResponseSerializer})
     def get(self, request):
         try:
-            worker_code = request.user.account_profile.worker_code.strip()
+            profile = request.user.account_profile
+            worker_code = profile.worker_code.strip()
         except AccountProfile.DoesNotExist:
             return Response({'detail': 'Perfil de cuenta no encontrado.'}, status=404)
-        from apps.assets.models import AssignableResponsible
-        responsible = AssignableResponsible.objects.filter(external_reference__iexact=worker_code, active=True).first()
-        if responsible is None:
-            username = (request.user.username or "").strip()
-            responsible = AssignableResponsible.objects.filter(external_reference__iexact=username, active=True).first()
+        responsibles = _responsibles_for_user(request.user)
+        responsible = responsibles.first()
         return Response({
-            'profile': {'display_name': responsible.display_name if responsible else request.user.get_full_name(), 'area_name': responsible.area_name if responsible else '', 'worker_code': worker_code},
-            'assigned_assets': _assets_for_responsible(responsible) if responsible else [],
+            'profile': {
+                'id': str(profile.id),
+                'display_name': responsible.display_name if responsible else (request.user.get_full_name() or request.user.username),
+                'area_name': responsible.area_name if responsible else '',
+                'worker_code': worker_code,
+            },
+            'assigned_assets': _assets_for_responsibles(responsibles),
         })
 
 
@@ -174,6 +207,5 @@ class UserProfileView(APIView):
 
     @extend_schema(responses={200: UserDashboardResponseSerializer})
     def get(self, request, pk):
-        from apps.assets.models import AssignableResponsible
         responsible = get_object_or_404(AssignableResponsible, pk=pk, active=True)
-        return Response({'profile': {'id': str(responsible.id), 'display_name': responsible.display_name, 'area_name': responsible.area_name, 'worker_code': responsible.external_reference}, 'assigned_assets': _assets_for_responsible(responsible)})
+        return Response({'profile': {'id': str(responsible.id), 'display_name': responsible.display_name, 'area_name': responsible.area_name, 'worker_code': responsible.external_reference}, 'assigned_assets': _assets_for_responsibles([responsible])})

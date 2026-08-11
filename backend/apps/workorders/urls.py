@@ -14,6 +14,7 @@ from .views import (
     WorkOrderMaterialMarkBlockingView,
     WorkOrderMaterialMarkAcquiredView,
     WorkOrderPhotoView,
+    WorkOrderQuickAssignView,
     WorkOrderReportDownloadView,
     WorkOrderReportView,
 )
@@ -21,6 +22,7 @@ from .views import (
 urlpatterns = [
     path("work-orders/", WorkOrderListCreateView.as_view(), name="work-order-list-create"),
     path("work-orders/<uuid:pk>/", WorkOrderDetailView.as_view(), name="work-order-detail"),
+    path("work-orders/<uuid:pk>/quick-assign/", WorkOrderQuickAssignView.as_view(), name="work-order-quick-assign"),
     path("work-orders/<uuid:pk>/actions/", WorkOrderActionView.as_view(), name="work-order-action"),
     path("work-orders/<uuid:pk>/photos/<str:stage>/", WorkOrderPhotoView.as_view(), name="work-order-photo"),
     path("work-orders/<uuid:pk>/costs/", WorkOrderCostListCreateView.as_view(), name="work-order-costs"),
