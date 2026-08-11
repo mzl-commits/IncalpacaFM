@@ -91,7 +91,7 @@ export function ListFilterPanel({
 
         <p className="list-filter-results" aria-live="polite" aria-atomic="true">
           <strong>{resultCount}</strong>
-          <span>de {totalCount} resultados</span>
+          <span>{resultCount === totalCount ? "resultados" : `de ${totalCount} resultados`}</span>
         </p>
       </header>
 

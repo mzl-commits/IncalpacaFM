@@ -5,8 +5,11 @@ import {
   Barcode,
   CaretRight,
   CheckCircle,
+  LinkBreak,
   LinkSimple,
   Plus,
+  QrCode,
+  SquaresFour,
   WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo } from "react";
@@ -146,12 +149,12 @@ export function FmCodeCatalogPage() {
     <section className="taxonomy-page fm-code-page">
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Administración / Taxonomía / Códigos FM</p>
+          <p className="breadcrumb">Inicio / Taxonomía / Códigos FM</p>
           <h1>Códigos FM</h1>
-          <p>Consulta los identificadores operativos emitidos y su vínculo con cada bien.</p>
+          <p>Consulta y asignación de códigos FM.</p>
         </div>
         <Link className="button button-primary" to="/administracion/taxonomia/codigos/nuevo">
-          <Plus /> Asignar código FM
+          <Plus weight="bold" /> Asignar código
         </Link>
       </div>
 
@@ -175,19 +178,31 @@ export function FmCodeCatalogPage() {
 
       <dl className="taxonomy-summary fm-code-summary" aria-label="Resumen de códigos FM">
         <div>
-          <dt>Códigos emitidos</dt>
+          <header className="taxonomy-summary-card-header">
+            <QrCode size={20} weight="bold" />
+            <dt>EMITIDOS</dt>
+          </header>
           <dd>{summaryQuery.isPending ? "—" : (summary?.issuedCount ?? "—")}</dd>
         </div>
         <div>
-          <dt>Clasificaciones en uso</dt>
+          <header className="taxonomy-summary-card-header">
+            <SquaresFour size={20} weight="bold" />
+            <dt>CLASIFICACIONES</dt>
+          </header>
           <dd>{summaryQuery.isPending ? "—" : (summary?.taxonomyCount ?? "—")}</dd>
         </div>
         <div>
-          <dt>Bienes sin código</dt>
+          <header className="taxonomy-summary-card-header">
+            <WarningCircle size={20} weight="bold" />
+            <dt>SIN CÓDIGO</dt>
+          </header>
           <dd>{summaryQuery.isPending ? "—" : (summary?.pendingCount ?? "—")}</dd>
         </div>
         <div>
-          <dt>Sin asignar</dt>
+          <header className="taxonomy-summary-card-header">
+            <LinkBreak size={20} weight="bold" />
+            <dt>SIN ASIGNAR</dt>
+          </header>
           <dd>{summaryQuery.isPending ? "—" : (summary?.unassignedCount ?? "—")}</dd>
         </div>
       </dl>
@@ -222,16 +237,16 @@ export function FmCodeCatalogPage() {
             <strong>Aún no hay códigos FM emitidos</strong>
             <p>Asigna una clasificación a un bien existente para generar su primer código.</p>
             <Link className="button button-primary" to="/administracion/taxonomia/codigos/nuevo">
-              <LinkSimple /> Asignar código FM
+              <LinkSimple /> Asignar código
             </Link>
           </div>
         ) : (
           <>
             <ListFilterPanel
-              title="Explorar códigos emitidos"
+              title="Códigos emitidos"
               description="Filtra por clasificación y situación operativa del bien."
-              searchLabel="Buscar código o bien"
-              searchPlaceholder="Código FM, ID técnico, nombre, marca o modelo"
+              searchLabel="Buscar"
+              searchPlaceholder="Buscar por código, bien, marca o modelo"
               searchValue={values.q}
               onSearchChange={(value) => updateFilter("q", value)}
               resultCount={resultCount}
