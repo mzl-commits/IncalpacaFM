@@ -227,8 +227,8 @@ export function AssignmentListPage() {
       <div className="page-heading">
         <div>
           <p className="breadcrumb">Inicio / Asignaciones</p>
-          <h1>Asignaciones de bienes</h1>
-          <p>Gestiona responsables, entregas y movimientos con trazabilidad completa.</p>
+          <h1>Asignaciones</h1>
+          <p>Control de responsables y entregas.</p>
         </div>
         <Link className="button button-primary" to="/asignaciones/nueva">
           <Plus weight="bold" />
@@ -238,33 +238,33 @@ export function AssignmentListPage() {
 
       <div className="metrics-grid assignment-metrics">
         <article>
-          <span>Asignaciones activas</span>
+          <span>Activas</span>
           <strong>{active.length}</strong>
-          <small>Con responsable vigente</small>
+          <small>Con responsable</small>
         </article>
         <article className="metric-pending">
-          <span>Pendientes de entrega</span>
+          <span>Pendientes</span>
           <strong>{pendingDeliveryCount}</strong>
-          <small>Requieren acta y firmas</small>
+          <small>Por entregar</small>
         </article>
         <article className="metric-success">
-          <span>Entregados</span>
+          <span>Entregadas</span>
           <strong>{active.filter((item) => item.delivery_status === "ENTREGADO").length}</strong>
-          <small>Acta emitida</small>
+          <small>Con acta</small>
         </article>
         <article>
-          <span>Históricos</span>
+          <span>Historial</span>
           <strong>{historicalCount}</strong>
-          <small>Asignaciones cerradas</small>
+          <small>Cerradas</small>
         </article>
       </div>
 
       <div className="data-panel">
         <ListFilterPanel
-          title="Consultar asignaciones"
+          title="Asignaciones"
           description="Cruza entrega, vigencia, responsable, ubicación y periodo."
-          searchLabel="Buscar asignaciones"
-          searchPlaceholder="Código, bien, responsable, área o ubicación"
+          searchLabel="Buscar"
+          searchPlaceholder="Buscar por código, bien o responsable"
           searchValue={values.q}
           onSearchChange={(value) => setValue("q", value)}
           resultCount={filtered.length}
@@ -394,7 +394,7 @@ export function AssignmentListPage() {
                   </td>
                   <td>
                     <Link className="table-action" to={`/asignaciones/${item.id}`}>
-                      Ver detalle <CaretRight />
+                      Detalle <CaretRight />
                     </Link>
                   </td>
                 </tr>
@@ -435,7 +435,7 @@ export function AssignmentListPage() {
                 </div>
               </dl>
               <Link to={`/asignaciones/${item.id}`}>
-                Ver detalle <CaretRight />
+                Detalle <CaretRight />
               </Link>
             </article>
           ))}

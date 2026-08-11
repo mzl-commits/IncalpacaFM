@@ -1,11 +1,10 @@
-import { ArrowRight, WarningCircle } from "@phosphor-icons/react";
+import { Archive, ArrowDown, ArrowRight, ArrowUp, Handshake, Package, WarningCircle } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 
 import { FilterSelect, FilterDate, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
-import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listMovimientos, listChecklistPrestados } from "@/modules/almacen/inventarioRepository";
 
@@ -101,12 +100,57 @@ export function MovimientosPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="almacen-stats">
-        <StatCard icon={<ArrowRight size={20} />} value={totalSalidas} label="Salidas" />
-        <StatCard icon={<ArrowRight size={20} style={{ transform: "rotate(180deg)" }} />} value={totalEntradas} label="Entradas" />
-        <StatCard icon={<WarningCircle size={20} />} value={totalBajas} label="Bajas" variant={totalBajas > 0 ? "error" : "default"} />
-        <StatCard icon={<WarningCircle size={20} />} value={prestadas.length} label="Prestadas" sublabel="actualmente" variant={prestadasAntiguas.length > 0 ? "warning" : "default"} />
+      {/* Indicadores de Movimientos de Stock */}
+      <div className="stock-movements-strip">
+        {/* 1. ENTRADAS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <span className="stock-indicator-icon-combo">
+              <Package size={22} weight="bold" />
+              <ArrowDown size={13} weight="bold" className="indicator-arrow-sub" />
+            </span>
+            <span className="stock-indicator-title">ENTRADAS</span>
+          </header>
+
+          <strong className="stock-indicator-value">{totalEntradas}</strong>
+          <small className="stock-indicator-unit">movimientos</small>
+        </article>
+
+        {/* 2. SALIDAS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <span className="stock-indicator-icon-combo">
+              <Package size={22} weight="bold" />
+              <ArrowUp size={13} weight="bold" className="indicator-arrow-sub" />
+            </span>
+            <span className="stock-indicator-title">SALIDAS</span>
+          </header>
+
+          <strong className="stock-indicator-value">{totalSalidas}</strong>
+          <small className="stock-indicator-unit">movimientos</small>
+        </article>
+
+        {/* 3. PRÉSTAMOS ACTIVOS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <Handshake size={22} weight="bold" />
+            <span className="stock-indicator-title">PRÉSTAMOS ACTIVOS</span>
+          </header>
+
+          <strong className="stock-indicator-value">{prestadas.length}</strong>
+          <small className="stock-indicator-unit">activos</small>
+        </article>
+
+        {/* 4. BAJAS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <Archive size={22} weight="bold" />
+            <span className="stock-indicator-title">BAJAS</span>
+          </header>
+
+          <strong className="stock-indicator-value">{totalBajas}</strong>
+          <small className="stock-indicator-unit">bienes</small>
+        </article>
       </div>
 
       <div className="data-panel">
