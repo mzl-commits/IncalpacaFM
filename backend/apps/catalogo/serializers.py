@@ -6,7 +6,7 @@ from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_pieza
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categoria
-        fields = ["id", "nombre", "prefijo", "descripcion", "activo"]
+        fields = ["id", "nombre", "prefijo", "descripcion", "activo", "requiere_inspeccion"]
 
 class SubcategoriaSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="categoria.nombre", read_only=True)
@@ -77,12 +77,9 @@ class MaterialSerializer(serializers.ModelSerializer):
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
             "unidad_medida", "grosor", "largo", "ubicacion_fisica", "precio",
             "tipo_control", "control_individual", "cantidad_total",
-<<<<<<< HEAD
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",
-=======
             "unidad_manejo", "unidades_por_caja",
->>>>>>> origin/stock/integracion
             "activo", "creado_en",
         ]
         # cantidad_total YA NO va aquí — ahora es editable
@@ -99,13 +96,9 @@ class MaterialSerializer(serializers.ModelSerializer):
             "control_individual",
             getattr(self.instance, "control_individual", False),
         )
-<<<<<<< HEAD
-        # Con control individual, ignoramos cantidad_total enviada: se calcula solo desde las piezas.
-=======
         # Si el material tiene control individual, ignoramos cualquier
         # cantidad_total enviada: siempre se calcula solo desde las piezas.
         # Tampoco aplica el manejo por caja (es exclusivo de consumibles).
->>>>>>> origin/stock/integracion
         if control_individual:
             attrs.pop("cantidad_total", None)
             attrs["unidad_manejo"] = "unidad"
@@ -416,8 +409,3 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
             contenedor.material.recalcular_cantidad()
 
         return creadas
-
-class CategoriaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Categoria
-        fields = ["id", "nombre", "prefijo", "descripcion", "activo", "requiere_inspeccion"]

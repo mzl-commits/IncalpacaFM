@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { Package, Plus, WarningCircle, MapPin, Image } from "@phosphor-icons/react";
-=======
-import { Package, Plus, WarningCircle, CaretRight, MapPin, FolderPlus } from "@phosphor-icons/react";
->>>>>>> origin/stock/integracion
+import { Package, Plus, WarningCircle, MapPin, Image, FolderPlus } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -12,11 +8,8 @@ import { buildFilterOptions, useListFilterParams } from "@/components/filters/fi
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listMateriales, listCategorias, listSubcategorias } from "@/modules/almacen/catalogoRepository";
-<<<<<<< HEAD
 import type { Material } from "@/modules/almacen/types";
-=======
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
->>>>>>> origin/stock/integracion
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import { CroquisCarrusel } from "@/modules/almacen/components/CroquisCarrusel";
 
@@ -255,7 +248,6 @@ export function CatalogoPage() {
       </div>
     </section>
   );
-<<<<<<< HEAD
 }
 
 // ─── Card de material ────────────────────────────────────────────────────────
@@ -317,6 +309,4 @@ function MaterialCard({ m, busquedaPieza, q }: { m: Material; busquedaPieza: boo
       </div>
     </Link>
   );
-=======
->>>>>>> origin/stock/integracion
 }

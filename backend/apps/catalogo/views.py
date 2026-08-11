@@ -173,8 +173,6 @@ class MaterialViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-<<<<<<< HEAD
-=======
     @action(detail=True, methods=["get"], url_path="materiales-hijas")
     def materiales_hijas(self, request, pk=None):
         """
@@ -193,7 +191,6 @@ class MaterialViewSet(viewsets.ModelViewSet):
         return Response(MaterialSerializer(materiales, many=True).data)
 
 
->>>>>>> origin/stock/integracion
 class PiezaViewSet(viewsets.ModelViewSet):
     queryset = Pieza.objects.select_related("material", "padre").all()
     serializer_class = PiezaSerializer
