@@ -13,6 +13,9 @@ type ApiUser = {
   email: string;
   role: SystemUser["role"];
   specialty: string;
+  dni?: string;
+  position?: string;
+  hourly_rate?: number | string;
   must_change_password: boolean;
 };
 
@@ -33,6 +36,9 @@ function mapUser(user: ApiUser): SystemUser {
     email: user.email,
     role: user.role,
     specialtyId: user.specialty,
+    dni: user.dni,
+    position: user.position,
+    hourlyRate: user.hourly_rate,
     mustChangePassword: user.must_change_password,
     active: true,
   };

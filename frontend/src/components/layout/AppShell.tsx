@@ -566,13 +566,13 @@ export function AppShell() {
               </button>
             )}
             <NotificationCenter />
-            <div className="topbar-user" aria-label="Usuario actual">
+            <NavLink to="/perfil" className="topbar-user topbar-user-link" aria-label="Abrir mi perfil">
               <span>{initials}</span>
               <div>
                 <strong>{user?.fullName}</strong>
                 <small>{roleLabel}</small>
               </div>
-            </div>
+            </NavLink>
           </div>
         </header>
 
