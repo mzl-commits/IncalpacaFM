@@ -143,7 +143,6 @@ export interface Material {
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
-<<<<<<< HEAD
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
   /** Periodicidad de inspección en días, calculada por el backend. */
@@ -154,10 +153,8 @@ export interface Material {
    * categoría con requiere_inspeccion=True.
    */
   es_inspeccionable: boolean;
-=======
   unidad_manejo: UnidadManejo;
   unidades_por_caja: number | null;
->>>>>>> origin/stock/integracion
   activo: boolean;
   creado_en: string;
 }
@@ -181,14 +178,11 @@ export interface MaterialCreatePayload {
   precio?: string | number | null;
   tipo_control: TipoControl;
   control_individual: boolean;
-<<<<<<< HEAD
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
-=======
   unidad_manejo?: UnidadManejo;
   unidades_por_caja?: number | string | null;
   cantidad_total?: number;
->>>>>>> origin/stock/integracion
   // foto se envía aparte como FormData si existe
 }
 

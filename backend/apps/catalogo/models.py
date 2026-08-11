@@ -67,17 +67,16 @@ class Material(models.Model):
         ("no_retornable", "No retornable"),
     ]
 
-<<<<<<< HEAD
     UNIDAD_MEDIDA_CHOICES = [
         ("mm", "Milímetros"),
         ("cm", "Centímetros"),
         ("in", "Pulgadas"),
         ("ft", "Pies"),
-=======
+    ]
+
     UNIDAD_MANEJO_CHOICES = [
         ("unidad", "Unidad"),
         ("caja", "Caja"),
->>>>>>> origin/stock/integracion
     ]
 
     subcategoria = models.ForeignKey(

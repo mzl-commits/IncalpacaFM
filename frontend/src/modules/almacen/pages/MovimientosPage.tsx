@@ -141,7 +141,10 @@ export function MovimientosPage() {
         tipo: principal.tipo,
         tipoDisplay: principal.tipo_display,
         fecha: principal.fecha,
-        codigoDisplay: principal.pieza_codigo ?? `${principal.cantidad} u.`,
+        codigoDisplay: principal.pieza_codigo
+          ?? (principal.cantidad_cajas
+            ? `${principal.cantidad_cajas} caja(s) · ${principal.cantidad} u.`
+            : `${principal.cantidad} u.`),
         materialNombre: principal.material_nombre,
         materialCodigo: principal.material_codigo,
         responsableNombre: principal.responsable_nombre,
@@ -203,7 +206,10 @@ export function MovimientosPage() {
         tipo: m.tipo,
         tipoDisplay: m.tipo_display,
         fecha: m.fecha,
-        codigoDisplay: m.pieza_codigo ?? `${m.cantidad} u.`,
+        codigoDisplay: m.pieza_codigo
+          ?? (m.cantidad_cajas
+            ? `${m.cantidad_cajas} caja(s) · ${m.cantidad} u.`
+            : `${m.cantidad} u.`),
         materialNombre: m.material_nombre,
         materialCodigo: m.material_codigo,
         responsableNombre: m.responsable_nombre,
@@ -332,7 +338,6 @@ export function MovimientosPage() {
               {!isLoading && grupos.length === 0 && (
                 <tr><td colSpan={7} className="empty-row">No hay movimientos con esos criterios.</td></tr>
               )}
-<<<<<<< HEAD
               {grupos.map((g) => {
                 const abierto = expandido.has(g.key);
                 return (
@@ -386,31 +391,6 @@ export function MovimientosPage() {
                   </Fragment>
                 );
               })}
-=======
-              {filtrados.map((mov) => (
-                <tr key={mov.id}>
-                  <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-                    {new Date(mov.fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })}
-                  </td>
-                  <td>
-                    <strong style={{ fontSize: 13 }}>{mov.material_nombre}</strong>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{mov.material_codigo}</div>
-                  </td>
-                  <td style={{ fontSize: 12, fontFamily: "ui-monospace, monospace" }}>
-                    {mov.pieza_codigo
-                      ?? (mov.cantidad_cajas
-                        ? `${mov.cantidad_cajas} caja(s) · ${mov.cantidad} u.`
-                        : `${mov.cantidad} u.`)}
-                  </td>
-                  <td><StatusBadge value={mov.tipo} label={mov.tipo_display} /></td>
-                  <td style={{ fontSize: 12 }}>{mov.responsable_nombre}</td>
-                  <td style={{ fontSize: 12, color: "var(--muted)" }}>{mov.referencia_externa || "—"}</td>
-                  <td style={{ fontSize: 12, color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {mov.observaciones || "—"}
-                  </td>
-                </tr>
-              ))}
->>>>>>> origin/stock/integracion
             </tbody>
           </table>
         </div>

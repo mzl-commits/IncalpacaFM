@@ -17,11 +17,8 @@ import {
 import type {
   MaterialCreatePayload,
   TipoControl,
-<<<<<<< HEAD
   UnidadMedida,
-=======
   UnidadManejo,
->>>>>>> origin/stock/integracion
 } from "@/modules/almacen/types";
 
 // ─── Tipos y constantes del formulario ───────────────────────────────────────
@@ -57,18 +54,13 @@ export function MaterialFormPage() {
     precio: "",
     tipo_control: "retornable",
     control_individual: false,
-<<<<<<< HEAD
     periodicidad_valor: 3,
     periodicidad_unidad: "meses",
-  });
-
-=======
     unidad_manejo: "unidad",
     unidades_por_caja: "",
   });
   // Solo usado en el paso "Stock inicial" para calcular cantidad_total = cajas × unidades_por_caja.
   const [cajasIniciales, setCajasIniciales] = useState<string>("");
->>>>>>> origin/stock/integracion
   const [categoriaId, setCategoriaId] = useState<number>(0);
   const [catalogoModalOpen, setCatalogoModalOpen] = useState(false);
 
@@ -111,14 +103,11 @@ export function MaterialFormPage() {
         precio: materialExistente.precio ?? "",
         tipo_control: materialExistente.tipo_control,
         control_individual: materialExistente.control_individual,
-<<<<<<< HEAD
         periodicidad_valor: materialExistente.periodicidad_valor ?? 3,
         periodicidad_unidad: materialExistente.periodicidad_unidad ?? "meses",
-=======
         unidad_manejo: materialExistente.unidad_manejo ?? "unidad",
         unidades_por_caja: materialExistente.unidades_por_caja ?? "",
         cantidad_total: materialExistente.cantidad_total,
->>>>>>> origin/stock/integracion
       });
       if (materialExistente.foto) setFotoPreview(materialExistente.foto);
       setFormInicializado(true);
@@ -654,49 +643,4 @@ export function MaterialFormPage() {
       </Modal>
     </section>
   );
-<<<<<<< HEAD
-=======
-}
-
-// ─── Guía visual de croquis para el formulario ──────────────────────────────
-
-function GruiaCroquisFormulario() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div
-      style={{
-        border: "1px solid var(--border, #e5e7eb)",
-        borderRadius: 8,
-        overflow: "hidden",
-        background: "var(--surface-raised, #f9fafb)",
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 14px", background: "transparent", border: 0, cursor: "pointer",
-          fontSize: 13, fontWeight: 500, color: "var(--primary, #2563eb)",
-        }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          🗺️ Ver croquis del almacén — guía para elegir ubicación
-        </span>
-        {open ? <CaretUp size={15} /> : <CaretDown size={15} />}
-      </button>
-
-      {open && (
-        <div style={{ borderTop: "1px solid var(--border, #e5e7eb)", background: "#f1f5f9" }}>
-          <img
-            src="/croquis_almacen.png"
-            alt="Croquis del almacén: plano en planta, vista isométrica y leyenda de inventario"
-            style={{ width: "100%", maxHeight: 420, objectFit: "contain", display: "block" }}
-          />
-        </div>
-      )}
-    </div>
-  );
->>>>>>> origin/stock/integracion
 }

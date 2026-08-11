@@ -141,15 +141,9 @@ export function InspeccionDetailPage() {
                 </dd>
               </div>
               <div>
-<<<<<<< HEAD
                 <dt className="dt-label">Acción tomada</dt>
                 <dd className="dd-value">
                   {accionInspeccionLabels[inspeccion.accion_tomada] ?? inspeccion.accion_tomada}
-=======
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Acción tomada</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
-                  {(accionInspeccionLabels as any)[inspeccion.accion_tomada] ?? inspeccion.accion_tomada}
->>>>>>> origin/stock/integracion
                 </dd>
               </div>
 

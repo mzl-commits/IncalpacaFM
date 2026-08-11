@@ -14,7 +14,6 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
   const [cantidad, setCantidad] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-<<<<<<< HEAD
   // Este panel es para correcciones administrativas rápidas de stock (ej.
   // "conté mal", "encontré 2 más en la repisa"), NO para dar de baja
   // formalmente. Por eso usa `ajustarStock` (que solo corrige
@@ -24,35 +23,24 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
   // "disminuir" acá quedan como baja — para dar de baja de verdad
   // (unidades dañadas, vencidas, perdidas), con su observación, se usa el
   // flujo formal de Movimientos → Nuevo movimiento → Baja.
-=======
+  //
+  // Cuando el material se maneja por caja (unidad_manejo === "caja"), el
+  // usuario ingresa cantidad de CAJAS; acá se convierte a unidades antes de
+  // llamar a ajustarStock, porque el endpoint de ajuste rápido siempre
+  // trabaja en unidades (no tiene noción de "cajas").
   const esPorCaja = material.unidad_manejo === "caja" && !!material.unidades_por_caja;
 
->>>>>>> origin/stock/integracion
   const mutation = useMutation({
     mutationFn: async () => {
       const cantidadNum = Number(cantidad);
       if (!cantidadNum || cantidadNum <= 0) {
         throw new Error(esPorCaja ? "Ingresa una cantidad de cajas válida mayor a 0." : "Ingresa una cantidad válida mayor a 0.");
       }
-<<<<<<< HEAD
-      const delta = modo === "entrada" ? cantidadNum : -cantidadNum;
+      const cantidadEnUnidades = esPorCaja
+        ? cantidadNum * (material.unidades_por_caja ?? 0)
+        : cantidadNum;
+      const delta = modo === "entrada" ? cantidadEnUnidades : -cantidadEnUnidades;
       return ajustarStock({ material_id: material.id, cantidad: delta });
-=======
-      if (!user) {
-        throw new Error("No hay usuario autenticado.");
-      }
-
-      const input = {
-        material_id: material.id,
-        ...(esPorCaja ? { cantidad_cajas: cantidadNum } : { cantidad: cantidadNum }),
-        responsable_id: user.userId,
-        observaciones: observaciones.trim() || undefined,
-      };
-
-      return modo === "entrada"
-        ? registrarEntradaMaterial(input)
-        : registrarBajaMaterial(input);
->>>>>>> origin/stock/integracion
     },
     onSuccess: () => {
       setCantidad("");
