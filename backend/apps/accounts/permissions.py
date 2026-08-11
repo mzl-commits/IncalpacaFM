@@ -65,12 +65,29 @@ class IsAlmaceneroOrAdministratorWrite(BasePermission):
 
 class IsInspectorOrAdministrator(BasePermission):
     """
-    Requiere rol ADMINISTRADOR o INSPECTOR. Se usará para el CRUD de
-    plantillas de criterios de inspección (tarea pendiente aparte).
+    Requiere rol ADMINISTRADOR o INSPECTOR.
     """
     message = "Esta acción requiere permisos de Administrador o Inspector."
 
     def has_permission(self, request, view):
+        return user_role(request.user) in {
+            AccountProfile.Role.ADMIN,
+            AccountProfile.Role.INSPECTOR,
+        }
+
+
+class IsInspectorOrAdministratorWrite(BasePermission):
+    """
+    Requiere sesión iniciada para lecturas (SAFE_METHODS).
+    Requiere rol ADMINISTRADOR o INSPECTOR para escritura (POST, PUT, PATCH, DELETE).
+    """
+    message = "Esta acción requiere permisos de Administrador o Inspector."
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
         return user_role(request.user) in {
             AccountProfile.Role.ADMIN,
             AccountProfile.Role.INSPECTOR,
