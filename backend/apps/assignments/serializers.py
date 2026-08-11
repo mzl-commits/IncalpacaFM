@@ -147,9 +147,18 @@ class DeliveryCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         if not attrs['privacy_accepted']:
             raise serializers.ValidationError({'privacy_accepted': 'Debes aceptar el aviso de privacidad.'})
-        required_checks = ('inspected', 'qr_legible', 'accessories_complete', 'no_unreported_damage')
-        if not all(attrs['checklist'].get(key) for key in required_checks):
-            raise serializers.ValidationError({'checklist': 'Completa todas las verificaciones obligatorias.'})
+        checklist = attrs['checklist']
+        checks = ('inspected', 'qr_legible', 'accessories_complete', 'no_unreported_damage')
+        missing_checks = [key for key in checks if key not in checklist or not isinstance(checklist[key], bool)]
+        if missing_checks:
+            raise serializers.ValidationError({'checklist': 'Registra el resultado de cada verificación.'})
+        if not checklist['inspected']:
+            raise serializers.ValidationError({'checklist': 'Debes confirmar que realizaste la inspección física.'})
+        failed_checks = [key for key in checks if key != 'inspected' and not checklist[key]]
+        if failed_checks and len(attrs.get('observations', '').strip()) < 10:
+            raise serializers.ValidationError({
+                'observations': 'Describe la situación encontrada cuando el QR, los accesorios o el estado del bien no cumplen.'
+            })
         roles = {item['role'] for item in attrs['signatures']}
         if roles != {DeliverySignature.Role.DELIVERER, DeliverySignature.Role.RECEIVER}:
             raise serializers.ValidationError({'signatures': 'Se requieren las dos conformidades.'})
