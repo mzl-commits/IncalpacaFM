@@ -6,13 +6,9 @@ export const STOCK_MINIMO = 5;
 // ─── Enums / literales ────────────────────────────────────────────────────────
 
 export type TipoControl = "retornable" | "no_retornable";
-
 export type UnidadManejo = "unidad" | "caja";
-
 export type EstadoPieza = "Disponible" | "Prestado" | "Mantenimiento" | "Baja";
-
 export type TipoMovimiento = "salida" | "entrada" | "baja";
-
 export type TipoInspeccion = "individual" | "grupal";
 
 export type ResultadoInspeccion =
