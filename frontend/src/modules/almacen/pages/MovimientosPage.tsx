@@ -1,4 +1,4 @@
-import { ArrowRight, ClockCountdown, FileXls, WarningCircle } from "@phosphor-icons/react";
+import { Archive, ArrowDown, ArrowRight, ArrowUp, ClockCountdown, FileXls, Handshake, Package, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Fragment, useMemo, useState } from "react";
@@ -7,7 +7,6 @@ import { listMateriales, listPiezas } from "@/modules/almacen/catalogoRepository
 import type { Material, PiezaBase } from "@/modules/almacen/types";
 import { FilterSelect, FilterDate, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
-import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   listMovimientos,
@@ -403,13 +402,57 @@ export function MovimientosPage() {
         </div>
       )}
 
+      {/* Indicadores de Movimientos de Stock */}
+      <div className="stock-movements-strip">
+        {/* 1. ENTRADAS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <span className="stock-indicator-icon-combo">
+              <Package size={22} weight="bold" />
+              <ArrowDown size={13} weight="bold" className="indicator-arrow-sub" />
+            </span>
+            <span className="stock-indicator-title">ENTRADAS</span>
+          </header>
 
-      {/* Stats */}
-      <div className="almacen-stats">
-        <StatCard icon={<ArrowRight size={20} />} value={totalSalidas} label="Salidas" />
-        <StatCard icon={<ArrowRight size={20} style={{ transform: "rotate(180deg)" }} />} value={totalEntradas} label="Entradas" />
-        <StatCard icon={<WarningCircle size={20} />} value={totalBajas} label="Bajas" variant={totalBajas > 0 ? "error" : "default"} />
-        <StatCard icon={<WarningCircle size={20} />} value={prestadas.length} label="Prestadas" sublabel="actualmente" variant={prestadasAntiguas.length > 0 ? "warning" : "default"} />
+          <strong className="stock-indicator-value">{totalEntradas}</strong>
+          <small className="stock-indicator-unit">movimientos</small>
+        </article>
+
+        {/* 2. SALIDAS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <span className="stock-indicator-icon-combo">
+              <Package size={22} weight="bold" />
+              <ArrowUp size={13} weight="bold" className="indicator-arrow-sub" />
+            </span>
+            <span className="stock-indicator-title">SALIDAS</span>
+          </header>
+
+          <strong className="stock-indicator-value">{totalSalidas}</strong>
+          <small className="stock-indicator-unit">movimientos</small>
+        </article>
+
+        {/* 3. PRÉSTAMOS ACTIVOS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <Handshake size={22} weight="bold" />
+            <span className="stock-indicator-title">PRÉSTAMOS ACTIVOS</span>
+          </header>
+
+          <strong className="stock-indicator-value">{prestadas.length}</strong>
+          <small className="stock-indicator-unit">activos</small>
+        </article>
+
+        {/* 4. BAJAS */}
+        <article className="stock-indicator-item">
+          <header className="stock-indicator-header">
+            <Archive size={22} weight="bold" />
+            <span className="stock-indicator-title">BAJAS</span>
+          </header>
+
+          <strong className="stock-indicator-value">{totalBajas}</strong>
+          <small className="stock-indicator-unit">bienes</small>
+        </article>
       </div>
 
       <div className="data-panel">
