@@ -7,6 +7,7 @@ import { useLocations } from "@/modules/assets/locationMapQueries";
 import type { LocationOption } from "@/modules/assets/locationMapTypes";
 import { REQUEST_PRIORITIES, REQUEST_TYPES, requestPriorityLabels, requestTypeLabels, type RequestPriority, type RequestType } from "@/modules/incidents/incidentModel";
 import { createWorkRequest } from "@/modules/incidents/incidentRepository";
+import { createClientId } from "@/utils/uuid";
 
 interface RequestFormState {
   locationId: string;
@@ -103,7 +104,7 @@ export function IncidentCreatePage() {
         description: form.description.trim(),
         requesterPriority: form.requesterPriority,
         project: form.project,
-        evidence: form.photoName ? [{ id: crypto.randomUUID(), name: form.photoName, mimeType: "image/*", size: 0 }] : [],
+        evidence: form.photoName ? [{ id: createClientId("evidence"), name: form.photoName, mimeType: "image/*", size: 0 }] : [],
         status: "PENDIENTE",
       });
       navigate("/incidencias");

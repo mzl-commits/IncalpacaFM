@@ -16,10 +16,11 @@ interface LocationMarkerPickerProps {
   error?: string;
   subjectLabel?: string;
   onChange: (x: number | null, y: number | null) => void;
+  readOnly?: boolean;
 }
 
 function clamp(value: number) {
-  return Math.min(1, Math.max(0, value));
+  return Number(Math.min(1, Math.max(0, value)).toFixed(8));
 }
 
 export function LocationMarkerPicker({
@@ -30,6 +31,7 @@ export function LocationMarkerPicker({
   error,
   subjectLabel = "bien",
   onChange,
+  readOnly = false,
 }: LocationMarkerPickerProps) {
   const imageQuery = useLocationMapImage(locationMap.id);
   const hasMarker = markerX !== null && markerY !== null;
@@ -73,7 +75,7 @@ export function LocationMarkerPicker({
           <span>Imagen referencial · versión {locationMap.version}</span>
           <strong>{locationName}</strong>
         </div>
-        {hasMarker && (
+        {hasMarker && !readOnly && (
           <button type="button" onClick={() => onChange(null, null)}>
             <ArrowCounterClockwise /> Quitar marcador
           </button>
@@ -85,7 +87,7 @@ export function LocationMarkerPicker({
       ) : imageQuery.isError || !imageQuery.data ? (
         <div className="location-map-load-error" role="alert">
           <WarningCircle />
-          <span>No se pudo cargar la imagen protegida del ambiente.</span>
+          <span>El plano no está disponible. Solicita al administrador volver a cargar la imagen del ambiente.</span>
           <button type="button" onClick={() => imageQuery.refetch()}>Reintentar</button>
         </div>
       ) : (
@@ -98,8 +100,9 @@ export function LocationMarkerPicker({
               : `Colocar el ${subjectLabel} en la imagen del ambiente`
           }
           aria-describedby="location-marker-help"
-          onClick={placeFromPointer}
-          onKeyDown={moveWithKeyboard}
+          onClick={readOnly ? undefined : placeFromPointer}
+          onKeyDown={readOnly ? undefined : moveWithKeyboard}
+          disabled={readOnly}
         >
           <img src={imageQuery.data} alt={`Referencia visual de ${locationName}`} draggable={false} />
           {hasMarker && (

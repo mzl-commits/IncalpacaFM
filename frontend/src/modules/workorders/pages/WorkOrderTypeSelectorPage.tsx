@@ -8,7 +8,7 @@ export function WorkOrderTypeSelectorPage() {
         <div>
           <p className="breadcrumb">Mantenimiento / Nueva orden</p>
           <h1>Crear orden</h1>
-          <p>Elige que tipo de orden se va a generar. Por ahora solo la OT usa el flujo activo.</p>
+          <p>Elige el tipo de orden según cómo se atenderá el trabajo.</p>
         </div>
         <Link className="button button-secondary" to="/ordenes-trabajo">
           <ArrowLeft size={18} />
@@ -17,14 +17,14 @@ export function WorkOrderTypeSelectorPage() {
       </div>
 
       <div className="order-type-grid">
-        <Link className="order-type-card is-enabled" to="/ordenes-trabajo/nueva/ot">
+        <Link className="order-type-card is-enabled is-ot" to="/ordenes-trabajo/nueva/ot">
           <span className="order-type-icon">
             <Wrench size={28} />
           </span>
           <span className="order-type-code">OT</span>
           <strong>Orden de trabajo</strong>
           <small>
-            Para mantenimiento correctivo o atencion tecnica creada directamente por administracion.
+            Para mantenimiento, reparaciones o atención técnica interna.
           </small>
           <b>
             Continuar con OT
@@ -32,14 +32,14 @@ export function WorkOrderTypeSelectorPage() {
           </b>
         </Link>
 
-        <Link className="order-type-card is-enabled" to="/ordenes-trabajo/nueva/ol">
+        <Link className="order-type-card is-enabled is-ol" to="/ordenes-trabajo/nueva/ol">
           <span className="order-type-icon">
             <ClipboardText size={28} />
           </span>
           <span className="order-type-code">OL</span>
           <strong>Orden de limpieza</strong>
           <small>
-            Para una limpieza puntual creada por administracion.
+            Para una limpieza puntual en un ambiente específico.
           </small>
           <b>
             OL puntual
@@ -48,31 +48,34 @@ export function WorkOrderTypeSelectorPage() {
         </Link>
 
 
-        <Link className="order-type-card is-enabled" to="/ordenes-trabajo/nueva/ol-rutinaria">
+        <Link className="order-type-card is-enabled is-ol-routine" to="/ordenes-trabajo/nueva/ol-rutinaria">
           <span className="order-type-icon">
             <CalendarBlank size={28} />
           </span>
           <span className="order-type-code">OL</span>
           <strong>Limpieza rutinaria</strong>
           <small>
-            Para generar varias OL segun dias, hora y rango de fechas.
+            Para generar varias OL por días, hora y rango de fechas.
           </small>
           <b>
             OL rutinaria
             <ArrowRight size={17} />
           </b>
         </Link>
-        <button className="order-type-card is-disabled" type="button" disabled>
+        <Link className="order-type-card is-enabled is-os" to="/ordenes-trabajo/nueva/os">
           <span className="order-type-icon">
             <Package size={28} />
           </span>
           <span className="order-type-code">OS</span>
           <strong>Orden de servicio</strong>
           <small>
-            Para servicios o derivaciones que todavia no forman parte del flujo actual.
+            Para registrar proveedor, documento y monto de un servicio externo.
           </small>
-          <b>Proximamente</b>
-        </button>
+          <b>
+            Continuar con OS
+            <ArrowRight size={17} />
+          </b>
+        </Link>
       </div>
     </section>
   );

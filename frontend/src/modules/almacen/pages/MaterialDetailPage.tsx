@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, ArrowRight, CaretDown, ClipboardText, Package, PencilSimple, Plus, Trash, WarningCircle,
+  ArrowLeft, ArrowRight, ClipboardText, Package, PencilSimple, Plus, Trash, WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -41,7 +41,6 @@ export function MaterialDetailPage() {
 
   // "idle" | "confirming" | "force_required" | "force_confirming"
   const [deleteStep, setDeleteStep] = useState<"idle" | "confirming" | "force_required" | "force_confirming">("idle");
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const deleteMut = useMutation({
     mutationFn: () => deleteMaterial(materialId),
@@ -49,9 +48,10 @@ export function MaterialDetailPage() {
       qc.invalidateQueries({ queryKey: ["materiales"] });
       navigate("/almacen/catalogo");
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
       // 409 = tiene datos asociados, ofrecer eliminación forzada
-      if (err?.response?.status === 409) {
+      if (status === 409) {
         setDeleteStep("force_required");
       } else {
         setDeleteStep("idle");

@@ -9,6 +9,7 @@ export const SPECIALTIES = [
   "PINTURA",
   "LIMPIEZA",
   "JARDINERIA",
+  "SERVICIO_EXTERNO",
 ] as const;
 
 export type Specialty = (typeof SPECIALTIES)[number];
@@ -23,6 +24,7 @@ export type AdminPriority = (typeof ADMIN_PRIORITIES)[number];
 
 export const WORK_ORDER_STATUSES = [
   "PROGRAMADA",
+  "PENDIENTE_REPROGRAMACION",
   "ASIGNADA",
   "EN_PROCESO",
   "PENDIENTE_DE_SUPERVISION",
@@ -56,6 +58,7 @@ export const specialtyLabels: Record<Specialty, string> = {
   PINTURA: "Pintura",
   LIMPIEZA: "Limpieza",
   JARDINERIA: "Jardinería",
+  SERVICIO_EXTERNO: "Servicio externo",
 };
 
 export const adminPriorityLabels: Record<AdminPriority, string> = {
@@ -65,15 +68,16 @@ export const adminPriorityLabels: Record<AdminPriority, string> = {
 };
 
 export const workOrderStatusLabels: Record<WorkOrderStatus, string> = {
-  PROGRAMADA: "Programada",
+  PROGRAMADA: "Lista para iniciar",
+  PENDIENTE_REPROGRAMACION: "En espera de reprogramación",
   ASIGNADA: "Asignada",
-  EN_PROCESO: "En proceso",
-  PENDIENTE_DE_SUPERVISION: "Pendiente de supervisión",
-  PENDIENTE_DE_VALIDACION: "Pendiente de validación administrativa",
-  PENDIENTE_DE_CONFORMIDAD: "Ejecutada, pendiente de conformidad",
-  DEVUELTA: "Devuelta",
-  REPROCESO: "Reproceso",
-  APROBADA_POR_SUPERVISOR: "Aprobada por supervisor",
+  EN_PROCESO: "En atención",
+  PENDIENTE_DE_SUPERVISION: "Esperando revisión del supervisor",
+  PENDIENTE_DE_VALIDACION: "Esperando validación del admin",
+  PENDIENTE_DE_CONFORMIDAD: "Atendida, esperando calificación",
+  DEVUELTA: "Necesita corrección",
+  REPROCESO: "En corrección",
+  APROBADA_POR_SUPERVISOR: "Revisada por supervisor",
   CERRADA: "Cerrada",
   CANCELADA: "Cancelada",
 };

@@ -1,4 +1,3 @@
-import { UsersThree } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 import { ListFilterPanel } from "@/components/filters/ListFilterPanel";
@@ -35,13 +34,13 @@ export function ReporterRegistryPage() {
       <header className="page-heading">
         <div>
           <p className="breadcrumb">Administración / Personas</p>
-          <h1>Historial de reportantes</h1>
-          <p>Personas identificadas al emitir solicitudes sin crear una cuenta de acceso.</p>
+          <h1>Usuarios que reportaron</h1>
+          <p>Personas que han registrado solicitudes y reportes en la plataforma.</p>
         </div>
       </header>
       
       <ListFilterPanel
-        title="Registro de reportantes"
+          title="Usuarios que reportaron"
         description="El DNI y el código de trabajador se conservan solo para trazabilidad administrativa."
         searchLabel="Búsqueda"
         searchPlaceholder="Buscar por nombre, DNI o código"
@@ -65,7 +64,7 @@ export function ReporterRegistryPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Reportante</th>
+                  <th>Usuario que reportó</th>
                   <th>DNI</th>
                   <th>Códigos registrados</th>
                   <th>Reportes</th>

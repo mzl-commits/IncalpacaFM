@@ -128,7 +128,7 @@ export function InspeccionesPage() {
                   <td style={{ whiteSpace: "nowrap", fontSize: 12 }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       {new Date(insp.fecha).toLocaleDateString("es-PE")}
-                      <TrimestreBadge fecha={insp.fecha} />
+                      <TrimestreBadge fecha={insp.fecha} periodicidadDias={insp.material_periodicidad_inspeccion_dias ?? 0} />
                     </span>
                   </td>
                   <td>

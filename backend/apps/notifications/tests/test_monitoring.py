@@ -97,6 +97,21 @@ class WorkOrderAlertTests(TestCase):
             2,
         )
 
+    def test_missed_schedule_returns_order_to_reschedule_queue(self):
+        order = self.create_order(
+            code="OT-ALERT-MISSED",
+            scheduled_date=timezone.localdate() - timedelta(days=1),
+        )
+
+        queue_work_order_alerts(order)
+        queue_work_order_alerts(order)
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, WorkOrder.Status.PENDING_RESCHEDULE)
+        alerts = Notification.objects.filter(event="WORK_ORDER_MISSED_SCHEDULE")
+        self.assertEqual(alerts.count(), 2)
+        self.assertTrue(all("reprogram" in item.subject.lower() for item in alerts))
+
     def test_closed_order_never_generates_operational_alerts(self):
         order = self.create_order(
             code="OT-ALERT-CLOSED",

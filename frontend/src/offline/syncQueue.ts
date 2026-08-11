@@ -1,9 +1,10 @@
 import { api } from "@/services/api";
 import { offlineDb, type OfflineOperation } from "./db";
+import { createClientId } from "@/utils/uuid";
 
 export async function queueOperationalSync(input: Omit<OfflineOperation, "id" | "status" | "createdAt" | "idempotencyKey">) {
-  const id = crypto.randomUUID();
-  await offlineDb.operations.put({ ...input, id, status: "pending", createdAt: new Date().toISOString(), idempotencyKey: crypto.randomUUID() });
+  const id = createClientId("operation");
+  await offlineDb.operations.put({ ...input, id, status: "pending", createdAt: new Date().toISOString(), idempotencyKey: createClientId("idempotency") });
   return id;
 }
 
