@@ -1,0 +1,12 @@
+[Unit]
+Description=SGTB Incalpaca external operational health check
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=incalpaca
+Environment=COMPOSE_PROJECT=incalpaca-staging
+Environment=COMPOSE_DIR=/srv/incalpaca-staging/shared/current_release
+Environment=API_URL=https://api-staging-fm.example.pe
+ExecStart=/srv/incalpaca-staging/shared/current_release/ops/monitor/check-operational-health.sh /srv/incalpaca-staging/shared/.env
