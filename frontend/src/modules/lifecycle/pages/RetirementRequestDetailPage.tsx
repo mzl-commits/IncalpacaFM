@@ -2,6 +2,7 @@ import { ArrowLeft, CheckCircle, FileText, Package, ShieldCheck, Warning } from 
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { currentUser } from "@/modules/accounts/currentUser";
+import { api } from "@/services/api";
 import { getRetirementRequest, updateRetirementRequest } from "@/modules/lifecycle/lifecycleRepository";
 import { disposalLabels, retirementStatusLabels, type DisposalMethod, type RetirementRequest } from "@/modules/lifecycle/types";
 
@@ -15,6 +16,7 @@ export function RetirementRequestDetailPage() {
   const [reason, setReason] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState("");
+  const [previewUrls, setPreviewUrls] = useState<{ label: string; url: string }[]>([]);
 
   useEffect(() => {
     getRetirementRequest(id)
@@ -22,6 +24,25 @@ export function RetirementRequestDetailPage() {
       .catch(() => setError("No se pudo cargar la solicitud."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    let disposed = false;
+    const objectUrls: string[] = [];
+    async function load() {
+      if (!request?.evidencePreviews?.length) return;
+      const previews = await Promise.all(request.evidencePreviews.map(async (item) => {
+        try {
+          const response = await api.get<Blob>(item.url, { responseType: "blob" });
+          const url = URL.createObjectURL(response.data);
+          objectUrls.push(url);
+          return { label: item.label, url };
+        } catch { return null; }
+      }));
+      if (!disposed) setPreviewUrls(previews.filter((item): item is { label: string; url: string } => Boolean(item)));
+    }
+    void load();
+    return () => { disposed = true; objectUrls.forEach((url) => URL.revokeObjectURL(url)); };
+  }, [request?.id, request?.evidencePreviews]);
 
   if (loading) return <section><p>Cargando solicitud…</p></section>;
   if (!request) return <section><h1>Solicitud no encontrada</h1><Link to="/bienes/ciclo-vida/bajas">Volver</Link></section>;
@@ -70,6 +91,7 @@ export function RetirementRequestDetailPage() {
           <article className="data-panel lifecycle-detail-panel">
             <div className="lifecycle-section-heading"><FileText /><div><h2>Sustento técnico</h2><p>Diagnóstico, evidencia y recomendación del equipo técnico.</p></div></div>
             <div className="technical-summary"><strong>{request.diagnosisResult === "NO_REPARABLE" ? "No reparable" : "Reparación no viable"}</strong><p>{request.technicalJustification}</p></div>
+            {previewUrls.length > 0 && <div className="lifecycle-evidence-preview-grid">{previewUrls.map((item) => <figure key={item.label}><figcaption><strong>{item.label}</strong><span>Vista previa</span></figcaption><img src={item.url} alt={`Evidencia ${item.label.toLowerCase()}`} /></figure>)}</div>}
             <div className="evidence-chips">{request.evidence.map((name) => <span key={name}><FileText />{name}</span>)}</div>
           </article>
         </div>

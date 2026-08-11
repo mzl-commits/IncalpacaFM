@@ -22,6 +22,7 @@ class NotificationListView(generics.ListAPIView):
 
 
 class NotificationReadView(APIView):
+    @extend_schema(request=None, responses={200: NotificationSerializer})
     def post(self, request, pk):
         notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
         if not notification.read_at:

@@ -12,11 +12,35 @@ from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginS
 from .models import AccountProfile
 from .permissions import IsAdministrator
 from apps.notifications.services import queue_notification
+from config.schema import DetailResponseSerializer, ImportResultSerializer
+
+
+LoginResponseSerializer = inline_serializer(
+    name="LoginResponse",
+    fields={
+        "access": serializers.CharField(),
+        "refresh": serializers.CharField(),
+        "user": CurrentUserSerializer,
+    },
+)
+TechnicianImportSerializer = inline_serializer(
+    name="TechnicianImportRequest", fields={"file": serializers.FileField()}
+)
+TechnicianNotificationSerializer = inline_serializer(
+    name="TechnicianNotificationRequest",
+    fields={
+        "template": serializers.CharField(required=False),
+        "deliveryChannel": serializers.CharField(required=False),
+        "subject": serializers.CharField(required=False),
+        "body": serializers.CharField(required=False),
+    },
+)
 
 class LoginView(views.APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "login"
 
+    @extend_schema(request=LoginSerializer, responses={200: LoginResponseSerializer})
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -24,11 +48,13 @@ class LoginView(views.APIView):
 
 
 class CurrentUserView(views.APIView):
+    @extend_schema(responses={200: CurrentUserSerializer})
     def get(self, request):
         return response.Response(CurrentUserSerializer(request.user).data)
 
 
 class ChangePasswordView(views.APIView):
+    @extend_schema(request=ChangePasswordSerializer, responses={200: DetailResponseSerializer})
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -42,6 +68,7 @@ class UserListView(views.APIView):
     """Lista todos los usuarios activos. Temporal con AllowAny hasta que exista autenticación en el frontend."""
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(responses={200: UserListSerializer(many=True)})
     def get(self, request):
         User = get_user_model()
         users = (
@@ -71,6 +98,10 @@ class TechnicianListCreateView(generics.ListCreateAPIView):
 class TechnicianImportView(views.APIView):
     permission_classes = [IsAdministrator]
 
+    @extend_schema(
+        request={"multipart/form-data": TechnicianImportSerializer},
+        responses={201: ImportResultSerializer, 207: ImportResultSerializer},
+    )
     def post(self, request):
         upload = request.FILES.get("file")
         if not upload or not upload.name.lower().endswith((".xlsx", ".xlsm")):
@@ -136,6 +167,10 @@ class TechnicianDetailView(generics.RetrieveUpdateAPIView):
 class TechnicianManualNotificationView(views.APIView):
     permission_classes = [IsAdministrator]
 
+    @extend_schema(
+        request=TechnicianNotificationSerializer,
+        responses={201: DetailResponseSerializer, 400: DetailResponseSerializer},
+    )
     def post(self, request, pk):
         technician = get_object_or_404(TechnicianDetailView.queryset, account_profile__id=pk)
         template = str(request.data.get('template') or 'CUSTOM').upper()

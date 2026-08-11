@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
+from apps.accounts.models import AccountProfile
 from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
 from apps.inspeccion.models import PlantillaCriterio, Inspeccion
 
@@ -10,6 +11,13 @@ class ActiveChecksTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="testinspector", password="password")
+        AccountProfile.objects.create(
+            user=self.user,
+            worker_code="INSPECTOR-TEST",
+            role=AccountProfile.Role.ALMACENERO,
+            must_change_password=False,
+        )
+        self.client.force_authenticate(self.user)
         
         # Plantilla
         self.plantilla = PlantillaCriterio.objects.create(nombre="Plantilla Test")

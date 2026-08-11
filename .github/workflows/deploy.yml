@@ -3,27 +3,90 @@ name: Deploy controlled
 on:
   push:
     branches: [develop, main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Entorno a desplegar
+        required: true
+        type: choice
+        options: [staging, production]
 
 permissions:
   contents: read
 
 jobs:
   staging:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
     runs-on: ubuntu-latest
     environment: staging
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Verify isolated staging configuration
-        run: test -n "${{ vars.STAGING_QR_DOMAIN }}"
-      - name: Deploy staging
-        run: echo "Connect this step to the approved staging host using GitHub Environment secrets."
+      - name: Validate staging configuration
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          QR_DOMAIN: ${{ vars.STAGING_QR_DOMAIN }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_PATH"
+          test -n "$QR_DOMAIN"
+      - name: Configure deployment key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Publish release and restart isolated stack
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH/releases/$RELEASE_ID' '$DEPLOY_PATH/shared'"
+          rsync -az --delete --exclude '.git' --exclude '.env' --exclude 'backend/.venv*' --exclude 'frontend/node_modules' ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_ID/"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_PATH/shared/.env' && cd '$DEPLOY_PATH/releases/$RELEASE_ID' && docker compose --env-file '$DEPLOY_PATH/shared/.env' -p 'incalpaca-staging' up -d --build --remove-orphans && printf '%s' '$RELEASE_ID' > '$DEPLOY_PATH/shared/current_release'"
+      - name: Verify public health
+        run: curl --fail --retry 8 --retry-delay 5 --retry-connrefused "${{ vars.PUBLIC_API_URL }}/api/v1/health/"
 
   production:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy production after required reviewer approval
-        run: echo "GitHub Environment production enforces the manual approval before this step."
+      - name: Validate production configuration
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          QR_DOMAIN: ${{ vars.PRODUCTION_QR_DOMAIN }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_PATH"
+          test -n "$QR_DOMAIN"
+      - name: Configure deployment key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Publish release and restart isolated stack
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH/releases/$RELEASE_ID' '$DEPLOY_PATH/shared'"
+          rsync -az --delete --exclude '.git' --exclude '.env' --exclude 'backend/.venv*' --exclude 'frontend/node_modules' ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_ID/"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_PATH/shared/.env' && cd '$DEPLOY_PATH/releases/$RELEASE_ID' && docker compose --env-file '$DEPLOY_PATH/shared/.env' -p 'incalpaca-production' up -d --build --remove-orphans && printf '%s' '$RELEASE_ID' > '$DEPLOY_PATH/shared/current_release'"
+      - name: Verify public health
+        run: curl --fail --retry 8 --retry-delay 5 --retry-connrefused "${{ vars.PUBLIC_API_URL }}/api/v1/health/"
