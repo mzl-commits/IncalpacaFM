@@ -63,6 +63,7 @@ class TechnicianListCreateView(generics.ListCreateAPIView):
             account_profile__role__in=[
                 AccountProfile.Role.TECHNICIAN,
                 AccountProfile.Role.ALMACENERO,
+                AccountProfile.Role.INSPECTOR,
             ]
         ).order_by('first_name', 'last_name', 'username')
 
@@ -124,6 +125,7 @@ class TechnicianDetailView(generics.RetrieveUpdateAPIView):
         account_profile__role__in=[
             AccountProfile.Role.TECHNICIAN,
             AccountProfile.Role.ALMACENERO,
+            AccountProfile.Role.INSPECTOR,
         ]
     )
 
