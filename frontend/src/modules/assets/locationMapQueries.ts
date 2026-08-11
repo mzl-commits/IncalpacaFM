@@ -3,6 +3,7 @@ import {
   getLocationMapImage,
   listLocations,
   removeLocationMap,
+  updateLocationArea,
   uploadLocationMap,
 } from "./locationMapRepository";
 
@@ -42,6 +43,17 @@ export function useRemoveLocationMap() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: removeLocationMap,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: locationMapKeys.locations() });
+    },
+  });
+}
+
+export function useUpdateLocationArea() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ locationId, squareMeters }: { locationId: string; squareMeters: number | null }) =>
+      updateLocationArea(locationId, squareMeters),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: locationMapKeys.locations() });
     },

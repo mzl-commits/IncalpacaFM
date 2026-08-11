@@ -8,6 +8,7 @@ from .facility_plan_views import (
 )
 from .location_map_views import (
     LocationListView,
+    LocationAreaUpdateView,
     LocationMapDeactivateView,
     LocationMapImageView,
     LocationMapListCreateView,
@@ -28,6 +29,7 @@ urlpatterns = [
     path('users/<uuid:pk>/', UserProfileView.as_view(), name='user-profile'),
     path('taxonomy-models/', TaxonomyModelListView.as_view(), name='taxonomy-model-list'),
     path('locations/', LocationListView.as_view(), name='location-list'),
+    path('locations/<uuid:pk>/area/', LocationAreaUpdateView.as_view(), name='location-area-update'),
     path(
         'location-maps/',
         LocationMapListCreateView.as_view(),

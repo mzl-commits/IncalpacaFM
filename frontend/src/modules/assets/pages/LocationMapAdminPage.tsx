@@ -13,6 +13,7 @@ import {
   useLocationMapImage,
   useLocations,
   useRemoveLocationMap,
+  useUpdateLocationArea,
   useUploadLocationMap,
 } from "../locationMapQueries";
 
@@ -22,6 +23,7 @@ export function LocationMapAdminPage() {
   const locationsQuery = useLocations();
   const uploadMutation = useUploadLocationMap();
   const removeMutation = useRemoveLocationMap();
+  const updateAreaMutation = useUpdateLocationArea();
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MapFilter>("ALL");
@@ -31,6 +33,7 @@ export function LocationMapAdminPage() {
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"success" | "error">("success");
   const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const [squareMeters, setSquareMeters] = useState("");
 
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const selected = locations.find((item) => item.id === selectedId) ?? locations[0] ?? null;
@@ -43,6 +46,10 @@ export function LocationMapAdminPage() {
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
+
+  useEffect(() => {
+    setSquareMeters(selected?.squareMeters == null ? "" : String(selected.squareMeters));
+  }, [selected?.id, selected?.squareMeters]);
 
   const filteredLocations = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es-PE");
@@ -113,6 +120,26 @@ export function LocationMapAdminPage() {
     }
   }
 
+  async function saveArea() {
+    if (!selected) return;
+    const normalized = squareMeters.trim().replace(",", ".");
+    const value = normalized === "" ? null : Number(normalized);
+    if (value !== null && (!Number.isFinite(value) || value <= 0)) {
+      setMessage("Ingresa un tamaño mayor a 0 m² o deja el campo vacío para quitarlo.");
+      setMessageTone("error");
+      return;
+    }
+    setMessage("");
+    try {
+      await updateAreaMutation.mutateAsync({ locationId: selected.id, squareMeters: value });
+      setMessage(value === null ? "Se quitó el tamaño registrado del ambiente." : "Tamaño del ambiente actualizado.");
+      setMessageTone("success");
+    } catch {
+      setMessage("No se pudo actualizar el tamaño. Usa hasta dos decimales.");
+      setMessageTone("error");
+    }
+  }
+
   return (
     <section className="location-map-admin-page">
       <div className="page-heading">
@@ -162,6 +189,14 @@ export function LocationMapAdminPage() {
               <div><span>{selected.zone} / {selected.building} / {selected.area}</span><h2>{selected.locationCode ? `${selected.locationCode} · ` : ""}{selected.room}</h2>{selected.requiresReview && <p>{selected.reviewNotes}</p>}</div>
               {selected.activeMap && <span className="status status-success">Imagen v{selected.activeMap.version}</span>}
             </header>
+
+            <section className="location-map-area-panel" aria-labelledby="location-area-title">
+              <div><h3 id="location-area-title">Tamaño del ambiente</h3><p>Registra los metros cuadrados para calcular densidad, aforo y capacidad operativa.</p></div>
+              <div className="location-map-area-control">
+                <label><span className="sr-only">Metros cuadrados</span><input type="number" inputMode="decimal" min="0.01" step="0.01" value={squareMeters} onChange={(event) => setSquareMeters(event.target.value)} placeholder="Ej. 45.50" /><b>m²</b></label>
+                <button className="button button-secondary" type="button" disabled={updateAreaMutation.isPending} onClick={() => void saveArea()}>{updateAreaMutation.isPending ? "Guardando…" : "Guardar tamaño"}</button>
+              </div>
+            </section>
 
             <div className="location-map-preview">
               {previewUrl ? <img src={previewUrl} alt="Vista previa de la nueva imagen" />
