@@ -4462,3 +4462,238 @@ table th *,
     border-top: none;
   }
 }
+
+/* WORK ORDER MODAL (RESTORED BACKDROP) */
+.work-order-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.work-order-modal-widget {
+  position: relative !important;
+  right: auto !important;
+  bottom: auto !important;
+  top: auto !important;
+  left: auto !important;
+  max-width: 820px !important;
+  width: 100% !important;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 14px;
+  background: #FFFFFF !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.14);
+  border: 1px solid #E2E2E2 !important;
+  padding: 28px 32px !important;
+  animation: modalCenterEnter 200ms ease-out;
+}
+
+@keyframes modalCenterEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 1. LOGO / BLOQUE NEGRO SUPERIOR CUADRADO PEQUEÑO (48px x 48px) */
+.work-order-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #EAEAEA;
+  margin-bottom: 22px;
+}
+
+.work-order-header-icon {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  max-width: 48px !important;
+  max-height: 48px !important;
+  flex: 0 0 48px !important;
+  aspect-ratio: 1 / 1 !important;
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  border-radius: 10px !important;
+  display: grid !important;
+  place-items: center !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
+}
+
+.work-order-modal-header > div:not(.work-order-header-icon) {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* 3. CABECERA & 4. TIPOGRAFÍA */
+.work-order-modal-header h2 {
+  font-size: 19px;
+  font-weight: 700;
+  color: #111111;
+  margin: 0;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.work-order-modal-header p {
+  font-size: 14px;
+  font-weight: 400;
+  color: #666666;
+  line-height: 1.45;
+  margin: 4px 0 0 0;
+}
+
+.modal-close-btn {
+  margin-left: auto;
+  align-self: flex-start;
+  color: #666666;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.modal-close-btn:hover {
+  background: #F0F0F0;
+  color: #111111;
+}
+
+/* HORIZONTAL GRID & FIELDS */
+.work-order-horizontal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.work-order-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .work-order-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.work-order-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* 4 & 6. LABELS Y CAMPOS DEL FORMULARIO */
+.work-order-modal-widget .field > span {
+  color: #333333;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+  margin-bottom: 2px;
+}
+
+.work-order-modal-widget .field input,
+.work-order-modal-widget .field select {
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid #D8D8D8;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 0 14px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.work-order-modal-widget .field textarea {
+  min-height: 106px;
+  border: 1px solid #D8D8D8;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 12px 14px;
+  resize: vertical;
+  line-height: 1.45;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.work-order-modal-widget .field input:focus,
+.work-order-modal-widget .field select:focus,
+.work-order-modal-widget .field textarea:focus {
+  outline: none;
+  border-color: #111111;
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+}
+
+.form-group-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* 5. BOTONES PROPORCIONADOS (42-44px) */
+.modal-actions-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid #EAEAEA;
+}
+
+.modal-actions-bar .button-primary {
+  height: 42px !important;
+  min-height: 42px !important;
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #111111 !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 0 20px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  transition: background-color 150ms ease, transform 120ms ease;
+}
+
+.modal-actions-bar .button-primary:hover {
+  background: #2D2D2D !important;
+  transform: translateY(-1px);
+}
+
+.modal-actions-bar .button-secondary {
+  height: 42px !important;
+  min-height: 42px !important;
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 1px solid #D8D8D8 !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 0 18px !important;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.modal-actions-bar .button-secondary:hover {
+  background: #F5F5F5 !important;
+  border-color: #C0C0C0 !important;
+}
