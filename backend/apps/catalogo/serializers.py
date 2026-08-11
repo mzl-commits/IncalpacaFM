@@ -465,7 +465,6 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
 
         return creadas
 
-
 class MaterialFrecuenciaInspeccionSerializer(serializers.ModelSerializer):
     periodicidad_inspeccion_dias = serializers.IntegerField(read_only=True)
 

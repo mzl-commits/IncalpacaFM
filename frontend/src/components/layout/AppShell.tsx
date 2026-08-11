@@ -47,6 +47,7 @@ type NavItem = {
   count?: string | number;
   /** Si está definido, el ítem solo es visible para esos roles. Omitir = todos los roles con acceso al grupo. */
   itemRoles?: UserRole[];
+  roles?: UserRole[];
 };
 
 type ModuleGroup = {
