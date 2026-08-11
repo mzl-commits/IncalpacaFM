@@ -1,6 +1,7 @@
 import { FloppyDisk, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   createCriterio,
@@ -91,10 +92,11 @@ export function InspectionTemplatesAdminPage() {
     <section className="page-shell" style={{ maxWidth: 1240 }}>
       <header className="page-heading">
         <div>
-          <p className="breadcrumb">Administración / Formularios</p>
+          <p className="breadcrumb">Administración / Formularios / Inspecciones</p>
           <h1>Formularios de inspección</h1>
           <p>Crea formularios y administra sus preguntas. Los cambios aplican a nuevas inspecciones; el historial ya emitido se conserva.</p>
         </div>
+        <Link className="button button-secondary" to="/administracion/formularios">Volver al centro</Link>
       </header>
       {notice && <p className="form-alert" role="status">{notice}</p>}
       {error && <p className="form-alert" role="alert">No se pudieron cargar los formularios.</p>}
