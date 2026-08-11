@@ -33,9 +33,6 @@ export async function updateTechnician(id: string, input: Partial<TechnicianInpu
 export async function notifyTechnician(id: string, input: { template: "REMINDER" | "TRACEABILITY" | "SCHEDULE" | "CUSTOM"; deliveryChannel: "SISTEMA" | "CORREO"; subject?: string; body?: string }) {
   const { data } = await api.post<{ detail: string }>(`/technicians/${id}/notifications/`, input);
   return data;
-<<<<<<< HEAD
-}
-=======
 }
 
 export async function importTechnicians(file: File) {
@@ -44,4 +41,3 @@ export async function importTechnicians(file: File) {
   const { data } = await api.post<{ created: number; updated: number; errors: { fila: number; detalle: string }[] }>("/technicians/import/", form, { headers: { "Content-Type": "multipart/form-data" } });
   return data;
 }
->>>>>>> main
