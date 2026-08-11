@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 import type {
   PlantillaCriterio,
+  Criterio,
   Inspeccion,
   VencidaItem,
   TipoInspeccion,
@@ -133,3 +134,4 @@ export function exportarPdf(id: number): void {
   const base = import.meta.env.VITE_API_URL ?? "/api/v1";
   window.open(`${base}/inspecciones/${id}/exportar-pdf/`, "_blank");
 }
+

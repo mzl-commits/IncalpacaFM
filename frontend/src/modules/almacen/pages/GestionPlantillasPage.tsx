@@ -63,9 +63,9 @@ export function GestionPlantillasPage() {
 
   const delPlantillaMut = useMutation({
     mutationFn: (id: number) => deletePlantillaCriterio(id),
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ["plantillas-criterios"] });
-      if (selectedPlantillaId === editPlantilla?.id) setSelectedPlantillaId(null);
+      if (selectedPlantillaId === deletedId) setSelectedPlantillaId(null);
       resetPlantillaForm();
     },
     onError: (err: any) => {
