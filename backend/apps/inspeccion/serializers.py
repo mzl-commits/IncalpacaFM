@@ -46,6 +46,11 @@ class InspeccionSerializer(serializers.ModelSerializer):
     inspector_nombre = serializers.SerializerMethodField()
     plantilla_nombre = serializers.CharField(source="plantilla.nombre", read_only=True)
     respuestas = RespuestaCriterioSerializer(many=True, read_only=True)
+    # NUEVO: la periodicidad real del material dueño (o del material del
+    # contenedor, si esta inspección es de una pieza). TrimestreBadge la
+    # necesita para calcular vigencia (vencida/próxima/al día); antes solo
+    # vivía en el Material, no llegaba junto con la Inspeccion.
+    material_periodicidad_inspeccion_dias = serializers.SerializerMethodField()
 
     class Meta:
         model = Inspeccion
@@ -55,12 +60,17 @@ class InspeccionSerializer(serializers.ModelSerializer):
             "fecha", "proxima_inspeccion", "inspector", "inspector_nombre",
             "cantidad_inspeccionada", "cantidad_apta", "cantidad_no_apta",
             "resultado_general", "accion_tomada", "observaciones", "respuestas",
+            "material_periodicidad_inspeccion_dias",
         ]
 
     def get_inspector_nombre(self, obj):
         if obj.inspector:
             return obj.inspector.get_full_name() or obj.inspector.username
         return "N/A"
+
+    def get_material_periodicidad_inspeccion_dias(self, obj):
+        material = obj.pieza.material if obj.pieza else obj.material
+        return material.periodicidad_inspeccion_dias if material else None
 
 class InspeccionCrearSerializer(serializers.ModelSerializer):
     respuestas = RespuestaCriterioCrearSerializer(many=True, write_only=True, required=False, default=[])

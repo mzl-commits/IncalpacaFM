@@ -62,7 +62,11 @@ export function InspeccionDetailPage() {
                 <dt className="dt-label">Fecha</dt>
                 <dd className="dd-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {new Date(inspeccion.fecha).toLocaleDateString("es-PE", { dateStyle: "long" })}
-                  <TrimestreBadge fecha={inspeccion.fecha} showLabel />
+                  <TrimestreBadge
+                    fecha={inspeccion.fecha}
+                    periodicidadDias={inspeccion.material_periodicidad_inspeccion_dias ?? 0}
+                    showLabel
+                  />
                 </dd>
               </div>
               <div>
