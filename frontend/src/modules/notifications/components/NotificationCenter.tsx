@@ -24,6 +24,7 @@ function typeLabel(item: EmailNotification) {
   if (item.event.includes("WORK_ORDER")) return "Orden de trabajo";
   if (item.event.includes("INCIDENT")) return "Reporte";
   if (item.event.includes("ASSIGNMENT")) return "Asignación";
+  if (item.event.includes("INSPECTION")) return "Inspecciones";
   return "Aviso del sistema";
 }
 

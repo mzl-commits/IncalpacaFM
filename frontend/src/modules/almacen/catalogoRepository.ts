@@ -102,14 +102,31 @@ export async function getMaterialesHijas(materialId: number): Promise<Material[]
   return data;
 }
 
+/**
+ * Normaliza campos numéricos "delicados" del payload antes de enviarlo al
+ * backend. En particular, "unidades_por_caja" es un IntegerField que NO
+ * acepta cadena vacía (""): solo un número o null. Sin importar qué envíe
+ * el formulario (a veces queda "" por un campo oculto/no aplicable), aquí
+ * se normaliza siempre, como última barrera antes de la petición HTTP.
+ */
+function sanitizeMaterialPayload<T extends Partial<MaterialCreatePayload>>(payload: T): T {
+  if (!("unidades_por_caja" in payload)) return payload;
+  const raw = payload.unidades_por_caja;
+  const esVacio = raw === "" || raw === null || raw === undefined;
+  const num = esVacio ? null : Number(raw);
+  const valorFinal = num !== null && Number.isFinite(num) ? num : null;
+  return { ...payload, unidades_por_caja: valorFinal };
+}
+
 export async function createMaterial(
   payload: MaterialCreatePayload,
   foto?: File | null,
 ): Promise<Material> {
+  const clean = sanitizeMaterialPayload(payload);
   if (foto) {
     // multipart/form-data cuando hay foto
     const form = new FormData();
-    Object.entries(payload).forEach(([k, v]) => {
+    Object.entries(clean).forEach(([k, v]) => {
       if (v !== null && v !== undefined) form.append(k, String(v));
     });
     form.append("foto", foto);
@@ -118,7 +135,7 @@ export async function createMaterial(
     });
     return data;
   }
-  const { data } = await api.post<Material>("/materiales/", payload);
+  const { data } = await api.post<Material>("/materiales/", clean);
   return data;
 }
 
@@ -127,9 +144,10 @@ export async function updateMaterial(
   payload: Partial<MaterialCreatePayload>,
   foto?: File | null,
 ): Promise<Material> {
+  const clean = sanitizeMaterialPayload(payload);
   if (foto) {
     const form = new FormData();
-    Object.entries(payload).forEach(([k, v]) => {
+    Object.entries(clean).forEach(([k, v]) => {
       if (v !== null && v !== undefined) form.append(k, String(v));
     });
     form.append("foto", foto);
@@ -138,7 +156,7 @@ export async function updateMaterial(
     });
     return data;
   }
-  const { data } = await api.patch<Material>(`/materiales/${id}/`, payload);
+  const { data } = await api.patch<Material>(`/materiales/${id}/`, clean);
   return data;
 }
 
@@ -148,8 +166,6 @@ export async function altaPiezasSueltas(payload: AltaPiezasSueltasPayload): Prom
   const { data } = await api.post<PiezaBase[]>("/materiales/alta-piezas-sueltas/", payload);
   return data;
 }
-
-
 
 // ─── Piezas ───────────────────────────────────────────────────────────────────
 
@@ -169,7 +185,7 @@ export async function listPiezas(params: PiezasParams = {}): Promise<PiezaBase[]
   if (params.estado) query.estado = params.estado;
   if (params.sin_padre !== undefined) query.sin_padre = params.sin_padre;
   if (params.padre !== undefined) query.padre = params.padre;
-  if (params.q) query.q = params.q;   // <-- nuevo
+  if (params.q) query.q = params.q;
   const { data } = await api.get<PiezaBase[]>("/piezas/", { params: query });
   return data;
 }
@@ -225,7 +241,6 @@ export async function deleteMaterialForzado(id: number): Promise<void> {
     data: { confirmar: true },
   });
 }
-
 
 // ─── Alta estuche inline (piezas definidas por nombre+medida, sin catálogo) ───
 
@@ -289,5 +304,25 @@ export async function agregarHijaInline(
     `/piezas/${contenedorId}/agregar-hija-inline/`,
     payload,
   );
+  return data;
+}
+
+// ─── Editar pieza (ej. campo "detalle") ───────────────────────────────────────
+
+export interface UpdatePiezaPayload {
+  detalle?: string;
+  estado?: string;
+}
+
+/**
+ * Actualiza campos editables de una pieza física — por ahora, principalmente
+ * "detalle" (nombre/nota personalizada de esa unidad específica).
+ * El backend acepta este campo vía PATCH en /piezas/{id}/.
+ */
+export async function updatePieza(
+  id: number,
+  payload: UpdatePiezaPayload,
+): Promise<PiezaBase> {
+  const { data } = await api.patch<PiezaBase>(`/piezas/${id}/`, payload);
   return data;
 }

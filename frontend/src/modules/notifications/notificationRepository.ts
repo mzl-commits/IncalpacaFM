@@ -24,6 +24,11 @@ export interface EmailNotification {
 
 /** Resolves the operation associated with an in-app notification. */
 export function notificationActionPath(item: EmailNotification): string | null {
+  // Los resúmenes de inspección son agregados (no apuntan a un material puntual),
+  // así que no llevan entityId: se resuelven por evento, no por entidad.
+  if (item.event === "INSPECTION_OVERDUE") return "/almacen/inspecciones/vencidas";
+  if (item.event === "INSPECTION_DUE_SOON") return "/almacen/inspecciones";
+
   if (!item.entityId) return null;
 
   if (item.entityType === "WorkOrder") {
