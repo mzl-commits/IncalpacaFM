@@ -230,8 +230,17 @@ export function AssignmentWizardPage() {
     if (step === 0 && !draft.asset_id) return "Selecciona un bien.";
     if (step === 1 && (!draft.responsible_id || !draft.assignment_reason.trim()))
       return "Selecciona un responsable e ingresa el motivo.";
-    if (step === 2 && (!draft.location_id || !Object.values(draft.checklist).every(Boolean)))
-      return "Selecciona una ubicación y completa el checklist.";
+    if (step === 2 && !draft.location_id) return "Selecciona una ubicación.";
+    if (step === 2 && !draft.checklist.inspected)
+      return "Confirma que realizaste la inspección física del bien.";
+    if (
+      step === 2 &&
+      ["qr_legible", "accessories_complete", "no_unreported_damage"].some(
+        (key) => !draft.checklist[key],
+      ) &&
+      draft.observations.trim().length < 10
+    )
+      return "Describe en observaciones la condición no conforme encontrada.";
     if (
       step === 3 &&
       (!draft.privacy_accepted ||
@@ -479,11 +488,15 @@ export function AssignmentWizardPage() {
                 </select>
               </label>
               <div className="delivery-checklist">
+                <p className="field-hint">
+                  Registra la condición real. Puedes marcar una situación no conforme; en ese caso,
+                  descríbela en observaciones para que quede en el acta.
+                </p>
                 {Object.entries({
-                  inspected: "Bien físicamente inspeccionado",
-                  qr_legible: "Código y QR legibles",
-                  accessories_complete: "Accesorios completos",
-                  no_unreported_damage: "Sin daños no registrados",
+                  inspected: "Realicé la inspección física del bien",
+                  qr_legible: "El código y QR son legibles",
+                  accessories_complete: "Los accesorios están completos",
+                  no_unreported_damage: "No se observan daños sin registrar",
                 }).map(([key, label]) => (
                   <label key={key}>
                     <input
