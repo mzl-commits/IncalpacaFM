@@ -49,7 +49,7 @@ jobs:
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH/releases/$RELEASE_ID' '$DEPLOY_PATH/shared'"
           rsync -az --delete --exclude '.git' --exclude '.env' --exclude 'backend/.venv*' --exclude 'frontend/node_modules' ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_ID/"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_PATH/shared/.env' && cd '$DEPLOY_PATH/releases/$RELEASE_ID' && docker compose --env-file '$DEPLOY_PATH/shared/.env' -p 'incalpaca-staging' up -d --build --remove-orphans && printf '%s' '$RELEASE_ID' > '$DEPLOY_PATH/shared/current_release'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_PATH/shared/.env' && cd '$DEPLOY_PATH/releases/$RELEASE_ID' && docker compose --env-file '$DEPLOY_PATH/shared/.env' -p 'incalpaca-staging' up -d --build --remove-orphans && ln -sfn '$DEPLOY_PATH/releases/$RELEASE_ID' '$DEPLOY_PATH/shared/current_release'"
       - name: Verify public health
         run: curl --fail --retry 8 --retry-delay 5 --retry-connrefused "${{ vars.PUBLIC_API_URL }}/api/v1/health/"
 
@@ -87,6 +87,6 @@ jobs:
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH/releases/$RELEASE_ID' '$DEPLOY_PATH/shared'"
           rsync -az --delete --exclude '.git' --exclude '.env' --exclude 'backend/.venv*' --exclude 'frontend/node_modules' ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_ID/"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_PATH/shared/.env' && cd '$DEPLOY_PATH/releases/$RELEASE_ID' && docker compose --env-file '$DEPLOY_PATH/shared/.env' -p 'incalpaca-production' up -d --build --remove-orphans && printf '%s' '$RELEASE_ID' > '$DEPLOY_PATH/shared/current_release'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_PATH/shared/.env' && cd '$DEPLOY_PATH/releases/$RELEASE_ID' && docker compose --env-file '$DEPLOY_PATH/shared/.env' -p 'incalpaca-production' up -d --build --remove-orphans && ln -sfn '$DEPLOY_PATH/releases/$RELEASE_ID' '$DEPLOY_PATH/shared/current_release'"
       - name: Verify public health
         run: curl --fail --retry 8 --retry-delay 5 --retry-connrefused "${{ vars.PUBLIC_API_URL }}/api/v1/health/"
