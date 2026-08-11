@@ -1,5 +1,5 @@
-from drf_spectacular.utils import extend_schema
-from rest_framework import generics, permissions, response, status, views
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, permissions, response, serializers, status, views
 
 from apps.accounts.permissions import IsAdministrator
 
@@ -24,6 +24,18 @@ class ReporterProfileListView(generics.ListAPIView):
 class ReporterLookupView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        parameters=[],
+        responses={200: inline_serializer(
+            name="ReporterLookupResponse",
+            fields={
+                "found": serializers.BooleanField(),
+                "conflict": serializers.BooleanField(required=False),
+                "reporter": serializers.DictField(required=False),
+                "assignedAssets": serializers.ListField(child=serializers.DictField(), required=False),
+            },
+        )},
+    )
     def get(self, request):
         dni = "".join(ch for ch in request.query_params.get("dni", "") if ch.isdigit())
         code = request.query_params.get("worker_code", "").strip().upper()

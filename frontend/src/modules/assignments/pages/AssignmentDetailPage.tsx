@@ -15,6 +15,7 @@ import {
   getAssignmentAssetDisplayCode,
   getAssignmentCatalog,
   registerAssignmentOperation,
+  updateAssignment,
   type AssignmentCatalog,
   type AssignmentRecord,
 } from "@/modules/assignments/assignmentRepository";
@@ -29,12 +30,15 @@ export function AssignmentDetailPage() {
   const [responsibleId, setResponsibleId] = useState("");
   const [locationId, setLocationId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [infoForm, setInfoForm] = useState({ reason: "", status: "ACTIVA", assetStatus: "" });
   const locationMapImage = useLocationMapImage(item?.location?.reference_map?.id);
   const operationDialogRef = useRef<HTMLDialogElement>(null);
   const operationTriggerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     getAssignment(id)
-      .then(setItem)
+      .then((value) => { setItem(value); setInfoForm({ reason: value.change_reason, status: value.status, assetStatus: value.asset.assignment_status }); })
       .catch(() => setError("No se pudo cargar la asignación."));
   }, [id]);
   useEffect(() => {
@@ -83,6 +87,15 @@ export function AssignmentDetailPage() {
     EN_TRASLADO: "En traslado",
     DEVUELTO: "Devuelto",
   }[item.delivery_status];
+  async function saveInfo() {
+    if (!item) return;
+    setSavingInfo(true);
+    try {
+      const updated = await updateAssignment(item.id, { change_reason: infoForm.reason.trim(), status: infoForm.status, asset_status: infoForm.assetStatus });
+      setItem(updated);
+      setEditingInfo(false);
+    } finally { setSavingInfo(false); }
+  }
   return (
     <section className="assignment-detail">
       <Link className="back-link" to="/asignaciones">
@@ -144,12 +157,17 @@ export function AssignmentDetailPage() {
                     : "Por confirmar"}
                 </dd>
               </div>
-              <div>
+              <div className="assignment-fact-editable">
                 <FileText />
                 <dt>Motivo</dt>
-                <dd>{item.change_reason}</dd>
+                <dd>{editingInfo ? <textarea rows={3} value={infoForm.reason} onChange={(event) => setInfoForm({ ...infoForm, reason: event.target.value })} /> : item.change_reason}</dd>
               </div>
             </dl>
+            <div className="assignment-inline-editor">
+              {editingInfo && <label><span>Estado de asignación</span><select value={infoForm.status} onChange={(event) => setInfoForm({ ...infoForm, status: event.target.value })}><option value="ACTIVA">Activa</option><option value="FINALIZADA">Finalizada</option><option value="ANULADA">Anulada</option></select></label>}
+              {editingInfo && <label><span>Estado del bien</span><select value={infoForm.assetStatus} onChange={(event) => setInfoForm({ ...infoForm, assetStatus: event.target.value })}><option>Asignado</option><option>Entregado</option><option>En traslado</option><option>Devuelto</option><option>En Mantenimiento</option><option>Sin asignar</option></select></label>}
+              {editingInfo ? <><button className="button button-secondary" type="button" onClick={() => setEditingInfo(false)}>Cancelar</button><button className="button button-primary" type="button" disabled={savingInfo} onClick={() => void saveInfo()}>Guardar cambios</button></> : <button className="button button-secondary" type="button" onClick={() => setEditingInfo(true)}>Editar información</button>}
+            </div>
           </section>
           <section className="detail-section">
             <div className="section-heading">

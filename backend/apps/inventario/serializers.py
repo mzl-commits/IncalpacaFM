@@ -30,7 +30,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
             "lote_id", "observaciones",
         ]
 
-    def get_responsable_nombre(self, obj):
+    def get_responsable_nombre(self, obj) -> str:
         if obj.responsable:
             return obj.responsable.get_full_name() or obj.responsable.username
         return "N/A"
@@ -185,7 +185,7 @@ class PiezaPrestadaSerializer(serializers.ModelSerializer):
             "padre", "padre_codigo", "ultimo_movimiento",
         ]
 
-    def get_ultimo_movimiento(self, obj):
+    def get_ultimo_movimiento(self, obj) -> dict | None:
         ultimo = obj.movimientos.filter(tipo="salida").order_by("-fecha").first()
         if ultimo:
             return {

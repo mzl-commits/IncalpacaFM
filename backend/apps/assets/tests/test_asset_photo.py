@@ -62,6 +62,9 @@ class AssetPhotoApiTests(TestCase):
         self.assertIsNotNone(summary.json()['photo_url'])
         self.assertEqual(photo.status_code, 200)
         self.assertEqual(photo['Content-Type'], 'image/jpeg')
+        # FileResponse mantiene el descriptor abierto hasta cerrarse. Hacerlo
+        # explícito evita que TemporaryDirectory falle al limpiar en Windows.
+        photo.close()
 
     def test_rejects_too_small_photo(self):
         stream = BytesIO()

@@ -6,7 +6,7 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAdministrator, IsAuthenticatedReadAdministratorWrite, user_role
 from apps.audit.services import record_audit
+from config.schema import UserDashboardResponseSerializer
 
 from .models import Asset
 from .serializers import AssetClassificationSerializer, AssetDetailSerializer, AssetSerializer, PublicAssetSerializer
@@ -119,7 +120,7 @@ class AssetClassificationView(APIView):
 class TaxonomyModelListView(APIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
 
-    @extend_schema(responses={200: list})
+    @extend_schema(responses={200: serializers.ListSerializer(child=serializers.CharField())})
     def get(self, request):
         taxonomy_id = request.query_params.get('taxonomy_id')
         if not taxonomy_id:
@@ -151,6 +152,7 @@ def _assets_for_responsible(responsible):
 class UserDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(responses={200: UserDashboardResponseSerializer})
     def get(self, request):
         try:
             worker_code = request.user.account_profile.worker_code.strip()
@@ -170,6 +172,7 @@ class UserDashboardView(APIView):
 class UserProfileView(APIView):
     permission_classes = [IsAdministrator]
 
+    @extend_schema(responses={200: UserDashboardResponseSerializer})
     def get(self, request, pk):
         from apps.assets.models import AssignableResponsible
         responsible = get_object_or_404(AssignableResponsible, pk=pk, active=True)

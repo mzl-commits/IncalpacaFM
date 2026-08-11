@@ -1411,6 +1411,11 @@ section:has(.detail-header) .detail-grid { grid-template-columns: repeat(2, minm
 .assignment-reference-map-marker { position: absolute; left: 50%; top: 50%; color: #303030; line-height: 1; transform: translate(-50%, -100%); filter: drop-shadow(0 1px 2px rgb(0 0 0 / 45%)); }
 .assignment-reference-map-marker svg { width: 32px; height: 32px; stroke: #fff; stroke-width: 1.5; }
 .assignment-reference-map > footer { padding: 0 14px 14px; color: var(--muted, #666); font-size: 12px; }
+.assignment-fact-editable dd textarea { min-width: min(100%, 28rem); resize: vertical; }
+.assignment-inline-editor { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border, #e2e2e2); }
+.assignment-inline-editor label { display: grid; gap: 5px; min-width: 12rem; }
+.assignment-inline-editor label span { color: var(--muted, #666); font-size: 12px; font-weight: 700; }
+.assignment-inline-editor select { min-height: 40px; }
 .work-order-photo-evidence .detail-card-heading { align-items: flex-start; }
 .work-order-photo-evidence .detail-card-heading p { margin: 3px 0 0; color: var(--muted, #666); font-size: 13px; }
 .work-order-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -1419,6 +1424,12 @@ section:has(.detail-header) .detail-grid { grid-template-columns: repeat(2, minm
 .work-order-photo-card figcaption span { color: var(--muted, #666); font-size: 12px; }
 .work-order-photo-card img { display: block; width: 100%; max-height: 360px; object-fit: contain; background: #ededed; }
 .work-order-photo-empty { display: grid; min-height: 180px; place-items: center; padding: 20px; color: var(--muted, #666); text-align: center; font-size: 13px; }
+.lifecycle-evidence-preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.lifecycle-evidence-preview-grid figure { margin: 0; overflow: hidden; border: 1px solid var(--border, #dedede); border-radius: 8px; background: #f7f7f7; }
+.lifecycle-evidence-preview-grid figcaption { display: flex; justify-content: space-between; gap: 8px; padding: 9px 11px; font-size: 13px; }
+.lifecycle-evidence-preview-grid figcaption span { color: var(--muted, #666); font-size: 11px; }
+.lifecycle-evidence-preview-grid img { display: block; width: 100%; max-height: 280px; object-fit: contain; background: #eee; }
+@media (max-width: 700px) { .lifecycle-evidence-preview-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .work-order-photo-grid { grid-template-columns: 1fr; } }
 .map-building { position: relative; min-height: 280px; padding: 20px; border: 1px solid #c4c4c4; border-radius: 8px; background: #f2f2f2; }
 .map-building > strong { display: block; margin-top: 4px; color: #2d2d2d; font-size: 16px; }
@@ -1562,6 +1573,13 @@ td { padding: 13px 14px; }
 .work-order-row td:first-child { box-shadow: inset 3px 0 0 #4a4a4a; }
 .work-order-row.is-ol td:first-child { box-shadow: inset 3px 0 0 #2f6f62; }
 .work-order-row.is-os td:first-child { box-shadow: inset 3px 0 0 #5f5f5f; }
+.work-orders-list-page .table-scroll { overflow: auto; border: 1px solid #d6d9de; border-radius: 12px; background: #fff; }
+.work-orders-list-page .table-scroll table { border: 0; }
+.work-orders-list-page .work-order-row td { border-bottom: 1px solid #dfe2e6; }
+.work-orders-list-page .work-order-row:last-child td { border-bottom: 0; }
+.work-orders-list-page .work-order-row td:first-child { box-shadow: inset 4px 0 0 #737b86; }
+.work-orders-list-page .work-order-row.is-ol td:first-child { box-shadow: inset 4px 0 0 #4d8b7d; }
+.work-orders-list-page .work-order-row.is-os td:first-child { box-shadow: inset 4px 0 0 #8a9098; }
 .work-order-type-badge { display: inline-grid; gap: 1px; min-width: 92px; width: fit-content; border: 1px solid #d1d1d1; border-radius: 6px; padding: 6px 8px; background: #f8f8f8; color: #333333; line-height: 1.1; }
 .work-order-type-badge strong { margin: 0; color: #202020; font-size: 12px; letter-spacing: .04em; }
 .work-order-type-badge small { color: #646464; font-size: 11px; font-weight: 650; }
@@ -1637,8 +1655,8 @@ td { padding: 13px 14px; }
 .public-privacy p, .public-privacy strong, .public-privacy span { display: block; margin: 0; }
 .public-privacy span { margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.45; }
 
-.public-asset-photo { margin: 22px 0 0; overflow: hidden; border: 1px solid #dfdfdf; border-radius: 6px; background: #f1f1f1; aspect-ratio: 16 / 9; }
-.public-asset-photo img { width: 100%; height: 100%; object-fit: cover; }
+.public-asset-photo { display: grid; place-items: center; min-height: 240px; margin: 26px 18px 0; overflow: hidden; padding: 14px; border: 1px solid #dfdfdf; border-radius: 10px; background: #f6f6f6; }
+.public-asset-photo img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; border-radius: 6px; background: #fff; }
 .public-asset-photo > div { display: grid; height: 100%; place-items: center; align-content: center; gap: 8px; color: var(--muted); }
 .public-actions { display: grid; justify-items: start; gap: 8px; margin: 20px 0; }
 .public-actions small { color: var(--muted); line-height: 1.45; }
@@ -2680,7 +2698,6 @@ td { padding: 13px 14px; }
 
 /* ============================================================
    (Estricto MonocromÃ¡tico #000000 / #FFFFFF, Inter Font, High Density)
-   ============================================================ */
 
 .almacen-catalogo-view {
   width: 100%;
@@ -3302,7 +3319,7 @@ td { padding: 13px 14px; }
 }
 
 /* ============================================================
-   ============================================================ */
+
 
 .dashboard-page {
   width: 100%;
@@ -3969,6 +3986,15 @@ table th *,
 .operator-availability-card.is-muted { color: #5f5f5f; }
 .operator-availability-card.is-muted > div { display: flex; align-items: center; gap: 9px; font-weight: 700; }
 .operator-availability-card.has-conflict { border-color: #9f9f9f; background: #f6f6f6; box-shadow: inset 4px 0 0 #303030; }
+
+/* Tratamiento común para todas las tablas: bordes ligeros, separación clara y lectura por bloques. */
+.table-scroll { border: 1px solid #d6d9de; border-radius: 12px; background: #fff; overflow: auto; }
+.table-scroll table { border: 0; }
+.table-scroll table tbody tr td { border-bottom: 1px solid #dfe2e6; }
+.table-scroll table tbody tr:last-child td { border-bottom: 0; }
+.table-scroll table tbody tr:hover td { background-color: #f5f6f7 !important; }
+.supervisor-review-table tr.is-selected td:first-child { box-shadow: inset 4px 0 0 #737b86; }
+.catalog-table, .registry-table, .audit-table { overflow: hidden; border: 1px solid #d6d9de; border-radius: 12px; }
 .operator-availability-card.has-availability { border-color: #aebdaf; }
 .operator-availability-status { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border: 1px solid #cfcfcf; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
 .operator-availability-status.is-available { border-color: #9db5a1; background: #f2f8f3; color: #2f6340; }
@@ -4024,15 +4050,9 @@ table th *,
   from { opacity: 0; transform: translateY(6px) scale(0.99); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-/* Nueva acciÃ³n: ventana operativa */
-   ============================================================ */
-
 @keyframes modalWindowEntry {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
-    transform: translateY(10px) scale(0.985);
-    transform: translateY(12px) scale(0.98);
     transform: translateY(12px) scale(0.985);
   }
   to {

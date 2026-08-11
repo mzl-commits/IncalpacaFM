@@ -16,5 +16,5 @@ class ReporterProfileSerializer(serializers.ModelSerializer):
             "firstReportedAt", "lastReportedAt",
         )
 
-    def get_workerCodes(self, obj):
+    def get_workerCodes(self, obj) -> list[str]:
         return [code.worker_code for code in obj.worker_codes.all()]

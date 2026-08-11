@@ -1,15 +1,13 @@
-function csvCell(value: unknown) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
-}
+import * as XLSX from "xlsx";
 
-export function downloadExcelCsv(filename: string, headers: string[], rows: unknown[][]) {
-  const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(csvCell).join(";")).join("\r\n")}`;
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+/** Descarga un libro XLSX real, con filtros y encabezados legibles. */
+export function downloadExcel(filename: string, headers: string[], rows: unknown[][], sheetName = "Datos") {
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  worksheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(rows.length, 1), c: headers.length - 1 } }) };
+  worksheet["!cols"] = headers.map((header, column) => ({
+    wch: Math.min(42, Math.max(String(header).length + 2, ...rows.map((row) => String(row[column] ?? "").length + 2))),
+  }));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
+  XLSX.writeFile(workbook, filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`, { compression: true });
 }
