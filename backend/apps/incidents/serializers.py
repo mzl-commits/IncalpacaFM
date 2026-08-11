@@ -540,7 +540,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
     def _work_order(self, obj):
         return getattr(obj, "work_order", None)
 
-    def get_currentStatus(self, obj):
+    def get_currentStatus(self, obj) -> str:
         order = self._work_order(obj)
         if order:
             if order.status == "CERRADA":
@@ -557,11 +557,11 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
         return "REPORTADO"
 
 
-    def get_workOrderStatus(self, obj):
+    def get_workOrderStatus(self, obj) -> str:
         order = self._work_order(obj)
         return order.status if order else ""
 
-    def get_canSubmitConformity(self, obj):
+    def get_canSubmitConformity(self, obj) -> bool:
         order = self._work_order(obj)
         return bool(
             order
@@ -569,28 +569,28 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
             and not getattr(order, "satisfaction", None)
         )
 
-    def get_conformity(self, obj):
+    def get_conformity(self, obj) -> dict:
         order = self._work_order(obj)
         return order.conformity if order else {}
-    def get_workerName(self, obj):
+    def get_workerName(self, obj) -> str:
         order = self._work_order(obj)
         if not order:
             return "Pendiente de asignacion"
         return order.technician.get_full_name() or order.technician.username
 
-    def get_workerSpecialty(self, obj):
+    def get_workerSpecialty(self, obj) -> str:
         order = self._work_order(obj)
         return order.specialty if order else "Aún no asignado"
 
-    def get_workOrderCode(self, obj):
+    def get_workOrderCode(self, obj) -> str:
         order = self._work_order(obj)
         return order.code if order else ""
 
-    def get_progressPercentage(self, obj):
+    def get_progressPercentage(self, obj) -> int:
         order = self._work_order(obj)
         return order.progress_percentage if order else 0
 
-    def get_location(self, obj):
+    def get_location(self, obj) -> str:
         parts = [
             obj.location_snapshot.get("zone"),
             obj.location_snapshot.get("building"),
@@ -599,7 +599,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
         ]
         return " / ".join([part for part in parts if part])
 
-    def get_events(self, obj):
+    def get_events(self, obj) -> list[dict]:
         events = [
             {
                 "id": f"{obj.id}-reported",

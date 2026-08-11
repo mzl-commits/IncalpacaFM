@@ -4,9 +4,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from django.shortcuts import get_object_or_404
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
-from rest_framework import generics, permissions, status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,6 +16,12 @@ from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
 from apps.privacy.services import record_privacy_event
 from apps.workorders.models import TechnicianSatisfaction, WorkOrder
+from config.schema import (
+    DetailResponseSerializer,
+    IncidentCreatedResponseSerializer,
+    PublicAssetContextSerializer,
+    PublicLocationResponseSerializer,
+)
 
 from .models import Incident
 from .serializers import (
@@ -48,6 +53,7 @@ class IncidentDetailView(generics.RetrieveUpdateAPIView):
 class PublicLocationListView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(responses={200: PublicLocationResponseSerializer(many=True)})
     def get(self, request):
         locations = Location.objects.filter(active=True).order_by("zone", "building", "area", "room")
         return Response([
@@ -102,7 +108,7 @@ class PublicAssetIncidentCreateView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "public_report"
 
-    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(responses={200: PublicAssetContextSerializer})
     def get(self, request, token):
         asset = get_object_or_404(
             Asset.objects.select_related("location"), public_token=token
@@ -125,7 +131,7 @@ class PublicAssetIncidentCreateView(APIView):
             "room": location.room if location else "",
         })
 
-    @extend_schema(request=PublicAssetIncidentSerializer, responses={201: OpenApiTypes.OBJECT})
+    @extend_schema(request=PublicAssetIncidentSerializer, responses={201: IncidentCreatedResponseSerializer})
     def post(self, request, token):
         asset = get_object_or_404(Asset, public_token=token)
         serializer = PublicAssetIncidentSerializer(
@@ -194,6 +200,16 @@ class PublicIncidentTrackingView(generics.RetrieveAPIView):
 class PublicIncidentConformityView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        request=inline_serializer(
+            name="PublicIncidentConformityRequest",
+            fields={
+                "rating": serializers.IntegerField(min_value=1, max_value=5),
+                "comment": serializers.CharField(required=False, allow_blank=True),
+            },
+        ),
+        responses={200: IncidentSerializer, 400: DetailResponseSerializer},
+    )
     @transaction.atomic
     def post(self, request, token):
         queryset = Incident.objects.prefetch_related("work_orders__satisfaction")

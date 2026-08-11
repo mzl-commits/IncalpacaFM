@@ -207,10 +207,10 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     def get_effectiveWorkMinutes(self, obj) -> int:
         return effective_work_minutes(obj)
 
-    def get_activeWorkSession(self, obj):
+    def get_activeWorkSession(self, obj) -> dict | None:
         return active_work_session(obj)
 
-    def get_satisfaction(self, obj):
+    def get_satisfaction(self, obj) -> dict | None:
         request = self.context.get("request")
         if not request or getattr(request.user.account_profile, "role", None) != AccountProfile.Role.ADMIN:
             return None
@@ -232,10 +232,10 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         path = f"/api/v1/work-orders/{obj.id}/photos/{stage.lower()}/"
         return request.build_absolute_uri(path) if request else path
 
-    def get_startPhoto(self, obj):
+    def get_startPhoto(self, obj) -> str | None:
         return self._traceability_photo_url(obj, WorkOrderPhoto.Stage.START)
 
-    def get_finishPhoto(self, obj):
+    def get_finishPhoto(self, obj) -> str | None:
         return self._traceability_photo_url(obj, WorkOrderPhoto.Stage.FINISH)
 
     def get_operatorName(self, obj) -> str:

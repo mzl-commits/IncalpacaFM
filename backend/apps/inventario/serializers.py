@@ -396,4 +396,3 @@ class ResolverParcialGrupoSerializer(serializers.Serializer):
         allow_empty=False,
         help_text="Decisión para cada item del grupo.",
     )
-

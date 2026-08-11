@@ -2,6 +2,7 @@
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics, response, serializers, status, views
 
+from django.db import transaction
 from django.db.models import Count, Q
 
 from apps.accounts.permissions import (
@@ -33,6 +34,25 @@ class AssignmentDetailView(generics.RetrieveAPIView):
         'delivery_act__evidence', 'delivery_act__signatures',
         'asset__assignments__responsible', 'asset__assignments__location',
         'asset__repair_records')
+
+    def patch(self, request, *args, **kwargs):
+        assignment = self.get_object()
+        allowed_statuses = {'ACTIVA', 'FINALIZADA', 'ANULADA'}
+        assignment_status = request.data.get('status')
+        asset_status = request.data.get('asset_status')
+        with transaction.atomic():
+            if 'change_reason' in request.data:
+                assignment.change_reason = str(request.data.get('change_reason') or '').strip()
+            if assignment_status:
+                if assignment_status not in allowed_statuses:
+                    return response.Response({'status': 'Estado de asignación no válido.'}, status=status.HTTP_400_BAD_REQUEST)
+                assignment.status = assignment_status
+            assignment.save(update_fields=('change_reason', 'status'))
+            if asset_status is not None:
+                assignment.asset.assignment_status = str(asset_status).strip()[:30]
+                assignment.asset.save(update_fields=('assignment_status',))
+        assignment = self.get_queryset().get(pk=assignment.pk)
+        return response.Response(self.get_serializer(assignment).data)
 
 
 class AssignmentCatalogView(views.APIView):

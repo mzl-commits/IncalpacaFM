@@ -36,6 +36,7 @@ import {
 } from "@/modules/workorders/workOrderRepository";
 import { specialtyLabels, workOrderStatusLabels } from "@/modules/workorders/workOrderModel";
 import type { WorkOrder } from "@/modules/workorders/types";
+import { downloadExcel } from "@/utils/exportCsv";
 import { DetailedReportsSection } from "./DetailedReportsSection";
 
 type PeriodKey = "30d" | "90d" | "year" | "all";
@@ -175,10 +176,6 @@ function buildDistribution(
       share: percentage(count, values.length),
     }))
     .sort((left, right) => right.count - left.count);
-}
-
-function csvCell(value: string | number) {
-  return `"${String(value).replace(/"/g, '""')}"`;
 }
 
 function activityIcon(kind: ActivityKind) {
@@ -541,7 +538,7 @@ export function ReportsPage() {
     [periodActivities],
   );
 
-  function exportCsv() {
+  function exportExcel() {
     if (!csvRows.length) return;
 
     const headers = ["Fuente", "Módulo", "Código", "Detalle", "Estado", "Fecha"];
@@ -553,15 +550,7 @@ export function ReportsPage() {
       row.status,
       row.date,
     ]);
-    const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(csvCell).join(";")).join("\r\n")}`;
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `informe-sgtb-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadExcel(`informe-sgtb-${new Date().toISOString().slice(0, 10)}.xlsx`, headers, rows, "Resumen");
   }
 
   const initialLoading = loading && !lastUpdated;
@@ -612,11 +601,11 @@ export function ReportsPage() {
           <button
             className="button button-secondary reports-icon-action"
             type="button"
-            onClick={exportCsv}
+            onClick={exportExcel}
             disabled={loading || !csvRows.length}
           >
             <DownloadSimple size={19} aria-hidden="true" />
-            <span>Exportar CSV</span>
+            <span>Exportar Excel</span>
           </button>
 
           <button

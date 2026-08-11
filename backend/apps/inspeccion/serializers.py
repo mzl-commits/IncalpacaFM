@@ -63,12 +63,12 @@ class InspeccionSerializer(serializers.ModelSerializer):
             "material_periodicidad_inspeccion_dias",
         ]
 
-    def get_inspector_nombre(self, obj):
+    def get_inspector_nombre(self, obj) -> str:
         if obj.inspector:
             return obj.inspector.get_full_name() or obj.inspector.username
         return "N/A"
 
-    def get_material_periodicidad_inspeccion_dias(self, obj):
+    def get_material_periodicidad_inspeccion_dias(self, obj) -> int | None:
         material = obj.pieza.material if obj.pieza else obj.material
         return material.periodicidad_inspeccion_dias if material else None
 
@@ -252,11 +252,11 @@ class ProgramacionInspeccionSerializer(serializers.ModelSerializer):
         # (con control individual); en ambos casos el material real cuelga de ahí.
         return obj.material or (obj.pieza.material if obj.pieza else None)
 
-    def get_subcategoria_nombre(self, obj):
+    def get_subcategoria_nombre(self, obj) -> str | None:
         material = self._material_resuelto(obj)
         return material.subcategoria.nombre if material else None
 
-    def get_objeto_nombre(self, obj):
+    def get_objeto_nombre(self, obj) -> str | None:
         material = self._material_resuelto(obj)
         return material.nombre if material else None
 

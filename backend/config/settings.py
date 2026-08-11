@@ -245,6 +245,23 @@ SPECTACULAR_SETTINGS = {
             ("DESECHO", "Desecho"),
             ("DONACION", "Donación"),
         ),
+        "StatusFc6Enum": (
+            ("RECIBIDA", "Recibida"),
+            ("EN_REVISION", "En revisión"),
+            ("RESUELTA", "Resuelta"),
+            ("RECHAZADA", "Rechazada"),
+        ),
+        "Tipo766Enum": (
+            ("individual", "Individual"),
+            ("grupal", "Grupal"),
+        ),
+        "ApprovedMethodEnum": (
+            ("POR_DEFINIR", "Por definir"),
+            ("VENTA", "Venta"),
+            ("RECICLAJE", "Reciclaje"),
+            ("DESECHO", "Desecho"),
+            ("DONACION", "Donación"),
+        ),
     },
 }
 

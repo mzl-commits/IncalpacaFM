@@ -16,6 +16,7 @@ htmlcov/
 
 # Entornos virtuales
 backend/.venv/
+backend/.venv-win/
 .venv/
 venv/
 

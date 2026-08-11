@@ -1,6 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAdministrator, IsTechnicianOrAdministrator, user_role
@@ -46,6 +47,10 @@ class DiagnosisDetailView(generics.RetrieveUpdateAPIView):
 class RetirementEvaluationRequestView(APIView):
     permission_classes = [IsTechnicianOrAdministrator]
 
+    @extend_schema(
+        request=None,
+        responses={201: RetirementRequestSerializer, 200: RetirementRequestSerializer},
+    )
     def post(self, request, pk):
         diagnosis = technician_diagnosis_queryset(request).filter(pk=pk).first()
         if not diagnosis:

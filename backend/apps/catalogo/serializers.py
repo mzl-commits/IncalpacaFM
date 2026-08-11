@@ -46,14 +46,14 @@ class PiezaAnidadaSerializer(serializers.ModelSerializer):
         model = Pieza
         fields = ["id", "codigo", "detalle", "estado", "foto", "material_nombre", "material_medida", "total_hijas", "hijas_disponibles", "piezas_hijas"]
 
-    def get_piezas_hijas(self, obj):
+    def get_piezas_hijas(self, obj) -> list[dict]:
         hijas = obj.piezas_hijas.all()
         return PiezaSerializer(hijas, many=True).data
 
-    def get_total_hijas(self, obj):
+    def get_total_hijas(self, obj) -> int:
         return obj.piezas_hijas.count()
 
-    def get_hijas_disponibles(self, obj):
+    def get_hijas_disponibles(self, obj) -> int:
         return obj.piezas_hijas.filter(estado="Disponible").count()
 
 class MaterialSerializer(serializers.ModelSerializer):
@@ -85,7 +85,7 @@ class MaterialSerializer(serializers.ModelSerializer):
         # cantidad_total YA NO va aquí — ahora es editable
         read_only_fields = ["codigo", "creado_en"]
 
-    def get_es_inspeccionable(self, obj):
+    def get_es_inspeccionable(self, obj) -> bool:
         return bool(
             obj.subcategoria.plantilla_inspeccion_id
             and obj.subcategoria.categoria.requiere_inspeccion
@@ -129,7 +129,7 @@ class MaterialDetalleSerializer(MaterialSerializer):
     class Meta(MaterialSerializer.Meta):
         fields = MaterialSerializer.Meta.fields + ["piezas"]
 
-    def get_piezas(self, obj):
+    def get_piezas(self, obj) -> list[dict]:
         piezas_raiz = obj.piezas.filter(padre__isnull=True)
         return PiezaAnidadaSerializer(piezas_raiz, many=True).data
 
@@ -258,7 +258,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
                 nombre = spec["nombre"].strip()
                 medida = spec.get("medida", "").strip()
 
-                # Buscar material existente con mismo nombre+medida en la misma subcategor\u00eda
+                # Buscar material existente con mismo nombre+medida en la misma subcategoría
                 qs = Material.objects.filter(
                     nombre__iexact=nombre,
                     subcategoria=subcategoria,
@@ -282,7 +282,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
                         es_componente=True,
                     )
                 elif not mat_hija.es_componente:
-                    # Si ya exist\u00eda pero no estaba marcado como componente, marcarlo
+                    # Si ya existía pero no estaba marcado como componente, marcarlo
                     mat_hija.es_componente = True
                     mat_hija.save(update_fields=["es_componente"])
 

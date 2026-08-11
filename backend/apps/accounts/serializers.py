@@ -49,7 +49,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "must_change_password",
         )
 
-    def get_full_name(self, obj):
+    def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
 
 
@@ -136,10 +136,10 @@ class UserListSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = ("id", "worker_code", "full_name", "role", "role_display")
 
-    def get_full_name(self, obj):
+    def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
 
-    def get_role_display(self, obj):
+    def get_role_display(self, obj) -> str:
         try:
             return obj.account_profile.get_role_display()
         except AccountProfile.DoesNotExist:

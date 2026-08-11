@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators
+from apps.workorders.models import WorkOrder, WorkOrderPhoto
 
 from .models import RetirementRequest, TechnicalDiagnosis
 
@@ -40,6 +41,7 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
     diagnosis_result = serializers.CharField(source="diagnosis.result", read_only=True)
     technical_justification = serializers.CharField(source="diagnosis.technical_justification", read_only=True)
     evidence = serializers.JSONField(source="diagnosis.evidence", read_only=True)
+    evidence_previews = serializers.SerializerMethodField()
     estimated_repair_cost = serializers.DecimalField(source="diagnosis.estimated_repair_cost", max_digits=12, decimal_places=2, read_only=True)
     estimated_current_value = serializers.DecimalField(source="diagnosis.estimated_current_value", max_digits=12, decimal_places=2, read_only=True)
 
@@ -50,6 +52,18 @@ class RetirementRequestSerializer(serializers.ModelSerializer):
 
     def get_asset_display_code(self, obj) -> str:
         return obj.asset.fm_code or obj.asset.code
+
+    def get_evidence_previews(self, obj) -> list[dict]:
+        order = WorkOrder.objects.filter(code=obj.diagnosis.work_order_code).first()
+        if not order:
+            return []
+        request = self.context.get("request")
+        previews = []
+        for stage, label, slug in ((WorkOrderPhoto.Stage.START, "Antes", "inicio"), (WorkOrderPhoto.Stage.FINISH, "DespuÃ©s", "final")):
+            if WorkOrderPhoto.objects.filter(work_order=order, stage=stage).exists():
+                path = f"/api/v1/work-orders/{order.id}/photos/{slug}/"
+                previews.append({"label": label, "url": request.build_absolute_uri(path) if request else path})
+        return previews
 
     def validate(self, attrs):
         diagnosis = attrs.get("diagnosis", getattr(self.instance, "diagnosis", None))

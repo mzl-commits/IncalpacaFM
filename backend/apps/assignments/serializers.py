@@ -46,11 +46,12 @@ class AssignmentSerializer(serializers.ModelSerializer):
     act = serializers.SerializerMethodField()
     responsible_history = serializers.SerializerMethodField()
     repair_history = serializers.SerializerMethodField()
+    observations = serializers.SerializerMethodField()
 
     class Meta:
         model = AssetAssignment
         fields = ('id', 'asset', 'responsible', 'location', 'start_date', 'end_date',
-                  'status', 'change_reason', 'delivery_status', 'act',
+                  'status', 'change_reason', 'observations', 'delivery_status', 'act',
                   'responsible_history', 'repair_history')
 
     def get_asset(self, obj) -> dict:
@@ -88,6 +89,10 @@ class AssignmentSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'delivery_act'):
             return 'ENTREGADO' if obj.delivery_act.status == DeliveryAct.Status.ISSUED else 'ASIGNADO'
         return 'ASIGNADO'
+
+    def get_observations(self, obj) -> str:
+        act = getattr(obj, 'delivery_act', None)
+        return act.observations if act else ''
 
     def get_act(self, obj) -> dict | None:
         if not hasattr(obj, 'delivery_act'):

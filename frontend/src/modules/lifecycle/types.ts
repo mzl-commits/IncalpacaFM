@@ -40,6 +40,7 @@ export interface RetirementRequest {
   diagnosisResult: ReparabilityResult;
   technicalJustification: string;
   evidence: string[];
+  evidencePreviews?: { label: string; url: string }[];
   estimatedRepairCost: number;
   estimatedCurrentValue: number;
   recommendation: DisposalMethod;
