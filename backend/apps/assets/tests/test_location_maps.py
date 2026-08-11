@@ -77,6 +77,25 @@ class LocationMapApiTests(TestCase):
         self.client.force_authenticate(self.technician)
         self.assertEqual(self.client.get("/api/v1/locations/").status_code, 200)
         self.assertEqual(self.client.get("/api/v1/location-maps/").status_code, 403)
+
+    def test_administrator_can_update_location_square_meters(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/api/v1/locations/{self.location.id}/area/",
+            {"square_meters": "45.50"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.location.refresh_from_db()
+        self.assertEqual(str(self.location.square_meters), "45.50")
+
+        self.client.force_authenticate(self.technician)
+        forbidden = self.client.patch(
+            f"/api/v1/locations/{self.location.id}/area/",
+            {"square_meters": "50.00"},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, 403)
         self.client.force_authenticate(self.requester)
         self.assertEqual(self.client.get("/api/v1/locations/").status_code, 200)
         self.assertEqual(self.client.get("/api/v1/location-maps/").status_code, 403)

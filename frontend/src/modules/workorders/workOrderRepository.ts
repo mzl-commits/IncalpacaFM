@@ -45,6 +45,12 @@ export async function getWorkOrderById(id: string): Promise<WorkOrder> {
   return data;
 }
 
+export async function quickAssignWorkOrder(id: string, technicianId: string): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/quick-assign/`, { technicianId });
+  notifyChanges();
+  return data;
+}
+
 export async function startWorkOrder(id: string, startPhoto?: File | null): Promise<WorkOrder> {
   const payload = new FormData();
   payload.append("action", "START");

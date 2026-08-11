@@ -78,6 +78,10 @@ export async function listLocations(): Promise<LocationOption[]> {
   return data.map(mapLocation);
 }
 
+export async function updateLocationArea(locationId: string, squareMeters: number | null): Promise<void> {
+  await api.patch(`/locations/${locationId}/area/`, { square_meters: squareMeters });
+}
+
 export async function uploadLocationMap(input: {
   locationId: string;
   image: File;
