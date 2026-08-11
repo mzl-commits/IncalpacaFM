@@ -44,12 +44,20 @@ export async function deletePlantillaCriterio(id: number): Promise<void> {
   await api.delete(`/plantillas-criterios/${id}/`);
 }
 
-export async function createCriterio(payload: { plantilla: number; texto: string; orden?: number }): Promise<Criterio> {
+// Usamos Pick<Criterio, ...> para que los tipos de payload no se desincronicen
+// del modelo Criterio (DRY), pero manteniendo "orden" opcional tanto en
+// creación (puede autoasignarse) como en actualización (PATCH parcial).
+export async function createCriterio(
+  payload: Pick<Criterio, "plantilla" | "texto"> & Partial<Pick<Criterio, "orden">>,
+): Promise<Criterio> {
   const { data } = await api.post<Criterio>("/criterios/", payload);
   return data;
 }
 
-export async function updateCriterio(id: number, payload: { texto?: string; orden?: number }): Promise<Criterio> {
+export async function updateCriterio(
+  id: number,
+  payload: Partial<Pick<Criterio, "texto" | "orden">>,
+): Promise<Criterio> {
   const { data } = await api.patch<Criterio>(`/criterios/${id}/`, payload);
   return data;
 }
@@ -134,4 +142,3 @@ export function exportarPdf(id: number): void {
   const base = import.meta.env.VITE_API_URL ?? "/api/v1";
   window.open(`${base}/inspecciones/${id}/exportar-pdf/`, "_blank");
 }
-
