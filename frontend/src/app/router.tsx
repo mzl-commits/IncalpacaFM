@@ -517,6 +517,20 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "almacen/plantillas",
+        lazy: async () => {
+          const m = await import("@/modules/almacen/pages/GestionPlantillasPage");
+          const Component = m.GestionPlantillasPage;
+          return {
+            Component: () => (
+              <RoleRoute allowedRoles={["ADMINISTRADOR", "INSPECTOR"]}>
+                <Component />
+              </RoleRoute>
+            ),
+          };
+        },
+      },
+      {
         path: "almacen/inspecciones",
         lazy: lazyRoute(
           () => import("@/modules/almacen/pages/InspeccionesPage"),
