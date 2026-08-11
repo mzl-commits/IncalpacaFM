@@ -52,11 +52,7 @@ export function InspeccionFormPage() {
   const [respuestas, setRespuestas] = useState<Record<number, { valor: ValorRespuesta | ""; observacion: string }>>({});
   const [resultado, setResultado] = useState<ResultadoInspeccion>("apta");
   const [accion, setAccion] = useState<AccionInspeccion>("continua_servicio");
-  const [proximaInspeccion, setProximaInspeccion] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 90);
-    return d.toISOString().slice(0, 10);
-  });
+  const [proximaInspeccion, setProximaInspeccion] = useState("");
   const [cantInspeccionada, setCantInspeccionada] = useState<number>(0);
   const [cantApta, setCantApta] = useState<number>(0);
   const [cantNoApta, setCantNoApta] = useState<number>(0);
@@ -446,8 +442,20 @@ export function InspeccionFormPage() {
                 </select>
               </Field>
               <Field label="Próxima inspección">
-                <small style={{display: "block", marginBottom: 8, color: "#666"}}>Opcional — si no se asigna, se calculará automáticamente como fecha actual + 90 días</small>
-                <input type="date" value={proximaInspeccion} onChange={(e) => setProximaInspeccion(e.target.value)} />
+                <small style={{ display: "block", marginBottom: 8, color: "#666" }}>
+                  Se calcula automáticamente según la frecuencia de inspección configurada en el material.
+                </small>
+                <details>
+                  <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--accent)" }}>
+                    Asignar una fecha manual (opcional)
+                  </summary>
+                  <input
+                    type="date"
+                    value={proximaInspeccion}
+                    onChange={(e) => setProximaInspeccion(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                </details>
               </Field>
             </div>
           </div>
