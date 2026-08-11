@@ -397,6 +397,13 @@ export const router = createBrowserRouter([
       {
         path: "administracion/formularios",
         lazy: administratorLazyRoute(
+          () => import("@/modules/almacen/pages/FormsCenterPage"),
+          "FormsCenterPage",
+        ),
+      },
+      {
+        path: "administracion/formularios/inspecciones",
+        lazy: administratorLazyRoute(
           () => import("@/modules/almacen/pages/InspectionTemplatesAdminPage"),
           "InspectionTemplatesAdminPage",
         ),
