@@ -155,6 +155,7 @@ const modules: ModuleGroup[] = [
       { to: "/administracion/mapas-ambientes", label: "Mapas de ambientes", icon: MapTrifold },
       { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree, count: "2" },
       { to: "/administracion/reportantes", label: "Usuarios que reportaron", icon: UserCircle },
+      { to: "/administracion/formularios", label: "Formularios de inspección", icon: ListChecks },
       { to: "/documentos", label: "Documentos", icon: Files },
       { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
     ],

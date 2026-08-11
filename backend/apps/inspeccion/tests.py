@@ -145,7 +145,6 @@ class ActiveChecksTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("material", response.json())
 
-        # Restaurar y hacer subcategoría inactiva
         self.material.activo = True
         self.material.save()
         self.subcategoria.activo = False
@@ -154,7 +153,6 @@ class ActiveChecksTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("material", response.json())
 
-        # Restaurar y hacer categoría inactiva
         self.subcategoria.activo = True
         self.subcategoria.save()
         self.categoria.activo = False
@@ -162,3 +160,27 @@ class ActiveChecksTests(TestCase):
         response = self.client.post("/api/v1/inspecciones/", payload, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("material", response.json())
+
+
+class InspectionTemplatePermissionsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(username="template-admin", password="password")
+        AccountProfile.objects.create(
+            user=self.admin,
+            worker_code="TEMPLATE-ADMIN",
+            role=AccountProfile.Role.ADMIN,
+            must_change_password=False,
+        )
+
+    def test_only_authorized_users_can_manage_questions(self):
+        self.assertEqual(self.client.get("/api/v1/plantillas-criterios/").status_code, 401)
+        self.client.force_authenticate(self.admin)
+        template = self.client.post("/api/v1/plantillas-criterios/", {"nombre": "Checklist UAT"}, format="json")
+        self.assertEqual(template.status_code, 201, template.json())
+        criterion = self.client.post(
+            "/api/v1/criterios/",
+            {"plantilla": template.json()["id"], "texto": "Pregunta editable", "orden": 1},
+            format="json",
+        )
+        self.assertEqual(criterion.status_code, 201, criterion.json())

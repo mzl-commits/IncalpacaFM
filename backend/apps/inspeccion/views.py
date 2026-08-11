@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.permissions import AllowAny
+from apps.accounts.permissions import IsInspectorOrAdministrator
 
 from datetime import timedelta, date
 from django.utils import timezone
@@ -30,13 +31,13 @@ from apps.inspeccion.serializers import (
 class PlantillaCriterioViewSet(viewsets.ModelViewSet):
     queryset = PlantillaCriterio.objects.prefetch_related("criterios").all()
     serializer_class = PlantillaCriterioSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsInspectorOrAdministrator]
 
 
 class CriterioViewSet(viewsets.ModelViewSet):
     queryset = Criterio.objects.select_related("plantilla").all()
     serializer_class = CriterioSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsInspectorOrAdministrator]
 
     def get_queryset(self):
         qs = super().get_queryset()
