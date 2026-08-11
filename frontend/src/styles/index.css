@@ -23,7 +23,8 @@
   --table-row-base: #FFFFFF;
   --table-row-alt: #E9E9E9;
   --table-row-hover: #DADADA;
-  --table-header-bg: #F2F2F2;
+  --table-header-bg: #111111;
+  --table-header-color: #FFFFFF;
   --table-divider: #D5D5D5;
 }
 
@@ -543,7 +544,7 @@ a { color: inherit; text-decoration: none; }
 .search-field input { width: 100%; border: 0; outline: 0; color: var(--text); }
 .table-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th { padding: 14px 16px; background: var(--surface-muted); color: var(--muted); font-size: 11px; letter-spacing: .05em; text-align: left; text-transform: uppercase; font-weight: 700; }
+th { padding: 14px 16px; background: #111111 !important; color: #FFFFFF !important; font-size: 11px; letter-spacing: .05em; text-align: left; text-transform: uppercase; font-weight: 700; border-bottom: 1px solid #282828 !important; }
 td { padding: 16px; border-top: 1px solid var(--border); color: var(--text); transition: background 0.15s; }
 tr:hover td { background: var(--surface-muted); }
 .table-action { min-height: 36px; border: 0; background: transparent; color: var(--accent); font-weight: 650; cursor: pointer; transition: color 0.15s; }
@@ -1555,7 +1556,7 @@ section:has(.detail-header) .detail-grid { grid-template-columns: repeat(2, minm
 .filter-row.is-open { max-height: 80px; padding-block: 0 14px; opacity: 1; }
 .filter-row select { min-width: 170px; min-height: 40px; border: 1px solid #b6b6b6; border-radius: 3px; padding: 8px 30px 8px 10px; background: #ffffff; color: #3f3f3f; }
 .filter-row button { min-height: 40px; border: 0; background: transparent; color: var(--accent); font-weight: 650; cursor: pointer; }
-th { padding: 11px 14px; background: #f0f0f0; }
+th { padding: 11px 14px; background: #111111 !important; color: #FFFFFF !important; border-bottom: 1px solid #282828 !important; }
 td { padding: 13px 14px; }
 .table-action { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .work-order-row td:first-child { box-shadow: inset 3px 0 0 #4a4a4a; }
@@ -3028,10 +3029,10 @@ td { padding: 13px 14px; }
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  background: #FFFFFF;
-  color: #000000;
-  border-top: 1px solid #000000;
-  border-bottom: 1px solid #000000;
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  border-top: 1px solid #111111 !important;
+  border-bottom: 1px solid #282828 !important;
   text-align: left;
 }
 
@@ -3752,18 +3753,44 @@ td { padding: 13px 14px; }
 .registry-table th,
 .audit-table th,
 .table-scroll table th,
-.data-panel table th {
+.data-panel table th,
+table thead th,
+table th {
   height: 44px;
   padding: 12px 18px;
-  background-color: var(--table-header-bg, #F2F2F2) !important;
-  color: #000000 !important;
+  background-color: #111111 !important;
+  background: #111111 !important;
+  color: #FFFFFF !important;
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  font-weight: 700;
+  letter-spacing: 0.035em;
   text-transform: uppercase;
-  border-top: 1px solid var(--table-divider, #D5D5D5) !important;
-  border-bottom: 1px solid var(--table-divider, #D5D5D5) !important;
+  border-top: 1px solid #111111 !important;
+  border-bottom: 1px solid #282828 !important;
   text-align: left;
+}
+
+table thead,
+table thead tr,
+.data-table--striped thead,
+.catalog-table thead,
+.registry-table thead,
+.audit-table thead,
+.table-scroll table thead,
+.data-panel table thead {
+  background-color: #111111 !important;
+  background: #111111 !important;
+}
+
+table thead th *,
+table th *,
+.data-table--striped th *,
+.catalog-table th *,
+.registry-table th *,
+.audit-table th *,
+.table-scroll table th *,
+.data-panel table th * {
+  color: #FFFFFF !important;
 }
 
 /* FILAS INTERCALADAS (ZEBRA STRIPING) */
@@ -4304,5 +4331,114 @@ td { padding: 13px 14px; }
   .quick-actions-sheet nav a * {
     animation: none !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   SUPERFICIE DE INDICADORES DE MOVIMIENTOS DE STOCK
+   ============================================================ */
+
+.stock-movements-strip {
+  background: #FFFFFF;
+  border: 1px solid #D8D8D8;
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  box-shadow: none;
+  margin-bottom: 24px;
+}
+
+.stock-indicator-item {
+  padding: 20px 22px;
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-left: 1px solid #E1E1E1;
+  background: #FFFFFF;
+  cursor: default;
+}
+
+.stock-indicator-item:first-child {
+  border-left: none;
+}
+
+.stock-indicator-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #222222;
+  margin-bottom: 12px;
+}
+
+.stock-indicator-header svg {
+  color: #222222;
+  flex-shrink: 0;
+}
+
+.stock-indicator-icon-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #222222;
+}
+
+.indicator-arrow-sub {
+  margin-left: -2px;
+}
+
+.stock-indicator-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  color: #333333;
+  line-height: 1.2;
+}
+
+.stock-indicator-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #111111;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.stock-indicator-unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: #666666;
+  line-height: 1.2;
+  display: block;
+}
+
+@media (max-width: 960px) {
+  .stock-movements-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stock-indicator-item:nth-child(3) {
+    border-left: none;
+    border-top: 1px solid #E1E1E1;
+  }
+  .stock-indicator-item:nth-child(4) {
+    border-top: 1px solid #E1E1E1;
+  }
+}
+
+@media (max-width: 600px) {
+  .stock-movements-strip {
+    grid-template-columns: 1fr;
+  }
+  .stock-indicator-item {
+    border-left: none;
+    border-top: 1px solid #E1E1E1;
+    padding: 16px 18px;
+    min-height: 104px;
+  }
+  .stock-indicator-item:first-child {
+    border-top: none;
   }
 }
