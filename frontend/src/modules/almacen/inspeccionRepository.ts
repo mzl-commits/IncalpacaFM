@@ -69,7 +69,6 @@ export async function deleteCriterio(id: number): Promise<void> {
 export async function reordenarCriterios(items: Array<{ id: number; orden: number }>): Promise<void> {
   await api.post("/criterios/reordenar/", items);
 }
-
 // ─── Inspecciones ─────────────────────────────────────────────────────────────
 
 export interface InspeccionesParams {

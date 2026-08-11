@@ -1,5 +1,4 @@
 from rest_framework import viewsets, status
-
 from datetime import timedelta, date
 
 from datetime import timedelta, date
@@ -36,7 +35,6 @@ from apps.accounts.permissions import IsInspectorOrAdministratorWrite
 class PlantillaCriterioViewSet(viewsets.ModelViewSet):
     queryset = PlantillaCriterio.objects.prefetch_related("criterios").all()
     serializer_class = PlantillaCriterioSerializer
-
     permission_classes = [IsInspectorOrAdministratorWrite]
 
     def destroy(self, request, *args, **kwargs):
@@ -51,11 +49,9 @@ class PlantillaCriterioViewSet(viewsets.ModelViewSet):
             )
 
 
-
 class CriterioViewSet(viewsets.ModelViewSet):
     queryset = Criterio.objects.select_related("plantilla").all()
     serializer_class = CriterioSerializer
-
     permission_classes = [IsInspectorOrAdministratorWrite]
 
     def get_queryset(self):
