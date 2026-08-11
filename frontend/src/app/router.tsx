@@ -4,7 +4,6 @@ import { AppShell } from "@/components/layout/AppShell";
 import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 import { ProtectedRoute } from "@/modules/accounts/ProtectedRoute";
 import { RoleRoute } from "@/modules/accounts/RoleRoute";
-import { TaxonomyCatalogPage } from "@/modules/taxonomy/pages/TaxonomyCatalogPage";
 import { TaxonomyFormPage } from "@/modules/taxonomy/pages/TaxonomyFormPage";
 import { FmCodeCatalogPage } from "@/modules/taxonomy/pages/FmCodeCatalogPage";
 import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";
@@ -13,6 +12,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
+import { UserImportPage } from "@/modules/accounts/pages/UserImportPage";
 import { ReporterRegistryPage } from "@/modules/accounts/pages/ReporterRegistryPage";
 import { TechnicianDetailPage } from "@/modules/accounts/pages/TechnicianDetailPage";
 import { TechnicianSchedulePage } from "@/modules/workorders/pages/TechnicianSchedulePage";
@@ -105,7 +105,7 @@ export const router = createBrowserRouter([
       {
         path: "mi-jornada",
         element: (
-          <RoleRoute allowedRoles={["TECNICO"]}>
+          <RoleRoute allowedRoles={["TECNICO", "ADMINISTRADOR"]}>
             <TechnicianSchedulePage />
           </RoleRoute>
         ),
@@ -242,6 +242,13 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "ordenes-trabajo/nueva/os",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/workorders/pages/ServiceOrderCreatePage"),
+          "ServiceOrderCreatePage",
+        ),
+      },
+      {
         path: "ordenes-trabajo/nueva/:requestId",
         lazy: lazyRoute(
           () => import("@/modules/workorders/pages/WorkOrderCreatePage"),
@@ -323,6 +330,7 @@ export const router = createBrowserRouter([
         lazy: administratorLazyRoute(() => import("@/modules/reports/pages/WorkOrderReportsPage"), "WorkOrderReportsPage"),
       },
       { path: "informes/plantillas", lazy: administratorLazyRoute(() => import("@/modules/reports/pages/ReportTemplatesPage"), "ReportTemplatesPage") },
+
       {
         path: "notificaciones",
         lazy: lazyRoute(
@@ -371,6 +379,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "administracion/usuarios/importar",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <UserImportPage />
+          </RoleRoute>
+        ),
+      },
+      {
         path: "administracion/reportantes",
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
@@ -385,6 +401,14 @@ export const router = createBrowserRouter([
             <TechnicianDetailPage />
           </RoleRoute>
         ),
+      },
+      {
+        path: "mi-perfil",
+        lazy: lazyRoute(() => import("@/modules/accounts/pages/UserDashboardPage"), "default"),
+      },
+      {
+        path: "usuarios/:id",
+        lazy: lazyRoute(() => import("@/modules/accounts/pages/UserBetaProfilePage"), "UserBetaProfilePage"),
       },
       {
         path: "administracion/taxonomia/nueva",

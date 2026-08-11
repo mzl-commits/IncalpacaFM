@@ -1,11 +1,12 @@
-import { Barcode, MapTrifold, TreeStructure } from "@phosphor-icons/react";
+import { Barcode, MapTrifold, Tag, TreeStructure } from "@phosphor-icons/react";
 import { Link, useLocation } from "react-router-dom";
 
 export function TaxonomySectionNav() {
   const { pathname } = useLocation();
   const codesActive = pathname.startsWith("/administracion/taxonomia/codigos");
   const mapActive = pathname.startsWith("/administracion/taxonomia/mapa");
-  const classificationsActive = !codesActive && !mapActive;
+  const modelsActive = pathname.startsWith("/administracion/modelos");
+  const classificationsActive = !codesActive && !mapActive && !modelsActive;
 
   return (
     <nav className="taxonomy-section-nav" aria-label="Secciones de taxonomía">
@@ -40,6 +41,17 @@ export function TaxonomySectionNav() {
         <span>
           <strong>Mapa de bienes</strong>
           <small>Plano y conciliación</small>
+        </span>
+      </Link>
+      <Link
+        className={modelsActive ? "is-active" : ""}
+        to="/administracion/modelos"
+        aria-current={modelsActive ? "page" : undefined}
+      >
+        <Tag size={19} weight="duotone" />
+        <span>
+          <strong>Modelos</strong>
+          <small>Marcas y referencias</small>
         </span>
       </Link>
     </nav>

@@ -67,6 +67,7 @@ function mapAsset(item: AssetApiRecord): RegisteredAsset {
     fmCode: item.fm_code ?? (item.display_code && item.display_code !== item.code ? item.display_code : null),
     publicToken: item.public_token,
     publicUrl: item.public_url,
+    photoUrl: item.photo_url ?? null,
     qrDataUrl: "",
     createdAt: item.created_at,
     createdBy: item.registered_by_name,
@@ -189,6 +190,7 @@ export async function registerAsset(draft: AssetEntryDraft): Promise<RegisteredA
   if (draft.serialNumber) form.append("serial_number", draft.serialNumber);
   form.append("condition", draft.condition);
   form.append("criticality", draft.criticality);
+  if (draft.fmCode.trim()) form.append("fm_code", draft.fmCode.trim().toUpperCase());
   if (!draft.classificationPending && draft.taxonomyId) form.append("taxonomy_id", draft.taxonomyId);
   if (!draft.locationPending && draft.locationId) form.append("location_id", draft.locationId);
   if (!draft.locationPending && draft.locationMapId) form.append("location_map_id", draft.locationMapId);

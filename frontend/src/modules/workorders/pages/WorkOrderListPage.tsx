@@ -1,4 +1,4 @@
-import { CaretRight, Plus } from "@phosphor-icons/react";
+﻿import { CaretRight, Plus } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -23,6 +23,7 @@ import {
   workOrderStatusLabels,
   workOrderTypeLabels,
   type WorkOrderStatus,
+  type WorkOrderType,
 } from "@/modules/workorders/workOrderModel";
 import {
   getWorkOrderAssetDisplayCode,
@@ -46,7 +47,7 @@ const FILTER_KEYS = [
 
 const progressLabels: Record<string, string> = {
   pending: "Sin iniciar · 0 %",
-  active: "En ejecución · 1–99 %",
+  active: "En atención · 1-99 %",
   complete: "Completada · 100 %",
 };
 
@@ -62,6 +63,7 @@ const terminalStatuses = new Set<WorkOrderStatus>([
 
 const statusClass: Record<WorkOrderStatus, string> = {
   PROGRAMADA: "status-neutral",
+  PENDIENTE_REPROGRAMACION: "status-error",
   ASIGNADA: "status-warning",
   EN_PROCESO: "status-warning",
   PENDIENTE_DE_SUPERVISION: "status-neutral",
@@ -85,6 +87,22 @@ function formatDate(value: string) {
 function isOverdue(scheduledDate: string, status: WorkOrderStatus) {
   const today = new Date().toISOString().slice(0, 10);
   return scheduledDate < today && !terminalStatuses.has(status);
+}
+
+const typeShortLabels: Record<WorkOrderType, string> = {
+  OT: "OT",
+  OL: "OL",
+  OS: "OS",
+};
+
+const typeDescriptions: Record<WorkOrderType, string> = {
+  OT: "Mantenimiento",
+  OL: "Limpieza",
+  OS: "Servicio externo",
+};
+
+function getOrderType(workOrder: Awaited<ReturnType<typeof listWorkOrders>>[number]): WorkOrderType {
+  return workOrder.orderType ?? "OT";
 }
 
 export function WorkOrderListPage() {
@@ -160,7 +178,7 @@ export function WorkOrderListPage() {
         workOrder.administratorNotes,
         specialtyLabels[workOrder.specialty],
         adminPriorityLabels[workOrder.adminPriority],
-        workOrderStatusLabels[workOrder.status],
+        getWorkOrderStatusLabel(workOrder),
       ]
         .join(" ")
         .toLocaleLowerCase("es");
@@ -303,7 +321,7 @@ export function WorkOrderListPage() {
         <div>
           <p className="breadcrumb">Mantenimiento / Órdenes operativas</p>
           <h1>Órdenes operativas</h1>
-          <p>Consulta la programación, responsables, avance y estado de OT y OL generadas.</p>
+          <p>Consulta programación, responsables, avance y estado de OT, OL y OS generadas.</p>
         </div>
         {isAdministrator && (
           <Link className="button button-primary" to="/ordenes-trabajo/nueva">
@@ -317,7 +335,7 @@ export function WorkOrderListPage() {
         <article>
           <span>Programadas o asignadas</span>
           <strong>{programmedCount}</strong>
-          <small>Pendientes de iniciar su ejecución</small>
+          <small>Listas para iniciar atención</small>
         </article>
         <article>
           <span>En proceso</span>
@@ -325,7 +343,7 @@ export function WorkOrderListPage() {
           <small>Actualmente atendidas por el operario</small>
         </article>
         <article>
-          <span>Pendientes de supervisión</span>
+          <span>Por revisar</span>
           <strong>{pendingSupervisionCount}</strong>
           <small>Esperan revisión del supervisor</small>
         </article>
@@ -339,7 +357,7 @@ export function WorkOrderListPage() {
       <div className="data-panel">
         <ListFilterPanel
           title="Consultar órdenes"
-          description="Cruza responsables, especialidad, programación, avance y prioridad."
+          description="Filtra por responsables, especialidad, programación, avance y prioridad."
           searchLabel="Buscar órdenes operativas"
           searchPlaceholder="Orden, solicitud, tipo, responsable, supervisor o especialidad"
           searchValue={values.q}
@@ -472,8 +490,11 @@ export function WorkOrderListPage() {
             </thead>
 
             <tbody>
-              {workOrders.map((workOrder) => (
-                <tr key={workOrder.id}>
+              {workOrders.map((workOrder) => {
+                const orderType = getOrderType(workOrder);
+                const isServiceOrder = orderType === "OS";
+                return (
+                <tr key={workOrder.id} className={`work-order-row is-${orderType.toLowerCase()}`}>
                   <td>
                     <strong>{workOrder.code}</strong>
                   </td>
@@ -483,14 +504,19 @@ export function WorkOrderListPage() {
                       <><br /><small>Bien: {getWorkOrderAssetDisplayCode(workOrder)}</small></>
                     )}
                   </td>
-                  <td>{workOrderTypeLabels[workOrder.orderType ?? "OT"]}</td>
+                  <td>
+                    <span className={`work-order-type-badge is-${orderType.toLowerCase()}`}>
+                      <strong>{typeShortLabels[orderType]}</strong>
+                      <small>{typeDescriptions[orderType]}</small>
+                    </span>
+                  </td>
                   <td>{specialtyLabels[workOrder.specialty]}</td>
-                  <td>{workOrder.operatorName}</td>
-                  <td>{workOrder.supervisorName}</td>
+                  <td>{isServiceOrder ? "Administración" : workOrder.operatorName}</td>
+                  <td>{isServiceOrder ? "No aplica" : workOrder.supervisorName}</td>
                   <td>{adminPriorityLabels[workOrder.adminPriority]}</td>
                   <td>{formatDate(workOrder.scheduledDate)}</td>
                   <td>
-                    <strong>{workOrder.progressPercentage} %</strong>
+                    <strong>{isServiceOrder ? "Gestion admin." : `${workOrder.progressPercentage} %`}</strong>
                   </td>
                   <td>
                     <span className={`status ${statusClass[workOrder.status]}`}>
@@ -503,12 +529,13 @@ export function WorkOrderListPage() {
                     </Link>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
 
               {!workOrders.length && (
                 <tr>
                   <td colSpan={11} className="empty-row">
-                    No encontramos órdenes operativas con esos criterios.
+                    No hay órdenes con esos filtros. Prueba quitando algún filtro o revisa otro estado.
                   </td>
                 </tr>
               )}
@@ -520,11 +547,14 @@ export function WorkOrderListPage() {
           className="operational-mobile-list hidden max-[720px]:grid gap-2 p-3"
           aria-label="Órdenes operativas"
         >
-          {workOrders.map((workOrder) => (
+          {workOrders.map((workOrder) => {
+            const orderType = getOrderType(workOrder);
+            const isServiceOrder = orderType === "OS";
+            return (
             <Link
               key={workOrder.id}
               to={`/ordenes-trabajo/${workOrder.id}`}
-              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+              className={`operational-mobile-card is-${orderType.toLowerCase()} grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600`}
             >
               <span className="flex items-start justify-between gap-3">
                 <strong className="text-sm">{workOrder.code}</strong>
@@ -536,7 +566,10 @@ export function WorkOrderListPage() {
                 <strong className="text-sm text-slate-900">
                   {specialtyLabels[workOrder.specialty]}
                 </strong>
-                <span>{workOrderTypeLabels[workOrder.orderType ?? "OT"]}</span>
+                <span className={`work-order-type-badge is-${orderType.toLowerCase()}`}>
+                  <strong>{typeShortLabels[orderType]}</strong>
+                  <small>{typeDescriptions[orderType]}</small>
+                </span>
                 <span>Solicitud {workOrder.requestCode}</span>
                 {getWorkOrderAssetDisplayCode(workOrder) && (
                   <span>Bien {getWorkOrderAssetDisplayCode(workOrder)}</span>
@@ -544,8 +577,8 @@ export function WorkOrderListPage() {
               </span>
               <span className="grid grid-cols-2 gap-3 text-xs text-slate-600">
                 <span>
-                  <strong className="block text-slate-800">Operario</strong>
-                  {workOrder.operatorName}
+                  <strong className="block text-slate-800">{isServiceOrder ? "Responsable" : "Operario"}</strong>
+                  {isServiceOrder ? "Administración" : workOrder.operatorName}
                 </span>
                 <span>
                   <strong className="block text-slate-800">Programación</strong>
@@ -556,8 +589,8 @@ export function WorkOrderListPage() {
                   {adminPriorityLabels[workOrder.adminPriority]}
                 </span>
                 <span>
-                  <strong className="block text-slate-800">Avance</strong>
-                  {workOrder.progressPercentage} %
+                  <strong className="block text-slate-800">{isServiceOrder ? "Control" : "Avance"}</strong>
+                  {isServiceOrder ? "Administrativo" : `${workOrder.progressPercentage} %`}
                 </span>
               </span>
               <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-zinc-800">
@@ -565,11 +598,12 @@ export function WorkOrderListPage() {
                 <CaretRight size={18} aria-hidden="true" />
               </span>
             </Link>
-          ))}
+            );
+          })}
 
           {!workOrders.length && (
             <p className="empty-row rounded border border-slate-300 bg-white">
-              No encontramos órdenes operativas con esos criterios.
+              No hay órdenes con esos filtros. Prueba quitando algún filtro o revisa otro estado.
             </p>
           )}
         </div>
@@ -577,3 +611,4 @@ export function WorkOrderListPage() {
     </section>
   );
 }
+

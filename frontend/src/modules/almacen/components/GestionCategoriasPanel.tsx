@@ -1,4 +1,4 @@
-import { FolderPlus, PencilSimple, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
+import { FolderPlus, PencilSimple, Trash, WarningCircle, X } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -87,7 +87,7 @@ export function GestionCategoriasPanel({ onClose }: Props) {
       queryClient.invalidateQueries({ queryKey: ["categorias"] });
       if (selectedCatId === editCat?.id) setSelectedCatId(null);
     },
-    onError: (err: Error) => setCatError("No se puede eliminar la categoria si contiene subcategorias o materiales."),
+    onError: () => setCatError("No se puede eliminar la categoria si contiene subcategorias o materiales."),
   });
 
   // Mutaciones Subcategoria

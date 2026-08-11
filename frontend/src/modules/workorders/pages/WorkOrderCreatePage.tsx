@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowLeft,
   FloppyDisk,
   Sparkle,
@@ -25,6 +25,7 @@ import {
   type Specialty,
 } from "@/modules/workorders/workOrderModel";
 
+import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
 import { createWorkOrder, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 
@@ -137,6 +138,17 @@ export function WorkOrderCreatePage() {
       );
       return;
     }
+    const conflicts = findScheduleConflicts({
+      orders,
+      operatorId: form.operatorId,
+      dates: [form.scheduledDate],
+      startTime: form.scheduledStartTime,
+      plannedHours: form.plannedHours,
+    });
+    if (conflicts.length) {
+      setError(`El operario ya tiene una orden en ese horario: ${conflicts.map((order) => order.code).join(", ")}.`);
+      return;
+    }
 
     const workOrder = await createWorkOrder({
       requestId: request.id,
@@ -169,7 +181,7 @@ export function WorkOrderCreatePage() {
     });
 
     navigate(
-      `/ordenes-trabajo/${workOrder.id}`,
+      `/órdenes-trabajo/${workOrder.id}`,
     );
   }
 
@@ -362,6 +374,17 @@ export function WorkOrderCreatePage() {
               </select>
             </label>
 
+
+            <div className="field field-wide">
+              <OperatorAvailabilityPanel
+                orders={orders}
+                operatorId={form.operatorId}
+                operatorName={form.operatorName}
+                selectedDate={form.scheduledDate}
+                startTime={form.scheduledStartTime}
+                plannedHours={form.plannedHours}
+              />
+            </div>
             <label className="field">
               <span>Técnicos de apoyo</span>
               <select multiple value={form.supportingWorkerCodes} onChange={(event) => updateField("supportingWorkerCodes", Array.from(event.target.selectedOptions).map((option) => option.value))}>
@@ -549,6 +572,7 @@ export function WorkOrderCreatePage() {
                 / 1000 caracteres
               </small>
             </label>
+
           </div>
         </div>
 
@@ -581,3 +605,5 @@ export function WorkOrderCreatePage() {
     </section>
   );
 }
+
+

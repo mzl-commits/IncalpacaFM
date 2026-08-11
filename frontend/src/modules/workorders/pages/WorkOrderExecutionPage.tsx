@@ -401,6 +401,7 @@ export function WorkOrderExecutionPage() {
             />
           </div>
 
+          {hasActiveSession ? (
           <form
             className="data-panel"
             onSubmit={handleSubmit}
@@ -553,7 +554,6 @@ export function WorkOrderExecutionPage() {
                 Cancelar
               </Link>
 
-              {hasActiveSession ? (
                 <button className="button button-primary" type="submit">
                   <FloppyDisk size={18} weight="bold" />
                   {percentage === 100
@@ -562,18 +562,21 @@ export function WorkOrderExecutionPage() {
                       : executionCopy.finishButton
                     : "Guardar avance"}
                 </button>
-              ) : (
-                <button
-                  className="button button-primary"
-                  type="button"
-                  onClick={() => document.getElementById("work-session-start")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                >
-                  <Play size={18} weight="fill" />
-                  {workOrder.startPhoto ? executionCopy.resumeContinueButton : executionCopy.continueButton}
-                </button>
-              )}
             </div>
           </form>
+          ) : (
+            <article className="data-panel technician-execution-guide">
+              <div>
+                <h2>Primero inicia o reanuda la atención</h2>
+                <p>El avance, las evidencias y la finalización se habilitan cuando la sesión está activa.</p>
+              </div>
+              <ol>
+                <li><strong>1</strong><span>{workOrder.startPhoto ? "Reanuda la sesión" : "Adjunta foto inicial e inicia"}</span></li>
+                <li><strong>2</strong><span>Registra avance y evidencias</span></li>
+                <li><strong>3</strong><span>Finaliza con foto final al 100 %</span></li>
+              </ol>
+            </article>
+          )}
         </>
       )}
     </section>

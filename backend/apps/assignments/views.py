@@ -2,6 +2,8 @@
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics, response, serializers, status, views
 
+from django.db.models import Count, Q
+
 from apps.accounts.permissions import (
     IsAdministrator,
     IsAuthenticatedReadAdministratorWrite,
@@ -40,8 +42,15 @@ class AssignmentCatalogView(views.APIView):
     def get(self, request):
         responsibles = AssignableResponsible.objects.filter(active=True).values(
             'id', 'external_reference', 'type', 'display_name', 'area_name')
-        locations = Location.objects.filter(active=True).values(
-            'id', 'zone', 'building', 'area', 'room', 'specific_location')
+        locations = Location.objects.filter(active=True).annotate(
+            current_users=Count(
+                'assetassignment__responsible',
+                filter=Q(assetassignment__status='ACTIVA', assetassignment__responsible__type='PERSONA'),
+                distinct=True
+            )
+        ).values(
+            'id', 'zone', 'building', 'area', 'room', 'specific_location', 'headcount', 'current_users'
+        )
         asset_rows = Asset.objects.exclude(administrative_status='Baja').values(
             'id', 'code', 'fm_code', 'name', 'brand', 'model', 'condition', 'assignment_status')
         assets = []

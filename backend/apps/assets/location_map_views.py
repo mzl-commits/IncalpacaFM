@@ -39,10 +39,17 @@ class LocationListView(generics.ListAPIView):
 
     def get_queryset(self):
         active_maps = LocationMap.objects.filter(active=True).select_related("uploaded_by")
+        from apps.assets.models import AssetAssignment
+        users_prefetch = Prefetch(
+            "assetassignment_set",
+            queryset=AssetAssignment.objects.filter(status="ACTIVA", responsible__type="PERSONA").select_related("responsible"),
+            to_attr="active_user_assignments"
+        )
         return (
             Location.objects.filter(active=True)
             .prefetch_related(
-                Prefetch("reference_maps", queryset=active_maps, to_attr="active_maps")
+                Prefetch("reference_maps", queryset=active_maps, to_attr="active_maps"),
+                users_prefetch
             )
             .order_by("zone", "building", "area", "room")
         )

@@ -7,6 +7,8 @@ from django.urls import reverse
 from PIL import Image, UnidentifiedImageError
 from rest_framework import serializers
 
+from apps.accounts.models import AccountProfile
+
 from apps.audit.services import record_audit
 
 from .models import Location, LocationMap
@@ -52,6 +54,7 @@ class LocationMapSummarySerializer(serializers.ModelSerializer):
 class LocationSerializer(serializers.ModelSerializer):
     display_name = serializers.CharField(source="__str__", read_only=True)
     active_map = serializers.SerializerMethodField()
+    assigned_users = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
@@ -62,15 +65,20 @@ class LocationSerializer(serializers.ModelSerializer):
             "source_version",
             "requires_review",
             "review_notes",
+            "site",
             "zone",
             "building",
+            "level",
             "area",
             "room",
             "specific_location",
+            "headcount",
+            "square_meters",
             "common_space",
             "active",
             "display_name",
             "active_map",
+            "assigned_users",
         )
         read_only_fields = fields
 
@@ -83,6 +91,24 @@ class LocationSerializer(serializers.ModelSerializer):
             location_map,
             context=self.context,
         ).data
+
+    def get_assigned_users(self, obj: Location) -> list[dict]:
+        request = self.context.get("request")
+        profile = getattr(getattr(request, "user", None), "account_profile", None)
+        if not profile or profile.role != AccountProfile.Role.ADMIN:
+            return []
+        assignments = getattr(obj, "active_user_assignments", [])
+        seen = set()
+        users = []
+        for a in assignments:
+            if a.responsible.id not in seen:
+                seen.add(a.responsible.id)
+                users.append({
+                    "id": str(a.responsible.id),
+                    "name": a.responsible.display_name,
+                    "area": a.responsible.area_name,
+                })
+        return users
 
 
 class LocationMapUploadSerializer(serializers.Serializer):

@@ -79,6 +79,6 @@ class Command(BaseCommand):
                 Criterio.objects.update_or_create(
                     plantilla=plantilla, texto=texto, defaults={"orden": orden}
                 )
-            self.stdout.write(f"  → {len(criterios)} criterios cargados.")
+            self.stdout.write(f"  -> {len(criterios)} criterios cargados.")
 
         self.stdout.write(self.style.SUCCESS("Carga de criterios completada."))
