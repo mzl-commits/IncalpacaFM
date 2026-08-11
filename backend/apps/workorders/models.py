@@ -15,6 +15,7 @@ class WorkOrder(models.Model):
 
     class Status(models.TextChoices):
         SCHEDULED = "PROGRAMADA", "Programada"
+        PENDING_RESCHEDULE = "PENDIENTE_REPROGRAMACION", "Pendiente de reprogramación"
         IN_PROGRESS = "EN_PROCESO", "En proceso"
         SUPERVISION = "PENDIENTE_DE_SUPERVISION", "Pendiente de supervisión"
         ADMIN_REVIEW = "PENDIENTE_DE_VALIDACION", "Pendiente de validación"

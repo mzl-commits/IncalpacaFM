@@ -24,6 +24,7 @@ export interface TaxonomyOption {
   sourceVersion: string;
   notes: string;
   active: boolean;
+  nextCodePreview?: string | null;
 }
 
 export interface TaxonomyRecord extends TaxonomyOption {

@@ -19,9 +19,13 @@ from .views import (
     PublicAssetPhotoView,
     PublicAssetView,
     TaxonomyModelListView,
+    UserDashboardView,
+    UserProfileView,
 )
 
 urlpatterns = [
+    path('user-dashboard/', UserDashboardView.as_view(), name='user-dashboard'),
+    path('users/<uuid:pk>/', UserProfileView.as_view(), name='user-profile'),
     path('taxonomy-models/', TaxonomyModelListView.as_view(), name='taxonomy-model-list'),
     path('locations/', LocationListView.as_view(), name='location-list'),
     path(

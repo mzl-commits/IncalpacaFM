@@ -26,10 +26,13 @@ type ApiLocation = {
   area: string;
   room: string;
   specific_location: string;
+  headcount: number | null;
+  square_meters: string | number | null;
   common_space: boolean;
   active: boolean;
   display_name: string;
   active_map: ApiLocationMap | null;
+  assigned_users: { id: string; name: string; area: string }[];
 };
 
 function mapLocationMap(item: ApiLocationMap): LocationMapSummary {
@@ -60,10 +63,13 @@ function mapLocation(item: ApiLocation): LocationOption {
     area: item.area,
     room: item.room,
     specificLocation: item.specific_location,
+    headcount: item.headcount,
+    squareMeters: item.square_meters == null ? null : Number(item.square_meters),
     commonSpace: item.common_space,
     active: item.active,
     displayName: item.display_name,
     activeMap: item.active_map ? mapLocationMap(item.active_map) : null,
+    assignedUsers: item.assigned_users,
   };
 }
 

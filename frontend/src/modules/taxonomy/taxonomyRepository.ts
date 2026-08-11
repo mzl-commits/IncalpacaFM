@@ -76,9 +76,9 @@ function mapTaxonomy(item: TaxonomyApiRecord): TaxonomyRecord {
     sourceVersion: item.source_version ?? "",
     notes: item.notes ?? "",
     active: item.active,
+    nextCodePreview: item.next_code_preview ?? null,
     assetCount: item.asset_count ?? 0,
     lastSequence: item.last_sequence ?? 0,
-    nextCodePreview: item.next_code_preview ?? null,
     updatedAt: item.updated_at ?? "",
   };
 }

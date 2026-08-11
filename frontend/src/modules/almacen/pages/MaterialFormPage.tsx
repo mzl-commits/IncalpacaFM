@@ -460,7 +460,6 @@ export function MaterialFormPage() {
                   Los materiales no retornables se consumen. Indica cómo se maneja
                   el stock y cuánto hay disponible actualmente.
                 </small>
-
                 <Field label="Manejo de stock" required hint="Elige cómo se cuenta este consumible en el almacén.">
                   <select
                     value={form.unidad_manejo ?? "unidad"}

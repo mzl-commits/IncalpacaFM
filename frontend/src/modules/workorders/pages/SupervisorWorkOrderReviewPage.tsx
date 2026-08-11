@@ -1,5 +1,7 @@
 import {
   ArrowSquareOut,
+  ArrowClockwise,
+  Camera,
   CheckCircle,
   NotePencil,
   SealCheck,
@@ -13,7 +15,6 @@ import {
   adminPriorityLabels,
   getWorkOrderStatusLabel,
   specialtyLabels,
-  workOrderStatusLabels,
   type WorkOrderStatus,
 } from "@/modules/workorders/workOrderModel";
 import {
@@ -23,11 +24,13 @@ import {
   WORK_ORDERS_UPDATED_EVENT,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
+import { api } from "@/services/api";
 
 type ReviewTab = "pending" | "reviewed";
 
 const statusClass: Record<WorkOrderStatus, string> = {
   PROGRAMADA: "status-neutral",
+  PENDIENTE_REPROGRAMACION: "status-error",
   ASIGNADA: "status-warning",
   EN_PROCESO: "status-warning",
   PENDIENTE_DE_SUPERVISION: "status-neutral",
@@ -72,6 +75,30 @@ function getReviewComment(order?: WorkOrder) {
   return typeof value === "string" && value.trim() ? value : "Sin comentario registrado";
 }
 
+function WorkOrderPhoto({ url, label }: { url?: string | null; label: string }) {
+  const [source, setSource] = useState<string>();
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl = "";
+    if (!url) {
+      setSource(undefined);
+      return;
+    }
+    const path = url.startsWith("/api/v1") ? url.slice("/api/v1".length) : url;
+    void api.get<Blob>(path, { responseType: "blob" }).then(({ data }) => {
+      objectUrl = URL.createObjectURL(data);
+      setSource(objectUrl);
+    }).catch(() => setFailed(true));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url]);
+
+  return <figure className="supervisor-photo-card">
+    <figcaption>{label}</figcaption>
+    {source && !failed ? <img src={source} alt={`${label} de la orden`} /> : <div className="supervisor-photo-empty"><WarningCircle size={22} /><span>{url ? "No se pudo cargar la evidencia" : "No registrada"}</span></div>}
+  </figure>;
+}
+
 export function SupervisorWorkOrderReviewPage() {
   const [searchParams] = useSearchParams();
   const requestedOrderId = searchParams.get("workOrder");
@@ -80,22 +107,32 @@ export function SupervisorWorkOrderReviewPage() {
   const [comment, setComment] = useState("");
   const [activeTab, setActiveTab] = useState<ReviewTab>("pending");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function refresh() {
-      const nextOrders = await listWorkOrders();
-      if (!active) return;
-      setOrders(nextOrders);
-      const requestedOrder = requestedOrderId
-        ? nextOrders.find((order) => order.id === requestedOrderId)
-        : undefined;
-      if (requestedOrder) {
-        setSelectedId(requestedOrder.id);
-        setActiveTab(requestedOrder.status === "PENDIENTE_DE_SUPERVISION" ? "pending" : "reviewed");
-      } else {
-        setSelectedId((current) => current || nextOrders[0]?.id || "");
+      setLoading(true);
+      setLoadError("");
+      try {
+        const nextOrders = await listWorkOrders();
+        if (!active) return;
+        setOrders(nextOrders);
+        const requestedOrder = requestedOrderId
+          ? nextOrders.find((order) => order.id === requestedOrderId)
+          : undefined;
+        if (requestedOrder) {
+          setSelectedId(requestedOrder.id);
+          setActiveTab(requestedOrder.status === "PENDIENTE_DE_SUPERVISION" ? "pending" : "reviewed");
+        } else {
+          setSelectedId((current) => current || nextOrders[0]?.id || "");
+        }
+      } catch {
+        if (active) setLoadError("No se pudo cargar la bandeja de supervisión. Comprueba tu conexión e inténtalo de nuevo.");
+      } finally {
+        if (active) setLoading(false);
       }
     }
 
@@ -161,12 +198,21 @@ export function SupervisorWorkOrderReviewPage() {
   return (
     <section className="supervisor-review-page">
       <div className="page-heading">
-        <div>
+        <div className="supervisor-heading-copy">
           <p className="breadcrumb">Supervisión / Órdenes de trabajo</p>
           <h1>Revisión del supervisor</h1>
           <p>Revisa solo tus órdenes pendientes y las que ya validaste.</p>
         </div>
       </div>
+
+      <div className="supervisor-review-toolbar">
+        <span>Actualiza la bandeja para ver las últimas órdenes terminadas.</span>
+        <button className="button button-secondary button-sm" type="button" onClick={() => { setLoading(true); void listWorkOrders().then(setOrders).catch(() => setLoadError("No se pudo actualizar la bandeja." )).finally(() => setLoading(false)); }} disabled={loading}>
+          <ArrowClockwise size={16} className={loading ? "is-spinning" : ""} /> Actualizar
+        </button>
+      </div>
+
+      {loadError && <div className="dashboard-partial-error" role="alert"><WarningCircle size={20} /><span>{loadError}</span></div>}
 
       <div className="metrics-grid">
         <article>
@@ -191,7 +237,7 @@ export function SupervisorWorkOrderReviewPage() {
         </article>
       </div>
 
-      <div className="supervisor-review-workspace">
+      {loading && !orders.length ? <div className="data-panel supervisor-loading-state"><div className="skeleton skeleton-block" /><span>Cargando órdenes de supervisión…</span></div> : <div className="supervisor-review-workspace">
         <article className="data-panel detail-card supervisor-review-table">
           <div className="detail-card-heading supervisor-review-heading">
             <div>
@@ -274,8 +320,8 @@ export function SupervisorWorkOrderReviewPage() {
                 <tr>
                   <td colSpan={8} className="empty-row">
                     {activeTab === "pending"
-                      ? "No tienes órdenes pendientes de supervisión."
-                      : "Todavia no tienes órdenes revisadas."}
+                      ? "No hay órdenes listas para revisar. Cuando el técnico termine una OT u OL, aparecerá aquí."
+                      : "Aún no hay revisiones registradas. Tus aprobaciones y devoluciones aparecerán aquí."}
                   </td>
                 </tr>
               )}
@@ -297,13 +343,13 @@ export function SupervisorWorkOrderReviewPage() {
               >
                 <span className="supervisor-card-topline">
                   <strong>{order.code}</strong>
-                  <span className={`status ${statusClass[order.status]}`}>{workOrderStatusLabels[order.status]}</span>
+                  <span className={`status ${statusClass[order.status]}`}>{getWorkOrderStatusLabel(order)}</span>
                 </span>
                 <span>{getWorkOrderAssetDisplayCode(order) || order.requestCode}</span>
                 <small>{order.operatorName} · {formatDuration(order.startedAt, order.finishedAt)}</small>
               </button>
             ))}
-            {!visibleOrders.length && <div className="supervisor-empty-state"><SealCheck size={24} /><strong>{activeTab === "pending" ? "Bandeja despejada" : "Sin revisiones registradas"}</strong><span>{activeTab === "pending" ? "Las OT terminadas aparecerán aquí para tu revisión." : "Las decisiones que registres quedarán disponibles aquí."}</span></div>}
+            {!visibleOrders.length && <div className="supervisor-empty-state"><SealCheck size={24} /><strong>{activeTab === "pending" ? "Bandeja despejada" : "Sin revisiones registradas"}</strong><span>{activeTab === "pending" ? "Cuando el técnico termine una OT u OL, aparecerá aquí para tu revisión." : "Tus aprobaciones y devoluciones quedarán disponibles aquí."}</span></div>}
           </div>
         </article>
 
@@ -349,6 +395,14 @@ export function SupervisorWorkOrderReviewPage() {
                 <dd>{getReviewComment(selectedOrder)}</dd>
               </div>
             </dl>
+
+            <section className="supervisor-photo-evidence" aria-labelledby="supervisor-photo-title">
+              <div className="detail-card-heading"><Camera size={22} /><div><h2 id="supervisor-photo-title">Evidencia fotográfica</h2><p>Compara el estado del bien antes y después de la atención.</p></div></div>
+              <div className="supervisor-photo-grid">
+                <WorkOrderPhoto url={selectedOrder.startPhoto} label="Antes de la atención" />
+                <WorkOrderPhoto url={selectedOrder.finishPhoto} label="Después de la atención" />
+              </div>
+            </section>
 
             {selectedCanReview ? (
               <form className="rejection-form" onSubmit={(event) => { event.preventDefault(); void handleReview(true); }}>
@@ -397,11 +451,11 @@ export function SupervisorWorkOrderReviewPage() {
           <div className="evidence-empty-note">
             <WarningCircle size={22} />
             <span>Sin orden seleccionada</span>
-            <p>Cuando un operario termine una orden, aparecerá aqui para revisión.</p>
+            <p>Selecciona una orden de la lista para revisar tiempos, evidencias y comentarios.</p>
           </div>
         )}
         </article>
-      </div>
+      </div>}
     </section>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "@/services/api";
+import { createClientId } from "@/utils/uuid";
 
 type ImpactAnswer = "" | "SI" | "NO";
 type AffectedPeople = "" | "SOLO_YO" | "VARIAS_PERSONAS" | "TODA_EL_AREA";
@@ -143,6 +144,23 @@ export function PublicWorkRequestPage() {
   const [asset, setAsset] = useState<PublicAssetContext | null>(null);
   const [assetLoadError, setAssetLoadError] = useState(false);
   const [isAssetLoading, setIsAssetLoading] = useState(!!assetToken);
+  const [identityMessage, setIdentityMessage] = useState("");
+
+  useEffect(() => {
+    const dni = form.requesterDni.trim();
+    const workerCode = form.requesterWorkerCode.trim();
+    if (dni.length !== 8 && !workerCode) { setIdentityMessage(""); return; }
+    const timer = window.setTimeout(() => {
+      api.get<{ found: boolean; reporter?: { name: string; email: string; dni: string; workerCode: string } }>("/organization/reporters/lookup/", { params: { dni, worker_code: workerCode } })
+        .then(({ data }) => {
+          if (!data.found || !data.reporter) { setIdentityMessage("No encontramos un registro; completa tus datos."); return; }
+          setForm((current) => ({ ...current, requesterName: data.reporter!.name || current.requesterName, requesterEmail: data.reporter!.email || current.requesterEmail, requesterDni: data.reporter!.dni, requesterWorkerCode: data.reporter!.workerCode }));
+          setIdentityMessage("Datos encontrados. Puedes editarlos antes de enviar el reporte.");
+        })
+        .catch(() => setIdentityMessage("No se pudo verificar la identidad; puedes continuar completando los datos."));
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [form.requesterDni, form.requesterWorkerCode]);
 
   useEffect(() => {
     let active = true;
@@ -322,7 +340,7 @@ export function PublicWorkRequestPage() {
         evidence: form.photoName
           ? [
               {
-                id: crypto.randomUUID(),
+                id: createClientId("evidence"),
                 name: form.photoName,
                 mimeType: "image/*",
                 size: 0,
@@ -475,6 +493,7 @@ export function PublicWorkRequestPage() {
                   placeholder="Ej. K4F89J"
                 />
               </label>
+              {identityMessage && <p className="form-hint" role="status">{identityMessage}</p>}
             </div>
           </div>
 

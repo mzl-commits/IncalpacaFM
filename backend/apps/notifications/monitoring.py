@@ -13,6 +13,11 @@ from .services import queue_for_administrators, queue_notification
 
 
 FINAL_STATUSES = {WorkOrder.Status.CLOSED, WorkOrder.Status.CANCELLED}
+MISSED_DAY_STATUSES = {
+    WorkOrder.Status.SCHEDULED,
+    WorkOrder.Status.IN_PROGRESS,
+    WorkOrder.Status.RETURNED,
+}
 
 
 def effective_work_minutes(order):
@@ -31,6 +36,39 @@ def queue_work_order_alerts(order):
     if order.status in FINAL_STATUSES:
         return
 
+    # Una OT que terminó su fecha sin llegar a revisión vuelve a la cola de
+    # planificación. Se ejecuta dentro del mismo sweep periódico que las
+    # alertas y el discriminador evita avisos duplicados.
+    if order.scheduled_date < timezone.localdate() and order.status in MISSED_DAY_STATUSES:
+        previous_status = order.status
+        order.status = WorkOrder.Status.PENDING_RESCHEDULE
+        note = (
+            f"OT no completada el {order.scheduled_date:%d/%m/%Y}; "
+            "pendiente de reprogramación por administración."
+        )
+        order.administrator_notes = f"{order.administrator_notes}\n{note}".strip()
+        order.save(update_fields=("status", "administrator_notes", "updated_at"))
+        subject = f"OT pendiente de reprogramación · {order.code}"
+        body = (
+            f"La OT {order.code} estaba programada para el {order.scheduled_date:%d/%m/%Y} "
+            f"y quedó en estado {previous_status}. No llegó a una revisión final; "
+            "revisa el motivo y asígnale una nueva fecha."
+        )
+        queue_for_administrators(
+            event="WORK_ORDER_MISSED_SCHEDULE",
+            subject=subject,
+            body=body,
+            entity=order,
+            discriminator=f"missed-schedule:{order.scheduled_date.isoformat()}",
+        )
+        queue_notification(
+            event="WORK_ORDER_MISSED_SCHEDULE",
+            recipient=order.technician,
+            subject=subject,
+            body="La orden volvió a espera de reprogramación. Coordina una nueva fecha con administración.",
+            entity=order,
+            discriminator=f"missed-schedule:{order.scheduled_date.isoformat()}",
+        )
     planned_minutes = order.planned_hours * 60
     registered_minutes = effective_work_minutes(order)
     if registered_minutes > planned_minutes:

@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import { createClientId } from "@/utils/uuid";
 
 export type AssignmentRecord = {
   id: string;
@@ -26,7 +27,7 @@ export type AssignmentRecord = {
 
 export type AssignmentCatalog = {
   responsibles: Array<{ id: string; external_reference: string; type: AssignmentRecord["responsible"]["type"]; display_name: string; area_name: string }>;
-  locations: Array<{ id: string; zone: string; building: string; area: string; room: string; specific_location: string }>;
+  locations: Array<{ id: string; zone: string; building: string; area: string; room: string; specific_location: string; headcount: number | null; current_users: number }>;
   assets: Array<{ id: string; code: string; display_code?: string | null; name: string; brand: string; model: string; condition: string; assignment_status: string }>;
 };
 
@@ -65,7 +66,7 @@ export async function getAssignmentCatalog() {
 
 export async function deliverAsset(payload: DeliveryPayload) {
   const { data } = await api.post<AssignmentRecord>("/assignments/deliver/", payload, {
-    headers: { "Idempotency-Key": crypto.randomUUID() },
+    headers: { "Idempotency-Key": createClientId("idempotency") },
   });
   return data;
 }

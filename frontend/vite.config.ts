@@ -43,6 +43,15 @@ export default defineConfig({
     },
   },
   build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@zxing")) {
+            return "vendor-zxing";
+          }
+        },
+      },
+    },
     rolldownOptions: {
       output: {
         codeSplitting: {
@@ -60,7 +69,15 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // Keep the development origin aligned with the public QR links.
+    port: 8008,
+    strictPort: true,
     host: true,
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
   },
 });
