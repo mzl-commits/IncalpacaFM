@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ClockCounterClockwise, DownloadSimple, Eye, MagnifyingGlass, ShieldCheck, UserCircle, WarningCircle, X } from "@phosphor-icons/react";
 import { useMemo, useRef, useState } from "react";
 import { fetchAuditEvents, type AuditEvent } from "../auditRepository";
-import { downloadExcelCsv } from "@/utils/exportCsv";
+import { downloadExcel } from "@/utils/exportCsv";
 
 const entityLabels: Record<string, string> = { Asset: "Bien", Assignment: "Asignación", Incident: "Incidencia", WorkOrder: "Orden de trabajo", Taxonomy: "Taxonomía", LocationMap: "Mapa de ambiente" };
 const actionLabels: Record<string, string> = {
@@ -63,7 +63,7 @@ export function AuditLogPage() {
   }
 
   function exportAudit() {
-    downloadExcelCsv(`auditoria-sgtb-${new Date().toISOString().slice(0, 10)}.csv`, ["Fecha y hora", "Acción", "Entidad", "Responsable", "Referencia", "Correlación"], rows.map((item) => [formatDate(item.created_at), readableAction(item.action), entityLabels[item.entity] ?? item.entity, item.actor_name, item.entity_id, item.correlation_id]));
+    downloadExcel(`auditoria-sgtb-${new Date().toISOString().slice(0, 10)}.xlsx`, ["Fecha y hora", "Acción", "Entidad", "Responsable", "Referencia", "Correlación"], rows.map((item) => [formatDate(item.created_at), readableAction(item.action), entityLabels[item.entity] ?? item.entity, item.actor_name, item.entity_id, item.correlation_id]), "Auditoría");
   }
 
   return (

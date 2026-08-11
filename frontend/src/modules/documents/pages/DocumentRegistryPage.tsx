@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, DownloadSimple, File, FilePdf, Files, MagnifyingGlass, ShieldCheck, WarningCircle } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { fetchDocuments, openDocument, type DocumentRecord } from "../documentRepository";
-import { downloadExcelCsv } from "@/utils/exportCsv";
+import { downloadExcel } from "@/utils/exportCsv";
 
 function formatSize(size: number) {
   if (!size) return "Sin peso registrado";
@@ -61,7 +61,7 @@ export function DocumentRegistryPage() {
   }
 
   function exportDocuments() {
-    downloadExcelCsv(`documentos-sgtb-${new Date().toISOString().slice(0, 10)}.csv`, ["Documento", "Origen", "Bien", "Expediente", "Registro", "Disponibilidad"], rows.map((item) => [item.name, item.sourceLabel, item.assetCode || "Sin bien", item.entityCode, formatDate(item.createdAt), item.hasContent ? "Archivo disponible" : "Solo registro"]));
+    downloadExcel(`documentos-sgtb-${new Date().toISOString().slice(0, 10)}.xlsx`, ["Documento", "Origen", "Bien", "Expediente", "Registro", "Disponibilidad"], rows.map((item) => [item.name, item.sourceLabel, item.assetCode || "Sin bien", item.entityCode, formatDate(item.createdAt), item.hasContent ? "Archivo disponible" : "Solo registro"]), "Documentos");
   }
 
   const total = documents.data?.count ?? 0;

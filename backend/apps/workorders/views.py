@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import generics, response, views
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
@@ -20,6 +21,7 @@ from .serializers import (
     WorkOrderCostUpdateSerializer, WorkOrderMaterialSerializer,
     WorkOrderMaterialWriteSerializer, WorkOrderSerializer,
 )
+from config.schema import WorkOrderReportResponseSerializer
 
 
 def participant_queryset(request):
@@ -81,6 +83,7 @@ class WorkOrderActionView(views.APIView):
 class WorkOrderPhotoView(views.APIView):
     permission_classes = [IsWorkOrderParticipant]
 
+    @extend_schema(responses={(200, "image/*"): OpenApiTypes.BINARY})
     def get(self, request, pk, stage):
         normalized_stage = {
             "inicio": WorkOrderPhoto.Stage.START,
@@ -127,6 +130,13 @@ class WorkOrderReportView(APIView):
             pk=pk,
         )
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: WorkOrderReportResponseSerializer(many=True),
+            201: WorkOrderReportResponseSerializer,
+        },
+    )
     def post(self, request, pk):
         order = self.get_order(pk)
         content = build_work_order_pdf(order).read()
@@ -134,6 +144,7 @@ class WorkOrderReportView(APIView):
         report.file.save(f"informe-{order.code}.pdf", ContentFile(content), save=True)
         return response.Response({"id": str(report.id), "createdAt": report.created_at, "downloadPath": f"/work-orders/{order.id}/reports/{report.id}/"}, status=201)
 
+    @extend_schema(responses={200: WorkOrderReportResponseSerializer(many=True)})
     def get(self, request, pk):
         order = self.get_order(pk)
         reports = order.generated_reports.all()
@@ -143,6 +154,7 @@ class WorkOrderReportView(APIView):
 class WorkOrderReportDownloadView(APIView):
     permission_classes = [IsAdministrator]
 
+    @extend_schema(responses={(200, "application/pdf"): OpenApiTypes.BINARY})
     def get(self, request, pk, report_id):
         report = get_object_or_404(WorkOrderReport, pk=report_id, work_order_id=pk)
         return FileResponse(report.file.open("rb"), content_type="application/pdf", as_attachment=True, filename=report.file.name.rsplit("/", 1)[-1])
@@ -257,6 +269,7 @@ class WorkOrderMaterialMarkBlockingView(views.APIView):
     """
     permission_classes = [IsWorkOrderParticipant]
 
+    @extend_schema(request=None, responses={200: WorkOrderMaterialSerializer})
     def post(self, request, pk, material_id):
         from apps.notifications.services import queue_for_administrators
         instance = get_object_or_404(
@@ -296,6 +309,7 @@ class WorkOrderMaterialMarkAcquiredView(views.APIView):
     """
     permission_classes = [IsAdministrator]
 
+    @extend_schema(request=None, responses={200: WorkOrderMaterialSerializer})
     def patch(self, request, pk, material_id):
         from django.utils import timezone
         from apps.notifications.services import queue_notification, queue_for_roles
@@ -349,6 +363,7 @@ class WorkOrderCostAutocompletarView(views.APIView):
     """
     permission_classes = [IsAdministrator]
 
+    @extend_schema(request=None, responses={200: WorkOrderCostSerializer(many=True), 201: WorkOrderCostSerializer(many=True)})
     def post(self, request, pk):
         order = get_object_or_404(WorkOrder, pk=pk)
         materiales_usados = order.materiales_usados.filter(

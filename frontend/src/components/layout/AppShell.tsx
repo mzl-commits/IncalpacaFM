@@ -46,6 +46,7 @@ type NavItem = {
   icon: typeof House;
   end?: boolean;
   count?: string | number;
+  roles?: UserRole[];
 };
 
 type ModuleGroup = {
@@ -75,6 +76,7 @@ const modules: ModuleGroup[] = [
     shortLabel: "Activos",
     icon: Package,
     paths: ["/bienes", "/asignaciones", "/mapa"],
+    roles: ["ADMINISTRADOR"],
     items: [
       { to: "/bienes/entradas", label: "Entradas", icon: Package },
       { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
@@ -120,6 +122,7 @@ const modules: ModuleGroup[] = [
     shortLabel: "QR",
     icon: Barcode,
     paths: ["/bienes/qr", "/administracion/taxonomia/codigos"],
+    roles: ["ADMINISTRADOR"],
     items: [
       { to: "/bienes/qr", label: "Imprimir QR", icon: Barcode },
       { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Tag },
@@ -131,7 +134,7 @@ const modules: ModuleGroup[] = [
     shortLabel: "Reportes",
     icon: ChartBar,
     paths: ["/informes"],
-    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
+    roles: ["ADMINISTRADOR"],
     items: [
       { to: "/informes", label: "Panel ejecutivo", icon: ChartBar, end: true },
       { to: "/informes/ordenes-trabajo", label: "Informes de OT", icon: Toolbox },
@@ -215,14 +218,16 @@ export function AppShell() {
 
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
 
-  const roleModules = modules.filter(
-    (mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)),
-  );
+  const roleModules = modules
+    .filter((mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)))
+    .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user) }))
+    .filter((mod) => mod.items.length > 0);
+  const roleQuickActions = user?.role === "ADMINISTRADOR" ? quickActions : [];
   const railModules = roleModules.filter((mod) => mod.id !== "administration");
   const configModule = roleModules.find((m) => m.id === "administration");
 
   const matchedModuleId =
-    roleModules.find((mod) => isGroupActive(location.pathname, mod.paths))?.id ?? "assets";
+    roleModules.find((mod) => isGroupActive(location.pathname, mod.paths))?.id ?? (user?.role === "TECNICO" ? "operations" : "assets");
 
   // Flyout Panel State: CLOSED BY DEFAULT
   const [flyoutOpen, setFlyoutOpen] = useState<boolean>(false);
@@ -504,7 +509,7 @@ export function AppShell() {
               <div key={mod.id} className="mobile-more-group">
                 <h3>{mod.label}</h3>
                 <div className="mobile-more-items">
-                  {mod.items.map(({ to, label, icon: Icon }) => (
+                  {itemsForRole(mod.items, user).map(({ to, label, icon: Icon }) => (
                     <NavLink
                       key={to}
                       to={to}
@@ -543,7 +548,7 @@ export function AppShell() {
           </header>
 
           <nav aria-label="Acciones globales">
-            {quickActions.map(({ to, label, icon: Icon }) => (
+            {roleQuickActions.map(({ to, label, icon: Icon }) => (
               <NavLink key={to} to={to} onClick={closeQuickMenu}>
                 <Icon size={23} weight="bold" />
                 <span>{label}</span>
@@ -566,7 +571,7 @@ export function AppShell() {
           </div>
 
           <div className="topbar-actions">
-            {quickActions.length > 0 && (
+            {roleQuickActions.length > 0 && (
               <button
                 className="topbar-quick-action"
                 type="button"
@@ -598,4 +603,14 @@ export function AppShell() {
       </div>
     </div>
   );
+}
+
+function itemsForRole(items: NavItem[], user: ReturnType<typeof useAuth>["user"]) {
+  if (user?.role === "TECNICO") {
+    return items.filter((item) => item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
+  }
+  if (user?.role === "SUPERVISOR") {
+    return items.filter((item) => item.to === "/ordenes-trabajo" || item.to === "/supervision" || item.to === "/mi-jornada");
+  }
+  return items;
 }

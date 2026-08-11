@@ -13,6 +13,7 @@ type DiagnosisApi = {
 type RetirementApi = {
   id: string; code: string; asset: string; asset_code: string; asset_display_code?: string | null; asset_name: string;
   diagnosis: string; work_order_code: string; diagnosis_result: RetirementRequest["diagnosisResult"];
+  evidence_previews?: { label: string; url: string }[];
   technical_justification: string; evidence: string[]; estimated_repair_cost: string;
   estimated_current_value: string; recommendation: DisposalMethod; requested_by: string;
   supervisor_name: string; status: RetirementRequest["status"]; decision_reason: string;
@@ -37,7 +38,7 @@ function mapRequest(item: RetirementApi): RetirementRequest {
     id: item.id, code: item.code, assetId: item.asset, assetCode: item.asset_display_code || item.asset_code,
     assetName: item.asset_name, diagnosisId: item.diagnosis, workOrderCode: item.work_order_code,
     diagnosisResult: item.diagnosis_result, technicalJustification: item.technical_justification,
-    evidence: item.evidence, estimatedRepairCost: Number(item.estimated_repair_cost),
+    evidence: item.evidence, evidencePreviews: item.evidence_previews ?? [], estimatedRepairCost: Number(item.estimated_repair_cost),
     estimatedCurrentValue: Number(item.estimated_current_value), recommendation: item.recommendation,
     requestedBy: item.requested_by, supervisorName: item.supervisor_name, status: item.status,
     decisionReason: item.decision_reason || undefined, decisionBy: item.decision_by || undefined,

@@ -10,6 +10,7 @@ export type AssignmentRecord = {
   end_date: string | null;
   status: "ACTIVA" | "FINALIZADA" | "ANULADA";
   change_reason: string;
+  observations: string;
   delivery_status: "ASIGNADO" | "ENTREGADO" | "EN_TRASLADO" | "DEVUELTO";
   act: { id: string; code: string; status: string; hash_sha256: string; issued_at: string } | null;
   responsible_history: Array<{
@@ -56,6 +57,11 @@ export async function listAssignments() {
 
 export async function getAssignment(id: string) {
   const { data } = await api.get<AssignmentRecord>(`/assignments/${id}/`);
+  return data;
+}
+
+export async function updateAssignment(id: string, input: { change_reason: string; status: string; asset_status: string }) {
+  const { data } = await api.patch<AssignmentRecord>(`/assignments/${id}/`, input);
   return data;
 }
 

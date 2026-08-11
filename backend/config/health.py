@@ -16,8 +16,10 @@ from django.db import connection
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from apps.accounts.permissions import IsAdministrator
+from .schema import CeleryHealthResponseSerializer, HealthReadyResponseSerializer, HealthResponseSerializer
 
 
 def database_probe() -> tuple[bool, str]:
@@ -87,6 +89,7 @@ class InternalHealthPermission(permissions.BasePermission):
 class LiveHealthView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(responses={200: HealthResponseSerializer})
     def get(self, request):
         return Response({"status": "ok"})
 
@@ -94,6 +97,7 @@ class LiveHealthView(APIView):
 class ReadyHealthView(APIView):
     permission_classes = [InternalHealthPermission]
 
+    @extend_schema(responses={200: HealthReadyResponseSerializer, 503: HealthReadyResponseSerializer})
     def get(self, request):
         components = readiness_snapshot()
         healthy = all(component["status"] == "ok" for component in components.values())
@@ -106,6 +110,7 @@ class ReadyHealthView(APIView):
 class CeleryHealthView(APIView):
     permission_classes = [InternalHealthPermission]
 
+    @extend_schema(responses={200: CeleryHealthResponseSerializer, 503: CeleryHealthResponseSerializer})
     def get(self, request):
         healthy, detail = celery_probe()
         return Response(

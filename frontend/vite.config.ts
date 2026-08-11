@@ -49,6 +49,12 @@ export default defineConfig({
           if (id.includes("@zxing")) {
             return "vendor-zxing";
           }
+          if (id.includes("xlsx")) {
+            return "vendor-xlsx";
+          }
+          if (id.includes("react") || id.includes("react-dom")) {
+            return "vendor-react";
+          }
         },
       },
     },
@@ -57,7 +63,7 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             {
-              name: "vendor",
+              name: "vendor-shared",
               test: /[\\/]node_modules[\\/]/,
               minSize: 20_000,
               maxSize: 250_000,

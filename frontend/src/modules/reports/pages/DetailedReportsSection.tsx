@@ -16,6 +16,7 @@ import { listAssignments, type AssignmentRecord } from "@/modules/assignments/as
 import { listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 import { useLocations } from "@/modules/assets/locationMapQueries";
+import { downloadExcel } from "@/utils/exportCsv";
 
 type ReportTab = "technicians" | "users" | "movements" | "environments" | "audit";
 
@@ -25,10 +26,6 @@ function formatDate(isoStr: string) {
   return new Intl.DateTimeFormat("es-PE", {
     day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
   }).format(date);
-}
-
-function csvCell(value: string | number | null | undefined) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
 export function DetailedReportsSection() {
@@ -107,10 +104,10 @@ export function DetailedReportsSection() {
     return (locationsQuery.data ?? []).filter((location) => !q || `${location.zone} ${location.building} ${location.area} ${location.room}`.toLocaleLowerCase("es-PE").includes(q));
   }, [locationsQuery.data, searchQuery]);
 
-  function exportCsv() {
+  function exportExcel() {
     let headers: string[] = [];
     let rows: string[][] = [];
-    const filename = `reporte-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `reporte-${activeTab}-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     if (activeTab === "audit") {
       headers = ["Fecha", "Actor", "Acción", "Entidad", "ID Entidad", "IP"];
@@ -138,17 +135,7 @@ export function DetailedReportsSection() {
     }
 
     if (!rows.length) return;
-    if (!rows.length) return;
-
-    const csv = `\uFEFF${[headers, ...rows].map(row => row.map(csvCell).join(";")).join("\r\n")}`;
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadExcel(filename, headers, rows, activeTab);
   }
 
   return (
@@ -188,11 +175,11 @@ export function DetailedReportsSection() {
 
         <button
           className="button button-primary reports-icon-action"
-          onClick={exportCsv}
+          onClick={exportExcel}
           disabled={loading}
         >
           <DownloadSimple size={19} />
-          <span>Exportar CSV</span>
+          <span>Exportar Excel</span>
         </button>
       </div>
 
