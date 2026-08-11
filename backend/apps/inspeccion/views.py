@@ -1,24 +1,31 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.permissions import AllowAny
 
-from datetime import timedelta
+from datetime import timedelta, date
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from apps.catalogo.models import Material, Pieza
+from apps.catalogo.models import Material
+from django.db.models import Q
 
 from django.http import HttpResponse
 from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion
 
-from apps.inspeccion.models import PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio
+from apps.inspeccion.models import (
+    PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
+    PlanInspeccionAnual, ProgramacionInspeccion,
+)
+
+from apps.inspeccion.planificacion import generar_plan_anual, construir_materiales_config
 from apps.inspeccion.serializers import (
     PlantillaCriterioSerializer,
     CriterioSerializer,
     InspeccionSerializer,
     InspeccionCrearSerializer,
     RespuestaCriterioSerializer,
+    ProgramacionInspeccionSerializer,
+    PlanInspeccionAnualSerializer,
 )
-
 
 class PlantillaCriterioViewSet(viewsets.ModelViewSet):
     queryset = PlantillaCriterio.objects.prefetch_related("criterios").all()
@@ -38,7 +45,6 @@ class CriterioViewSet(viewsets.ModelViewSet):
             qs = qs.filter(plantilla_id=plantilla_id)
         return qs
 
-
 class InspeccionViewSet(viewsets.ModelViewSet):
     queryset = Inspeccion.objects.select_related(
         "material", "pieza", "plantilla", "inspector"
@@ -56,6 +62,7 @@ class InspeccionViewSet(viewsets.ModelViewSet):
         pieza_id = self.request.query_params.get("pieza")
         tipo = self.request.query_params.get("tipo")
         resultado = self.request.query_params.get("resultado")
+        q = self.request.query_params.get("q")
 
         if material_id:
             qs = qs.filter(material_id=material_id)
@@ -65,23 +72,23 @@ class InspeccionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tipo=tipo)
         if resultado:
             qs = qs.filter(resultado_general=resultado)
+        if q:
+            qs = qs.filter(
+                Q(material__nombre__icontains=q)
+                | Q(material__codigo__icontains=q)
+                | Q(pieza__codigo__icontains=q)
+                | Q(inspector__full_name__icontains=q)
+            ).distinct()
         return qs
     
     @action(detail=False, methods=["get"], url_path="vencidas")
     def vencidas(self, request):
-        limite = timezone.now() - timedelta(days=90)  # o lógica de trimestre, según definamos
-        materiales_inspeccionables = Material.objects.filter(
-            subcategoria__plantilla_inspeccion__isnull=False,
-            subcategoria__categoria__requiere_inspeccion=True,
-            tipo_control="retornable",
-            es_componente=False,
-            activo=True,
-            subcategoria__activo=True,
-            subcategoria__categoria__activo=True,
-        )
+
+        materiales_inspeccionables = Material.objects.inspeccionables()
         resultado = []
 
         for material in materiales_inspeccionables.filter(control_individual=True):
+            limite = timezone.now() - timedelta(days=material.periodicidad_inspeccion_dias)
             piezas_hoja = material.piezas.exclude(estado="Baja").filter(piezas_hijas__isnull=True)
             pendientes = []
             for pieza in piezas_hoja:
@@ -107,6 +114,7 @@ class InspeccionViewSet(viewsets.ModelViewSet):
                 })
 
         for material in materiales_inspeccionables.filter(control_individual=False):
+            limite = timezone.now() - timedelta(days=material.periodicidad_inspeccion_dias)
             ultima = material.inspecciones.order_by("-fecha").first()
             if not ultima or ultima.fecha < limite:
                 resultado.append({
@@ -150,3 +158,75 @@ class RespuestaCriterioViewSet(viewsets.ModelViewSet):
         if inspeccion_id:
             qs = qs.filter(inspeccion_id=inspeccion_id)
         return qs
+
+class ProgramacionInspeccionViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ProgramacionInspeccion.objects.select_related(
+        "material__subcategoria", "pieza__material__subcategoria", "plan"
+    ).all()
+    serializer_class = ProgramacionInspeccionSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        subcategoria_id = self.request.query_params.get("subcategoria")
+        categoria_id = self.request.query_params.get("categoria")
+        desde = self.request.query_params.get("desde")
+        hasta = self.request.query_params.get("hasta")
+
+        if subcategoria_id:
+            qs = qs.filter(Q(material__subcategoria_id=subcategoria_id) | Q(pieza__material__subcategoria_id=subcategoria_id))
+        if categoria_id:
+            qs = qs.filter(Q(material__subcategoria__categoria_id=categoria_id) | Q(pieza__material__subcategoria__categoria_id=categoria_id))
+        if desde:
+            qs = qs.filter(fecha_programada__gte=desde)
+        if hasta:
+            qs = qs.filter(fecha_programada__lte=hasta)
+        return qs
+
+class PlanInspeccionAnualViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = PlanInspeccionAnual.objects.all()
+    serializer_class = PlanInspeccionAnualSerializer
+    permission_classes = [AllowAny]
+
+    @action(detail=False, methods=["post"], url_path="generar")
+    def generar(self, request):
+        """
+        Genera el plan de inspección anual (mismo cálculo que el comando de
+        terminal plan_anual.py — ambos usan construir_materiales_config()).
+        Bloquea la regeneración accidental de un año que ya tiene
+        programaciones, salvo que se envíe { "forzar": true }.
+        POST /plan-anual/generar/  Body: { "anio": 2026, "forzar": false }
+        """
+        anio = request.data.get("anio", date.today().year)
+        forzar = bool(request.data.get("forzar", False))
+
+        if not forzar and ProgramacionInspeccion.objects.filter(plan__anio=anio).exists():
+            return Response(
+                {
+                    "detail": f"Ya existen programaciones para el año {anio}. "
+                              "Envía { \"forzar\": true } para regenerar de todos modos.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if forzar:
+            # Limpia las programaciones aún no cumplidas antes de crear las nuevas,
+            # para no acumular duplicados (bug detectado: regenerar con forzar=True
+            # varias veces dejaba N copias "pendiente" del mismo material/pieza,
+            # de las cuales solo una se cerraba al registrar una inspección real).
+            # Las ya "realizada" NUNCA se tocan — es historial real, no se borra.
+            ProgramacionInspeccion.objects.filter(
+                plan__anio=anio, estado="pendiente",
+            ).delete()
+
+        fecha_inicio = date(anio, 1, 1)
+        materiales_config = construir_materiales_config()
+
+        plan, creadas = generar_plan_anual(anio, fecha_inicio, materiales_config)
+        return Response(
+            {
+                "plan": PlanInspeccionAnualSerializer(plan).data,
+                "programaciones_creadas": len(creadas),
+            },
+            status=status.HTTP_201_CREATED,
+        )

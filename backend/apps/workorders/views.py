@@ -287,6 +287,60 @@ class WorkOrderMaterialMarkBlockingView(views.APIView):
         return response.Response(WorkOrderMaterialSerializer(instance).data)
 
 
+class WorkOrderMaterialMarkAcquiredView(views.APIView):
+    """
+    PATCH: el administrador confirma que un material bloqueante ya fue
+    adquirido. Notifica al técnico que registró el material (puede
+    continuar) y a todos los usuarios con rol ALMACENERO (deben recibir
+    y despachar la compra a ese técnico/OT).
+    """
+    permission_classes = [IsAdministrator]
+
+    def patch(self, request, pk, material_id):
+        from django.utils import timezone
+        from apps.notifications.services import queue_notification, queue_for_roles
+        from rest_framework.exceptions import ValidationError
+
+        instance = get_object_or_404(
+            WorkOrderMaterial.objects.select_related("work_order", "material", "registrado_por"),
+            pk=material_id,
+            work_order_id=pk,
+        )
+        if not instance.es_bloqueante:
+            raise ValidationError("Este material no está marcado como bloqueante.")
+        if instance.adquirido:
+            raise ValidationError("Este material ya fue marcado como adquirido.")
+
+        instance.adquirido = True
+        instance.adquirido_en = timezone.now()
+        instance.save(update_fields=("adquirido", "adquirido_en", "actualizado_en"))
+
+        queue_notification(
+            event="MATERIAL_ADQUIRIDO",
+            recipient=instance.registrado_por,
+            subject=f"Material listo en {instance.work_order.code}",
+            body=(
+                f"El material '{instance.material.nombre}' que necesitabas para la OT "
+                f"{instance.work_order.code} ya fue adquirido. Puedes continuar el trabajo."
+            ),
+            entity=instance.work_order,
+            discriminator=f"adquirido-tecnico:{instance.id}",
+        )
+        queue_for_roles(
+            event="MATERIAL_ADQUIRIDO",
+            roles=[AccountProfile.Role.ALMACENERO],
+            subject=f"Nueva compra para despachar — {instance.work_order.code}",
+            body=(
+                f"Se adquirió '{instance.material.nombre}' (cantidad: {instance.cantidad}) "
+                f"para la OT {instance.work_order.code}. Recíbelo y despáchalo al técnico "
+                f"{instance.registrado_por.get_full_name() or instance.registrado_por.username}."
+            ),
+            entity=instance.work_order,
+            discriminator=f"adquirido-almacenero:{instance.id}",
+        )
+        return response.Response(WorkOrderMaterialSerializer(instance).data)
+
+
 class WorkOrderCostAutocompletarView(views.APIView):
     """
     POST: genera WorkOrderCost de categoría MATERIAL

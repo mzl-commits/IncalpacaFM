@@ -1,7 +1,10 @@
 from rest_framework import serializers
 from django.db import transaction
 
-from apps.inspeccion.models import PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio
+from apps.inspeccion.models import (
+    PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
+    PlanInspeccionAnual, ProgramacionInspeccion,
+)
 
 from django.contrib.auth import get_user_model
 
@@ -12,14 +15,12 @@ class CriterioSerializer(serializers.ModelSerializer):
         model = Criterio
         fields = ["id", "plantilla", "texto", "orden"]
 
-
 class PlantillaCriterioSerializer(serializers.ModelSerializer):
     criterios = CriterioSerializer(many=True, read_only=True)
 
     class Meta:
         model = PlantillaCriterio
         fields = ["id", "nombre", "criterios"]
-
 
 class RespuestaCriterioSerializer(serializers.ModelSerializer):
     criterio_texto = serializers.CharField(source="criterio.texto", read_only=True)
@@ -28,12 +29,15 @@ class RespuestaCriterioSerializer(serializers.ModelSerializer):
         model = RespuestaCriterio
         fields = ["id", "criterio", "criterio_texto", "valor", "observacion"]
 
-
 class RespuestaCriterioCrearSerializer(serializers.Serializer):
     criterio_id = serializers.IntegerField()
     valor = serializers.ChoiceField(choices=RespuestaCriterio.VALOR_CHOICES)
     observacion = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
 
+    def validate_criterio_id(self, value):
+        if not Criterio.objects.filter(pk=value).exists():
+            raise serializers.ValidationError(f"El criterio con id {value} no existe.")
+        return value
 
 class InspeccionSerializer(serializers.ModelSerializer):
     material_codigo = serializers.CharField(source="material.codigo", read_only=True)
@@ -42,6 +46,11 @@ class InspeccionSerializer(serializers.ModelSerializer):
     inspector_nombre = serializers.SerializerMethodField()
     plantilla_nombre = serializers.CharField(source="plantilla.nombre", read_only=True)
     respuestas = RespuestaCriterioSerializer(many=True, read_only=True)
+    # NUEVO: la periodicidad real del material dueño (o del material del
+    # contenedor, si esta inspección es de una pieza). TrimestreBadge la
+    # necesita para calcular vigencia (vencida/próxima/al día); antes solo
+    # vivía en el Material, no llegaba junto con la Inspeccion.
+    material_periodicidad_inspeccion_dias = serializers.SerializerMethodField()
 
     class Meta:
         model = Inspeccion
@@ -51,6 +60,7 @@ class InspeccionSerializer(serializers.ModelSerializer):
             "fecha", "proxima_inspeccion", "inspector", "inspector_nombre",
             "cantidad_inspeccionada", "cantidad_apta", "cantidad_no_apta",
             "resultado_general", "accion_tomada", "observaciones", "respuestas",
+            "material_periodicidad_inspeccion_dias",
         ]
 
     def get_inspector_nombre(self, obj):
@@ -58,6 +68,9 @@ class InspeccionSerializer(serializers.ModelSerializer):
             return obj.inspector.get_full_name() or obj.inspector.username
         return "N/A"
 
+    def get_material_periodicidad_inspeccion_dias(self, obj):
+        material = obj.pieza.material if obj.pieza else obj.material
+        return material.periodicidad_inspeccion_dias if material else None
 
 class InspeccionCrearSerializer(serializers.ModelSerializer):
     respuestas = RespuestaCriterioCrearSerializer(many=True, write_only=True, required=False, default=[])
@@ -94,18 +107,15 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     )
                 })
 
-        # El material debe ser retornable, pertenecer a una categoría que
-        # requiera inspección, y su subcategoría debe tener una plantilla asignada.
+        # La inspeccionabilidad la decide la categoría/subcategoría (requiere_inspeccion +
+        # plantilla_inspeccion), no tipo_control: un material no_retornable pero instalado
+        # de forma permanente (ej. luminarias de emergencia) también puede requerir inspección.
         material = data.get("material")
         plantilla = data.get("plantilla")
         if material:
             categoria = material.subcategoria.categoria
             plantilla_esperada = material.subcategoria.plantilla_inspeccion
 
-            if material.tipo_control != "retornable":
-                raise serializers.ValidationError({
-                    "material": "Los materiales no retornables no requieren inspección."
-                })
             if not categoria.requiere_inspeccion or not plantilla_esperada:
                 raise serializers.ValidationError({
                     "material": (
@@ -124,8 +134,7 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     )
                 })
 
-        # La pieza debe pertenecer al material especificado,
-        # o ser una pieza hija cuyo estuche padre sí pertenece al material.
+        # La pieza debe pertenecer al material, o ser hija de un estuche de ese material
         pieza = data.get("pieza")
         material = data.get("material")
         if pieza and material:
@@ -158,18 +167,22 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     "inspector": "Se requiere un inspector (no hay usuario autenticado)."
                 })
 
-        # Si no se asigna proxima_inspeccion, calcular automáticamente: hoy + 90 días
+        # Si no se asigna proxima_inspeccion, calcular automáticamente desde la
+        # periodicidad real del material (o del material dueño, si es una pieza).
         if not validated_data.get("proxima_inspeccion"):
             from datetime import date, timedelta
-            validated_data["proxima_inspeccion"] = date.today() + timedelta(days=90)
+            objetivo = validated_data.get("pieza") or validated_data.get("material")
+            material = objetivo.material if hasattr(objetivo, "material") else objetivo
+            validated_data["proxima_inspeccion"] = date.today() + timedelta(
+                days=material.periodicidad_inspeccion_dias
+            )
 
         with transaction.atomic():
             inspeccion = Inspeccion.objects.create(**validated_data)
             if piezas_lote_data:
                 inspeccion.piezas_lote.set(piezas_lote_data)
             elif inspeccion.tipo == "individual" and inspeccion.pieza:
-                # Si la pieza inspeccionada es un contenedor, sus hijas activas
-                # quedan registradas también en piezas_lote automáticamente.
+                # Si la pieza es un contenedor, sus hijas activas entran también a piezas_lote
                 from apps.catalogo.models import Pieza
                 hijas_ids = list(
                     Pieza.objects.filter(padre=inspeccion.pieza)
@@ -188,10 +201,8 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     observacion=resp.get("observacion", ""),
                 )
 
-            # Sincronizar estado de la pieza individual según la acción tomada.
-            # Mantenimiento/disponible: cambio de estado directo (reversible, no
-            # afecta stock). Baja/reemplazo: pasa por inventario.services para
-            # dejar rastro en la bitácora de Movimiento, ya que sí afecta cantidad_total.
+            # Sincroniza el estado de la pieza según la acción: mantenimiento es directo;
+            # baja/reemplazo pasa por inventario.services para dejar rastro en Movimiento.
             if inspeccion.pieza and inspeccion.accion_tomada:
                 pieza = inspeccion.pieza
                 accion = inspeccion.accion_tomada
@@ -210,4 +221,46 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                         pieza.estado = "Disponible"
                         pieza.save(update_fields=["estado"])
 
+            from apps.inspeccion.planificacion import registrar_inspeccion_completada
+            objetivo_filtro = {"pieza": inspeccion.pieza} if inspeccion.pieza else {"material": inspeccion.material}
+            programacion = ProgramacionInspeccion.objects.filter(
+                estado="pendiente", **objetivo_filtro
+            ).order_by("fecha_programada").first()
+            if programacion:
+                es_baja_definitiva = inspeccion.accion_tomada in ("dar_baja", "reemplazar")
+                registrar_inspeccion_completada(programacion, inspeccion, generar_siguiente=not es_baja_definitiva)
+
         return inspeccion
+
+class ProgramacionInspeccionSerializer(serializers.ModelSerializer):
+    material_codigo = serializers.CharField(source="material.codigo", read_only=True, default=None)
+    pieza_codigo = serializers.CharField(source="pieza.codigo", read_only=True, default=None)
+    estado_calculado = serializers.CharField(read_only=True)
+    subcategoria_nombre = serializers.SerializerMethodField()
+    objeto_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProgramacionInspeccion
+        fields = [
+            "id", "plan", "material", "material_codigo", "pieza", "pieza_codigo",
+            "subcategoria_nombre", "objeto_nombre", "periodicidad_dias", "fecha_programada",
+            "estado", "estado_calculado", "inspeccion",
+        ]
+
+    def _material_resuelto(self, obj):
+        # La programación apunta a material (sin control individual) o a pieza
+        # (con control individual); en ambos casos el material real cuelga de ahí.
+        return obj.material or (obj.pieza.material if obj.pieza else None)
+
+    def get_subcategoria_nombre(self, obj):
+        material = self._material_resuelto(obj)
+        return material.subcategoria.nombre if material else None
+
+    def get_objeto_nombre(self, obj):
+        material = self._material_resuelto(obj)
+        return material.nombre if material else None
+
+class PlanInspeccionAnualSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlanInspeccionAnual
+        fields = ["id", "anio", "fecha_inicio", "fecha_fin", "estado"]

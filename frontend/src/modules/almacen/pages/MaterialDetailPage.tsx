@@ -7,13 +7,13 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
-import { deleteMaterial, deleteMaterialForzado, deletePieza, desvinculaPieza, getMaterialDetalle, agregarHijaInline } from "@/modules/almacen/catalogoRepository";
-import { labelPieza } from "@/utils/pieza";
+import { deleteMaterial, deleteMaterialForzado, getMaterialDetalle } from "@/modules/almacen/catalogoRepository";
 import { listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
-import { STOCK_MINIMO, tipoControlLabels } from "@/modules/almacen/types";
-import type { PiezaAnidada, PiezaBase } from "@/modules/almacen/types";
+import { STOCK_MINIMO, tipoControlLabels, unidadMedidaAbrev } from "@/modules/almacen/types";
 import { AjustarStockPanel } from "@/modules/almacen/components/AjustarStockPanel";
+import { PiezaTreeRow } from "@/modules/almacen/components/PiezaTreeRow";
+
 
 export function MaterialDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,7 +39,6 @@ export function MaterialDetailPage() {
     enabled: !!materialId,
   });
 
-  const [confirmDelete, setConfirmDelete] = useState(false); // eslint-disable-line -- kept for safety
   // "idle" | "confirming" | "force_required" | "force_confirming"
   const [deleteStep, setDeleteStep] = useState<"idle" | "confirming" | "force_required" | "force_confirming">("idle");
 
@@ -91,27 +90,83 @@ export function MaterialDetailPage() {
     !material.control_individual && material.cantidad_total < STOCK_MINIMO;
   const ultimaInspeccion = inspecciones[0]?.fecha ?? null;
 
+  function formatearFrecuencia(valor: number, unidad: "dias" | "meses"): string {
+    if (unidad === "meses") return `${valor} ${valor === 1 ? "mes" : "meses"}`;
+    return `${valor} ${valor === 1 ? "día" : "días"}`;
+  }
+
   return (
     <section>
+      <style>{`
+        .mat-detail-header {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 18px !important;
+          margin-bottom: 28px !important;
+        }
+        .mat-detail-header .back-link {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          align-self: flex-start !important;
+        }
+        .mat-detail-title-row {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: wrap !important;
+          align-items: flex-start !important;
+          justify-content: space-between !important;
+          gap: 16px !important;
+        }
+        .mat-detail-title-block {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 6px !important;
+          min-width: 0 !important;
+        }
+        .mat-detail-title-block h1 {
+          margin: 0 !important;
+        }
+        .mat-detail-title-block .breadcrumb {
+          margin: 0 !important;
+        }
+        .mat-detail-meta {
+          margin: 0 !important;
+          padding: 4px 10px !important;
+          border-radius: 999px !important;
+          background: var(--surface-muted, #f3f4f6) !important;
+          color: var(--muted, #6b7280) !important;
+          font-size: 13px !important;
+          white-space: nowrap !important;
+          flex-shrink: 0 !important;
+        }
+        .mat-detail-actions {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: wrap !important;
+          align-items: center !important;
+          gap: 10px !important;
+          width: 100% !important;
+        }
+      `}</style>
+
       {/* Cabecera */}
-      <div className="wizard-heading">
+      <div className="mat-detail-header">
         <Link to="/almacen/catalogo" className="back-link">
           <ArrowLeft size={16} /> Catálogo
         </Link>
-        <div>
-          <p className="breadcrumb">Almacén / Catálogo / {material.codigo}</p>
-          <h1>{material.nombre}</h1>
-          <p>{material.subcategoria_nombre} · {material.categoria_nombre}</p>
+
+        <div className="mat-detail-title-row">
+          <div className="mat-detail-title-block">
+            <p className="breadcrumb">Almacén / Catálogo / {material.codigo}</p>
+            <h1>{material.nombre}</h1>
+          </div>
+          <span className="mat-detail-meta">
+            {material.subcategoria_nombre} · {material.categoria_nombre}
+          </span>
         </div>
-        <div className="material-header-actions">
-          {material.control_individual && (
-            <Link
-              className="button button-primary button-sm"
-              to={`/almacen/catalogo/${material.id}/alta-piezas`}
-            >
-              <Plus size={14} /> Alta de piezas
-            </Link>
-          )}
+
+        <div className="mat-detail-actions">
           <Link
             className="button button-secondary button-sm"
             to={`/almacen/movimientos/nuevo?material=${material.id}`}
@@ -269,23 +324,40 @@ export function MaterialDetailPage() {
             )}
 
             <dl className="review-card dl" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0 }}>
-              <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Marca / Modelo</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{[material.marca, material.modelo].filter(Boolean).join(" / ") || "—"}</dd></div>
-              <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Medida</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.medida || "—"}</dd></div>
-              <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Tipo de control</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{tipoControlLabels[material.tipo_control]}</dd></div>
-              <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Control individual</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.control_individual ? "Sí" : "No"}</dd></div>
-              <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Ubicación física</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.ubicacion_fisica || "—"}</dd></div>
+              <div><dt className="dt-label">Marca / Modelo</dt><dd className="dd-value">{[material.marca, material.modelo].filter(Boolean).join(" / ") || "—"}</dd></div>
+              <div><dt className="dt-label">Medida</dt><dd className="dd-value">{material.medida || "—"}</dd></div>
+              <div><dt className="dt-label">Tipo de control</dt><dd className="dd-value">{tipoControlLabels[material.tipo_control]}</dd></div>
+              <div><dt className="dt-label">Control individual</dt><dd className="dd-value">{material.control_individual ? "Sí" : "No"}</dd></div>
+              <div><dt className="dt-label">Ubicación física</dt><dd className="dd-value">{material.ubicacion_fisica || "—"}</dd></div>
+              {material.es_inspeccionable && (
+                <div>
+                  <dt className="dt-label">Frecuencia de inspección</dt>
+                  <dd className="dd-value">
+                    {formatearFrecuencia(material.periodicidad_valor, material.periodicidad_unidad)}
+                  </dd>
+                </div>
+              )}
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Precio de referencia</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                <dt className="dt-label">Precio de referencia</dt>
+                <dd className="dd-value">
                   {material.precio !== null && material.precio !== undefined && material.precio !== ""
                     ? `S/ ${Number(material.precio).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     : "—"}
                 </dd>
               </div>
               <div>
-                <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Cantidad / Piezas</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+                <dt className="dt-label">Cantidad / Piezas</dt>
+                <dd className="dd-value">
                   {material.cantidad_total}{" "}
+                  {!material.control_individual && material.unidad_manejo === "caja" && material.unidades_por_caja && (
+                    <span style={{ color: "var(--muted)" }}>
+                      ({Math.floor(material.cantidad_total / material.unidades_por_caja)} cajas de {material.unidades_por_caja} u.
+                      {material.cantidad_total % material.unidades_por_caja !== 0
+                        ? ` + ${material.cantidad_total % material.unidades_por_caja} sueltas`
+                        : ""}
+                      )
+                    </span>
+                  )}{" "}
                   {stockAlerta && (
                     <span className="stock-alert-badge">
                       <WarningCircle size={13} /> Stock bajo
@@ -293,8 +365,18 @@ export function MaterialDetailPage() {
                   )}
                 </dd>
               </div>
-              {material.grosor_mm && <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Grosor (mm)</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.grosor_mm}</dd></div>}
-              {material.largo_mm && <div><dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Largo (mm)</dt><dd style={{ margin: "4px 0 0", fontSize: 13 }}>{material.largo_mm}</dd></div>}
+              {material.grosor && (
+                <div>
+                  <dt className="dt-label">Grosor / Diámetro</dt>
+                  <dd className="dd-value">{material.grosor} {unidadMedidaAbrev[material.unidad_medida]}</dd>
+                </div>
+              )}
+              {material.largo && (
+                <div>
+                  <dt className="dt-label">Largo</dt>
+                  <dd className="dd-value">{material.largo} {unidadMedidaAbrev[material.unidad_medida]}</dd>
+                </div>
+              )}
             </dl>
           </div>
 
@@ -325,6 +407,7 @@ export function MaterialDetailPage() {
                     key={pieza.id}
                     pieza={pieza}
                     mostrarTrimestre={ultimaInspeccion}
+                    periodicidadDias={material.periodicidad_inspeccion_dias}
                     materialId={materialId}
                   />
                 ))}
@@ -337,7 +420,7 @@ export function MaterialDetailPage() {
             <div className="table-toolbar">
               <strong style={{ fontSize: 15 }}>Movimientos</strong>
               <Link
-                to={`/almacen/movimientos?material=${material.id}`}
+                to={`/almacen/movimientos?material=${encodeURIComponent(material.codigo)}`}
                 className="table-action"
                 style={{ fontSize: 13 }}
               >
@@ -345,7 +428,7 @@ export function MaterialDetailPage() {
               </Link>
             </div>
             <div className="table-scroll">
-              <table>
+              <table className="tabla-detalle-mobile">
                 <thead>
                   <tr>
                     <th>Fecha</th>
@@ -356,19 +439,21 @@ export function MaterialDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {movimientos.slice(0, 10).map((mov) => (
+                  {movimientos.slice(0, 5).map((mov) => (
                     <tr key={mov.id}>
-                      <td style={{ fontSize: 12 }}>
+                      <td className="col-fecha" style={{ fontSize: 12 }}>
                         {new Date(mov.fecha).toLocaleDateString("es-PE")}
                       </td>
-                      <td>
+                      <td className="col-tipo">
                         <StatusBadge value={mov.tipo} label={mov.tipo_display} />
                       </td>
-                      <td style={{ fontSize: 12 }}>
+                      <td className="col-detalle" data-label="Pieza/Cant." style={{ fontSize: 12 }}>
                         {mov.pieza_codigo ?? `${mov.cantidad} u.`}
                       </td>
-                      <td style={{ fontSize: 12 }}>{mov.responsable_nombre}</td>
-                      <td style={{ fontSize: 12, color: "var(--muted)" }}>
+                      <td className="col-detalle" data-label="Responsable" style={{ fontSize: 12 }}>
+                        {mov.responsable_nombre}
+                      </td>
+                      <td className="col-detalle" data-label="Referencia" style={{ fontSize: 12, color: "var(--muted)" }}>
                         {mov.referencia_externa || "—"}
                       </td>
                     </tr>
@@ -396,7 +481,7 @@ export function MaterialDetailPage() {
               </Link>
             </div>
             <div className="table-scroll">
-              <table>
+              <table className="tabla-detalle-mobile">
                 <thead>
                   <tr>
                     <th>Fecha</th>
@@ -409,16 +494,23 @@ export function MaterialDetailPage() {
                 <tbody>
                   {inspecciones.slice(0, 5).map((insp) => (
                     <tr key={insp.id}>
-                      <td style={{ fontSize: 12 }}>
+                      <td className="col-fecha" style={{ fontSize: 12 }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {new Date(insp.fecha).toLocaleDateString("es-PE")}
-                          <TrimestreBadge fecha={insp.fecha} />
+                          <TrimestreBadge
+                            fecha={insp.fecha}
+                            periodicidadDias={material.periodicidad_inspeccion_dias}
+                          />
                         </span>
                       </td>
-                      <td style={{ fontSize: 12 }}>{insp.tipo === "individual" ? "Individual" : "Grupal"}</td>
-                      <td><StatusBadge value={insp.resultado_general} /></td>
-                      <td style={{ fontSize: 12 }}>{insp.inspector_nombre}</td>
-                      <td>
+                      <td className="col-detalle" data-label="Tipo" style={{ fontSize: 12 }}>
+                        {insp.tipo === "individual" ? "Individual" : "Grupal"}
+                      </td>
+                      <td className="col-tipo"><StatusBadge value={insp.resultado_general} /></td>
+                      <td className="col-detalle" data-label="Inspector" style={{ fontSize: 12 }}>
+                        {insp.inspector_nombre}
+                      </td>
+                      <td className="col-action">
                         <Link
                           to={`/almacen/inspecciones/${insp.id}`}
                           className="table-action"
@@ -445,25 +537,29 @@ export function MaterialDetailPage() {
           <h2>Resumen</h2>
           <dl style={{ display: "grid", gap: 12, margin: 0 }}>
             <div>
-              <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Estado</dt>
+              <dt className="dt-label">Estado</dt>
               <dd style={{ margin: "4px 0 0" }}>
                 <StatusBadge value={material.activo ? "Disponible" : "Baja"} label={material.activo ? "Activo" : "Inactivo"} />
               </dd>
             </div>
             <div>
-              <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Última inspección</dt>
-              <dd style={{ margin: "4px 0 0", fontSize: 13 }}>
+              <dt className="dt-label">Última inspección</dt>
+              <dd className="dd-value">
                 {ultimaInspeccion ? (
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {new Date(ultimaInspeccion).toLocaleDateString("es-PE")}
-                    <TrimestreBadge fecha={ultimaInspeccion} showLabel />
+                    <TrimestreBadge
+                      fecha={ultimaInspeccion}
+                      periodicidadDias={material.periodicidad_inspeccion_dias}
+                      showLabel
+                    />
                   </span>
                 ) : "Sin inspecciones"}
               </dd>
             </div>
             <div>
-              <dt style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>Movimientos totales</dt>
-              <dd style={{ margin: "4px 0 0", fontSize: 13 }}>{movimientos.length}</dd>
+              <dt className="dt-label">Movimientos totales</dt>
+              <dd className="dd-value">{movimientos.length}</dd>
             </div>
           </dl>
 
@@ -476,343 +572,5 @@ export function MaterialDetailPage() {
         </div>
       </div>
     </section>
-  );
-}
-
-function PiezaTreeRow({
-  pieza,
-  mostrarTrimestre,
-  materialId,
-}: {
-  pieza: PiezaAnidada;
-  mostrarTrimestre: string | null;
-  materialId: number;
-}) {
-  const qc = useQueryClient();
-  const esContenedor = pieza.total_hijas > 0;
-  // "idle" | "confirming" | "confirmed"
-  const [delStep, setDelStep] = useState<"idle" | "confirming" | "confirmed">("idle");
-  // F1: formulario inline para agregar pieza hija
-  const [mostrarFormHija, setMostrarFormHija] = useState(false);
-  const [hijaNombre, setHijaNombre] = useState("");
-  const [hijaMedida, setHijaMedida] = useState("");
-  const [hijaCantidad, setHijaCantidad] = useState(1);
-  const [hijaError, setHijaError] = useState("");
-
-  const delMut = useMutation({
-    mutationFn: () => deletePieza(pieza.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["material", materialId] });
-      setDelStep("idle");
-    },
-    onError: () => {
-      setDelStep("idle");
-      alert("No se pudo eliminar. Intenta de nuevo.");
-    },
-  });
-
-  const agregarMut = useMutation({
-    mutationFn: () => agregarHijaInline(pieza.id, {
-      nombre: hijaNombre.trim(),
-      medida: hijaMedida.trim() || undefined,
-      cantidad: hijaCantidad,
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["material", materialId] });
-      setMostrarFormHija(false);
-      setHijaNombre("");
-      setHijaMedida("");
-      setHijaCantidad(1);
-      setHijaError("");
-    },
-    onError: (e: { response?: { data?: Record<string, string[]> } }) => {
-      const data = e?.response?.data;
-      setHijaError(data ? Object.values(data).flat().join(" ") : "Error al agregar pieza.");
-    },
-  });
-
-  return (
-    <div>
-      <div className={`pieza-tree-row ${esContenedor ? "is-container" : ""}`}>
-        <Package size={15} style={{ color: "var(--muted)", flexShrink: 0 }} />
-        <span className="pieza-code">{pieza.codigo}</span>
-        {pieza.material_nombre && (
-          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 2 }}>
-            {pieza.material_nombre}{pieza.material_medida ? ` · ${pieza.material_medida}` : ""}
-          </span>
-        )}
-        <StatusBadge value={pieza.estado} />
-        {mostrarTrimestre && pieza.estado !== "Baja" && (
-          <TrimestreBadge fecha={mostrarTrimestre} />
-        )}
-
-        {/* Contador estuche + botón agregar hija + botón eliminar */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          {esContenedor && delStep === "idle" && (
-            <small style={{ color: "var(--muted)", fontSize: 11 }}>
-              Estuche · {pieza.hijas_disponibles}/{pieza.total_hijas} disponibles
-            </small>
-          )}
-
-          {/* Botón + Pieza (solo en estuches) */}
-          {delStep === "idle" && (
-            <button
-              type="button"
-              title="Agregar item a este estuche"
-              style={{
-                background: "transparent", border: 0,
-                color: "var(--accent, #6366f1)", cursor: "pointer",
-                padding: 2, display: "flex", alignItems: "center", gap: 3,
-                fontSize: 11, opacity: 0.8,
-              }}
-              onClick={() => { setMostrarFormHija((v) => !v); setHijaError(""); }}
-            >
-              <Plus size={13} /> Item
-            </button>
-          )}
-
-          {delStep === "idle" && (
-            <button
-              title={esContenedor ? "Eliminar estuche y todas sus piezas" : "Eliminar pieza"}
-              style={{
-                background: "transparent", border: 0,
-                color: "var(--muted)", cursor: "pointer",
-                padding: 2, display: "flex", alignItems: "center",
-                opacity: 0.55,
-              }}
-              onClick={() => setDelStep("confirming")}
-            >
-              <Trash size={14} />
-            </button>
-          )}
-
-          {delStep === "confirming" && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                {esContenedor
-                  ? `¿Eliminar estuche + ${pieza.total_hijas} items?`
-                  : "¿Eliminar pieza?"}
-              </span>
-              {esContenedor && (
-                <button
-                  style={{
-                    fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                    background: "var(--error, #dc2626)", color: "#fff",
-                    border: "none", cursor: "pointer",
-                  }}
-                  onClick={() => setDelStep("confirmed")}
-                >
-                  Ver aviso
-                </button>
-              )}
-              {!esContenedor && (
-                <button
-                  style={{
-                    fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                    background: "var(--error, #dc2626)", color: "#fff",
-                    border: "none", cursor: "pointer",
-                  }}
-                  onClick={() => delMut.mutate()}
-                  disabled={delMut.isPending}
-                >
-                  {delMut.isPending ? "…" : "Sí"}
-                </button>
-              )}
-              <button
-                style={{
-                  fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                  background: "transparent", border: "1px solid var(--border, #d1d5db)",
-                  cursor: "pointer",
-                }}
-                onClick={() => setDelStep("idle")}
-                disabled={delMut.isPending}
-              >
-                No
-              </button>
-            </div>
-          )}
-
-          {delStep === "confirmed" && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>
-                ⚠️ Se borrarán {pieza.total_hijas} items también.
-              </span>
-              <button
-                style={{
-                  fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                  background: "#7f1d1d", color: "#fff",
-                  border: "none", cursor: "pointer",
-                }}
-                onClick={() => delMut.mutate()}
-                disabled={delMut.isPending}
-              >
-                {delMut.isPending ? "Eliminando…" : "Confirmar"}
-              </button>
-              <button
-                style={{
-                  fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                  background: "transparent", border: "1px solid var(--border, #d1d5db)",
-                  cursor: "pointer",
-                }}
-                onClick={() => setDelStep("idle")}
-                disabled={delMut.isPending}
-              >
-                No
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* F1: formulario inline para agregar pieza hija */}
-      {mostrarFormHija && (
-        <div style={{
-          marginLeft: 24, marginTop: 6, padding: "10px 14px",
-          background: "var(--surface-2, rgba(99,102,241,.06))",
-          borderRadius: 8, border: "1px dashed var(--accent, #6366f1)",
-        }}>
-          <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: "var(--accent, #6366f1)" }}>
-            + Agregar item al estuche
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "end" }}>
-            <label style={{ fontSize: 12 }}>
-              Nombre *
-              <input
-                type="text"
-                value={hijaNombre}
-                onChange={(e) => setHijaNombre(e.target.value)}
-                placeholder="Ej. Llave allen 5mm"
-                style={{ display: "block", width: "100%", marginTop: 3, padding: "4px 8px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #d1d5db)" }}
-              />
-            </label>
-            <label style={{ fontSize: 12 }}>
-              Medida (opcional)
-              <input
-                type="text"
-                value={hijaMedida}
-                onChange={(e) => setHijaMedida(e.target.value)}
-                placeholder="Ej. 5mm"
-                style={{ display: "block", width: "100%", marginTop: 3, padding: "4px 8px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #d1d5db)" }}
-              />
-            </label>
-            <label style={{ fontSize: 12 }}>
-              Cant.
-              <input
-                type="number"
-                min={1}
-                value={hijaCantidad}
-                onChange={(e) => setHijaCantidad(Number(e.target.value))}
-                style={{ display: "block", width: 56, marginTop: 3, padding: "4px 8px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #d1d5db)" }}
-              />
-            </label>
-          </div>
-          {hijaError && (
-            <p style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{hijaError}</p>
-          )}
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button
-              type="button"
-              className="button button-primary"
-              style={{ fontSize: 12, padding: "4px 14px" }}
-              onClick={() => { setHijaError(""); agregarMut.mutate(); }}
-              disabled={agregarMut.isPending || !hijaNombre.trim()}
-            >
-              {agregarMut.isPending ? "Agregando…" : "Agregar"}
-            </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              style={{ fontSize: 12, padding: "4px 14px" }}
-              onClick={() => { setMostrarFormHija(false); setHijaError(""); }}
-              disabled={agregarMut.isPending}
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {pieza.piezas_hijas.length > 0 && (
-        <div className="pieza-tree-children">
-          {pieza.piezas_hijas.map((hija) => (
-            <PiezaHijaRow key={hija.id} pieza={hija} materialId={materialId} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PiezaHijaRow({
-  pieza,
-  materialId,
-}: {
-  pieza: PiezaBase & { material_nombre?: string; material_medida?: string };
-  materialId: number;
-}) {
-  const qc = useQueryClient();
-  const [confirm, setConfirm] = useState(false);
-
-  const desvinMut = useMutation({
-    mutationFn: () => desvinculaPieza(pieza.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["material", materialId] });
-      setConfirm(false);
-    },
-  });
-
-  return (
-    <div className="pieza-tree-hija" style={{ alignItems: "center" }}>
-      <Package size={12} style={{ color: "var(--muted)", flexShrink: 0 }} />
-      <span className="pieza-code">{labelPieza(pieza)}</span>
-      {(pieza.material_nombre || pieza.material_medida) && (
-        <span style={{ fontSize: 11, color: "var(--muted)" }}>
-          {[pieza.material_nombre, pieza.material_medida].filter(Boolean).join(" · ")}
-        </span>
-      )}
-      <StatusBadge value={pieza.estado} />
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-        {confirm ? (
-          <>
-            <span style={{ fontSize: 11, color: "var(--muted)" }}>¿Quitar del estuche?</span>
-            <button
-              style={{
-                fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                background: "var(--error, #dc2626)", color: "#fff",
-                border: "none", cursor: "pointer",
-              }}
-              onClick={() => desvinMut.mutate()}
-              disabled={desvinMut.isPending}
-            >
-              {desvinMut.isPending ? "…" : "Sí"}
-            </button>
-            <button
-              style={{
-                fontSize: 11, padding: "2px 8px", borderRadius: 4,
-                background: "transparent", border: "1px solid var(--border, #d1d5db)",
-                cursor: "pointer",
-              }}
-              onClick={() => setConfirm(false)}
-              disabled={desvinMut.isPending}
-            >
-              No
-            </button>
-          </>
-        ) : (
-          <button
-            title="Quitar del estuche"
-            style={{
-              background: "transparent", border: 0,
-              color: "var(--muted)", cursor: "pointer",
-              padding: 2, display: "flex", alignItems: "center",
-              opacity: 0.6,
-            }}
-            onClick={() => setConfirm(true)}
-          >
-            <Trash size={13} />
-          </button>
-        )}
-      </div>
-    </div>
   );
 }

@@ -1,9 +1,11 @@
-import { ArrowLeft, CaretDown, CaretUp, Trash, WarningCircle } from "@phosphor-icons/react";
+import { ArrowLeft, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Modal } from "@/components/shared/Modal";
 import { CategoriaSubcategoriaManager } from "@/components/shared/CategoriaSubcategoriaManager";
+import { Field } from "@/modules/almacen/components/shared/Field";
+import { GruiaCroquisFormulario } from "@/modules/almacen/components/GuiaCroquisFormulario";
 
 import {
   createMaterial,
@@ -15,41 +17,9 @@ import {
 import type {
   MaterialCreatePayload,
   TipoControl,
+  UnidadMedida,
+  UnidadManejo,
 } from "@/modules/almacen/types";
-
-// ─── Subcomponente Field ───────────────────────────────────────────────────────
-function Field({
-  label,
-  required,
-  hint,
-  error,
-  children,
-  wide,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  error?: string;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
-      <span>
-        {label}
-        {required && <b aria-hidden="true"> *</b>}
-      </span>
-      {children}
-      {hint && !error && <small>{hint}</small>}
-      {error && (
-        <small className="field-error">
-          <WarningCircle size={14} />
-          {error}
-        </small>
-      )}
-    </label>
-  );
-}
 
 // ─── Tipos y constantes del formulario ───────────────────────────────────────
 type Fase = "form" | "exito";
@@ -77,13 +47,20 @@ export function MaterialFormPage() {
     marca: "",
     modelo: "",
     medida: "",
-    grosor_mm: "",
-    largo_mm: "",
+    unidad_medida: "mm",
+    grosor: "",
+    largo: "",
     ubicacion_fisica: "",
     precio: "",
     tipo_control: "retornable",
     control_individual: false,
+    periodicidad_valor: 3,
+    periodicidad_unidad: "meses",
+    unidad_manejo: "unidad",
+    unidades_por_caja: "",
   });
+  // Solo usado en el paso "Stock inicial" para calcular cantidad_total = cajas × unidades_por_caja.
+  const [cajasIniciales, setCajasIniciales] = useState<string>("");
   const [categoriaId, setCategoriaId] = useState<number>(0);
   const [catalogoModalOpen, setCatalogoModalOpen] = useState(false);
 
@@ -119,12 +96,18 @@ export function MaterialFormPage() {
         marca: materialExistente.marca,
         modelo: materialExistente.modelo,
         medida: materialExistente.medida,
-        grosor_mm: materialExistente.grosor_mm ?? "",
-        largo_mm: materialExistente.largo_mm ?? "",
+        unidad_medida: materialExistente.unidad_medida ?? "mm",
+        grosor: materialExistente.grosor ?? "",
+        largo: materialExistente.largo ?? "",
         ubicacion_fisica: materialExistente.ubicacion_fisica,
         precio: materialExistente.precio ?? "",
         tipo_control: materialExistente.tipo_control,
         control_individual: materialExistente.control_individual,
+        periodicidad_valor: materialExistente.periodicidad_valor ?? 3,
+        periodicidad_unidad: materialExistente.periodicidad_unidad ?? "meses",
+        unidad_manejo: materialExistente.unidad_manejo ?? "unidad",
+        unidades_por_caja: materialExistente.unidades_por_caja ?? "",
+        cantidad_total: materialExistente.cantidad_total,
       });
       if (materialExistente.foto) setFotoPreview(materialExistente.foto);
       setFormInicializado(true);
@@ -170,6 +153,13 @@ export function MaterialFormPage() {
     if (!form.nombre.trim()) errs.nombre = "El nombre es requerido.";
     if (!form.subcategoria) errs.subcategoria = "Selecciona una subcategoría.";
     if (!form.tipo_control) errs.tipo_control = "Selecciona el tipo de control.";
+    if (
+      !form.control_individual &&
+      form.unidad_manejo === "caja" &&
+      !(Number(form.unidades_por_caja) > 0)
+    ) {
+      errs.unidades_por_caja = "Indica cuántas unidades trae cada caja.";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -222,7 +212,6 @@ export function MaterialFormPage() {
   if (isEditMode && (isLoadingMaterial || !formInicializado)) {
     return <div className="loading-panel">Cargando datos del material…</div>;
   }
-
 
   // ─── Fase: form ─────────────────────────────────────────────────────────
   return (
@@ -353,20 +342,31 @@ export function MaterialFormPage() {
                   onChange={(e) => set("medida", e.target.value)}
                 />
               </Field>
-              <Field label="Grosor / Diámetro (mm)" error={errors.grosor_mm}>
+              <Field label="Unidad de medida" error={errors.unidad_medida}>
+                <select
+                  value={form.unidad_medida}
+                  onChange={(e) => set("unidad_medida", e.target.value as UnidadMedida)}
+                >
+                  <option value="mm">Milímetros (mm)</option>
+                  <option value="cm">Centímetros (cm)</option>
+                  <option value="in">Pulgadas (in)</option>
+                  <option value="ft">Pies (ft)</option>
+                </select>
+              </Field>
+              <Field label="Grosor / Diámetro" error={errors.grosor}>
                 <input
                   type="number"
                   step="0.01"
-                  value={form.grosor_mm}
-                  onChange={(e) => set("grosor_mm", e.target.value)}
+                  value={form.grosor}
+                  onChange={(e) => set("grosor", e.target.value)}
                 />
               </Field>
-              <Field label="Largo (mm)" error={errors.largo_mm}>
+              <Field label="Largo" error={errors.largo}>
                 <input
                   type="number"
                   step="0.01"
-                  value={form.largo_mm}
-                  onChange={(e) => set("largo_mm", e.target.value)}
+                  value={form.largo}
+                  onChange={(e) => set("largo", e.target.value)}
                 />
               </Field>
               <Field label="Precio (S/)" hint="Precio de referencia (opcional)" error={errors.precio}>
@@ -387,6 +387,27 @@ export function MaterialFormPage() {
                   placeholder="Ej. A1, B2, Estante-3…"
                 />
               </Field>
+
+              {categorias.find((c) => c.id === categoriaId)?.requiere_inspeccion && (
+                <Field label="Frecuencia de inspección" hint="Cada cuánto debe inspeccionarse este material" wide>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.periodicidad_valor}
+                      onChange={(e) => set("periodicidad_valor", Number(e.target.value))}
+                      style={{ maxWidth: 100 }}
+                    />
+                    <select
+                      value={form.periodicidad_unidad}
+                      onChange={(e) => set("periodicidad_unidad", e.target.value as "dias" | "meses")}
+                    >
+                      <option value="dias">Días</option>
+                      <option value="meses">Meses</option>
+                    </select>
+                  </div>
+                </Field>
+              )}
 
               {/* Guía visual del croquis */}
               <div style={{ gridColumn: "1 / -1" }}>
@@ -442,21 +463,92 @@ export function MaterialFormPage() {
                   Stock inicial
                 </strong>
                 <small style={{ color: "var(--muted)", display: "block", marginBottom: 12 }}>
-                  Los materiales no retornables se consumen. Indica cuántas unidades
-                  hay disponibles actualmente.
+                  Los materiales no retornables se consumen. Indica cómo se maneja
+                  el stock y cuánto hay disponible actualmente.
                 </small>
-                <Field label="Cantidad en stock" required error={errors.cantidad_total}>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.cantidad_total ?? 0}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, cantidad_total: Number(e.target.value) }))
-                    }
-                    placeholder="0"
-                    style={{ maxWidth: 140 }}
-                  />
+                <Field label="Manejo de stock" required hint="Elige cómo se cuenta este consumible en el almacén.">
+                  <select
+                    value={form.unidad_manejo ?? "unidad"}
+                    onChange={(e) => {
+                      const manejo = e.target.value as UnidadManejo;
+                      set("unidad_manejo", manejo);
+                      if (manejo === "unidad") {
+                        set("unidades_por_caja", "");
+                        setCajasIniciales("");
+                      }
+                    }}
+                    style={{ maxWidth: 220 }}
+                  >
+                    <option value="unidad">Por unidad suelta</option>
+                    <option value="caja">Por caja</option>
+                  </select>
                 </Field>
+
+                {form.unidad_manejo === "caja" ? (
+                  <div className="form-grid" style={{ marginTop: 12 }}>
+                    <Field
+                      label="Unidades por caja"
+                      required
+                      error={errors.unidades_por_caja}
+                      hint="Cuántas unidades trae cada caja cerrada."
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.unidades_por_caja ?? ""}
+                        onChange={(e) => {
+                          const porCaja = e.target.value;
+                          set("unidades_por_caja", porCaja);
+                          const cajas = Number(cajasIniciales) || 0;
+                          setForm((prev) => ({ ...prev, cantidad_total: cajas * (Number(porCaja) || 0) }));
+                        }}
+                        placeholder="Ej. 50"
+                        style={{ maxWidth: 140 }}
+                      />
+                    </Field>
+                    <Field
+                      label="Cantidad de cajas iniciales"
+                      hint="Se usa solo para calcular el stock total en unidades."
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        value={cajasIniciales}
+                        onChange={(e) => {
+                          const cajas = e.target.value;
+                          setCajasIniciales(cajas);
+                          const porCaja = Number(form.unidades_por_caja) || 0;
+                          setForm((prev) => ({ ...prev, cantidad_total: (Number(cajas) || 0) * porCaja }));
+                        }}
+                        placeholder="0"
+                        style={{ maxWidth: 140 }}
+                      />
+                    </Field>
+                    <Field label="Total en stock (calculado)" wide>
+                      <input
+                        type="number"
+                        value={form.cantidad_total ?? 0}
+                        readOnly
+                        style={{ maxWidth: 160, background: "var(--surface, #fff)", color: "var(--muted)" }}
+                      />
+                    </Field>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 12 }}>
+                    <Field label="Cantidad en stock" required error={errors.cantidad_total}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.cantidad_total ?? 0}
+                        onChange={(e) =>
+                          setForm((prev) => ({ ...prev, cantidad_total: Number(e.target.value) }))
+                        }
+                        placeholder="0"
+                        style={{ maxWidth: 140 }}
+                      />
+                    </Field>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -549,123 +641,5 @@ export function MaterialFormPage() {
         <CategoriaSubcategoriaManager onChange={handleCatalogoChange} />
       </Modal>
     </section>
-  );
-}
-
-// ─── Gu\u00eda visual de croquis para el formulario ──────────────────────────────
-
-const FORM_SLIDES = [
-  {
-    src: "/croquis_almacen_3.png",
-    titulo: "Mapa de c\u00f3digos de ubicaci\u00f3n",
-    desc: "Usa este mapa para elegir el c\u00f3digo de secci\u00f3n correcto (A1, B2, C1\u2026).",
-  },
-  {
-    src: "/croquis_almacen_1.png",
-    titulo: "Plano general",
-    desc: "Vista superior del almac\u00e9n con todas las zonas demarcadas.",
-  },
-  {
-    src: "/croquis_almacen_2.png",
-    titulo: "Zonas por tipo de herramienta",
-    desc: "Zona A = Manuales \u00b7 Zona B = El\u00e9ctricas \u00b7 Zona C = Consumibles.",
-  },
-];
-
-function GruiaCroquisFormulario() {
-  const [open, setOpen] = useState(false);
-  const [slide, setSlide] = useState(0);
-  const prev = () => setSlide((s) => (s - 1 + FORM_SLIDES.length) % FORM_SLIDES.length);
-  const next = () => setSlide((s) => (s + 1) % FORM_SLIDES.length);
-  const current = FORM_SLIDES[slide];
-
-  return (
-    <div
-      style={{
-        border: "1px solid var(--border, #e5e7eb)",
-        borderRadius: 8,
-        overflow: "hidden",
-        background: "var(--surface-raised, #f9fafb)",
-      }}
-    >
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 14px", background: "transparent", border: 0, cursor: "pointer",
-          fontSize: 13, fontWeight: 500, color: "var(--primary, #2563eb)",
-        }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          \ud83d\uddfa\ufe0f Ver croquis del almac\u00e9n \u2014 gu\u00eda para elegir ubicaci\u00f3n
-        </span>
-        {open ? <CaretUp size={15} /> : <CaretDown size={15} />}
-      </button>
-
-      {open && (
-        <div style={{ borderTop: "1px solid var(--border, #e5e7eb)" }}>
-          {/* Mini carrusel */}
-          <div style={{ position: "relative", background: "#f1f5f9" }}>
-            <img
-              src={current.src}
-              alt={current.titulo}
-              style={{ width: "100%", maxHeight: 320, objectFit: "contain", display: "block" }}
-            />
-            <button
-              type="button"
-              onClick={prev}
-              style={{
-                position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
-                background: "rgba(255,255,255,.88)", border: "1px solid #d1d5db",
-                borderRadius: "50%", width: 30, height: 30,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,.1)",
-              }}
-            >
-              <CaretDown size={14} style={{ transform: "rotate(90deg)" }} />
-            </button>
-            <button
-              type="button"
-              onClick={next}
-              style={{
-                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
-                background: "rgba(255,255,255,.88)", border: "1px solid #d1d5db",
-                borderRadius: "50%", width: 30, height: 30,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,.1)",
-              }}
-            >
-              <CaretUp size={14} style={{ transform: "rotate(90deg)" }} />
-            </button>
-          </div>
-
-          {/* Pie */}
-          <div style={{ padding: "10px 14px" }}>
-            <strong style={{ fontSize: 13, display: "block", marginBottom: 3 }}>{current.titulo}</strong>
-            <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px" }}>{current.desc}</p>
-            <div style={{ display: "flex", gap: 5, justifyContent: "center" }}>
-              {FORM_SLIDES.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setSlide(i)}
-                  style={{
-                    width: i === slide ? 18 : 6, height: 6,
-                    borderRadius: 3, padding: 0, border: "none", cursor: "pointer",
-                    background: i === slide ? "var(--primary, #2563eb)" : "#d1d5db",
-                    transition: "width .18s, background .18s",
-                  }}
-                />
-              ))}
-            </div>
-            <p style={{ fontSize: 11, color: "var(--muted)", margin: "8px 0 0", textAlign: "center" }}>
-              \u26a0\ufe0f Im\u00e1genes de prueba. Se reemplazar\u00e1n con el croquis real del almac\u00e9n.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }

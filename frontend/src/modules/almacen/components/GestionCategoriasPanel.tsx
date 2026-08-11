@@ -28,6 +28,7 @@ export function GestionCategoriasPanel({ onClose }: Props) {
   const [catNombre, setCatNombre] = useState("");
   const [catPrefijo, setCatPrefijo] = useState("");
   const [catDesc, setCatDesc] = useState("");
+  const [catRequiereInspeccion, setCatRequiereInspeccion] = useState(true);
   const [catError, setCatError] = useState("");
 
   // Form states Subcategoria
@@ -65,6 +66,7 @@ export function GestionCategoriasPanel({ onClose }: Props) {
           nombre: catNombre.trim(),
           prefijo: catPrefijo.trim().toUpperCase(),
           descripcion: catDesc.trim(),
+          requiere_inspeccion: catRequiereInspeccion,
         });
       }
       return createCategoria({
@@ -72,6 +74,7 @@ export function GestionCategoriasPanel({ onClose }: Props) {
         prefijo: catPrefijo.trim().toUpperCase(),
         descripcion: catDesc.trim(),
         activo: true,
+        requiere_inspeccion: catRequiereInspeccion,
       });
     },
     onSuccess: () => {
@@ -128,6 +131,7 @@ export function GestionCategoriasPanel({ onClose }: Props) {
     setCatNombre("");
     setCatPrefijo("");
     setCatDesc("");
+    setCatRequiereInspeccion(true);
     setCatError("");
   }
 
@@ -143,6 +147,7 @@ export function GestionCategoriasPanel({ onClose }: Props) {
     setCatNombre(c.nombre);
     setCatPrefijo(c.prefijo);
     setCatDesc(c.descripcion || "");
+    setCatRequiereInspeccion(c.requiere_inspeccion);
     setCatError("");
   }
 
@@ -212,6 +217,14 @@ export function GestionCategoriasPanel({ onClose }: Props) {
               onChange={(e) => setCatDesc(e.target.value)}
               style={{ fontSize: 13, width: "100%", marginBottom: 8 }}
             />
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={catRequiereInspeccion}
+                onChange={(e) => setCatRequiereInspeccion(e.target.checked)}
+              />
+              Requiere inspección periódica
+            </label>
             {catError && (
               <p style={{ fontSize: 12, color: "var(--error, #dc2626)", marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
                 <WarningCircle size={14} /> {catError}

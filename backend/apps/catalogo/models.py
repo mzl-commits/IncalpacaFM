@@ -50,12 +50,33 @@ class Subcategoria(models.Model):
 
     def __str__(self):
         return f"{self.categoria.nombre} → {self.nombre}"
-
-
+class MaterialQuerySet(models.QuerySet):
+    def inspeccionables(self):
+        return self.filter(
+            activo=True,
+            es_componente=False,
+            subcategoria__activo=True,
+            subcategoria__categoria__activo=True,
+            subcategoria__categoria__requiere_inspeccion=True,
+            subcategoria__plantilla_inspeccion__isnull=False,
+        )
+    
 class Material(models.Model):
     TIPO_CONTROL_CHOICES = [
         ("retornable", "Retornable"),
         ("no_retornable", "No retornable"),
+    ]
+
+    UNIDAD_MEDIDA_CHOICES = [
+        ("mm", "Milímetros"),
+        ("cm", "Centímetros"),
+        ("in", "Pulgadas"),
+        ("ft", "Pies"),
+    ]
+
+    UNIDAD_MANEJO_CHOICES = [
+        ("unidad", "Unidad"),
+        ("caja", "Caja"),
     ]
 
     subcategoria = models.ForeignKey(
@@ -76,11 +97,17 @@ class Material(models.Model):
         help_text="Foto representativa del material (ej. foto genérica de un tornillo, "
                    "o del modelo de taladro antes de generar sus piezas)."
     )
-    grosor_mm = models.DecimalField(
+    unidad_medida = models.CharField(
+        max_length=4,
+        choices=UNIDAD_MEDIDA_CHOICES,
+        default="mm",
+        help_text="Unidad usada para grosor y largo.",
+    )
+    grosor = models.DecimalField(
         max_digits=6, decimal_places=2, null=True, blank=True,
         help_text="Grosor/diámetro, si aplica (ej. brocas, pernos)."
     )
-    largo_mm = models.DecimalField(
+    largo = models.DecimalField(
         max_digits=6, decimal_places=2, null=True, blank=True,
         help_text="Largo, si aplica (ej. brocas, pernos)."
     )
@@ -95,10 +122,20 @@ class Material(models.Model):
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
     control_individual = models.BooleanField(default=False)
 
-    # Editable solo cuando control_individual=False (consumibles).
-    # Cuando control_individual=True, se recalcula automáticamente
-    # contando piezas activas (ver services.py / signals.py).
+    # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).
     cantidad_total = models.PositiveIntegerField(default=0)
+
+    # Solo aplica a consumibles (control_individual=False). Indica si el stock
+    # de este material se maneja contando unidades sueltas o cajas cerradas.
+    # cantidad_total SIEMPRE queda expresado en unidades, sin importar el modo.
+    unidad_manejo = models.CharField(
+        max_length=10, choices=UNIDAD_MANEJO_CHOICES, default="unidad",
+        help_text="Cómo se cuenta el stock de este consumible: por unidad suelta o por caja.",
+    )
+    unidades_por_caja = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Cuántas unidades trae cada caja. Requerido si unidad_manejo='caja'.",
+    )
 
     activo = models.BooleanField(default=True)
     es_componente = models.BooleanField(
@@ -111,6 +148,28 @@ class Material(models.Model):
     )
     creado_en = models.DateTimeField(auto_now_add=True)
 
+    PERIODICIDAD_UNIDAD_CHOICES = [
+        ("dias", "Días"),
+        ("meses", "Meses"),
+    ]
+
+    periodicidad_valor = models.PositiveIntegerField(
+        default=3,
+        help_text="Número de la frecuencia de inspección (usar junto con periodicidad_unidad).",
+    )
+    periodicidad_unidad = models.CharField(
+        max_length=5,
+        choices=PERIODICIDAD_UNIDAD_CHOICES,
+        default="meses",
+        help_text="Unidad de la frecuencia: 'dias' o 'meses'.",
+    )
+    periodicidad_inspeccion_dias = models.PositiveIntegerField(
+        default=90,
+        editable=False,
+        help_text="Calculado automáticamente desde periodicidad_valor/unidad. No se edita directo.",
+    )
+
+    objects = MaterialQuerySet.as_manager()
 
     class Meta:
         ordering = ["codigo"]
@@ -121,6 +180,11 @@ class Material(models.Model):
     def save(self, *args, **kwargs):
         if not self.pk:
             self.activo = True
+        # El manejo por caja solo tiene sentido para consumibles sin control
+        # individual; para el resto, se normaliza a "unidad" sin múltiplo.
+        if self.control_individual or self.unidad_manejo != "caja":
+            self.unidad_manejo = "unidad" if self.control_individual else self.unidad_manejo
+            self.unidades_por_caja = None
         if not self.codigo:
             if self.es_componente:
                 from apps.catalogo.services import generar_codigo_material_componente
@@ -128,11 +192,15 @@ class Material(models.Model):
             else:
                 from apps.catalogo.services import generar_codigo_material
                 self.codigo = generar_codigo_material(self.subcategoria.categoria)
+        self.periodicidad_inspeccion_dias = (
+                    self.periodicidad_valor * 30
+                    if self.periodicidad_unidad == "meses"
+                    else self.periodicidad_valor
+                )
         super().save(*args, **kwargs)
 
     def recalcular_cantidad(self):
-        """Recalcula cantidad_total contando piezas activas (no 'Baja').
-        Incluye piezas sueltas de este material + items dentro de estuches de este material."""
+        """Recalcula cantidad_total contando piezas activas (no 'Baja'), sueltas + hijas de estuches propios."""
         if self.control_individual:
             directas = self.piezas.exclude(estado="Baja").filter(piezas_hijas__isnull=True).count()
             hijas_en_estuches = Pieza.objects.filter(
@@ -140,7 +208,6 @@ class Material(models.Model):
             ).exclude(estado="Baja").exclude(padre__estado="Baja").count()
             total = directas + hijas_en_estuches
             Material.objects.filter(pk=self.pk).update(cantidad_total=total)
-
 
 class Pieza(models.Model):
     ESTADO_CHOICES = [
@@ -154,6 +221,13 @@ class Pieza(models.Model):
         Material, on_delete=models.PROTECT, related_name="piezas"
     )
     codigo = models.CharField(max_length=5, unique=True, blank=True, null=True, default=None)
+    detalle = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Nombre o descripción libre para identificar esta pieza suelta "
+                   "individualmente (ej. 'Taladro de Juan', 'Estuche azul chico'). Opcional; "
+                   "se completa después de creada, no al momento del alta masiva.",
+    )
     estado = models.CharField(
         max_length=15, choices=ESTADO_CHOICES, default="Disponible"
     )
@@ -178,7 +252,8 @@ class Pieza(models.Model):
         ordering = ["codigo"]
 
     def __str__(self):
-        return f"{self.codigo or '—'} ({self.material.nombre})"
+        base = f"{self.codigo or '—'} ({self.material.nombre})"
+        return f"{base} — {self.detalle}" if self.detalle else base
 
     def save(self, *args, **kwargs):
         if not self.codigo:

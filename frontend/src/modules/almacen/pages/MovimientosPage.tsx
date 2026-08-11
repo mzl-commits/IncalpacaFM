@@ -1,8 +1,10 @@
 import { ArrowRight, WarningCircle } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { Fragment, useMemo, useState } from "react";
 
+import { listMateriales, listPiezas } from "@/modules/almacen/catalogoRepository";
+import type { Material, PiezaBase } from "@/modules/almacen/types";
 import { FilterSelect, FilterDate, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { StatCard } from "@/components/shared/StatCard";
@@ -14,15 +16,47 @@ const FILTER_KEYS = ["material", "pieza", "tipo", "desde", "hasta"] as const;
 export function MovimientosPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
 
+  // El campo "Buscar" (values.material) es texto libre (código/nombre de
+  // material o código de pieza), no un ID — por eso NO se manda al backend
+  // como filtro `material` (que espera un ID numérico y no matchea texto).
+  // El backend de movimientos no tiene búsqueda por texto, así que el
+  // matcheo se hace en el frontend sobre `material_codigo` / `material_nombre`
+  // / `pieza_codigo`, que ya vienen en cada Movimiento (ver `filtrados` más
+  // abajo). Esto también evita disparar una consulta por cada tecla escrita.
   const { data: movimientos = [], isLoading } = useQuery({
-    queryKey: ["movimientos", values],
+    queryKey: ["movimientos", values.pieza, values.tipo],
     queryFn: () =>
       listMovimientos({
-        material: values.material ? Number(values.material) : undefined,
         pieza: values.pieza ? Number(values.pieza) : undefined,
         tipo: values.tipo || undefined,
       }),
   });
+
+  // Índice de piezas (padre, tiene_hijas) para poder agrupar sin tocar el backend
+  const { data: piezasIndex = [] } = useQuery({
+    queryKey: ["piezas-index"],
+    queryFn: () => listPiezas({}),
+    staleTime: 60_000,
+  });
+  const piezasById = useMemo(() => {
+    const map = new Map<number, PiezaBase>();
+    piezasIndex.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [piezasIndex]);
+
+  // Índice de materiales, para resolver el código real del CONTENEDOR en
+  // devoluciones agrupadas. PiezaBase no trae material_codigo (solo
+  // material_nombre), así que se busca acá por el id de material de la pieza.
+  const { data: materialesIndex = [] } = useQuery({
+    queryKey: ["materiales"],
+    queryFn: () => listMateriales(),
+    staleTime: 60_000,
+  });
+  const materialesById = useMemo(() => {
+    const map = new Map<number, Material>();
+    materialesIndex.forEach((m) => map.set(m.id, m));
+    return map;
+  }, [materialesIndex]);
 
   // Checklist: piezas prestadas sin devolver (todos los días, no solo hoy)
   const { data: prestadas = [] } = useQuery({
@@ -41,15 +75,161 @@ export function MovimientosPage() {
   const totalEntradas = movimientos.filter((m) => m.tipo === "entrada").length;
   const totalBajas = movimientos.filter((m) => m.tipo === "baja").length;
 
-  // Filtrado local por fechas (las fechas no se mandan al backend aún)
+  // Filtrado local por fechas (las fechas no se mandan al backend aún) y por
+  // el texto del buscador (código/nombre de material o código de pieza).
   const filtrados = useMemo(() => {
+    const q = values.material.trim().toLowerCase();
     return movimientos.filter((m) => {
       const fecha = m.fecha.slice(0, 10);
       if (values.desde && fecha < values.desde) return false;
       if (values.hasta && fecha > values.hasta) return false;
+      if (q) {
+        const matchMaterial =
+          m.material_codigo?.toLowerCase().includes(q) ||
+          m.material_nombre?.toLowerCase().includes(q);
+        const matchPieza = m.pieza_codigo?.toLowerCase().includes(q);
+        if (!matchMaterial && !matchPieza) return false;
+      }
       return true;
     });
-  }, [movimientos, values.desde, values.hasta]);
+  }, [movimientos, values.desde, values.hasta, values.material]);
+
+  type Mov = (typeof filtrados)[number];
+
+  interface GrupoMovimiento {
+    key: string;
+    esGrupo: boolean;
+    tipo: Mov["tipo"];
+    tipoDisplay: string;
+    fecha: string;
+    codigoDisplay: string;
+    materialNombre: string;
+    materialCodigo: string;
+    responsableNombre: string;
+    referencia: string;
+    observaciones: string;
+    extraTexto?: string;
+    hijas: Mov[];
+  }
+
+  const grupos = useMemo<GrupoMovimiento[]>(() => {
+    const resultado: GrupoMovimiento[] = [];
+    const usados = new Set<number>();
+
+    // 1) Salidas: agrupadas por lote_id (contenedor + hijas de la misma transacción)
+    const porLote = new Map<string, Mov[]>();
+    filtrados.forEach((m) => {
+      if (m.tipo === "salida" && m.lote_id) {
+        const arr = porLote.get(m.lote_id) ?? [];
+        arr.push(m);
+        porLote.set(m.lote_id, arr);
+      }
+    });
+    porLote.forEach((movs) => {
+      const principal = movs.find((m) => m.pieza != null && piezasById.get(m.pieza)?.padre == null) ?? movs[0];
+      const hijas = movs.filter((m) => m.id !== principal.id);
+      movs.forEach((m) => usados.add(m.id));
+
+      const contenedorId = principal.pieza;
+      const totalHijas = contenedorId
+        ? Array.from(piezasById.values()).filter((p) => p.padre === contenedorId).length
+        : 0;
+
+      resultado.push({
+        key: `salida-${principal.id}`,
+        esGrupo: hijas.length > 0,
+        tipo: principal.tipo,
+        tipoDisplay: principal.tipo_display,
+        fecha: principal.fecha,
+        codigoDisplay: principal.pieza_codigo
+          ?? (principal.cantidad_cajas
+            ? `${principal.cantidad_cajas} caja(s) · ${principal.cantidad} u.`
+            : `${principal.cantidad} u.`),
+        materialNombre: principal.material_nombre,
+        materialCodigo: principal.material_codigo,
+        responsableNombre: principal.responsable_nombre,
+        referencia: principal.referencia_externa,
+        observaciones: principal.observaciones,
+        extraTexto: hijas.length > 0 ? `${hijas.length} de ${totalHijas} pza(s)` : undefined,
+        hijas,
+      });
+    });
+
+    // 2) Entradas de piezas-hijas devueltas juntas (mismo padre, mismo responsable, mismo minuto)
+    const porDevolucion = new Map<string, Mov[]>();
+    filtrados.forEach((m) => {
+      if (usados.has(m.id) || m.tipo !== "entrada" || !m.pieza) return;
+      const padre = piezasById.get(m.pieza)?.padre;
+      if (!padre) return; // solo agrupa piezas hijas, no piezas sueltas ni contenedores
+      const minuto = m.fecha.slice(0, 16); // YYYY-MM-DDTHH:mm
+      const key = `${padre}-${m.responsable}-${minuto}`;
+      const arr = porDevolucion.get(key) ?? [];
+      arr.push(m);
+      porDevolucion.set(key, arr);
+    });
+    porDevolucion.forEach((movs) => {
+      // Se agrupa siempre bajo el estuche, igual que en salida — incluso si es una sola
+      // pieza devuelta, para que muestre el contenedor con su desplegable.
+      movs.forEach((m) => usados.add(m.id));
+      const primero = movs[0];
+      const padreId = piezasById.get(primero.pieza as number)?.padre as number;
+      const padrePieza = piezasById.get(padreId);
+      // El contenedor es el que define el material a mostrar (ej. "Destornillador
+      // Mixto" / H0003), no la pieza hija devuelta (ej. "Punta plana" / H80GT).
+      // PiezaBase no trae material_codigo, así que se resuelve vía materialesById
+      // usando el id de material del contenedor.
+      const padreMaterial = padrePieza ? materialesById.get(padrePieza.material) : undefined;
+
+      resultado.push({
+        key: `entrada-${padreId}-${primero.id}`,
+        esGrupo: true,
+        tipo: "entrada",
+        tipoDisplay: primero.tipo_display,
+        fecha: primero.fecha,
+        codigoDisplay: padrePieza?.codigo ?? "—",
+        materialNombre: padreMaterial?.nombre ?? padrePieza?.material_nombre ?? primero.material_nombre,
+        materialCodigo: padreMaterial?.codigo ?? primero.material_codigo,
+        responsableNombre: primero.responsable_nombre,
+        referencia: primero.referencia_externa,
+        observaciones: "",
+        extraTexto: `${movs.length} pza(s) devueltas`,
+        hijas: movs,
+      });
+    });
+
+    // 3) Todo lo demás, sin agrupar
+    filtrados.forEach((m) => {
+      if (usados.has(m.id)) return;
+      resultado.push({
+        key: `mov-${m.id}`,
+        esGrupo: false,
+        tipo: m.tipo,
+        tipoDisplay: m.tipo_display,
+        fecha: m.fecha,
+        codigoDisplay: m.pieza_codigo
+          ?? (m.cantidad_cajas
+            ? `${m.cantidad_cajas} caja(s) · ${m.cantidad} u.`
+            : `${m.cantidad} u.`),
+        materialNombre: m.material_nombre,
+        materialCodigo: m.material_codigo,
+        responsableNombre: m.responsable_nombre,
+        referencia: m.referencia_externa,
+        observaciones: m.observaciones,
+        hijas: [],
+      });
+    });
+
+    return resultado.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  }, [filtrados, piezasById, materialesById]);
+
+  const [expandido, setExpandido] = useState<Set<string>>(new Set());
+  function toggleExpandido(key: string) {
+    setExpandido((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
 
   const tipoOptions = buildFilterOptions(["salida", "entrada", "baja"], {
     salida: "Salida",
@@ -117,7 +297,7 @@ export function MovimientosPage() {
           searchPlaceholder="Código de material o pieza"
           searchValue={values.material}
           onSearchChange={(v) => setValue("material", v)}
-          resultCount={filtrados.length}
+          resultCount={grupos.length}
           totalCount={movimientos.length}
           activeFilters={activeFilters}
           onClear={clearFilters}
@@ -155,29 +335,62 @@ export function MovimientosPage() {
               {isLoading && (
                 <tr><td colSpan={7} className="empty-row">Cargando movimientos…</td></tr>
               )}
-              {!isLoading && filtrados.length === 0 && (
+              {!isLoading && grupos.length === 0 && (
                 <tr><td colSpan={7} className="empty-row">No hay movimientos con esos criterios.</td></tr>
               )}
-              {filtrados.map((mov) => (
-                <tr key={mov.id}>
-                  <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-                    {new Date(mov.fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })}
-                  </td>
-                  <td>
-                    <strong style={{ fontSize: 13 }}>{mov.material_nombre}</strong>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{mov.material_codigo}</div>
-                  </td>
-                  <td style={{ fontSize: 12, fontFamily: "ui-monospace, monospace" }}>
-                    {mov.pieza_codigo ?? `${mov.cantidad} u.`}
-                  </td>
-                  <td><StatusBadge value={mov.tipo} label={mov.tipo_display} /></td>
-                  <td style={{ fontSize: 12 }}>{mov.responsable_nombre}</td>
-                  <td style={{ fontSize: 12, color: "var(--muted)" }}>{mov.referencia_externa || "—"}</td>
-                  <td style={{ fontSize: 12, color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {mov.observaciones || "—"}
-                  </td>
-                </tr>
-              ))}
+              {grupos.map((g) => {
+                const abierto = expandido.has(g.key);
+                return (
+                  <Fragment key={g.key}>
+                    <tr
+                      onClick={g.esGrupo ? () => toggleExpandido(g.key) : undefined}
+                      style={g.esGrupo ? { cursor: "pointer" } : undefined}
+                    >
+                      <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                        {new Date(g.fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })}
+                      </td>
+                      <td>
+                        <strong style={{ fontSize: 13 }}>{g.materialNombre}</strong>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{g.materialCodigo}</div>
+                      </td>
+                      <td style={{ fontSize: 12, fontFamily: "ui-monospace, monospace" }}>
+                        {g.codigoDisplay}
+                        {g.esGrupo && (
+                          <span style={{ marginLeft: 6, fontSize: 11, color: "var(--muted)", fontFamily: "inherit" }}>
+                            {abierto ? "▾" : "▸"} {g.extraTexto}
+                          </span>
+                        )}
+                      </td>
+                      <td><StatusBadge value={g.tipo} label={g.tipoDisplay} /></td>
+                      <td style={{ fontSize: 12 }}>{g.responsableNombre}</td>
+                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{g.referencia || "—"}</td>
+                      <td style={{ fontSize: 12, color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {g.observaciones || "—"}
+                      </td>
+                    </tr>
+                    {g.esGrupo && abierto && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: 0, background: "var(--surface-muted, #fafafa)" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "10px 16px 14px 40px" }}>
+                            {g.hijas.map((h) => (
+                              <div
+                                key={h.id}
+                                style={{ border: "1px solid var(--border, #e2e2e2)", borderRadius: 8, padding: "6px 10px", fontSize: 12, minWidth: 140 }}
+                              >
+                                <strong>{h.pieza_codigo}</strong>
+                                <div style={{ color: "var(--muted)" }}>{h.material_nombre}</div>
+                                {h.observaciones && (
+                                  <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 2 }}>{h.observaciones}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

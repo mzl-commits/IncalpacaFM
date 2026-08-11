@@ -548,6 +548,20 @@ export const router = createBrowserRouter([
           "InspeccionDetailPage",
         ),
       },
+      {
+        path: "almacen/calendario",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/CalendarioPage"),
+          "CalendarioPage",
+        ),
+      },
+      {
+        path: "almacen/plan-anual",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/PlanAnualPage"),
+          "PlanAnualPage",
+        ),
+      },
       // ─────────────────────────────────────────────────────────────────────
       ...modules.map(([path, title]) => ({
         path,

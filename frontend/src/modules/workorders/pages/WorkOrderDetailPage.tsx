@@ -19,6 +19,7 @@ import { api } from "@/services/api";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
+import { MaterialesOTAdminSection } from "@/modules/workorders/components/MaterialesOTAdminSection";
 import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
 import {
   adminPriorityLabels,
@@ -898,6 +899,13 @@ export function WorkOrderDetailPage() {
           <Wrench size={22} />
           <h2>Siguiente paso</h2>
         </div>
+        {isAdmin ? (
+          <MaterialesOTAdminSection workOrderId={workOrder.id} emptyMessage={orderCopy.executionEmpty} />
+        ) : (
+          <p className="detail-empty">
+            {orderCopy.executionEmpty}
+          </p>
+        )}
 
         {canRegisterProgress ? (
           <>

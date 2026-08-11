@@ -156,11 +156,17 @@ class TechnicianSerializer(serializers.ModelSerializer):
     hourly_rate = serializers.DecimalField(source='account_profile.hourly_rate', max_digits=10, decimal_places=2, min_value=0, required=False)
     active = serializers.BooleanField(source='account_profile.active', required=False)
     temporary_password = serializers.CharField(write_only=True, min_length=10, required=False)
+    role = serializers.ChoiceField(
+        choices=AccountProfile.Role.choices,
+        source='account_profile.role',
+        default=AccountProfile.Role.TECHNICIAN,
+        required=False,
+    )
 
     class Meta:
         model = get_user_model()
         fields = (
-            'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'position', 'hourly_rate', 'active', 'temporary_password',
+            'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'position', 'hourly_rate', 'active', 'temporary_password', 'role',
         )
 
     def validate_worker_code(self, value):
@@ -211,9 +217,12 @@ class TechnicianSerializer(serializers.ModelSerializer):
         AccountProfile.objects.create(
             user=user,
             worker_code=worker_code,
+            dni=profile_data.get('dni', ''),
             specialty=profile_data.get('specialty', ''),
+            position=profile_data.get('position', ''),
+            hourly_rate=profile_data.get('hourly_rate', 0),
             active=profile_data.get('active', True),
-            role=AccountProfile.Role.TECHNICIAN,
+            role=profile_data.get('role', AccountProfile.Role.TECHNICIAN),
             must_change_password=True,
         )
         return user
@@ -234,7 +243,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
             instance.account_profile.must_change_password = True
         instance.save()
         profile = instance.account_profile
-        for field in ('worker_code', 'specialty', 'position', 'hourly_rate', 'active'):
+        for field in ('worker_code', 'specialty', 'position', 'hourly_rate', 'active', 'role'):
             if field in profile_data:
                 setattr(profile, field, profile_data[field])
         profile.save()
