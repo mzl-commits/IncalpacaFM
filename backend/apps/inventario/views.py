@@ -2,11 +2,9 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
 
 from apps.inventario.models import Movimiento
-from apps.catalogo.models import Material, Pieza
+from apps.catalogo.models import Pieza
 from apps.inventario.serializers import (
     MovimientoSerializer,
     SalidaMaterialSerializer,
@@ -17,18 +15,7 @@ from apps.inventario.serializers import (
     BajaPiezaSerializer,
     PiezaPrestadaSerializer,
 )
-from apps.inventario.services import (
-    registrar_salida_material,
-    registrar_salida_pieza,
-    registrar_entrada_material,
-    registrar_entrada_pieza,
-    registrar_baja_material,
-    registrar_baja_pieza,
-)
 from django.utils import timezone
-
-User = get_user_model()
-
 
 class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Movimiento.objects.select_related("material", "pieza", "responsable").all()
@@ -59,118 +46,51 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     def salida_material(self, request):
         serializer = SalidaMaterialSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        try:
-            material = Material.objects.get(pk=data["material_id"])
-            responsable = User.objects.get(pk=data["responsable_id"])
-            mov = registrar_salida_material(
-                material=material,
-                cantidad=data["cantidad"],
-                responsable=responsable,
-                referencia_externa=data.get("referencia_externa", ""),
-                observaciones=data.get("observaciones", ""),
-            )
-            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+        mov = serializer.save()
+        return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="salida-pieza")
     def salida_pieza(self, request):
         serializer = SalidaPiezaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        try:
-            pieza = Pieza.objects.get(pk=data["pieza_id"])
-            responsable = User.objects.get(pk=data["responsable_id"])
-            movimientos, hijas_excluidas = registrar_salida_pieza(
-                pieza=pieza,
-                responsable=responsable,
-                referencia_externa=data.get("referencia_externa", ""),
-                observaciones=data.get("observaciones", ""),
-                piezas_hijas_ids=data.get("piezas_hijas_ids"),  # None si no se envía
-            )
-            respuesta = {
-                "movimientos": MovimientoSerializer(movimientos, many=True).data,
-            }
-            # Avisar si el estuche salió incompleto
-            if hijas_excluidas:
-                respuesta["aviso"] = f"{len(hijas_excluidas)} pieza(s) no salieron por no estar disponibles."
-                respuesta["hijas_excluidas"] = hijas_excluidas
-            return Response(respuesta, status=status.HTTP_201_CREATED)
-        
-        except ValidationError as e:
-            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+        movimientos, hijas_excluidas = serializer.save()
+        respuesta = {
+            "movimientos": MovimientoSerializer(movimientos, many=True).data,
+        }
+        # Avisar si el estuche salió incompleto
+        if hijas_excluidas:
+            respuesta["aviso"] = f"{len(hijas_excluidas)} pieza(s) no salieron por no estar disponibles."
+            respuesta["hijas_excluidas"] = hijas_excluidas
+        return Response(respuesta, status=status.HTTP_201_CREATED)
 
 
     @action(detail=False, methods=["post"], url_path="entrada-material")
     def entrada_material(self, request):
         serializer = EntradaMaterialSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        try:
-            material = Material.objects.get(pk=data["material_id"])
-            responsable = User.objects.get(pk=data["responsable_id"])
-            mov = registrar_entrada_material(
-                material=material,
-                cantidad=data["cantidad"],
-                responsable=responsable,
-                observaciones=data.get("observaciones", ""),
-            )
-            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+        mov = serializer.save()
+        return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="entrada-pieza")
     def entrada_pieza(self, request):
         serializer = EntradaPiezaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        try:
-            pieza = Pieza.objects.get(pk=data["pieza_id"])
-            responsable = User.objects.get(pk=data["responsable_id"])
-            mov = registrar_entrada_pieza(
-                pieza=pieza,
-                responsable=responsable,
-                observaciones=data.get("observaciones", ""),
-            )
-            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+        mov = serializer.save()
+        return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="baja-material")
     def baja_material(self, request):
         serializer = BajaMaterialSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        try:
-            material = Material.objects.get(pk=data["material_id"])
-            responsable = User.objects.get(pk=data["responsable_id"])
-            mov = registrar_baja_material(
-                material=material,
-                cantidad=data["cantidad"],
-                responsable=responsable,
-                observaciones=data.get("observaciones", ""),
-            )
-            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+        mov = serializer.save()
+        return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="baja-pieza")
     def baja_pieza(self, request):
         serializer = BajaPiezaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        try:
-            pieza = Pieza.objects.get(pk=data["pieza_id"])
-            responsable = User.objects.get(pk=data["responsable_id"])
-            mov = registrar_baja_pieza(
-                pieza=pieza,
-                responsable=responsable,
-                observaciones=data.get("observaciones", ""),
-            )
-            return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({"detail": str(e.message)}, status=status.HTTP_400_BAD_REQUEST)
+        mov = serializer.save()
+        return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["get"], url_path="checklist-prestados")
     def checklist_prestados(self, request):

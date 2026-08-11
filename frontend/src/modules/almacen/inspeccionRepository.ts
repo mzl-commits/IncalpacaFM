@@ -32,6 +32,7 @@ export async function getPlantillaCriterio(id: number): Promise<PlantillaCriteri
 // ─── Inspecciones ─────────────────────────────────────────────────────────────
 
 export interface InspeccionesParams {
+  q?: string;
   material?: number;
   pieza?: number;
   tipo?: TipoInspeccion;

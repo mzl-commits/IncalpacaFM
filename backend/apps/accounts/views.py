@@ -60,7 +60,10 @@ class TechnicianListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return get_user_model().objects.select_related('account_profile').filter(
-            account_profile__role=AccountProfile.Role.TECHNICIAN
+            account_profile__role__in=[
+                AccountProfile.Role.TECHNICIAN,
+                AccountProfile.Role.ALMACENERO,
+            ]
         ).order_by('first_name', 'last_name', 'username')
 
 
@@ -118,7 +121,10 @@ class TechnicianDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = TechnicianSerializer
     queryset = get_user_model().objects.select_related('account_profile').filter(
-        account_profile__role=AccountProfile.Role.TECHNICIAN
+        account_profile__role__in=[
+            AccountProfile.Role.TECHNICIAN,
+            AccountProfile.Role.ALMACENERO,
+        ]
     )
 
     def get_object(self):

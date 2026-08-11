@@ -6,7 +6,7 @@ from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_pieza
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categoria
-        fields = ["id", "nombre", "prefijo", "descripcion", "activo"]
+        fields = ["id", "nombre", "prefijo", "descripcion", "activo", "requiere_inspeccion"]
 
 class SubcategoriaSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="categoria.nombre", read_only=True)
@@ -30,7 +30,7 @@ class PiezaSerializer(serializers.ModelSerializer):
         model = Pieza
         fields = [
             "id", "material", "material_nombre", "material_medida",
-            "codigo", "estado", "foto", "padre", "creado_en", "tiene_hijas",
+            "codigo", "detalle", "estado", "foto", "padre", "creado_en", "tiene_hijas",
         ]
         read_only_fields = ["codigo", "creado_en", "material_nombre", "material_medida", "tiene_hijas"]
         
@@ -44,7 +44,7 @@ class PiezaAnidadaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pieza
-        fields = ["id", "codigo", "estado", "foto", "material_nombre", "material_medida", "total_hijas", "hijas_disponibles", "piezas_hijas"]
+        fields = ["id", "codigo", "detalle", "estado", "foto", "material_nombre", "material_medida", "total_hijas", "hijas_disponibles", "piezas_hijas"]
 
     def get_piezas_hijas(self, obj):
         hijas = obj.piezas_hijas.all()
@@ -61,6 +61,13 @@ class MaterialSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="subcategoria.categoria.nombre", read_only=True)
     subcategoria_plantilla_inspeccion = serializers.PrimaryKeyRelatedField(source="subcategoria.plantilla_inspeccion", read_only=True)
     subcategoria_plantilla_inspeccion_nombre = serializers.CharField(source="subcategoria.plantilla_inspeccion.nombre", read_only=True, default=None)
+    # NUEVO: periodicidad_inspeccion_dias ya se calcula en el modelo Material
+    # (ver models.py), pero no estaba expuesta en el serializer — el frontend
+    # la necesita para TrimestreBadge (estado vencida/próxima/al día).
+    periodicidad_inspeccion_dias = serializers.ReadOnlyField()
+    # NUEVO: única fuente de verdad para "¿este material es inspeccionable?"
+    # (antes esa condición vivía duplicada/incompleta en el frontend).
+    es_inspeccionable = serializers.SerializerMethodField()
 
     class Meta:
         model = Material
@@ -68,12 +75,21 @@ class MaterialSerializer(serializers.ModelSerializer):
             "id", "subcategoria", "subcategoria_nombre", "categoria_nombre",
             "subcategoria_plantilla_inspeccion", "subcategoria_plantilla_inspeccion_nombre",
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
-            "grosor_mm", "largo_mm", "ubicacion_fisica", "precio",
+            "unidad_medida", "grosor", "largo", "ubicacion_fisica", "precio",
             "tipo_control", "control_individual", "cantidad_total",
+            "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
+            "es_inspeccionable",
+            "unidad_manejo", "unidades_por_caja",
             "activo", "creado_en",
         ]
         # cantidad_total YA NO va aquí — ahora es editable
         read_only_fields = ["codigo", "creado_en"]
+
+    def get_es_inspeccionable(self, obj):
+        return bool(
+            obj.subcategoria.plantilla_inspeccion_id
+            and obj.subcategoria.categoria.requiere_inspeccion
+        )
 
     def validate(self, attrs):
         control_individual = attrs.get(
@@ -82,8 +98,28 @@ class MaterialSerializer(serializers.ModelSerializer):
         )
         # Si el material tiene control individual, ignoramos cualquier
         # cantidad_total enviada: siempre se calcula solo desde las piezas.
+        # Tampoco aplica el manejo por caja (es exclusivo de consumibles).
         if control_individual:
             attrs.pop("cantidad_total", None)
+            attrs["unidad_manejo"] = "unidad"
+            attrs["unidades_por_caja"] = None
+            return attrs
+
+        unidad_manejo = attrs.get(
+            "unidad_manejo",
+            getattr(self.instance, "unidad_manejo", "unidad"),
+        )
+        unidades_por_caja = attrs.get(
+            "unidades_por_caja",
+            getattr(self.instance, "unidades_por_caja", None),
+        )
+        if unidad_manejo == "caja":
+            if not unidades_por_caja or unidades_por_caja < 1:
+                raise serializers.ValidationError({
+                    "unidades_por_caja": "Indica cuántas unidades trae cada caja para este consumible."
+                })
+        else:
+            attrs["unidades_por_caja"] = None
         return attrs
 
 class MaterialDetalleSerializer(MaterialSerializer):
@@ -98,44 +134,42 @@ class MaterialDetalleSerializer(MaterialSerializer):
         return PiezaAnidadaSerializer(piezas_raiz, many=True).data
 
 class AltaPiezasSueltasSerializer(serializers.Serializer):
-    material_id = serializers.IntegerField()
+    material_id = serializers.PrimaryKeyRelatedField(
+        queryset=Material.objects.all(),
+        source="material",
+        error_messages={"does_not_exist": "Material no existe."},
+    )
     cantidad = serializers.IntegerField(min_value=1)
 
     def validate_material_id(self, value):
-        material = Material.objects.filter(pk=value).first()
-        if not material:
-            raise serializers.ValidationError("Material no existe.")
-        if not material.control_individual:
+        if not value.control_individual:
             raise serializers.ValidationError(
                 "Este material no tiene control individual; no se le pueden crear piezas."
             )
         return value
 
     def create(self, validated_data):
-        material = Material.objects.get(pk=validated_data["material_id"])
-        return crear_piezas_sueltas(material, validated_data["cantidad"])
-
+        return crear_piezas_sueltas(validated_data["material"], validated_data["cantidad"])
 
 class PiezaHijaSpecSerializer(serializers.Serializer):
-    material_id = serializers.IntegerField()
+    material_id = serializers.PrimaryKeyRelatedField(
+        queryset=Material.objects.all(),
+        source="material",
+        error_messages={"does_not_exist": "Material no existe."},
+    )
     cantidad = serializers.IntegerField(min_value=1)
 
-    def validate_material_id(self, value):
-        if not Material.objects.filter(pk=value).exists():
-            raise serializers.ValidationError("Material no existe.")
-        return value
-
-
 class AltaEstucheSerializer(serializers.Serializer):
-    material_contenedor_id = serializers.IntegerField()
+    material_contenedor_id = serializers.PrimaryKeyRelatedField(
+        queryset=Material.objects.all(),
+        source="material_contenedor",
+        error_messages={"does_not_exist": "Material contenedor no existe."},
+    )
     piezas_hijas = PiezaHijaSpecSerializer(many=True)
     num_estuches = serializers.IntegerField(min_value=1, default=1)
 
     def validate_material_contenedor_id(self, value):
-        material = Material.objects.filter(pk=value).first()
-        if not material:
-            raise serializers.ValidationError("Material contenedor no existe.")
-        if not material.control_individual:
+        if not value.control_individual:
             raise serializers.ValidationError(
                 "El material contenedor debe tener control individual."
             )
@@ -143,7 +177,7 @@ class AltaEstucheSerializer(serializers.Serializer):
 
     def validate_piezas_hijas(self, value):
         for spec in value:
-            material = Material.objects.get(pk=spec["material_id"])
+            material = spec["material"]
             if not material.control_individual:
                 raise serializers.ValidationError(
                     f"El material '{material.nombre}' no tiene control individual; "
@@ -152,9 +186,9 @@ class AltaEstucheSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
-        contenedor = Material.objects.get(pk=validated_data["material_contenedor_id"])
+        contenedor = validated_data["material_contenedor"]
         piezas_spec = [
-            {"material": Material.objects.get(pk=p["material_id"]), "cantidad": p["cantidad"]}
+            {"material": p["material"], "cantidad": p["cantidad"]}
             for p in validated_data["piezas_hijas"]
         ]
         return crear_estuche_con_piezas(
@@ -164,23 +198,25 @@ class AltaEstucheSerializer(serializers.Serializer):
         )
 
 class AjustarStockSerializer(serializers.Serializer):
-    material_id = serializers.IntegerField()
+    material_id = serializers.PrimaryKeyRelatedField(
+        queryset=Material.objects.all(),
+        source="material",
+        error_messages={"does_not_exist": "Material no existe."},
+    )
     cantidad = serializers.IntegerField(help_text="Positivo para sumar, negativo para descontar.")
 
     def validate_material_id(self, value):
-        material = Material.objects.filter(pk=value).first()
-        if not material:
-            raise serializers.ValidationError("Material no existe.")
-        if material.control_individual:
+        if value.control_individual:
             raise serializers.ValidationError(
                 "Este material tiene control individual; usa el alta de piezas en su lugar."
             )
         return value
 
     def create(self, validated_data):
-        material = Material.objects.get(pk=validated_data["material_id"])
-        return ajustar_stock(material, validated_data["cantidad"])
-
+        try:
+            return ajustar_stock(validated_data["material"], validated_data["cantidad"])
+        except ValueError as e:
+            raise serializers.ValidationError({"cantidad": str(e)})
 
 class PiezaHijaInlineSpecSerializer(serializers.Serializer):
     """Especificación inline de piezas hijas: nombre + medida (opcional) + cantidad."""
@@ -188,26 +224,22 @@ class PiezaHijaInlineSpecSerializer(serializers.Serializer):
     medida = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
     cantidad = serializers.IntegerField(min_value=1, default=1)
 
-
 class AltaEstucheInlineSerializer(serializers.Serializer):
-    """
-    Crea estuches con piezas hijas definidas inline (nombre + medida + cantidad).
-    Si ya existe un material con el mismo nombre y medida en la misma subcategoría
-    del contenedor, lo reutiliza. Si no, lo crea automáticamente con control_individual=True.
-    """
-    material_contenedor_id = serializers.IntegerField()
+    """Crea estuches con piezas hijas inline (nombre+medida+cantidad); reutiliza el material
+    hijo si ya existe en la subcategoría, o lo crea con control_individual=True."""
+    material_contenedor_id = serializers.PrimaryKeyRelatedField(
+        queryset=Material.objects.all(),
+        source="material_contenedor",
+        error_messages={"does_not_exist": "Material contenedor no existe."},
+    )
     piezas_hijas = PiezaHijaInlineSpecSerializer(many=True)
     num_estuches = serializers.IntegerField(min_value=1, default=1)
 
     def validate_material_contenedor_id(self, value):
-        material = Material.objects.filter(pk=value).first()
-        if not material:
-            raise serializers.ValidationError("Material contenedor no existe.")
-        if not material.control_individual:
+        if not value.control_individual:
             raise serializers.ValidationError(
                 "El material contenedor debe tener control individual."
             )
-        self._contenedor = material
         return value
 
     def validate_piezas_hijas(self, value):
@@ -217,7 +249,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         from django.db import transaction
-        contenedor = self._contenedor
+        contenedor = validated_data["material_contenedor"]
         subcategoria = contenedor.subcategoria
 
         piezas_spec = []
@@ -239,8 +271,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
 
                 mat_hija = qs.first()
                 if not mat_hija:
-                    # Crear el material hijo autom\u00e1ticamente
-                    # es_componente=True: se oculta del cat\u00e1logo general
+                    # Crear el material hijo automáticamente, oculto del catálogo general
                     mat_hija = Material.objects.create(
                         subcategoria=subcategoria,
                         nombre=nombre,
@@ -266,18 +297,10 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
             num_estuches=validated_data["num_estuches"],
         )
 
-
-
 class ReemplazarHijaSerializer(serializers.Serializer):
-    """
-    Reemplaza una pieza hija rota/baja dentro de un estuche
-    con una pieza suelta disponible del mismo material.
-
-    Reglas:
-    - La pieza a reemplazar (la hija) debe tener padre y estar en Baja o Mantenimiento.
-    - La pieza suelta de reemplazo debe ser del mismo material, no tener padre
-      y estar Disponible.
-    """
+    """Reemplaza una pieza hija rota/baja de un estuche por una pieza suelta disponible del
+    mismo material. Reglas: la hija debe estar en Baja/Mantenimiento; la suelta debe ser del
+    mismo material, sin padre y Disponible."""
     pieza_suelta_id = serializers.IntegerField(
         help_text="ID de la pieza suelta disponible que tomará el lugar de la hija."
     )
@@ -331,18 +354,11 @@ class ReemplazarHijaSerializer(serializers.Serializer):
             Pieza.objects.filter(pk=suelta.pk).update(padre=padre)
         return suelta
 
-
 # ─── Feature: Agregar pieza hija a estuche existente ──────────────────────────
 
 class AgregarHijaInlineSerializer(serializers.Serializer):
-    """
-    Agrega una o más piezas hijas a un estuche ya existente (pieza contenedora).
-    Reutiliza la misma lógica de lookup/creación de AltaEstucheInlineSerializer:
-    si el material hijo ya existe en la misma subcategoría, lo reutiliza;
-    si no, lo crea marcado como es_componente=True.
-    POST /piezas/{id}/agregar-hija-inline/
-    Body: { "nombre": "...", "medida": "...", "cantidad": 1 }
-    """
+    """Agrega piezas hijas a un estuche existente. Misma lógica de lookup/creación que
+    AltaEstucheInlineSerializer: reutiliza el material hijo si existe, o lo crea como componente."""
     nombre   = serializers.CharField(max_length=150)
     medida   = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     cantidad = serializers.IntegerField(min_value=1, default=1)

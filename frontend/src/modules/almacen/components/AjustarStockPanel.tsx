@@ -1,60 +1,59 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
-import { useAuth } from "@/modules/accounts/AuthContext";
-import {
-  registrarEntradaMaterial,
-  registrarBajaMaterial,
-} from "@/modules/almacen/inventarioRepository";
+import { ajustarStock } from "@/modules/almacen/catalogoRepository";
 import type { MaterialDetalle } from "@/modules/almacen/types";
 
-type Modo = "entrada" | "baja";
+type Modo = "entrada" | "salida";
 
 export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [modo, setModo] = useState<Modo>("entrada");
   const [cantidad, setCantidad] = useState("");
-  const [observaciones, setObservaciones] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Este panel es para correcciones administrativas rápidas de stock (ej.
+  // "conté mal", "encontré 2 más en la repisa"), NO para dar de baja
+  // formalmente. Por eso usa `ajustarStock` (que solo corrige
+  // cantidad_total en el material) en vez de `registrarEntradaMaterial` /
+  // `registrarBajaMaterial` (que crean un Movimiento con tipo "entrada" /
+  // "baja" y se cuentan en las stats de Movimientos). Ni "aumentar" ni
+  // "disminuir" acá quedan como baja — para dar de baja de verdad
+  // (unidades dañadas, vencidas, perdidas), con su observación, se usa el
+  // flujo formal de Movimientos → Nuevo movimiento → Baja.
+  //
+  // Cuando el material se maneja por caja (unidad_manejo === "caja"), el
+  // usuario ingresa cantidad de CAJAS; acá se convierte a unidades antes de
+  // llamar a ajustarStock, porque el endpoint de ajuste rápido siempre
+  // trabaja en unidades (no tiene noción de "cajas").
+  const esPorCaja = material.unidad_manejo === "caja" && !!material.unidades_por_caja;
 
   const mutation = useMutation({
     mutationFn: async () => {
       const cantidadNum = Number(cantidad);
       if (!cantidadNum || cantidadNum <= 0) {
-        throw new Error("Ingresa una cantidad válida mayor a 0.");
+        throw new Error(esPorCaja ? "Ingresa una cantidad de cajas válida mayor a 0." : "Ingresa una cantidad válida mayor a 0.");
       }
-      if (!user) {
-        throw new Error("No hay usuario autenticado.");
-      }
-
-      const input = {
-        material_id: material.id,
-        cantidad: cantidadNum,
-        responsable_id: user.userId,
-        observaciones: observaciones.trim() || undefined,
-      };
-
-      return modo === "entrada"
-        ? registrarEntradaMaterial(input)
-        : registrarBajaMaterial(input);
+      const cantidadEnUnidades = esPorCaja
+        ? cantidadNum * (material.unidades_por_caja ?? 0)
+        : cantidadNum;
+      const delta = modo === "entrada" ? cantidadEnUnidades : -cantidadEnUnidades;
+      return ajustarStock({ material_id: material.id, cantidad: delta });
     },
     onSuccess: () => {
       setCantidad("");
-      setObservaciones("");
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["material", material.id] });
-      queryClient.invalidateQueries({
-        queryKey: ["movimientos", { material: material.id }],
-      });
+      queryClient.invalidateQueries({ queryKey: ["materiales"] });
     },
     onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data
           ?.detail ??
         (err as Error)?.message ??
-        "No se pudo registrar el movimiento.";
+        "No se pudo ajustar el stock.";
       setError(msg);
     },
   });
@@ -89,13 +88,13 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
             style={inputStyle}
           >
             <option value="entrada">Aumentar stock</option>
-            <option value="baja">Disminuir stock</option>
+            <option value="salida">Disminuir stock</option>
           </select>
         </div>
 
         <div>
           <label style={{ display: "block", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>
-            Cantidad
+            {esPorCaja ? "Cantidad de cajas" : "Cantidad"}
           </label>
           <input
             type="number"
@@ -104,18 +103,11 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
             onChange={(e) => setCantidad(e.target.value)}
             style={{ ...inputStyle, width: 100 }}
           />
-        </div>
-
-        <div style={{ flex: 1, minWidth: 160 }}>
-          <label style={{ display: "block", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>
-            Observaciones (opcional)
-          </label>
-          <input
-            type="text"
-            value={observaciones}
-            onChange={(e) => setObservaciones(e.target.value)}
-            style={{ ...inputStyle, width: "100%" }}
-          />
+          {esPorCaja && cantidad && (
+            <small style={{ display: "block", fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+              = {Number(cantidad) * (material.unidades_por_caja ?? 0)} unidades
+            </small>
+          )}
         </div>
 
         <button
@@ -126,6 +118,15 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
           {mutation.isPending ? "Aplicando..." : "Aplicar"}
         </button>
       </div>
+
+      <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>
+        Esto es un ajuste manual (ej. corregir un conteo) y no queda
+        registrado como baja. Si las unidades están dañadas, vencidas o se
+        perdieron, regístralo como baja formal — con su observación — desde{" "}
+        <Link to={`/almacen/movimientos/nuevo?material=${material.id}`} style={{ fontWeight: 600 }}>
+          Movimientos → Nuevo movimiento → Baja
+        </Link>.
+      </p>
 
       {error && (
         <p style={{ color: "#c0392b", fontSize: 12, marginTop: 8 }}>{error}</p>

@@ -40,10 +40,12 @@
   letter-spacing: .03em;
   white-space: nowrap;
 }
-.trimestre-q1 { background: #f2f2f2; color: #626262; }   /* Q1 Ene-Mar: Amarillo */
-.trimestre-q2 { background: #dfdfdf; color: #393939; }   /* Q2 Abr-Jun: Verde   */
-.trimestre-q3 { background: #dfdfdf; color: #303030; }   /* Q3 Jul-Sep: Azul    */
-.trimestre-q4 { background: #e1e1e1; color: #3e3e3e; }   /* Q4 Oct-Dic: Rojo    */
+/* Estados de vigencia (reutiliza la paleta de .calendario-punto--*, ya
+   definida aparte de --error/--warning/--success porque esas variables son
+   grises casi idénticos entre sí en este proyecto). */
+.trimestre-badge--vencida { background: #fef2f2; color: #dc2626; }   /* rojo    */
+.trimestre-badge--proxima { background: #fffbeb; color: #b45309; }   /* naranja */
+.trimestre-badge--al-dia  { background: #f0fdf4; color: #16a34a; }   /* verde   */
 
 /* ─── Filas de tabla con alerta de stock bajo ───────────────────────────────── */
 .stock-alert-row td { background: #f9f9f9 !important; }
@@ -183,6 +185,8 @@
 }
 .pieza-checkbox-row input { width: 17px; height: 17px; accent-color: var(--primary); }
 .pieza-checkbox-row:has(input:checked) { border-color: var(--accent); background: #f5f5f5; }
+.pieza-checkbox-row.is-disabled { opacity: .5; cursor: not-allowed; }
+.pieza-checkbox-row.is-disabled input { cursor: not-allowed; }
 
 /* ─── Exportar botones ───────────────────────────────────────────────────────── */
 .export-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
@@ -233,5 +237,310 @@
     padding: 4px 10px !important;
     font-size: 12px !important;
     flex: 0 0 auto;
+  }
+}
+
+/* ─── Detalle: pares dt/dd reutilizables (MaterialDetailPage, InspeccionDetailPage) ── */
+.dt-label { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.dd-value { margin: 4px 0 0; font-size: 13px; }
+
+/* ─── Utilidades de texto (reemplazan style={{ fontSize, color }} repetidos) ──── */
+.text-muted    { color: var(--muted); }
+.text-xs       { font-size: 11px; }
+.text-sm       { font-size: 12px; }
+.text-base     { font-size: 13px; }
+.text-md       { font-size: 15px; }
+.text-muted-xs { color: var(--muted); font-size: 11px; }
+.text-muted-sm { color: var(--muted); font-size: 12px; }
+.text-mono     { font-family: ui-monospace, monospace; }
+
+/* ─── Utilidades de layout (reemplazan style={{ display: "flex", gap }} repetidos) ── */
+.flex-row        { display: flex; align-items: center; gap: 8px; }
+.flex-row-wrap   { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.flex-row-between{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.flex-row-end    { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.flex-col        { display: flex; flex-direction: column; gap: 4px; }
+.grid-2col       { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
+.grid-gap-20     { display: grid; gap: 20px; }
+.col-span-all    { grid-column: 1 / -1; }
+.text-center-empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+/* ─── Utilidades de espaciado (reemplazan style={{ marginTop/marginBottom }} sueltos) ── */
+.mt-4  { margin-top: 4px; }
+.mt-8  { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mt-20 { margin-top: 20px; }
+.mt-24 { margin-top: 24px; }
+.mb-8  { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-20 { margin-bottom: 20px; }
+.ml-auto { margin-left: auto; }
+
+/* ─── Card de material (Catálogo) ─────────────────────────────────────────────── */
+.material-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+}
+.material-card-photo {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+.material-card-photo img { width: 100%; height: 100%; object-fit: contain; }
+.material-card-stock-alert {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 20px;
+  padding: 2px 7px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.material-card-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.material-card-footer {
+  margin-top: auto;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.material-card-stock {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.material-card-stock.is-alert { color: #b91c1c; }
+.material-card-pieza-tag {
+  font-size: 11px;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Header de página con acciones (Catálogo, etc.) ─────────────────────────── */
+.page-heading-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ─── Grid de cards del catálogo ──────────────────────────────────────────────── */
+.catalogo-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+
+/* ─── Alta de piezas: banner de éxito ─────────────────────────────────────────── */
+.alta-success-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: var(--success, #16a34a);
+}
+.alta-success-count { margin-top: 2px; font-size: 12px; color: var(--muted); }
+
+/* ─── Alta de piezas: chips de piezas sueltas creadas ─────────────────────────── */
+.alta-piezas-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.alta-pieza-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--surface-raised, #f3f4f6);
+  border: 1px solid var(--border, #e5e7eb);
+  font-size: 13px;
+}
+
+/* ─── Alta de piezas: cards de opción clickeables (sueltas / estuche) ─────────── */
+.option-cards-stack { display: grid; gap: 16px; }
+.option-card { cursor: pointer; }
+.option-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ─── Cajas informativas (resumen, se crearán N piezas, etc.) ─────────────────── */
+.info-box {
+  padding: 12px 16px;
+  background: var(--surface-raised, #f9fafb);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.info-box.is-plain { color: inherit; }
+.error-box {
+  padding: 10px 14px;
+  background: var(--error-surface, #fef2f2);
+  border-radius: 8px;
+  color: var(--error, #dc2626);
+  font-size: 13px;
+}
+
+/* ─── Alta de piezas: grid de filas de "piezas hijas" del estuche ────────────── */
+.hijas-list { display: grid; gap: 10px; margin-top: 16px; }
+.hijas-grid-cols { display: grid; grid-template-columns: 1fr 120px 80px 36px; gap: 8px; }
+.hijas-grid-header {
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.hijas-grid-row { align-items: center; }
+.icon-button-danger {
+  background: transparent;
+  border: 0;
+  color: var(--error, #dc2626);
+  cursor: pointer;
+  padding: 4px;
+}
+.add-fila-btn { justify-self: start; font-size: 13px; margin-top: 4px; }
+
+/* ─── Listas con items espaciados (reemplaza style={{ marginBottom: 8 }} en <li>) ── */
+.info-list { font-size: 13px; padding-left: 16px; }
+.info-list li { margin-bottom: 8px; }
+.info-list li:last-child { margin-bottom: 0; }
+/* ─── Calendario de programaciones de inspección ─────────────────────────────── */
+.calendario-dias-semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 16px 16px 4px;
+}
+.calendario-dia-semana-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  text-align: center;
+}
+.calendario-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 0 16px 16px;
+  transition: opacity .15s ease;
+}
+.calendario-grid.is-loading { opacity: .5; }
+.calendario-celda {
+  min-height: 72px;
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 6px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: inherit;
+}
+.calendario-celda:hover { border-color: #cecece; }
+.calendario-celda.is-fuera-mes { opacity: .4; }
+.calendario-celda.is-hoy { border-color: var(--primary); border-width: 2px; }
+.calendario-celda.is-seleccionada { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.calendario-numero-dia { font-size: 12px; font-weight: 700; color: var(--text); }
+.calendario-puntos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.calendario-punto { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+/* Colores propios (no las variables globales --error/--warning/--success, que en
+   este proyecto son grises casi idénticos entre sí y no permiten diferenciar
+   visualmente los 4 estados del calendario). */
+.calendario-punto--vencida   { background: #dc2626; } /* rojo */
+.calendario-punto--proxima   { background: #f59e0b; } /* naranja */
+.calendario-punto--pendiente { background: #9ca3af; } /* gris neutro */
+.calendario-punto--realizada { background: #16a34a; } /* verde */
+
+@media (max-width: 640px) {
+  .calendario-celda { min-height: 52px; }
+}
+
+/* ─── Tabla "Vencidas y próximas": 2 filas en mobile ─────────────────────── */
+@media (max-width: 768px) {
+  .tabla-vencidas thead { display: none; }
+  .tabla-vencidas tbody tr:not(.checklist-section-row) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  .tabla-vencidas tbody tr:not(.checklist-section-row) td {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: none;
+    width: auto;
+  }
+  .tabla-vencidas td.col-periodicidad {
+    flex: 1 1 100%;
+    order: 3;
+  }
+}
+
+/* ─── Tablas de MaterialDetailPage (Movimientos / Inspecciones): tarjetas en mobile ─── */
+@media (max-width: 768px) {
+  .tabla-detalle-mobile thead { display: none; }
+  .tabla-detalle-mobile tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 4px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  .tabla-detalle-mobile tbody tr td {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: none;
+    width: auto;
+  }
+  /* Fila superior: fecha + badge de estado */
+  .tabla-detalle-mobile td.col-fecha { order: 1; }
+  .tabla-detalle-mobile td.col-tipo  { order: 2; }
+  /* Resto de campos: pares etiqueta/valor, uno por línea */
+  .tabla-detalle-mobile td.col-detalle {
+    order: 3;
+    flex: 1 1 100%;
+  }
+  .tabla-detalle-mobile td.col-detalle[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .tabla-detalle-mobile td.col-action {
+    order: 4;
+    margin-left: auto;
   }
 }

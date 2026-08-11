@@ -10,6 +10,7 @@ from django.utils import timezone
 from .models import Notification
 from .monitoring import evaluate_all_work_order_alerts
 from .operational_monitoring import evaluate_operational_health
+from .inspeccion_monitoring import evaluate_all_inspection_alerts
 
 
 def deliver_notification(notification_id):
@@ -75,4 +76,10 @@ def evaluate_work_order_alerts_task():
 @shared_task
 def evaluate_operational_health_task():
     evaluate_operational_health()
+    return "done"
+
+
+@shared_task
+def evaluate_inspection_alerts_task():
+    evaluate_all_inspection_alerts()
     return "done"

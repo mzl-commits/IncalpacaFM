@@ -2,6 +2,8 @@ import {
   ArrowRight,
   Barcode,
   CalendarBlank,
+  CalendarPlus,
+  CaretDown,
   CaretLeft,
   ChartBar,
   ChartLineUp,
@@ -29,6 +31,7 @@ import {
   Wrench,
   X,
 } from "@phosphor-icons/react";
+
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
@@ -87,12 +90,14 @@ const modules: ModuleGroup[] = [
     shortLabel: "Almacén",
     icon: Toolbox,
     paths: ["/almacen"],
-    roles: ["ADMINISTRADOR", "TECNICO"],
+    roles: ["ADMINISTRADOR", "ALMACENERO"],
     items: [
       { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true, count: "10" },
       { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
       { to: "/almacen/checklist", label: "Devolución", icon: ListChecks },
       { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText },
+      { to: "/almacen/calendario", label: "Calendario", icon: CalendarBlank },
+      { to: "/almacen/plan-anual", label: "Plan anual", icon: CalendarPlus },
     ],
   },
   {
@@ -101,6 +106,7 @@ const modules: ModuleGroup[] = [
     shortLabel: "Mantenimiento",
     icon: Wrench,
     paths: ["/incidencias", "/ordenes-trabajo", "/supervision", "/mi-jornada"],
+    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
     items: [
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, count: "6" },
       { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
@@ -125,6 +131,7 @@ const modules: ModuleGroup[] = [
     shortLabel: "Reportes",
     icon: ChartBar,
     paths: ["/informes"],
+    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
     items: [
       { to: "/informes", label: "Panel ejecutivo", icon: ChartBar, end: true },
       { to: "/informes/ordenes-trabajo", label: "Informes de OT", icon: Toolbox },
@@ -195,6 +202,8 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/almacen/movimientos")) return ["Almacén", "Movimientos"];
   if (pathname.startsWith("/almacen/checklist")) return ["Almacén", "Devolución"];
   if (pathname.startsWith("/almacen/inspecciones")) return ["Almacén", "Inspecciones"];
+  if (pathname.startsWith("/almacen/calendario")) return ["Almacén", "Calendario"];
+  if (pathname.startsWith("/almacen/plan-anual")) return ["Almacén", "Plan anual"];
   if (pathname.startsWith("/almacen")) return ["Almacén", "Almacén de herramientas"];
   return ["FM Incalpaca", "Facility Management"];
 }
@@ -230,9 +239,13 @@ export function AppShell() {
       ? "Técnico"
       : user?.role === "SUPERVISOR"
         ? "Supervisor"
-        : user?.role === "SOLICITANTE"
-          ? "Usuario solicitante"
-          : "Administrador / Planner";
+        : user?.role === "ALMACENERO"
+          ? "Almacenero"
+          : user?.role === "INSPECTOR"
+            ? "Inspector"
+            : user?.role === "SOLICITANTE"
+              ? "Usuario solicitante"
+              : "Administrador / Planner";
   const initials =
     user?.fullName
       .split(" ")
