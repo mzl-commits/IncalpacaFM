@@ -67,6 +67,19 @@ class DeliveryFlowTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('signatures', response.json())
 
+    def test_delivery_allows_reported_nonconformities(self):
+        self.payload['checklist'].update({
+            'qr_legible': False,
+            'accessories_complete': False,
+            'no_unreported_damage': False,
+        })
+        self.payload['observations'] = 'El QR está desgastado, falta el cargador y presenta una carcasa fisurada.'
+        response = self.client.post('/api/v1/assignments/deliver/', self.payload, format='json')
+        self.assertEqual(response.status_code, 201, response.json())
+        act = DeliveryAct.objects.get(assignment_id=response.json()['id'])
+        self.assertFalse(act.checklist['qr_legible'])
+        self.assertIn('falta el cargador', act.observations)
+
     def test_catalog_contains_database_records(self):
         response = self.client.get('/api/v1/assignments/catalog/')
         self.assertEqual(response.status_code, 200)
