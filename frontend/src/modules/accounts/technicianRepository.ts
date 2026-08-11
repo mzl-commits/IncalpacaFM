@@ -5,7 +5,10 @@ export type Technician = {
   full_name: string;
   email: string;
   worker_code: string;
+  dni: string;
   specialty: string;
+  position: string;
+  hourly_rate: number;
   active: boolean;
   role: "TECNICO" | "ALMACENERO" | "INSPECTOR";
 };
@@ -29,5 +32,12 @@ export async function updateTechnician(id: string, input: Partial<TechnicianInpu
 
 export async function notifyTechnician(id: string, input: { template: "REMINDER" | "TRACEABILITY" | "SCHEDULE" | "CUSTOM"; deliveryChannel: "SISTEMA" | "CORREO"; subject?: string; body?: string }) {
   const { data } = await api.post<{ detail: string }>(`/technicians/${id}/notifications/`, input);
+  return data;
+}
+
+export async function importTechnicians(file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post<{ created: number; updated: number; errors: { fila: number; detalle: string }[] }>("/technicians/import/", form, { headers: { "Content-Type": "multipart/form-data" } });
   return data;
 }

@@ -5,7 +5,6 @@ import { addWorkOrderCost, generateWorkOrderReport, listWorkOrderCosts, listWork
 import { autocompletarCostosMateriales, updateWorkOrderCostAmount, listWorkOrderMateriales, type WorkOrderMaterial } from "@/modules/workorders/workOrderMaterialRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 
-const categories = [{ value: "MANO_OBRA", label: "Mano de obra" }, { value: "MATERIAL", label: "Material" }, { value: "SERVICIO", label: "Servicio externo" }, { value: "OTRO", label: "Otro" }];
 const manualCategories = [{ value: "MANO_OBRA", label: "Mano de obra" }, { value: "SERVICIO", label: "Servicio externo" }, { value: "OTRO", label: "Otro" }];
 
 export function WorkOrderReportsPage() {

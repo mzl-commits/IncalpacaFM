@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle, File, FilePdf, Files, MagnifyingGlass, ShieldCheck, WarningCircle } from "@phosphor-icons/react";
+import { CheckCircle, DownloadSimple, File, FilePdf, Files, MagnifyingGlass, ShieldCheck, WarningCircle } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { fetchDocuments, openDocument, type DocumentRecord } from "../documentRepository";
+import { downloadExcelCsv } from "@/utils/exportCsv";
 
 function formatSize(size: number) {
   if (!size) return "Sin peso registrado";
@@ -13,6 +14,10 @@ function formatSize(size: number) {
 function formatDate(value: string) {
   if (!value) return "Fecha no registrada";
   return new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function DocumentGroupCards({ groups, openingId, onOpen }: { groups: DocumentRecord[][]; openingId: string | null; onOpen: (record: DocumentRecord) => void }) {
+  return <div className="registry-group-grid" aria-label="Expedientes agrupados">{groups.map((group) => { const first = group[0]; const availableDocs = group.filter((item) => item.hasContent).length; return <article className="registry-group-card" key={`${first.assetCode}-${first.entityCode}-${first.id}`}><header><div><span className="registry-group-kicker">Expediente</span><h3>{first.assetCode || first.entityCode || "Sin bien asociado"}</h3><p>{first.assetCode ? first.entityCode : "Documentos vinculados a este registro"}</p></div><span className="registry-group-count">{group.length} {group.length === 1 ? "documento" : "documentos"}</span></header><div className="registry-group-documents">{group.map((item) => <div className="registry-group-document" key={item.id}><div className="document-name">{item.mimeType.includes("pdf") ? <FilePdf size={20} /> : <File size={20} />}<span><strong>{item.name}</strong><small>{item.sourceLabel} · {formatSize(item.size)}</small></span></div><div className="registry-group-document-action"><span className={`availability ${item.hasContent ? "is-available" : "is-metadata"}`}>{item.hasContent ? "Disponible" : "Solo registro"}</span><button className="table-action" type="button" disabled={!item.hasContent || openingId === item.id} onClick={() => onOpen(item)}>{openingId === item.id ? "Abriendo..." : "Ver"}</button></div></div>)}</div><footer><span>{availableDocs} de {group.length} con copia digital</span><span>{formatDate(first.createdAt)}</span></footer></article>; })}</div>;
 }
 
 export function DocumentRegistryPage() {
@@ -34,6 +39,15 @@ export function DocumentRegistryPage() {
     });
   }, [availability, documents.data?.results, query, source]);
 
+  const groups = useMemo(() => {
+    const grouped = new Map<string, DocumentRecord[]>();
+    rows.forEach((item) => {
+      const key = `${item.assetCode || "sin-bien"}|${item.entityCode || item.id}`;
+      grouped.set(key, [...(grouped.get(key) ?? []), item]);
+    });
+    return [...grouped.values()].sort((left, right) => (right.length - left.length) || left[0].name.localeCompare(right[0].name));
+  }, [rows]);
+
   async function handleOpen(record: DocumentRecord) {
     setMessage("");
     setOpeningId(record.id);
@@ -44,6 +58,10 @@ export function DocumentRegistryPage() {
     } finally {
       setOpeningId(null);
     }
+  }
+
+  function exportDocuments() {
+    downloadExcelCsv(`documentos-sgtb-${new Date().toISOString().slice(0, 10)}.csv`, ["Documento", "Origen", "Bien", "Expediente", "Registro", "Disponibilidad"], rows.map((item) => [item.name, item.sourceLabel, item.assetCode || "Sin bien", item.entityCode, formatDate(item.createdAt), item.hasContent ? "Archivo disponible" : "Solo registro"]));
   }
 
   const total = documents.data?.count ?? 0;
@@ -71,7 +89,8 @@ export function DocumentRegistryPage() {
 
         {message && <div className="registry-notice" role="status"><WarningCircle size={20} /><span>{message}</span><button type="button" onClick={() => setMessage("")}>Cerrar</button></div>}
 
-        <div className="registry-result-heading"><div><h2 id="document-results-title">Expedientes encontrados</h2><p>{rows.length} resultado(s) con los filtros actuales</p></div></div>
+        <div className="registry-result-heading"><div><h2 id="document-results-title">Expedientes encontrados</h2><p>{rows.length} resultado(s) con los filtros actuales</p></div><button className="button button-secondary" type="button" onClick={exportDocuments} disabled={!rows.length}><DownloadSimple size={18} />Exportar Excel</button></div>
+        {!documents.isLoading && !documents.isError && rows.length > 0 && <DocumentGroupCards groups={groups} openingId={openingId} onOpen={handleOpen} />}
 
         {documents.isLoading ? <div className="registry-state" aria-busy="true">Cargando el registro documental...</div> : documents.isError ? <div className="registry-state is-error"><WarningCircle size={28} /><strong>No se pudo consultar Documentos</strong><button className="button button-secondary" type="button" onClick={() => documents.refetch()}>Reintentar</button></div> : rows.length === 0 ? <div className="registry-state"><File size={30} /><strong>No hay documentos para estos criterios</strong><span>Prueba con otro origen o limpia la búsqueda.</span></div> : (
           <div className="registry-table-wrap"><table className="registry-table"><thead><tr><th>Documento</th><th>Proceso</th><th>Bien</th><th>Expediente</th><th>Registro</th><th>Disponibilidad</th><th><span className="sr-only">Acción</span></th></tr></thead><tbody>{rows.map((item) => <tr key={item.id}><td><div className="document-name">{item.mimeType.includes("pdf") ? <FilePdf size={21} /> : <File size={21} />}<span><strong>{item.name}</strong><small>{formatSize(item.size)}</small></span></div></td><td>{item.sourceLabel}</td><td><strong>{item.assetCode || "Sin bien"}</strong></td><td>{item.entityCode}</td><td>{formatDate(item.createdAt)}</td><td><span className={`availability ${item.hasContent ? "is-available" : "is-metadata"}`}>{item.hasContent ? "Archivo disponible" : "Solo registro"}</span></td><td><button className="table-action" type="button" disabled={!item.hasContent || openingId === item.id} onClick={() => handleOpen(item)}>{openingId === item.id ? "Abriendo..." : "Ver"}</button></td></tr>)}</tbody></table></div>

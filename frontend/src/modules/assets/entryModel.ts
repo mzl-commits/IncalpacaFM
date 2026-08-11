@@ -52,6 +52,7 @@ export interface AssetEntryDraft {
   observations: string;
   taxonomyId: string;
   taxonomyPrefix: string;
+  fmCode: string;
   taxonomyVersion: string;
   taxonomySnapshot: AssetTaxonomySnapshot | null;
   assetType: string;
@@ -94,6 +95,7 @@ export interface RegisteredAsset {
   fmCode: string | null;
   publicToken: string;
   publicUrl: string;
+  photoUrl: string | null;
   qrDataUrl: string;
   createdAt: string;
   createdBy: string;
@@ -148,6 +150,7 @@ export const emptyAssetEntryDraft: AssetEntryDraft = {
   observations: "",
   taxonomyId: "",
   taxonomyPrefix: "",
+  fmCode: "",
   taxonomyVersion: "",
   taxonomySnapshot: null,
   assetType: "",

@@ -35,7 +35,7 @@ const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
 const FILTER_KEYS = ["q", "category", "assignment", "condition", "criticality"] as const;
 
 const PRINT_FORMATS = {
-  COMPACT: { label: "Compacta", detail: "40 × 30 mm", widthMm: 40, heightMm: 30, qrMm: 22, columns: 4, gapMm: 3, perPage: 24 },
+  COMPACT: { label: "Compacta", detail: "38 × 30 mm", widthMm: 38, heightMm: 30, qrMm: 20, columns: 5, gapMm: 1.5, perPage: 30 },
   STANDARD: { label: "Estándar", detail: "60 × 45 mm", widthMm: 60, heightMm: 45, qrMm: 32, columns: 3, gapMm: 4, perPage: 15 },
   LARGE: { label: "Grande", detail: "90 × 60 mm", widthMm: 90, heightMm: 60, qrMm: 44, columns: 2, gapMm: 4, perPage: 8 },
 } as const;
@@ -308,7 +308,7 @@ export function AssetQrInventoryPage() {
       
       const style = document.createElement("style");
       style.textContent = `
-        @page { size: A4; margin: 12mm; }
+        @page { size: A4; margin: ${format === PRINT_FORMATS.COMPACT ? "8mm" : "12mm"}; }
         * { box-sizing: border-box; }
         body {
           margin: 0;
@@ -319,7 +319,8 @@ export function AssetQrInventoryPage() {
           display: grid;
           grid-template-columns: repeat(${format.columns}, ${format.widthMm}mm);
           grid-auto-rows: ${format.heightMm}mm;
-          justify-content: center;
+          justify-content: start;
+          align-content: start;
           gap: ${format.gapMm}mm;
         }
         article {
@@ -327,13 +328,17 @@ export function AssetQrInventoryPage() {
           display: grid;
           grid-template-columns: ${format.qrMm}mm minmax(0, 1fr);
           align-items: center;
-          gap: ${Math.max(2, Math.round(format.gapMm / 1.5))}mm;
+          gap: ${format === PRINT_FORMATS.COMPACT ? 1 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
           height: ${format.heightMm}mm;
-          padding: ${Math.max(2, Math.round(format.gapMm / 1.5))}mm;
+          padding: ${format === PRINT_FORMATS.COMPACT ? 1.5 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
           border: 1px solid #9eabb9;
           overflow: hidden;
         }
-        img { width: ${format.qrMm}mm; height: ${format.qrMm}mm; }
+        article.compact-label { grid-template-columns: ${format.qrMm}mm minmax(0, 1fr); gap: 2mm; text-align: left; }
+        article.compact-label .brand { font-size: 6px; letter-spacing: .03em; font-weight: 700; color: #343434; }
+        article.compact-label .human-code { font-family: "Courier New", monospace; font-size: 8px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
+        article.compact-label .asset-name { font-size: 7px; line-height: 1.1; max-height: 8mm; overflow: hidden; }
+        img { display: block; flex: 0 0 ${format.qrMm}mm; width: ${format.qrMm}mm; height: ${format.qrMm}mm; object-fit: contain; }
         strong, span, small { display: block; }
         strong { margin: 1mm 0; font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 16}px; line-height: 1.15; }
         span { font-size: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 10 : 12}px; font-weight: 700; line-height: 1.2; }
@@ -352,7 +357,6 @@ export function AssetQrInventoryPage() {
         const code = document.createElement("strong");
         const name = document.createElement("span");
         const technicalCode = document.createElement("small");
-        const categoryText = document.createElement("small");
         const instruction = document.createElement("small");
 
         image.src = dataUrl;
@@ -363,6 +367,22 @@ export function AssetQrInventoryPage() {
         technicalCode.textContent = asset.fmCode ? `ID técnico: ${asset.code}` : "";
         instruction.textContent = "Escanea para más información";
 
+        if (format === PRINT_FORMATS.COMPACT) {
+          label.className = "compact-label";
+          const brand = document.createElement("span");
+          const humanCode = document.createElement("strong");
+          const assetName = document.createElement("span");
+          brand.className = "brand";
+          humanCode.className = "human-code";
+          assetName.className = "asset-name";
+          brand.textContent = "INCALPACA FM";
+          humanCode.textContent = `* ${getAssetDisplayCode(asset)} *`;
+          assetName.textContent = asset.draft.name;
+          copy.append(brand, humanCode, assetName);
+          label.append(image, copy);
+          main.append(label);
+          return;
+        }
         copy.append(organization, code, name);
         if (asset.fmCode) copy.append(technicalCode);
         copy.append(instruction);

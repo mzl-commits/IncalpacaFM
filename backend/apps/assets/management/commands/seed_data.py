@@ -17,6 +17,7 @@ class Command(BaseCommand):
             {'username': 'admin', 'worker_code': 'admin', 'role': 'ADMINISTRADOR', 'email': 'admin@incalpaca.com', 'first_name': 'Facility', 'last_name': 'Management', 'is_staff': True, 'is_superuser': True},
             {'username': 'tecnico', 'worker_code': 'tecnico', 'role': 'TECNICO', 'email': 'tecnico@incalpaca.com', 'first_name': 'Técnico', 'last_name': 'Operaciones', 'is_staff': True, 'is_superuser': False},
             {'username': 'planner', 'worker_code': 'planner', 'role': 'PLANNER', 'email': 'planner@incalpaca.com', 'first_name': 'Planner', 'last_name': 'Mantenimiento', 'is_staff': True, 'is_superuser': False},
+            {'username': 'usuario', 'worker_code': 'usuario', 'role': 'SOLICITANTE', 'email': 'usuario@incalpaca.com', 'first_name': 'Usuario', 'last_name': 'Solicitante', 'is_staff': False, 'is_superuser': False},
         ]
 
         admin_user = None
@@ -76,20 +77,26 @@ class Command(BaseCommand):
 
         # 3. Ubicaciones físicas
         locations_data = [
-            {"zone": "Sede Principal", "building": "Edificio A", "area": "TI / Facility", "room": "Piso 4 - Oficina 402", "specific_location": "Escritorio 12"},
-            {"zone": "Almacén Central", "building": "Nave Logística", "area": "Almacén de Entrada", "room": "Rack B-04", "specific_location": "Nivel 2"},
-            {"zone": "Planta Industrial", "building": "Taller Central", "area": "Mantenimiento", "room": "Zona Herramientas", "specific_location": "Estante 01"},
-            {"zone": "Sede Principal", "building": "Edificio B", "area": "Gerencia General", "room": "Piso 2 - Sala A", "specific_location": "Mesa Directivo"},
+            {"site": "Arequipa", "level": "Piso 4", "zone": "Sede Principal", "building": "Edificio A", "area": "TI / Facility", "room": "Piso 4 - Oficina 402", "specific_location": "Escritorio 12", "headcount": 10, "square_meters": "45.50"},
+            {"site": "Arequipa", "level": "Nivel 1", "zone": "Almacén Central", "building": "Nave Logística", "area": "Almacén de Entrada", "room": "Rack B-04", "specific_location": "Nivel 2", "headcount": 5, "square_meters": "200.00"},
+            {"site": "Arequipa", "level": "Nivel 1", "zone": "Planta Industrial", "building": "Taller Central", "area": "Mantenimiento", "room": "Zona Herramientas", "specific_location": "Estante 01", "headcount": 15, "square_meters": "120.00"},
+            {"site": "Arequipa", "level": "Piso 2", "zone": "Sede Principal", "building": "Edificio B", "area": "Gerencia General", "room": "Piso 2 - Sala A", "specific_location": "Mesa Directivo", "headcount": 8, "square_meters": "30.00"},
         ]
 
         locations = []
         for loc in locations_data:
-            obj, _ = Location.objects.get_or_create(
+            obj, _ = Location.objects.update_or_create(
+                site=loc["site"],
                 zone=loc["zone"],
                 building=loc["building"],
+                level=loc["level"],
                 area=loc["area"],
                 room=loc["room"],
-                defaults={"specific_location": loc["specific_location"]}
+                defaults={
+                    "specific_location": loc["specific_location"],
+                    "headcount": loc["headcount"],
+                    "square_meters": loc["square_meters"],
+                }
             )
             locations.append(obj)
 
@@ -101,6 +108,7 @@ class Command(BaseCommand):
             {"external_reference": "EMP-00189", "display_name": "Marco Quispe Flores", "type": AssignableResponsible.Type.PERSON, "area_name": "Mantenimiento"},
             {"external_reference": "EMP-00201", "display_name": "Rosa Medina Vargas", "type": AssignableResponsible.Type.PERSON, "area_name": "Gerencia General"},
             {"external_reference": "EMP-00342", "display_name": "Luis Salas Paredes", "type": AssignableResponsible.Type.PERSON, "area_name": "Sistemas & Infraestructura"},
+            {"external_reference": "usuario", "display_name": "Usuario Solicitante", "type": AssignableResponsible.Type.PERSON, "area_name": "Operaciones"},
             {"external_reference": "AREA-ALM-01", "display_name": "Almacén Central de Bienes", "type": AssignableResponsible.Type.AREA, "area_name": "Logística"},
         ]
 

@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -18,8 +19,11 @@ class AccountProfile(models.Model):
         get_user_model(), related_name="account_profile", on_delete=models.CASCADE
     )
     worker_code = models.CharField(max_length=40, unique=True)
+    dni = models.CharField(max_length=8, blank=True, default="", db_index=True)
     role = models.CharField(max_length=20, choices=Role.choices)
     specialty = models.CharField(max_length=100, blank=True)
+    position = models.CharField(max_length=100, blank=True, default="")
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     must_change_password = models.BooleanField(default=True)
     failed_attempts = models.PositiveSmallIntegerField(default=0)
     blocked_until = models.DateTimeField(null=True, blank=True)

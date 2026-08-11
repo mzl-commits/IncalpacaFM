@@ -15,6 +15,7 @@ from .models import Asset, Location, LocationMap, Taxonomy
 
 
 class AssetSerializer(serializers.ModelSerializer):
+    fm_code = serializers.CharField(required=False, allow_blank=True, max_length=32)
     entry_type_label = serializers.CharField(source='get_entry_type_display', read_only=True)
     photo = serializers.ImageField(write_only=True, required=False, allow_null=True)
 
@@ -73,7 +74,7 @@ class AssetSerializer(serializers.ModelSerializer):
                   'location_id', 'location_map_id', 'location_marker_x',
                   'location_marker_y', 'location_detail', 'registered_by_name',
                   'created_at', 'entry_payload')
-        read_only_fields = ('id', 'code', 'fm_code', 'display_code', 'public_token', 'public_url', 'photo_url', 'administrative_status',
+        read_only_fields = ('id', 'code', 'display_code', 'public_token', 'public_url', 'photo_url', 'administrative_status',
                             'operational_status', 'assignment_status', 'registered_by_name', 'created_at')
 
     def get_registered_by_name(self, obj) -> str:
@@ -192,6 +193,9 @@ class AssetSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        requested_fm_code = (validated_data.pop('fm_code', '') or '').strip().upper()
+        if requested_fm_code and Asset.objects.filter(fm_code=requested_fm_code).exists():
+            raise serializers.ValidationError({'fm_code': 'Este código FM ya está registrado.'})
         payload = validated_data.pop('entry_payload', {})
         taxonomy = validated_data.pop('taxonomy', None)
         location = validated_data.pop('location', None)
@@ -245,6 +249,8 @@ class AssetSerializer(serializers.ModelSerializer):
         fm_sequence_value = None
         if taxonomy:
             fm_code, fm_sequence_value = allocate_fm_identifier(taxonomy)
+            if requested_fm_code:
+                fm_code = requested_fm_code
             validated_data.setdefault('criticality', taxonomy.default_criticality)
             payload.update({
                 'classificationPending': False,

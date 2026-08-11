@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import type { WorkOrder } from "./types";
+import { createClientId } from "@/utils/uuid";
 
 export const WORK_ORDERS_UPDATED_EVENT = "sgtb:work-orders-updated";
 
@@ -67,7 +68,7 @@ export async function registerWorkOrderProgress(
   input: RegisterProgressInput,
 ): Promise<WorkOrder> {
   const evidence = input.evidenceNames.map((name) => ({
-    id: crypto.randomUUID(),
+    id: createClientId("evidence"),
     name,
     mimeType: "image/*",
     size: 0,
@@ -110,6 +111,20 @@ export async function adminReviewWorkOrder(
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
     action: approved ? "ADMIN_APPROVE" : "ADMIN_RETURN",
     payload: { comment },
+  });
+  notifyChanges();
+  return data;
+}
+
+export async function updateServiceOrderStatus(
+  id: string,
+  action: "SERVICE_START" | "SERVICE_CLOSE" | "SERVICE_CANCEL",
+  comment: string,
+  attachments: string[] = [],
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action,
+    payload: { comment, attachments },
   });
   notifyChanges();
   return data;

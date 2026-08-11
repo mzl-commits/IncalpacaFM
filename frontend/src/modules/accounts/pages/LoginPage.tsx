@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -21,12 +22,17 @@ export function LoginPage() {
     setError("");
     try {
       const loggedUser = await login({ workerCode: workerCode.trim(), password });
-      const defaultPath = loggedUser.role === "SUPERVISOR" ? "/supervision" : "/";
+      let defaultPath = "/";
+      if (loggedUser.role === "SUPERVISOR") defaultPath = "/supervision";
+      if (loggedUser.role === "SOLICITANTE") defaultPath = "/mi-perfil";
       navigate((location.state as { from?: string } | null)?.from ?? defaultPath, {
         replace: true,
       });
-    } catch {
-      setError("No pudimos iniciar sesión. Verifica el código y la contraseña.");
+    } catch (err: unknown) {
+      console.error("Login failed:", err);
+      const apiError = (err as { response?: { data?: { detail?: string; non_field_errors?: string[] } } })?.response?.data;
+      const detail = apiError?.detail ?? apiError?.non_field_errors?.[0] ?? "No pudimos iniciar sesión. Verifica el código y la contraseña.";
+      setError(detail);
     } finally {
       setLoading(false);
     }
@@ -35,7 +41,7 @@ export function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-brand-panel">
-        <div className="login-brand-mark">SG</div>
+        <BrandLogo size={52} style={{ marginBottom: 22 }} />
         <span>Sistema de Gestión y Trazabilidad de Bienes</span>
         <h1>Control ejecutivo con trazabilidad operativa.</h1>
         <p>Acceso seguro para Facility Management y personal técnico autorizado.</p>
@@ -92,6 +98,7 @@ export function LoginPage() {
             <span>Administrador: admin / Montescoli3</span>
             <span>Operario: tecnico / Montescoli3</span>
             <span>Supervisor: supervisor / 12345</span>
+            <span>Usuario (Solicitante): usuario / Montescoli3</span>
           </aside>
         </form>
       </section>

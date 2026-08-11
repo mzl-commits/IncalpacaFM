@@ -4,6 +4,7 @@ import {
   CalendarBlank,
   CalendarPlus,
   CaretDown,
+  CaretLeft,
   ChartBar,
   ClipboardText,
   DotsThree,
@@ -16,8 +17,8 @@ import {
   MapTrifold,
   Package,
   Plus,
-  SignOut,
   ShieldCheck,
+  SignOut,
   SquaresFour,
   TreeStructure,
   Tag,
@@ -29,59 +30,66 @@ import {
 } from "@phosphor-icons/react";
 
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { UserRole } from "@/modules/accounts/types";
 import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
 import { NotificationCenter } from "@/modules/notifications/components/NotificationCenter";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 type NavItem = {
   to: string;
   label: string;
   icon: typeof House;
   end?: boolean;
+  count?: string | number;
 };
 
-const groups: Array<{
+type ModuleGroup = {
   id: string;
   label: string;
+  shortLabel: string;
   icon: typeof House;
   paths: string[];
-  items: NavItem[];
   roles?: UserRole[];
-}> = [
+  items: NavItem[];
+};
+
+const modules: ModuleGroup[] = [
   {
-    id: "technician",
-    label: "Mi jornada",
-    icon: CalendarBlank,
-    paths: ["/mi-jornada"],
-    roles: ["TECNICO"],
-    items: [{ to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank, end: true }],
+    id: "home",
+    label: "Inicio",
+    shortLabel: "Inicio",
+    icon: House,
+    paths: ["/"],
+    items: [
+      { to: "/", label: "Resumen ejecutivo", icon: House, end: true },
+    ],
   },
   {
     id: "assets",
     label: "Activos y espacios",
-    icon: ListDashes,
+    shortLabel: "Activos",
+    icon: Package,
     paths: ["/bienes", "/asignaciones", "/mapa"],
-    roles: ["ADMINISTRADOR"],
     items: [
-      { to: "/bienes", label: "Inventario", icon: ListDashes, end: true },
       { to: "/bienes/entradas", label: "Entradas", icon: Package },
       { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText },
       { to: "/bienes/qr", label: "Códigos QR", icon: Barcode },
-      { to: "/bienes/escanear", label: "Escanear bien", icon: Barcode },
       { to: "/mapa", label: "Mapa de activos", icon: MapTrifold },
       { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: ShieldCheck },
+      { to: "/bienes", label: "Inventario general", icon: ListDashes, end: true, count: "31" },
     ],
   },
   {
     id: "almacen",
     label: "Almacén",
+    shortLabel: "Almacén",
     icon: Toolbox,
     paths: ["/almacen"],
-    roles: ["ADMINISTRADOR", "ALMACENERO", "INSPECTOR"],
+    roles: ["ADMINISTRADOR", "ALMACENERO"],
     items: [
-      { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true },
+      { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true, count: "10" },
       { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
       { to: "/almacen/checklist", label: "Devolución", icon: ListChecks },
       { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText },
@@ -92,31 +100,32 @@ const groups: Array<{
   {
     id: "operations",
     label: "Atención y mantenimiento",
+    shortLabel: "Mantenimiento",
     icon: Wrench,
-    paths: ["/incidencias", "/ordenes-trabajo"],
+    paths: ["/incidencias", "/ordenes-trabajo", "/supervision", "/mi-jornada"],
     roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
     items: [
-      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
-      { to: "/ordenes-trabajo/recomendaciones", label: "Asignación recomendada", icon: Lightning },
-      {
-        to: "/ordenes-trabajo",
-        label: "Órdenes operativas",
-        icon: Toolbox,
-      },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, count: "6" },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
       { to: "/supervision", label: "Revisión de OT", icon: ShieldCheck },
+      { to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank },
     ],
   },
   {
-    id: "team",
-    label: "Equipo",
-    icon: UsersThree,
-    paths: ["/administracion/tecnicos", "/administracion/reportantes"],
-    roles: ["ADMINISTRADOR"],
-    items: [{ to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree }, { to: "/administracion/reportantes", label: "Historial de reportantes", icon: UserCircle }],
+    id: "qr",
+    label: "Códigos QR",
+    shortLabel: "QR",
+    icon: Barcode,
+    paths: ["/bienes/qr", "/administracion/taxonomia/codigos"],
+    items: [
+      { to: "/bienes/qr", label: "Imprimir QR", icon: Barcode },
+      { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Tag },
+    ],
   },
   {
     id: "reports",
-    label: "Control e informes",
+    label: "Reportes",
+    shortLabel: "Reportes",
     icon: ChartBar,
     paths: ["/informes"],
     roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
@@ -129,30 +138,17 @@ const groups: Array<{
   {
     id: "administration",
     label: "Configuración",
+    shortLabel: "Configuración",
     icon: GearSix,
-    paths: ["/administracion/taxonomia", "/administracion/mapas-ambientes", "/documentos", "/auditoria"],
+    paths: ["/administracion", "/documentos", "/auditoria"],
     roles: ["ADMINISTRADOR"],
     items: [
-      {
-        to: "/administracion/taxonomia",
-        label: "Taxonomía",
-        icon: TreeStructure,
-      },
-      {
-        to: "/administracion/taxonomia/codigos",
-        label: "Códigos FM",
-        icon: Barcode,
-      },
-      {
-        to: "/administracion/modelos",
-        label: "Modelos de Bienes",
-        icon: Tag,
-      },
-      {
-        to: "/administracion/mapas-ambientes",
-        label: "Mapas de ambientes",
-        icon: MapTrifold,
-      },
+      { to: "/administracion/taxonomia", label: "Taxonomía", icon: TreeStructure },
+      { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Barcode },
+      { to: "/administracion/modelos", label: "Modelos de bienes", icon: Tag },
+      { to: "/administracion/mapas-ambientes", label: "Mapas de ambientes", icon: MapTrifold },
+      { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree, count: "2" },
+      { to: "/administracion/reportantes", label: "Usuarios que reportaron", icon: UserCircle },
       { to: "/documentos", label: "Documentos", icon: Files },
       { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
     ],
@@ -167,29 +163,15 @@ const mobilePrimary: NavItem[] = [
 ];
 
 const quickActions: NavItem[] = [
-  {
-    to: "/bienes/entradas/nueva",
-    label: "Registrar un bien",
-    icon: Package,
-  },
-  {
-    to: "/asignaciones/nueva",
-    label: "Crear una asignación",
-    icon: ClipboardText,
-  },
-  {
-    to: "/incidencias/nueva",
-    label: "Reportar una incidencia",
-    icon: ListChecks,
-  },
-  {
-    to: "/informes",
-    label: "Abrir informes",
-    icon: ChartBar,
-  },
+  { to: "/bienes/entradas/nueva", label: "Registrar un bien", icon: Package },
+  { to: "/asignaciones/nueva", label: "Crear una asignación", icon: ClipboardText },
+  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: ListChecks },
+  { to: "/informes", label: "Abrir informes", icon: ChartBar },
 ];
 
 function isGroupActive(pathname: string, paths: string[]) {
+  if (pathname === "/" && paths.includes("/")) return true;
+  if (pathname !== "/" && paths.includes("/")) return false;
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
@@ -226,14 +208,41 @@ function getRouteContext(pathname: string) {
 export function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const activeGroup = groups.find((group) => isGroupActive(location.pathname, group.paths))?.id;
-  const [openGroup, setOpenGroup] = useState(activeGroup ?? "assets");
+  const navigate = useNavigate();
+
+  const [routeSection, routeTitle] = getRouteContext(location.pathname);
+
+  const roleModules = modules.filter(
+    (mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)),
+  );
+  const railModules = roleModules.filter((mod) => mod.id !== "administration");
+  const configModule = roleModules.find((m) => m.id === "administration");
+
+  const matchedModuleId =
+    roleModules.find((mod) => isGroupActive(location.pathname, mod.paths))?.id ?? "assets";
+
+  // Flyout Panel State: CLOSED BY DEFAULT
+  const [flyoutOpen, setFlyoutOpen] = useState<boolean>(false);
+  const [activeFlyoutModuleId, setActiveFlyoutModuleId] = useState<string>(matchedModuleId);
+
+  const sidebarRef = useRef<HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
   const quickMenuRef = useRef<HTMLDialogElement>(null);
-  const [routeSection, routeTitle] = getRouteContext(location.pathname);
-  const roleLabel = user?.role === "TECNICO" ? "Técnico" : user?.role === "SUPERVISOR" ? "Supervisor" : user?.role === "ALMACENERO" ? "Almacenero" : user?.role === "INSPECTOR" ? "Inspector" : user?.role === "SOLICITANTE" ? "Solicitante" : "Administrador / Planner";
+
+  const roleLabel =
+    user?.role === "TECNICO"
+      ? "Técnico"
+      : user?.role === "SUPERVISOR"
+        ? "Supervisor"
+        : user?.role === "ALMACENERO"
+          ? "Almacenero"
+          : user?.role === "INSPECTOR"
+            ? "Inspector"
+            : user?.role === "SOLICITANTE"
+              ? "Usuario solicitante"
+              : "Administrador / Planner";
   const initials =
     user?.fullName
       .split(" ")
@@ -241,54 +250,58 @@ export function AppShell() {
       .map((part) => part[0])
       .join("")
       .toUpperCase() || "SG";
-  const technicianMode = user?.role === "TECNICO";
-  const supervisorMode = user?.role === "SUPERVISOR";
-  const inspectorMode = user?.role === "INSPECTOR";
-  const roleGroups = groups.filter(
-    (group) => !group.roles || Boolean(user && group.roles.includes(user.role)),
-  );
-  const visibleGroups = supervisorMode
-  ? roleGroups.filter((group) => group.id === "operations").map((group) => ({ ...group, items: group.items.filter((item) => item.to === "/supervision") }))
-  : inspectorMode
-    ? roleGroups
-        .filter((group) => group.id === "almacen")
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) => item.to.startsWith("/almacen/inspecciones")),
-        }))
-    : technicianMode
-      ? roleGroups
-          .filter((group) => group.id === "technician" || group.id === "operations")
-          .map((group) => ({
-            ...group,
-            items: group.items.filter(
-              (item) =>
-                !item.to.startsWith("/asignaciones") &&
-                !item.to.startsWith("/incidencias") &&
-                !item.to.startsWith("/ordenes-trabajo/recomendaciones") &&
-                !item.to.startsWith("/supervision"),
-            ),
-          }))
-      : roleGroups;
-  const visibleMobilePrimary = technicianMode
-    ? mobilePrimary.filter((item) => item.to === "/")
-    : supervisorMode || inspectorMode
-      ? []
-      : mobilePrimary;
-  const visibleMobileSecondary = visibleGroups
-    .flatMap((group) => group.items)
-    .filter((item) => !visibleMobilePrimary.some((primary) => primary.to === item.to));
-  const visibleQuickActions = technicianMode
-    ? quickActions.filter((item) => item.to === "/incidencias/nueva")
-    : supervisorMode || inspectorMode
-      ? []
-      : quickActions;
 
   useEffect(() => {
-    if (activeGroup) setOpenGroup(activeGroup);
-    mobileMenuRef.current?.close();
-    quickMenuRef.current?.close();
-  }, [location.pathname, activeGroup]);
+    const matched = roleModules.find((mod) => isGroupActive(location.pathname, mod.paths));
+    if (matched && matched.id !== activeFlyoutModuleId && !flyoutOpen) {
+      setActiveFlyoutModuleId(matched.id);
+    }
+  }, [location.pathname]);
+
+  // Click Outside Listener (Case 5) & Escape Key Listener (Case 6)
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        flyoutOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node)
+      ) {
+        setFlyoutOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && flyoutOpen) {
+        setFlyoutOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [flyoutOpen]);
+
+  // Handle clicking a module on the rail
+  function handleRailClick(mod: ModuleGroup) {
+    if (mod.id === "home") {
+      setFlyoutOpen(false);
+      navigate("/");
+      return;
+    }
+
+    if (flyoutOpen && activeFlyoutModuleId === mod.id) {
+      setFlyoutOpen(false);
+    } else {
+      setActiveFlyoutModuleId(mod.id);
+      setFlyoutOpen(true);
+    }
+  }
+
+  const activeFlyoutModule =
+    roleModules.find((mod) => mod.id === activeFlyoutModuleId) ?? roleModules[0] ?? modules[1];
 
   function openMobileMenu() {
     setMobileMenuOpen(true);
@@ -309,127 +322,162 @@ export function AppShell() {
   }
 
   return (
-    <div className="app-frame">
-      <aside className="sidebar" aria-label="Navegación principal">
-        <div className="brand">
-          <img src="/logo-incalpaca.png" alt="Incalpaca Logo" style={{ maxHeight: "32px", width: "auto" }} />
-          <span className="brand-copy">
-            <strong style={{ fontFamily: "var(--font-heading)" }}>FM Incalpaca</strong>
-            <small>Facility Management</small>
-          </span>
-        </div>
+    <div className="app-frame-overlay">
+      {/* 2-LEVEL SIDEBAR: FIXED NARROW RAIL + OVERLAY FLYOUT PANEL */}
+      <aside ref={sidebarRef} className="two-level-sidebar-overlay" aria-label="Navegación principal">
+        {/* LEVEL 1: NARROW RAIL (Fixed 92px, White background) */}
+        <div className="sidebar-rail-narrow">
+          <div className="rail-logo-wrap">
+            <BrandLogo size={36} variant="light" />
+          </div>
 
-        <nav className="desktop-navigation">
-          {!supervisorMode && (
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `nav-item home-nav ${isActive ? "is-active" : ""}`}
-          >
-            <House size={20} weight="duotone" />
-            <span>Inicio</span>
-          </NavLink>
-          )}
-
-          <div className="nav-groups">
-            {visibleGroups.map((group) => {
-              const expanded = openGroup === group.id;
-              const active = isGroupActive(location.pathname, group.paths);
-              const Icon = group.icon;
-              const primary = group.items[0];
-              const secondary = group.items.slice(1);
+          <nav className="rail-vertical-nav">
+            {railModules.map((mod) => {
+              const activeModuleId = flyoutOpen ? activeFlyoutModuleId : matchedModuleId;
+              const isSelected = activeModuleId === mod.id;
+              const Icon = mod.icon;
 
               return (
-                <section className={`nav-group ${active ? "is-active" : ""}`} key={group.id}>
-                  <div className="nav-group-header">
-                    <NavLink
-                      className="nav-group-primary"
-                      to={primary.to}
-                      end={primary.end}
-                      title={group.label}
-                    >
-                      <Icon size={20} weight="duotone" />
-                      <span>{group.label}</span>
-                    </NavLink>
-
-                    {!!secondary.length && (
-                      <button
-                        className="nav-group-toggle"
-                        type="button"
-                        aria-label={`${expanded ? "Contraer" : "Expandir"} ${group.label}`}
-                        aria-expanded={expanded}
-                        aria-controls={`nav-group-${group.id}`}
-                        onClick={() => setOpenGroup(expanded ? "" : group.id)}
-                      >
-                        <CaretDown className="nav-group-caret" size={15} />
-                      </button>
-                    )}
+                <button
+                  key={mod.id}
+                  type="button"
+                  aria-label={mod.label}
+                  className={`rail-circle-option ${isSelected ? "is-active" : ""}`}
+                  onClick={() => handleRailClick(mod)}
+                  title={mod.label}
+                >
+                  <div className="circle-btn">
+                    <Icon size={21} weight={isSelected ? "bold" : "duotone"} />
                   </div>
-
-                  {!!secondary.length && (
-                    <div
-                      className={`nav-submenu-wrap ${expanded ? "is-open" : ""}`}
-                      aria-hidden={!expanded}
-                    >
-                      <div className="nav-submenu" id={`nav-group-${group.id}`}>
-                        {secondary.map(({ to, label, icon: ItemIcon, end }) => (
-                          <NavLink
-                            key={to}
-                            to={to}
-                            end={end}
-                            tabIndex={expanded ? undefined : -1}
-                            className={({ isActive }) =>
-                              `nav-subitem ${isActive ? "is-active" : ""}`
-                            }
-                          >
-                            <ItemIcon size={17} weight="duotone" />
-                            <span>{label}</span>
-                          </NavLink>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </section>
+                  <span className="circle-label">{mod.shortLabel}</span>
+                </button>
               );
             })}
-          </div>
-        </nav>
+          </nav>
 
-        <nav className="mobile-navigation" aria-label="Accesos rápidos">
-          {visibleMobilePrimary.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) => `mobile-nav-item ${isActive ? "is-active" : ""}`}
+          <div className="rail-bottom-actions">
+            {configModule && (
+              <button
+                type="button"
+                aria-label="Configuración"
+                className={`rail-circle-option ${(flyoutOpen ? activeFlyoutModuleId : matchedModuleId) === "administration" ? "is-active" : ""}`}
+                onClick={() => handleRailClick(configModule)}
+                title="Configuración"
+              >
+                <div className="circle-btn">
+                  <GearSix size={21} weight={matchedModuleId === "administration" ? "bold" : "duotone"} />
+                </div>
+                <span className="circle-label">Configuración</span>
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Cerrar sesión"
+              className="rail-circle-option logout-circle-option"
+              onClick={logout}
+              title="Cerrar sesión"
             >
-              <Icon size={21} weight="duotone" />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-          <button
-            className={`mobile-nav-item ${mobileMenuOpen ? "is-active" : ""}`}
-            type="button"
-            aria-expanded={mobileMenuOpen}
-            onClick={openMobileMenu}
-          >
-            <DotsThree size={22} weight="bold" />
-            <span>Más</span>
-          </button>
-        </nav>
-
-        <div className="sidebar-account">
-          <UserCircle size={34} weight="duotone" />
-          <span>
-            <strong>{user?.fullName}</strong>
-            <small>{roleLabel}</small>
-          </span>
-          <button type="button" onClick={logout} aria-label="Cerrar sesión" title="Cerrar sesión">
-            <SignOut size={18} />
-          </button>
+              <div className="circle-btn">
+                <SignOut size={19} />
+              </div>
+              <span className="circle-label">Salir</span>
+            </button>
+          </div>
         </div>
+
+        {/* LEVEL 2: OVERLAY FLYOUT PANEL (Fixed 275px Floating Panel over Content) */}
+        {flyoutOpen && (
+          <div className="sidebar-flyout-panel" role="region" aria-label={`Submenú ${activeFlyoutModule.label}`}>
+            <header className="flyout-header">
+              <div>
+                <span className="flyout-context-label">Módulo</span>
+                <h2 className="flyout-title">{activeFlyoutModule.label}</h2>
+              </div>
+              <button
+                type="button"
+                className="flyout-close-btn"
+                onClick={() => setFlyoutOpen(false)}
+                title="Cerrar menú"
+                aria-label="Cerrar menú"
+              >
+                <CaretLeft size={18} />
+              </button>
+            </header>
+
+            <nav className="flyout-nav-list">
+              {activeFlyoutModule.items.map(({ to, label, icon: ItemIcon, end, count }, idx) => {
+                const isSubActive =
+                  location.pathname === to ||
+                  (!end && to !== "/" && location.pathname.startsWith(`${to}/`));
+                const hasAnyActive = activeFlyoutModule.items.some(
+                  (it) =>
+                    location.pathname === it.to ||
+                    (!it.end && it.to !== "/" && location.pathname.startsWith(`${it.to}/`)),
+                );
+                const isHighlighted = isSubActive || (!hasAnyActive && idx === 0);
+
+                return (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={end}
+                    onClick={() => setFlyoutOpen(false)}
+                    className={`flyout-item ${isHighlighted ? "is-active" : ""}`}
+                  >
+                    <ItemIcon size={19} weight="duotone" />
+                    <span>{label}</span>
+                    {count !== undefined && <span className="flyout-badge">{count}</span>}
+                  </NavLink>
+                );
+              })}
+            </nav>
+
+            <div className="flyout-footer">
+              <div className="flyout-user-card">
+                <div className="user-avatar-circle">{initials}</div>
+                <div className="user-meta">
+                  <strong>{user?.fullName}</strong>
+                  <small>{roleLabel}</small>
+                </div>
+                <button
+                  type="button"
+                  className="user-logout-btn"
+                  onClick={logout}
+                  title="Cerrar sesión"
+                >
+                  <SignOut size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
+      {/* MOBILE NAVIGATION */}
+      <nav className="mobile-navigation" aria-label="Accesos rápidos">
+        {mobilePrimary.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) => `mobile-nav-item ${isActive ? "is-active" : ""}`}
+          >
+            <Icon size={21} weight="duotone" />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+        <button
+          className={`mobile-nav-item ${mobileMenuOpen ? "is-active" : ""}`}
+          type="button"
+          aria-expanded={mobileMenuOpen}
+          onClick={openMobileMenu}
+        >
+          <DotsThree size={22} weight="bold" />
+          <span>Más</span>
+        </button>
+      </nav>
+
+      {/* MOBILE MORE DIALOG */}
       <dialog
         ref={mobileMenuRef}
         className="mobile-more-dialog"
@@ -449,35 +497,29 @@ export function AppShell() {
             </button>
           </header>
           <div className="mobile-more-groups">
-            {visibleGroups.map((group) => {
-              const groupItems = group.items.filter(
-                (item) => !visibleMobilePrimary.some((primary) => primary.to === item.to)
-              );
-              if (groupItems.length === 0) return null;
-
-              return (
-                <div key={group.id} className="mobile-more-group">
-                  <h3>{group.label}</h3>
-                  <div className="mobile-more-items">
-                    {groupItems.map(({ to, label, icon: Icon }) => (
-                      <NavLink
-                        key={to}
-                        to={to}
-                        onClick={closeMobileMenu}
-                        className={({ isActive }) => `mobile-more-link ${isActive ? "is-active" : ""}`}
-                      >
-                        <Icon size={21} weight="duotone" />
-                        <span>{label}</span>
-                      </NavLink>
-                    ))}
-                  </div>
+            {roleModules.map((mod) => (
+              <div key={mod.id} className="mobile-more-group">
+                <h3>{mod.label}</h3>
+                <div className="mobile-more-items">
+                  {mod.items.map(({ to, label, icon: Icon }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      onClick={closeMobileMenu}
+                      className={({ isActive }) => `mobile-more-link ${isActive ? "is-active" : ""}`}
+                    >
+                      <Icon size={21} weight="duotone" />
+                      <span>{label}</span>
+                    </NavLink>
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </section>
       </dialog>
 
+      {/* QUICK ACTIONS DIALOG */}
       <dialog
         ref={quickMenuRef}
         className="quick-actions-dialog"
@@ -498,7 +540,7 @@ export function AppShell() {
           </header>
 
           <nav aria-label="Acciones globales">
-            {visibleQuickActions.map(({ to, label, icon: Icon }) => (
+            {quickActions.map(({ to, label, icon: Icon }) => (
               <NavLink key={to} to={to} onClick={closeQuickMenu}>
                 <Icon size={22} weight="duotone" />
                 <span>{label}</span>
@@ -509,7 +551,8 @@ export function AppShell() {
         </section>
       </dialog>
 
-      <div className="content-frame">
+      {/* MAIN CONTENT FRAME: Starts immediately after rail (margin-left: 92px) */}
+      <div className="content-frame-overlay">
         <header className="topbar">
           <div className="topbar-context">
             <SquaresFour size={22} weight="duotone" />
@@ -520,17 +563,17 @@ export function AppShell() {
           </div>
 
           <div className="topbar-actions">
-            {visibleQuickActions.length > 0 && (
-            <button
-              className="topbar-quick-action"
-              type="button"
-              aria-expanded={quickMenuOpen}
-              onClick={openQuickMenu}
-            >
-              <Lightning size={18} weight="fill" />
-              <span>Nueva acción</span>
-              <Plus size={16} weight="bold" />
-            </button>
+            {quickActions.length > 0 && (
+              <button
+                className="topbar-quick-action"
+                type="button"
+                aria-expanded={quickMenuOpen}
+                onClick={openQuickMenu}
+              >
+                <Lightning size={18} weight="fill" />
+                <span>Nueva acción</span>
+                <Plus size={16} weight="bold" />
+              </button>
             )}
             <NotificationCenter />
             <div className="topbar-user" aria-label="Usuario actual">

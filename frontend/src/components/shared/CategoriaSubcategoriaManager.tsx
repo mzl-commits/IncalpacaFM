@@ -100,6 +100,7 @@ function CategoriasTab({
   const [nombre, setNombre] = useState("");
   const [prefijo, setPrefijo] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [requiereInspeccion, setRequiereInspeccion] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -108,6 +109,7 @@ function CategoriasTab({
     setNombre("");
     setPrefijo("");
     setDescripcion("");
+    setRequiereInspeccion(true);
     setFormError(null);
   }
 
@@ -116,6 +118,7 @@ function CategoriasTab({
     setNombre(cat.nombre);
     setPrefijo(cat.prefijo ?? "");
     setDescripcion(cat.descripcion ?? "");
+    setRequiereInspeccion(cat.requiere_inspeccion);
     setFormError(null);
   }
 
@@ -133,9 +136,9 @@ function CategoriasTab({
     setFormError(null);
     try {
       if (editingId === 0) {
-        await createCategoria({ nombre, prefijo, descripcion, activo: true });
+        await createCategoria({ nombre, prefijo, descripcion, activo: true, requiere_inspeccion: requiereInspeccion });
       } else if (editingId) {
-        await updateCategoria(editingId, { nombre, prefijo, descripcion });
+        await updateCategoria(editingId, { nombre, prefijo, descripcion, requiere_inspeccion: requiereInspeccion });
       }
       setEditingId(null);
       onChange();
@@ -192,6 +195,14 @@ function CategoriasTab({
                 style={{ width: "100%", padding: 8, marginTop: 4 }}
                 rows={2}
               />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={requiereInspeccion}
+                onChange={(e) => setRequiereInspeccion(e.target.checked)}
+              />
+              Requiere inspección periódica
             </label>
           </div>
           {formError && <p style={{ color: "#b91c1c" }}>{formError}</p>}

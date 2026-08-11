@@ -96,6 +96,8 @@ class Command(BaseCommand):
                 "worker_code": "tecnico",
                 "role": AccountProfile.Role.TECHNICIAN,
                 "specialty": "Mantenimiento eléctrico y mecánico",
+                "position": "Técnico especialista",
+                "hourly_rate": 32.50,
                 "must_change_password": False,
                 "active": True,
             },
@@ -120,6 +122,30 @@ class Command(BaseCommand):
                 "worker_code": "supervisor",
                 "role": AccountProfile.Role.SUPERVISOR,
                 "specialty": "Supervision de mantenimiento",
+                "must_change_password": False,
+                "active": True,
+            },
+        )
+
+        requester_user = (
+            user_model.objects.filter(username="usuario").first()
+            or user_model.objects.filter(username="REQ-001").first()
+        )
+        if requester_user is None:
+            requester_user = user_model()
+        requester_user.username = "usuario"
+        requester_user.first_name = "Usuario"
+        requester_user.last_name = "Solicitante"
+        requester_user.email = "usuario@incalpaca.test"
+        requester_user.is_active = True
+        requester_user.set_password("Montescoli3")
+        requester_user.save()
+        AccountProfile.objects.update_or_create(
+            user=requester_user,
+            defaults={
+                "worker_code": "usuario",
+                "role": AccountProfile.Role.REQUESTER,
+                "specialty": "Operaciones",
                 "must_change_password": False,
                 "active": True,
             },
@@ -242,6 +268,7 @@ class Command(BaseCommand):
             ("P-0142", "PERSONA", "Ana Torres", "Sistemas", None),
             ("P-0277", "PERSONA", "Marco Quispe", "Mantenimiento", None),
             ("P-0319", "PERSONA", "Rosa Medina", "Facility Management", None),
+            ("usuario", "PERSONA", "Usuario Solicitante", "Operaciones", None),
             ("A-SIS", "AREA", "Área de Sistemas", "Sistemas", None),
             ("A-MAN", "AREA", "Área de Mantenimiento", "Mantenimiento", None),
             ("A-LOG", "AREA", "Área de Logística", "Logística", None),
@@ -423,9 +450,9 @@ class Command(BaseCommand):
                 "condition": "Requiere revisión",
                 "criticality": "Alta",
                 "taxonomy": "Sierra",
-                "room": "Almacén central",
-                "responsible": None,
-                "assignment_status": "Sin asignar",
+                "room": "Taller mecánico",
+                "responsible": "usuario",
+                "assignment_status": "Asignado",
                 "operational_status": "En mantenimiento",
             },
             {
@@ -958,7 +985,7 @@ class Command(BaseCommand):
                 code=f"SOL-2026-{index:04d}",
                 defaults={
                     "asset": asset,
-                    "requester": admin_user,
+                    "requester": requester_user if index <= 3 else admin_user,
                     "request_type": request_type,
                     "description": description,
                     "requester_priority": priority,

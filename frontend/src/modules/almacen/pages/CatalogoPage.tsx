@@ -1,24 +1,49 @@
-import { Package, Plus, WarningCircle, MapPin, Image, FolderPlus } from "@phosphor-icons/react";
+import {
+  CaretRight,
+  Check,
+  Copy,
+  Cube,
+  FolderPlus,
+  Funnel,
+  House,
+  Image,
+  MagnifyingGlass,
+  MapPin,
+  MapTrifold,
+  Minus,
+  Package,
+  Plus,
+  ShoppingCart,
+  Stack,
+  Trash,
+  WarningCircle,
+  X,
+} from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listMateriales, listCategorias, listSubcategorias } from "@/modules/almacen/catalogoRepository";
-import type { Material } from "@/modules/almacen/types";
+import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
-import { STOCK_MINIMO } from "@/modules/almacen/types";
 import { CroquisCarrusel } from "@/modules/almacen/components/CroquisCarrusel";
+import { useAuth } from "@/modules/accounts/AuthContext";
+import { STOCK_MINIMO } from "@/modules/almacen/types";
+import type { Material } from "@/modules/almacen/types";
 
 const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
 
 export function CatalogoPage() {
+  const { user } = useAuth();
+  const isTechnician = user?.role === "TECNICO";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const [basket, setBasket] = useState<Record<number, number>>({});
+  const [copiedBasket, setCopiedBasket] = useState(false);
 
   const { data: materiales = [], isLoading } = useQuery({
     queryKey: ["materiales", values],
@@ -55,75 +80,117 @@ export function CatalogoPage() {
     (m) => !m.control_individual && m.cantidad_total < STOCK_MINIMO,
   ).length;
 
-  // Filtros activos
+  const basketItems = materiales.filter((material) => (basket[material.id] ?? 0) > 0);
+  const basketUnits = basketItems.reduce((total, material) => total + (basket[material.id] ?? 0), 0);
+
+  function setBasketQuantity(material: Material, quantity: number) {
+    const next = Math.max(0, Math.min(quantity, Math.max(0, material.cantidad_total)));
+    setBasket((current) => {
+      const updated = { ...current };
+      if (next === 0) delete updated[material.id];
+      else updated[material.id] = next;
+      return updated;
+    });
+    setCopiedBasket(false);
+  }
+
+  async function copyBasket() {
+    const lines = basketItems.map((material) => `${material.codigo} — ${material.nombre} x${basket[material.id]}`);
+    if (!lines.length) return;
+    try {
+      await navigator.clipboard.writeText(`Materiales solicitados\n${lines.join("\n")}`);
+      setCopiedBasket(true);
+      window.setTimeout(() => setCopiedBasket(false), 2200);
+    } catch {
+      setCopiedBasket(false);
+    }
+  }
+
+  // Active filters list
   const activeFilters = useMemo(() => {
     const filters = [];
     if (values.q)
       filters.push({ key: "q", label: "Búsqueda", value: values.q, onRemove: () => setValue("q", "") });
     if (values.categoria) {
       const cat = categorias.find((c) => String(c.id) === values.categoria);
-      filters.push({ key: "categoria", label: "Categoría", value: cat?.nombre ?? values.categoria, onRemove: () => { setValue("categoria", ""); setValue("subcategoria", ""); } });
+      filters.push({
+        key: "categoria",
+        label: "Categoría",
+        value: cat?.nombre ?? values.categoria,
+        onRemove: () => {
+          setValue("categoria", "");
+          setValue("subcategoria", "");
+        },
+      });
     }
     if (values.subcategoria) {
       const sub = subcategorias.find((s) => String(s.id) === values.subcategoria);
       filters.push({ key: "subcategoria", label: "Subcategoría", value: sub?.nombre ?? values.subcategoria, onRemove: () => setValue("subcategoria", "") });
     }
     if (values.control_individual)
-      filters.push({ key: "control_individual", label: "Tipo", value: values.control_individual === "true" ? "Con piezas individuales" : "Consumibles", onRemove: () => setValue("control_individual", "") });
+      filters.push({
+        key: "control_individual",
+        label: "Tipo",
+        value: values.control_individual === "true" ? "Con piezas individuales" : "Consumibles",
+        onRemove: () => setValue("control_individual", ""),
+      });
     return filters;
   }, [values, categorias, subcategorias, setValue]);
 
-  const categoriaOptions = buildFilterOptions(categorias.map((c) => ({ value: String(c.id), label: c.nombre })).map(o => o.value), Object.fromEntries(categorias.map((c) => [String(c.id), c.nombre])));
-  const subcategoriaOptions = buildFilterOptions(subcategorias.map((s) => String(s.id)), Object.fromEntries(subcategorias.map((s) => [String(s.id), s.nombre])));
-
-  // Detectar si la búsqueda parece un código de pieza (alfanumérico corto, sin espacios)
-  const busquedaPieza = !!(values.q && /^[A-Z0-9]{4,8}$/i.test(values.q.trim()));
-
-  // Grilla plana (sin agrupar por subcategoría — un grupo podía crecer
-  // mucho si hay muchos materiales en la misma subcategoría). Para acotar
-  // con precisión, el usuario usa los filtros de Categoría/Subcategoría de
-  // arriba, que ya filtran el listado. El orden sigue siendo por nombre y
-  // luego marca, para que variantes del mismo tipo de herramienta (ej.
-  // "Martillo" Stanley vs Truper) queden una junto a la otra.
-  const materialesOrdenados = useMemo(() => {
-    return [...materiales].sort(
-      (a, b) => a.nombre.localeCompare(b.nombre) || a.marca.localeCompare(b.marca)
-    );
-  }, [materiales]);
+  const categoriaOptions = buildFilterOptions(
+    categorias.map((c) => ({ value: String(c.id), label: c.nombre })).map((o) => o.value),
+    Object.fromEntries(categorias.map((c) => [String(c.id), c.nombre])),
+  );
+  const subcategoriaOptions = buildFilterOptions(
+    subcategorias.map((s) => String(s.id)),
+    Object.fromEntries(subcategorias.map((s) => [String(s.id), s.nombre])),
+  );
 
   return (
-    <section>
-      <div className="page-heading">
+    <div className="almacen-catalogo-view">
+      {/* BREADCRUMB & HEADER */}
+      <nav className="breadcrumb-nav" aria-label="Miga de pan">
+        <Link to="/" title="Inicio">
+          <House size={15} />
+        </Link>
+        <span className="breadcrumb-separator">/</span>
+        <span>Almacén</span>
+        <span className="breadcrumb-separator">/</span>
+        <strong>Catálogo</strong>
+      </nav>
+
+      <header className="page-header-row">
         <div>
-          <p className="breadcrumb">Inicio / Almacén / Catálogo</p>
-          <h1>Catálogo de materiales</h1>
-          <p>Ficha maestra de herramientas y materiales del almacén.</p>
+          <h1 className="page-title">Catálogo de materiales</h1>
+          <p className="page-description">Ficha maestra de herramientas y materiales del almacén.</p>
         </div>
-        <div className="page-heading-actions">
-          <button
-            className="button button-secondary"
+        <div className="header-actions">
+          {!isTechnician && <button
+            type="button"
+            className="btn-secondary"
             onClick={() => setMostrarGestionCat((v) => !v)}
             title="Administrar categorías y subcategorías"
           >
-            <FolderPlus size={16} />
-            Categorías
-          </button>
+            <FolderPlus size={18} />
+            <span>Categorías</span>
+          </button>}
           <button
-            className="button button-secondary"
+            type="button"
+            className="btn-secondary"
             onClick={() => setMostrarCroquis((v) => !v)}
             title="Croquis del almacén"
           >
-            <MapPin size={16} />
-            Croquis del almacén
+            <MapTrifold size={18} />
+            <span>Croquis del almacén</span>
           </button>
-          <Link className="button button-primary" to="/almacen/catalogo/nuevo">
-            <Plus />
-            Nuevo material
-          </Link>
+          {!isTechnician && <Link className="btn-primary" to="/almacen/catalogo/nuevo">
+            <Plus size={18} weight="bold" />
+            <span>Nuevo material</span>
+          </Link>}
         </div>
-      </div>
+      </header>
 
-      {/* Panel interactivo de gestión CRUD de Categorías y Subcategorías */}
+      {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE CATEGORÍAS */}
       {mostrarGestionCat && (
         <GestionCategoriasPanel onClose={() => setMostrarGestionCat(false)} />
       )}
@@ -162,91 +229,324 @@ export function CatalogoPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="almacen-stats">
-        <StatCard icon={<Package size={20} />} value={totalActivos} label="Materiales activos" />
-        <StatCard icon={<Package size={20} />} value={conControlIndividual} label="Con piezas individuales" />
-        <StatCard icon={<Package size={20} />} value={consumibles} label="Consumibles" />
-        <StatCard
-          icon={<WarningCircle size={20} />}
-          value={stockBajo}
-          label="Stock bajo"
-          sublabel={`Menos de ${STOCK_MINIMO} unidades`}
-          variant={stockBajo > 0 ? "warning" : "default"}
-        />
-      </div>
+      {/* COMPACT KPI CARDS */}
+      <section className="kpi-grid" aria-label="Indicadores del catálogo">
+        <article className="kpi-card" aria-label={`Materiales activos: ${totalActivos}`}>
+          <div className="kpi-card-top">
+            <Cube size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{totalActivos}</div>
+            <div className="kpi-label">Materiales activos</div>
+          </div>
+        </article>
 
-      <div className="data-panel">
-        <ListFilterPanel
-          title="Buscar materiales"
-          description="Busca por nombre, código de material, marca, modelo o código de pieza."
-          searchLabel="Buscar"
-          searchPlaceholder="Ej: H0013, Bosch, GSB 550, 3WADV…"
-          searchValue={values.q}
-          onSearchChange={(v) => setValue("q", v)}
-          resultCount={materiales.length}
-          totalCount={materiales.length}
-          activeFilters={activeFilters}
-          onClear={clearFilters}
-          quickFilters={[
-            {
-              key: "ci",
-              label: "Con piezas individuales",
-              count: conControlIndividual,
-              active: values.control_individual === "true",
-              onSelect: () => setValue("control_individual", values.control_individual === "true" ? "" : "true"),
-            },
-            {
-              key: "consumibles",
-              label: "Consumibles",
-              count: consumibles,
-              active: values.control_individual === "false",
-              onSelect: () => setValue("control_individual", values.control_individual === "false" ? "" : "false"),
-            },
-            {
-              key: "bajo",
-              label: "Stock bajo",
-              count: stockBajo,
-              active: false,
-              onSelect: () => { setValue("control_individual", "false"); },
-            },
-          ]}
-        >
-          <FilterSelect
-            label="Categoría"
-            value={values.categoria}
-            onChange={(v) => { setValue("categoria", v); setValue("subcategoria", ""); }}
-            options={categoriaOptions}
-            allLabel="Todas las categorías"
-          />
-          <FilterSelect
-            label="Subcategoría"
-            value={values.subcategoria}
-            onChange={(v) => setValue("subcategoria", v)}
-            options={subcategoriaOptions}
-            allLabel="Todas las subcategorías"
-            disabled={!values.categoria}
-          />
-        </ListFilterPanel>
+        <article className="kpi-card" aria-label={`Con piezas individuales: ${conControlIndividual}`}>
+          <div className="kpi-card-top">
+            <Stack size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{conControlIndividual}</div>
+            <div className="kpi-label">Con piezas individuales</div>
+          </div>
+        </article>
 
-        <div className="catalogo-groups">
-          {isLoading && (
-            <p className="col-span-all text-center-empty">
-              Cargando materiales…
-            </p>
-          )}
-          {!isLoading && materiales.length === 0 && (
-            <p className="col-span-all text-center-empty">
-              No hay materiales con esos criterios.
-            </p>
-          )}
-          {!isLoading &&
-            materialesOrdenados.map((m) => (
-              <MaterialCard key={m.id} m={m} busquedaPieza={busquedaPieza} q={values.q} />
-            ))}
+        <article className="kpi-card" aria-label={`Consumibles: ${consumibles}`}>
+          <div className="kpi-card-top">
+            <Package size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{consumibles}</div>
+            <div className="kpi-label">Consumibles</div>
+          </div>
+        </article>
+
+        <article className="kpi-card" aria-label={`Stock bajo: ${stockBajo}`}>
+          <div className="kpi-card-top">
+            <WarningCircle size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{stockBajo}</div>
+            <div className="kpi-label">Stock bajo</div>
+            <div className="kpi-sublabel">Menos de {STOCK_MINIMO} unidades</div>
+          </div>
+        </article>
+      </section>
+
+      {/* WORKSPACE DATA PANEL */}
+      <section className="catalog-data-panel" aria-label="Listado de catálogo">
+        <div className="panel-toolbar-header">
+          <div className="panel-toolbar-title">
+            <Funnel size={18} />
+            <span>Buscar materiales</span>
+          </div>
+          <div className="panel-toolbar-count">
+            <strong>{materiales.length}</strong> de {materiales.length} resultados
+          </div>
         </div>
+
+        <form className="panel-search-bar" onSubmit={(e) => e.preventDefault()} role="search">
+          <div className="search-input-wrapper">
+            <MagnifyingGlass size={18} className="search-input-icon" />
+            <input
+              type="search"
+              className="search-input"
+              value={values.q}
+              onChange={(e) => setValue("q", e.target.value)}
+              placeholder="Buscar por código, nombre, marca o categoría"
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-filter-toggle"
+            onClick={() => setFiltrosAbiertos((v) => !v)}
+            aria-expanded={filtrosAbiertos}
+          >
+            <Funnel size={18} />
+            <span>Filtros</span>
+            {activeFilters.length > 0 && <span>({activeFilters.length})</span>}
+          </button>
+        </form>
+
+        {filtrosAbiertos && (
+          <div className="advanced-filters-panel">
+            <div className="filter-select-group">
+              <div className="filter-select-field">
+                <label htmlFor="cat-select">Categoría</label>
+                <select
+                  id="cat-select"
+                  value={values.categoria}
+                  onChange={(e) => {
+                    setValue("categoria", e.target.value);
+                    setValue("subcategoria", "");
+                  }}
+                >
+                  <option value="">Todas las categorías</option>
+                  {categoriaOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-select-field">
+                <label htmlFor="subcat-select">Subcategoría</label>
+                <select
+                  id="subcat-select"
+                  value={values.subcategoria}
+                  onChange={(e) => setValue("subcategoria", e.target.value)}
+                  disabled={!values.categoria}
+                >
+                  <option value="">Todas las subcategorías</option>
+                  {subcategoriaOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-select-field">
+                <label htmlFor="tipo-select">Tipo de control</label>
+                <select
+                  id="tipo-select"
+                  value={values.control_individual}
+                  onChange={(e) => setValue("control_individual", e.target.value)}
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="true">Con piezas individuales</option>
+                  <option value="false">Consumibles</option>
+                </select>
+              </div>
+            </div>
+
+            {activeFilters.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>Filtros activos:</span>
+                {activeFilters.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={f.onRemove}
+                    style={{
+                      background: "#FFFFFF",
+                      border: "1px solid #000000",
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span>{f.label}: <strong>{f.value}</strong></span>
+                    <X size={12} />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    textDecoration: "underline",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    marginLeft: "auto",
+                  }}
+                >
+                  Restablecer filtros
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isTechnician ? (
+          <TechnicianMaterialShelf
+            materiales={materiales}
+            isLoading={isLoading}
+            basket={basket}
+            basketUnits={basketUnits}
+            copiedBasket={copiedBasket}
+            onSetQuantity={setBasketQuantity}
+            onCopyBasket={copyBasket}
+            onClearBasket={() => setBasket({})}
+          />
+        ) : <div style={{ width: "100%", overflowX: "auto" }}>
+          <table className="catalog-table">
+            <thead>
+              <tr>
+                <th style={{ width: 110 }}>Código</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th style={{ width: 140 }}>Tipo</th>
+                <th style={{ width: 150 }}>Stock / Piezas</th>
+                <th style={{ width: 160 }}>Ubicación</th>
+                <th style={{ width: 50 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "32px 0" }}>
+                    Cargando materiales…
+                  </td>
+                </tr>
+              )}
+              {!isLoading && materiales.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "32px 0" }}>
+                    No hay materiales que coincidan con los criterios de búsqueda.
+                  </td>
+                </tr>
+              )}
+              {materiales.map((m) => {
+                const stockAlerta = !m.control_individual && m.cantidad_total < STOCK_MINIMO;
+                const busquedaPieza = values.q && /^[A-Z0-9]{4,8}$/i.test(values.q.trim());
+                return (
+                  <tr key={m.id}>
+                    <td>
+                      <span className="code-cell">{m.codigo}</span>
+                    </td>
+                    <td>
+                      <div className="name-title">{m.nombre}</div>
+                      {m.marca && (
+                        <div className="name-subtitle">
+                          {m.marca} {m.modelo}
+                        </div>
+                      )}
+                      {busquedaPieza && (
+                        <div style={{ fontSize: 11, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                          <Package size={10} />
+                          Contiene pieza: <strong>{values.q?.toUpperCase()}</strong>
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <div className="category-title">{m.categoria_nombre}</div>
+                      {m.subcategoria_nombre && (
+                        <div className="category-subtitle">{m.subcategoria_nombre}</div>
+                      )}
+                    </td>
+                    <td>
+                      <span className="type-badge">
+                        {m.control_individual ? "Piezas" : "Consumible"}
+                      </span>
+                    </td>
+                    <td>
+                      {m.control_individual ? (
+                        <span className="stock-text">{m.cantidad_total} piezas</span>
+                      ) : (
+                        <span className={`stock-text ${stockAlerta ? "stock-alert-text" : ""}`}>
+                          {stockAlerta && <WarningCircle size={14} />}
+                          {m.cantidad_total} unid.
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 13 }}>{m.ubicacion_fisica || "—"}</td>
+                    <td>
+                      <Link
+                        to={`/almacen/catalogo/${m.id}`}
+                        className="row-action-btn"
+                        aria-label={`Ver detalle de ${m.nombre}`}
+                        title="Ver detalle"
+                      >
+                        <CaretRight size={17} />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>}
+      </section>
+    </div>
+  );
+}
+
+type TechnicianMaterialShelfProps = {
+  materiales: Material[];
+  isLoading: boolean;
+  basket: Record<number, number>;
+  basketUnits: number;
+  copiedBasket: boolean;
+  onSetQuantity: (material: Material, quantity: number) => void;
+  onCopyBasket: () => void;
+  onClearBasket: () => void;
+};
+
+function TechnicianMaterialShelf({ materiales, isLoading, basket, basketUnits, copiedBasket, onSetQuantity, onCopyBasket, onClearBasket }: TechnicianMaterialShelfProps) {
+  return (
+    <div className="technician-material-workspace">
+      <div className="technician-material-list">
+        <div className="technician-material-intro">
+          <div><span className="technician-material-kicker">Selección de jornada</span><h2>Materiales disponibles</h2><p>Agrega herramientas o consumibles a tu lista. La cantidad se ajusta al stock disponible.</p></div>
+          <span className="technician-material-count">{materiales.length} opciones</span>
+        </div>
+        {isLoading ? <div className="technician-material-empty">Cargando materiales…</div> : materiales.length === 0 ? <div className="technician-material-empty">No encontramos materiales con estos filtros.</div> : (
+          <div className="technician-material-grid">
+            {materiales.map((material) => {
+              const selected = basket[material.id] ?? 0;
+              const outOfStock = material.cantidad_total <= 0;
+              const lowStock = !material.control_individual && material.cantidad_total < STOCK_MINIMO;
+              return <article className={`technician-material-card${selected ? " is-selected" : ""}`} key={material.id}>
+                <div className="technician-material-visual">{material.foto ? <img src={material.foto} alt="" loading="lazy" /> : <Package size={28} aria-hidden="true" />}<span className={`technician-stock-pill${outOfStock ? " is-empty" : lowStock ? " is-low" : ""}`}>{outOfStock ? "Agotado" : `${material.cantidad_total} disponibles`}</span></div>
+                <div className="technician-material-content"><span className="technician-material-code">{material.codigo}</span><h3>{material.nombre}</h3><p>{material.marca ? `${material.marca}${material.modelo ? ` · ${material.modelo}` : ""}` : material.categoria_nombre}</p><span className="technician-material-location">{material.ubicacion_fisica || "Ubicación por confirmar"}</span></div>
+                <div className="technician-material-card-footer"><span className="technician-material-type">{material.control_individual ? "Pieza individual" : "Consumible"}</span>{selected ? <div className="technician-quantity-control" aria-label={`Cantidad de ${material.nombre}`}><button type="button" onClick={() => onSetQuantity(material, selected - 1)} aria-label="Quitar una unidad"><Minus size={15} /></button><strong>{selected}</strong><button type="button" onClick={() => onSetQuantity(material, selected + 1)} disabled={selected >= material.cantidad_total} aria-label="Agregar una unidad"><Plus size={15} /></button></div> : <button type="button" className="technician-add-material" onClick={() => onSetQuantity(material, 1)} disabled={outOfStock}><ShoppingCart size={16} /> Agregar</button>}</div>
+              </article>;
+            })}
+          </div>
+        )}
       </div>
-    </section>
+      <aside className="technician-material-cart" aria-label="Lista de materiales seleccionados">
+        <div className="technician-cart-heading"><div><span className="technician-material-kicker">Tu lista</span><h2><ShoppingCart size={20} /> Materiales seleccionados</h2></div><span className="technician-cart-total">{basketUnits}</span></div>
+        {basketUnits === 0 ? <div className="technician-cart-empty"><ShoppingCart size={28} /><strong>Aún no has agregado materiales</strong><span>Selecciona una tarjeta para preparar tu solicitud.</span></div> : <><div className="technician-cart-items">{materiales.filter((material) => basket[material.id]).map((material) => <div className="technician-cart-item" key={material.id}><div><strong>{material.nombre}</strong><span>{material.codigo} · {basket[material.id]} ud.</span></div><button type="button" onClick={() => onSetQuantity(material, 0)} aria-label={`Quitar ${material.nombre}`}><Trash size={16} /></button></div>)}</div><div className="technician-cart-actions"><button type="button" className="technician-cart-copy" onClick={onCopyBasket}>{copiedBasket ? <Check size={17} /> : <Copy size={17} />}{copiedBasket ? "Lista copiada" : "Copiar lista"}</button><button type="button" className="technician-cart-clear" onClick={onClearBasket}>Vaciar</button></div></>}
+      </aside>
+    </div>
   );
 }
 

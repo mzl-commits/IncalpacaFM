@@ -20,6 +20,7 @@ import { ModelCreatableSelect } from "@/modules/assets/components/ModelCreatable
 import { useLocations } from "@/modules/assets/locationMapQueries";
 import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
 import type { TaxonomyOption } from "@/modules/taxonomy/types";
+import { createClientId } from "@/utils/uuid";
 
 const steps = ["Tipo de ingreso", "Datos del bien", "Clasificación", "Ubicación inicial", "Evidencias", "Revisión", "Código y QR"];
 const entryTypes: Array<{ value: EntryType; title: string; description: string; icon: typeof Package }> = [
@@ -52,43 +53,7 @@ function Field({ label, error, hint, required, children, wide }: {
   );
 }
 
-function createEvidenceId(): string {
-  if (
-    typeof globalThis.crypto !== "undefined" &&
-    typeof globalThis.crypto.randomUUID === "function"
-  ) {
-    return globalThis.crypto.randomUUID();
-  }
-
-  if (
-    typeof globalThis.crypto !== "undefined" &&
-    typeof globalThis.crypto.getRandomValues === "function"
-  ) {
-    const bytes = globalThis.crypto.getRandomValues(
-      new Uint8Array(16),
-    );
-
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
-    const hex = Array.from(
-      bytes,
-      (byte) => byte.toString(16).padStart(2, "0"),
-    ).join("");
-
-    return [
-      hex.slice(0, 8),
-      hex.slice(8, 12),
-      hex.slice(12, 16),
-      hex.slice(16, 20),
-      hex.slice(20),
-    ].join("-");
-  }
-
-  return `evidence-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-}
+function createEvidenceId(): string { return createClientId("evidence"); }
 
 function fileToEvidence(file: File, category: EvidenceItem["category"]): Promise<EvidenceItem> {
   return new Promise((resolve, reject) => {
@@ -283,6 +248,7 @@ export function AssetEntryWizardPage() {
       ...current,
       taxonomyId: item.id,
       taxonomyPrefix: item.prefix,
+      fmCode: item.nextCodePreview ?? "",
       taxonomyVersion: item.sourceVersion,
       taxonomySnapshot: {
         name: item.name,
@@ -414,6 +380,7 @@ export function AssetEntryWizardPage() {
       {draft.classificationPending
         ? <div className="form-grid"><Field label="Justificación" error={errors.classificationPendingReason} required wide><textarea rows={3} value={draft.classificationPendingReason} onChange={(e) => setField("classificationPendingReason", e.target.value)} /></Field></div>
         : <TaxonomyPicker selectedId={draft.taxonomyId} onSelect={applyTaxonomy} error={errors.taxonomyId} />}
+      {!draft.classificationPending && draft.taxonomyId && <div className="form-grid"><Field label="Código FM a asignar" hint="Se muestra el siguiente código disponible y puedes modificarlo antes de registrar." error={errors.fmCode}><input value={draft.fmCode} maxLength={32} placeholder={`${draft.taxonomyPrefix || "PREFIJO"}-0000`} onChange={(e) => setField("fmCode", e.target.value.toUpperCase().replace(/\s/g, ""))} /></Field></div>}
       <div className="conditional-fields">
         <h3>Gestión del catálogo</h3>
         <div className="form-grid">

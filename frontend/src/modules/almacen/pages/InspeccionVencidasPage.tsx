@@ -18,11 +18,13 @@ export function InspeccionVencidasPage() {
     queryFn: () => listInspecciones(),
   });
 
-  function getUltimaInspeccion(materialId: number): string | null {
+  function getUltimaInspeccion(materialId: number): { fecha: string; periodicidadDias: number } | null {
     const ins = inspecciones
       .filter((i) => i.material === materialId)
       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-    return ins[0]?.fecha ?? null;
+    const ultima = ins[0];
+    if (!ultima) return null;
+    return { fecha: ultima.fecha, periodicidadDias: ultima.material_periodicidad_inspeccion_dias ?? 0 };
   }
 
   function buildLoteUrl(item: VencidaItem): string {
@@ -72,14 +74,18 @@ export function InspeccionVencidasPage() {
           </div>
 
           <div className="vencidas-grid">
-            {vencidas.map((item) => (
-              <VencidaCard
-                key={item.material_id}
-                item={item}
-                ultimaInspeccion={getUltimaInspeccion(item.material_id)}
-                inspeccionarUrl={buildLoteUrl(item)}
-              />
-            ))}
+            {vencidas.map((item) => {
+              const ultima = getUltimaInspeccion(item.material_id);
+              return (
+                <VencidaCard
+                  key={item.material_id}
+                  item={item}
+                  ultimaInspeccionFecha={ultima?.fecha ?? null}
+                  ultimaInspeccionPeriodicidad={ultima?.periodicidadDias ?? 0}
+                  inspeccionarUrl={buildLoteUrl(item)}
+                />
+              );
+            })}
           </div>
         </>
       )}
@@ -90,11 +96,13 @@ export function InspeccionVencidasPage() {
 // ─── Subcomponente: card de material vencido ─────────────────────────────────
 function VencidaCard({
   item,
-  ultimaInspeccion,
+  ultimaInspeccionFecha,
+  ultimaInspeccionPeriodicidad,
   inspeccionarUrl,
 }: {
   item: VencidaItem;
-  ultimaInspeccion: string | null;
+  ultimaInspeccionFecha: string | null;
+  ultimaInspeccionPeriodicidad: number;
   inspeccionarUrl: string;
 }) {
   return (
@@ -112,8 +120,8 @@ function VencidaCard({
           </small>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {ultimaInspeccion ? (
-            <TrimestreBadge fecha={ultimaInspeccion} showLabel />
+          {ultimaInspeccionFecha ? (
+            <TrimestreBadge fecha={ultimaInspeccionFecha} periodicidadDias={ultimaInspeccionPeriodicidad} showLabel />
           ) : (
             <span
               style={{
