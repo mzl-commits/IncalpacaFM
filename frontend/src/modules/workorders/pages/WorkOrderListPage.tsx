@@ -1,4 +1,4 @@
-import { CaretRight, CheckCircle, FloppyDisk, Plus, Wrench, X } from "@phosphor-icons/react";
+﻿import { CalendarBlank, CaretRight, CheckCircle, FloppyDisk, Plus, Wrench, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
@@ -39,6 +39,7 @@ import {
   listWorkOrders,
   WORK_ORDERS_UPDATED_EVENT,
 } from "@/modules/workorders/workOrderRepository";
+import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
 
 const TIME_SLOTS_12H = [
   { value: "06:00", label: "06:00 AM" },
@@ -95,6 +96,16 @@ const PLANNED_HOURS_OPTIONS = [
   { value: 12, label: "12 horas" },
 ];
 
+const weekdayOptions = [
+  { value: 1, label: "Lun" },
+  { value: 2, label: "Mar" },
+  { value: 3, label: "Mié" },
+  { value: 4, label: "Jue" },
+  { value: 5, label: "Vie" },
+  { value: 6, label: "Sáb" },
+  { value: 0, label: "Dom" },
+];
+
 interface WorkOrderFormState {
   title: string;
   description: string;
@@ -104,10 +115,17 @@ interface WorkOrderFormState {
   supervisorId: string;
   specialty: Specialty | "";
   orderType: WorkOrderType;
+  cleaningMode: "ESPECIFICA" | "RUTINARIA";
   priority: AdminPriority;
   scheduledDate: string;
+  routineStartDate: string;
+  routineEndDate: string;
+  routineWeekdays: number[];
   scheduledStartTime: string;
   plannedHours: number;
+  locationZone: string;
+  locationBuilding: string;
+  locationArea: string;
 }
 
 const emptyOrderForm: WorkOrderFormState = {
@@ -119,10 +137,17 @@ const emptyOrderForm: WorkOrderFormState = {
   supervisorId: "USR-SUP-001",
   specialty: "ELECTRICIDAD",
   orderType: "OT",
+  cleaningMode: "ESPECIFICA",
   priority: "MEDIA",
   scheduledDate: new Date().toISOString().split("T")[0],
+  routineStartDate: new Date().toISOString().split("T")[0],
+  routineEndDate: new Date().toISOString().split("T")[0],
+  routineWeekdays: [1, 2, 3, 4, 5],
   scheduledStartTime: "08:00",
   plannedHours: 2,
+  locationZone: "",
+  locationBuilding: "",
+  locationArea: "",
 };
 
 const FILTER_KEYS = [
@@ -199,6 +224,32 @@ function getOrderType(workOrder: Awaited<ReturnType<typeof listWorkOrders>>[numb
   return workOrder.orderType ?? "OT";
 }
 
+function parseLocalDate(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+function toIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildRoutineDates(startDate: string, endDate: string, weekdays: number[]) {
+  if (!startDate || !endDate || !weekdays.length) return [];
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  if (end < start) return [];
+
+  const dates: string[] = [];
+  const current = new Date(start);
+  while (current <= end) {
+    if (weekdays.includes(current.getDay())) dates.push(toIsoDate(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
 export function WorkOrderListPage() {
   const [allWorkOrders, setAllWorkOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const { user } = useAuth();
@@ -215,6 +266,8 @@ export function WorkOrderListPage() {
   const [orderError, setOrderError] = useState("");
   const [orderSuccess, setOrderSuccess] = useState("");
   const [manualHoursMode, setManualHoursMode] = useState(false);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   async function loadAuxiliaryData() {
     try {
@@ -253,6 +306,7 @@ export function WorkOrderListPage() {
     setWorkOrderModalOpen(true);
     setOrderError("");
     setOrderSuccess("");
+    setAvailabilityOpen(false);
   }
 
   function handleSelectAsset(assetId: string) {
@@ -264,11 +318,65 @@ export function WorkOrderListPage() {
     }));
   }
 
+  function toggleRoutineWeekday(day: number) {
+    setOrderForm((current) => ({
+      ...current,
+      routineWeekdays: current.routineWeekdays.includes(day)
+        ? current.routineWeekdays.filter((item) => item !== day)
+        : [...current.routineWeekdays, day].sort((left, right) => left - right),
+    }));
+  }
+
+  async function toggleAvailabilityPanel() {
+    if (!orderForm.operatorId) return;
+    if (availabilityOpen) {
+      setAvailabilityOpen(false);
+      return;
+    }
+    setAvailabilityLoading(true);
+    try {
+      const latestOrders = await listWorkOrders();
+      setAllWorkOrders(latestOrders);
+      setAvailabilityOpen(true);
+    } catch {
+      setOrderError("No se pudo actualizar la disponibilidad del operario.");
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }
+
   async function saveWorkOrder(event: React.FormEvent) {
     event.preventDefault();
     if (!orderForm.description.trim()) {
       setOrderError("Ingresa la descripción o motivo de la orden operativa.");
       return;
+    }
+    const isRoutineCleaning = orderForm.orderType === "OL" && orderForm.cleaningMode === "RUTINARIA";
+    if (isRoutineCleaning && (!orderForm.routineStartDate || !orderForm.routineEndDate || !orderForm.routineWeekdays.length)) {
+      setOrderError("Completa el rango de fechas y los días de limpieza para generar la rutina.");
+      return;
+    }
+    if (isRoutineCleaning && !routineDates.length) {
+      setOrderError("El rango elegido no tiene fechas para los días seleccionados.");
+      return;
+    }
+    if (isRoutineCleaning && routineDates.length > 60) {
+      setOrderError("Genera máximo 60 OL por vez para mantener la agenda ordenada.");
+      return;
+    }
+    if (isRoutineCleaning && orderForm.operatorId) {
+      const conflicts = findScheduleConflicts({
+        orders: allWorkOrders,
+        operatorId: orderForm.operatorId,
+        operatorName: technicians.find((t) => t.id === orderForm.operatorId)?.full_name,
+        dates: routineDates,
+        startTime: orderForm.scheduledStartTime,
+        plannedHours: orderForm.plannedHours,
+      });
+      if (conflicts.length) {
+        setOrderError(`La rutina se cruza con órdenes ya programadas: ${conflicts.slice(0, 4).map((order) => order.code).join(", ")}${conflicts.length > 4 ? "..." : ""}.`);
+        return;
+      }
     }
     setOrderSaving(true);
     setOrderError("");
@@ -279,37 +387,44 @@ export function WorkOrderListPage() {
       const selectedSupervisor = supervisors.find((s) => s.id === orderForm.supervisorId) || technicians[0];
       const defaultLocationId = locations[0]?.id || "";
       const locationId = orderForm.locationId || selectedAsset?.locationDetail?.id || defaultLocationId;
+      const datesToCreate = isRoutineCleaning ? routineDates : [orderForm.scheduledDate || new Date().toISOString().split("T")[0]];
 
-      await createWorkOrder({
-        orderType: orderForm.orderType,
-        description: orderForm.description.trim(),
-        directRequestDescription: orderForm.description.trim(),
-        title: orderForm.title.trim() || orderForm.description.trim().substring(0, 40),
-        assetId: orderForm.assetId || undefined,
-        directAssetId: orderForm.assetId || null,
-        assetCode: selectedAsset ? (selectedAsset.fmCode || selectedAsset.code) : undefined,
-        assetName: selectedAsset?.draft.name,
-        directLocationId: locationId || null,
-        operatorId: selectedOperator?.id,
-        operatorName: selectedOperator?.full_name,
-        technicianWorkerCode: selectedOperator?.worker_code,
-        supervisorId: selectedSupervisor?.id,
-        supervisorName: selectedSupervisor?.full_name,
-        supervisorWorkerCode: selectedSupervisor?.worker_code,
-        specialty: (orderForm.specialty || selectedOperator?.specialty || "ELECTRICIDAD") as Specialty,
-        type: orderForm.orderType === "OL" ? "RUTINARIO" : "CORRECTIVO",
-        priority: orderForm.priority,
-        adminPriority: orderForm.priority,
-        scheduledDate: orderForm.scheduledDate || new Date().toISOString().split("T")[0],
-        scheduledStartTime: orderForm.scheduledStartTime || "08:00",
-        plannedHours: Number(orderForm.plannedHours) || 2,
-        status: "PROGRAMADA",
-      });
+      for (const scheduledDate of datesToCreate) {
+        await createWorkOrder({
+          orderType: orderForm.orderType,
+          description: orderForm.description.trim(),
+          directRequestDescription: orderForm.description.trim(),
+          directRequestType: isRoutineCleaning ? "OL rutinaria" : undefined,
+          title: orderForm.title.trim() || orderForm.description.trim().substring(0, 40),
+          assetId: orderForm.assetId || undefined,
+          directAssetId: orderForm.assetId || null,
+          assetCode: selectedAsset ? (selectedAsset.fmCode || selectedAsset.code) : undefined,
+          assetName: selectedAsset?.draft.name,
+          directLocationId: locationId || null,
+          operatorId: selectedOperator?.id,
+          operatorName: selectedOperator?.full_name,
+          technicianWorkerCode: selectedOperator?.worker_code,
+          supervisorId: selectedSupervisor?.id,
+          supervisorName: selectedSupervisor?.full_name,
+          supervisorWorkerCode: selectedSupervisor?.worker_code,
+          specialty: (orderForm.specialty || selectedOperator?.specialty || "ELECTRICIDAD") as Specialty,
+          type: isRoutineCleaning ? "RUTINARIO" : "CORRECTIVO",
+          priority: orderForm.priority,
+          adminPriority: orderForm.priority,
+          administratorNotes: isRoutineCleaning
+            ? `Rutina generada: ${orderForm.routineStartDate} a ${orderForm.routineEndDate}.`
+            : undefined,
+          scheduledDate,
+          scheduledStartTime: orderForm.scheduledStartTime || "08:00",
+          plannedHours: Number(orderForm.plannedHours) || 2,
+          status: "PROGRAMADA",
+        });
+      }
 
       const updatedOrders = await listWorkOrders();
       setAllWorkOrders(updatedOrders);
       setWorkOrderModalOpen(false);
-      setOrderSuccess("Orden operativa registrada exitosamente.");
+      setOrderSuccess(isRoutineCleaning ? `${datesToCreate.length} OL rutinaria(s) registradas exitosamente.` : "Orden operativa registrada exitosamente.");
       setTimeout(() => setOrderSuccess(""), 4000);
     } catch (err: any) {
       const serverDetail = err?.response?.data?.detail || err?.response?.data?.directLocationId || err?.response?.data?.scheduledStartTime;
@@ -319,7 +434,6 @@ export function WorkOrderListPage() {
       setOrderSaving(false);
     }
   }
-
   useEffect(() => {
     let active = true;
     async function refreshWorkOrders() {
@@ -418,6 +532,81 @@ export function WorkOrderListPage() {
       );
     });
   }, [allWorkOrders, values]);
+
+  const selectedModalOperator = useMemo(
+    () => technicians.find((person) => person.id === orderForm.operatorId),
+    [orderForm.operatorId, technicians],
+  );
+  const routineDates = useMemo(
+    () => buildRoutineDates(orderForm.routineStartDate, orderForm.routineEndDate, orderForm.routineWeekdays),
+    [orderForm.routineEndDate, orderForm.routineStartDate, orderForm.routineWeekdays],
+  );
+  const locationZones = useMemo(
+    () => Array.from(new Set(locations.map((item) => item.zone).filter(Boolean))).sort(),
+    [locations],
+  );
+  const locationBuildings = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          locations
+            .filter((item) => !orderForm.locationZone || item.zone === orderForm.locationZone)
+            .map((item) => item.building)
+            .filter(Boolean),
+        ),
+      ).sort(),
+    [locations, orderForm.locationZone],
+  );
+  const locationAreas = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          locations
+            .filter((item) => !orderForm.locationZone || item.zone === orderForm.locationZone)
+            .filter((item) => !orderForm.locationBuilding || item.building === orderForm.locationBuilding)
+            .map((item) => item.area)
+            .filter(Boolean),
+        ),
+      ).sort(),
+    [locations, orderForm.locationBuilding, orderForm.locationZone],
+  );
+  const filteredModalLocations = useMemo(
+    () =>
+      locations
+        .filter((item) => !orderForm.locationZone || item.zone === orderForm.locationZone)
+        .filter((item) => !orderForm.locationBuilding || item.building === orderForm.locationBuilding)
+        .filter((item) => !orderForm.locationArea || item.area === orderForm.locationArea),
+    [locations, orderForm.locationArea, orderForm.locationBuilding, orderForm.locationZone],
+  );
+
+  useEffect(() => {
+    if (!workOrderModalOpen) return;
+    if (!orderForm.locationZone && locationZones.length === 1) {
+      setOrderForm((current) => ({ ...current, locationZone: locationZones[0] }));
+      return;
+    }
+    if (!orderForm.locationBuilding && locationBuildings.length === 1) {
+      setOrderForm((current) => ({ ...current, locationBuilding: locationBuildings[0] }));
+      return;
+    }
+    if (!orderForm.locationArea && locationAreas.length === 1) {
+      setOrderForm((current) => ({ ...current, locationArea: locationAreas[0] }));
+      return;
+    }
+    if (!orderForm.locationId && filteredModalLocations.length === 1) {
+      setOrderForm((current) => ({ ...current, locationId: filteredModalLocations[0].id }));
+    }
+  }, [
+    filteredModalLocations,
+    locationAreas,
+    locationBuildings,
+    locationZones,
+    orderForm.locationArea,
+    orderForm.locationBuilding,
+    orderForm.locationId,
+    orderForm.locationZone,
+    workOrderModalOpen,
+  ]);
 
   const activeFilters: ActiveFilter[] = [];
   if (values.q) {
@@ -852,19 +1041,35 @@ export function WorkOrderListPage() {
               </header>
 
               <form onSubmit={saveWorkOrder} className="work-order-modal-form work-order-horizontal-form">
+                <div className="work-order-modal-section-title">
+                  <span>1</span>
+                  <div>
+                    <h3>Datos de la orden</h3>
+                    <p>Define el tipo, prioridad, especialidad y lugar de atención.</p>
+                  </div>
+                </div>
                 <div className="work-order-form-grid">
-                  {/* Columna Izquierda: Tipo, Clasificación, Activo y Ubicación */}
+                  {/* Columna izquierda: tipo, clasificación, activo y ubicación */}
                   <div className="work-order-form-col">
                     <div className="form-group-row">
                       <label className="field">
                         <span>Tipo de orden *</span>
                         <select
                           value={orderForm.orderType}
-                          onChange={(e) => setOrderForm({ ...orderForm, orderType: e.target.value as WorkOrderType })}
+                          onChange={(e) => {
+                            const orderType = e.target.value as WorkOrderType;
+                            setOrderForm({
+                              ...orderForm,
+                              orderType,
+                              cleaningMode: orderType === "OL" ? orderForm.cleaningMode : "ESPECIFICA",
+                              specialty: orderType === "OL" ? "LIMPIEZA" : orderForm.specialty,
+                              plannedHours: orderType === "OL" ? 1 : orderForm.plannedHours,
+                            });
+                          }}
                         >
                           {Object.entries(workOrderTypeLabels).map(([code, name]) => (
                             <option key={code} value={code}>
-                              {code} — {name}
+                              {code} - {name}
                             </option>
                           ))}
                         </select>
@@ -884,6 +1089,86 @@ export function WorkOrderListPage() {
                         </select>
                       </label>
                     </div>
+
+                    {orderForm.orderType === "OL" && (
+                      <fieldset className="cleaning-mode-picker">
+                        <legend>Tipo de limpieza</legend>
+                        <label className={orderForm.cleaningMode === "ESPECIFICA" ? "is-selected" : ""}>
+                          <input
+                            type="radio"
+                            name="cleaningMode"
+                            value="ESPECIFICA"
+                            checked={orderForm.cleaningMode === "ESPECIFICA"}
+                            onChange={() => setOrderForm({ ...orderForm, cleaningMode: "ESPECIFICA" })}
+                          />
+                          <span>
+                            <strong>OL específica</strong>
+                            <small>Una limpieza puntual para un ambiente o pedido concreto.</small>
+                          </span>
+                        </label>
+                        <label className={orderForm.cleaningMode === "RUTINARIA" ? "is-selected" : ""}>
+                          <input
+                            type="radio"
+                            name="cleaningMode"
+                            value="RUTINARIA"
+                            checked={orderForm.cleaningMode === "RUTINARIA"}
+                            onChange={() => setOrderForm({ ...orderForm, cleaningMode: "RUTINARIA" })}
+                          />
+                          <span>
+                            <strong>OL rutinaria</strong>
+                            <small>Una limpieza programada como rutina para el responsable.</small>
+                          </span>
+                        </label>
+                      </fieldset>
+                    )}
+
+                    {orderForm.orderType === "OL" && orderForm.cleaningMode === "RUTINARIA" && (
+                      <div className="routine-modal-panel">
+                        <div className="routine-modal-heading">
+                          <strong>Calendario de rutina</strong>
+                          <span>{routineDates.length ? `Se generarán ${routineDates.length} OL.` : "Elige rango y días."}</span>
+                        </div>
+
+                        <div className="form-group-row">
+                          <label className="field">
+                            <span>Fecha de inicio *</span>
+                            <input
+                              type="date"
+                              value={orderForm.routineStartDate}
+                              max={orderForm.routineEndDate || undefined}
+                              onChange={(event) => setOrderForm({ ...orderForm, routineStartDate: event.target.value, scheduledDate: event.target.value })}
+                            />
+                          </label>
+
+                          <label className="field">
+                            <span>Fecha de fin *</span>
+                            <input
+                              type="date"
+                              value={orderForm.routineEndDate}
+                              min={orderForm.routineStartDate || undefined}
+                              onChange={(event) => setOrderForm({ ...orderForm, routineEndDate: event.target.value })}
+                            />
+                          </label>
+                        </div>
+
+                        <fieldset className="routine-weekdays compact">
+                          <legend>Días de limpieza *</legend>
+                          <div>
+                            {weekdayOptions.map((day) => (
+                              <button
+                                key={day.value}
+                                type="button"
+                                className={orderForm.routineWeekdays.includes(day.value) ? "is-selected" : ""}
+                                onClick={() => toggleRoutineWeekday(day.value)}
+                              >
+                                {day.label}
+                              </button>
+                            ))}
+                          </div>
+                          <small>{routineDates.length ? routineDates.slice(0, 5).join(", ") + (routineDates.length > 5 ? "..." : "") : "Selecciona al menos un día."}</small>
+                        </fieldset>
+                      </div>
+                    )}
 
                     <label className="field">
                       <span>Especialidad *</span>
@@ -908,37 +1193,95 @@ export function WorkOrderListPage() {
                         <option value="">Sin bien asociado</option>
                         {assets.map((asset) => (
                           <option key={asset.id} value={asset.id}>
-                            {asset.fmCode || asset.code} — {asset.draft.name}
+                            {asset.fmCode || asset.code} - {asset.draft.name}
                           </option>
                         ))}
                       </select>
                     </label>
 
-                    <label className="field">
-                      <span>Ubicación / Ambiente</span>
-                      <select
-                        value={orderForm.locationId}
-                        onChange={(e) => setOrderForm({ ...orderForm, locationId: e.target.value })}
-                      >
-                        <option value="">Seleccionar ubicación...</option>
-                        {locations.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.locationCode ? `${item.locationCode} - ` : ""}{item.building} / {item.area} / {item.room}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <div className="location-filter-stack">
+                      <div className="work-order-modal-section-title is-compact">
+                        <span>3</span>
+                        <div>
+                          <h3>Ubicación / ambiente</h3>
+                          <p>Filtra por partes para no buscar en una lista larga.</p>
+                        </div>
+                      </div>
+
+                      <div className="form-group-row">
+                        <label className="field">
+                          <span>Zona</span>
+                          <select
+                            value={orderForm.locationZone}
+                            onChange={(event) => setOrderForm({ ...orderForm, locationZone: event.target.value, locationBuilding: "", locationArea: "", locationId: "" })}
+                          >
+                            <option value="">Todas las zonas</option>
+                            {locationZones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                          </select>
+                        </label>
+
+                        <label className="field">
+                          <span>Edificio</span>
+                          <select
+                            value={orderForm.locationBuilding}
+                            onChange={(event) => setOrderForm({ ...orderForm, locationBuilding: event.target.value, locationArea: "", locationId: "" })}
+                          >
+                            <option value="">Todos los edificios</option>
+                            {locationBuildings.map((building) => <option key={building} value={building}>{building}</option>)}
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="form-group-row">
+                        <label className="field">
+                          <span>Área</span>
+                          <select
+                            value={orderForm.locationArea}
+                            onChange={(event) => setOrderForm({ ...orderForm, locationArea: event.target.value, locationId: "" })}
+                          >
+                            <option value="">Todas las áreas</option>
+                            {locationAreas.map((area) => <option key={area} value={area}>{area}</option>)}
+                          </select>
+                        </label>
+
+                        <label className="field">
+                          <span>Ambiente</span>
+                          <select
+                            value={orderForm.locationId}
+                            onChange={(event) => setOrderForm({ ...orderForm, locationId: event.target.value })}
+                          >
+                            <option value="">Seleccionar ambiente...</option>
+                            {filteredModalLocations.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.locationCode ? `${item.locationCode} - ` : ""}{item.building} / {item.area} / {item.room}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Columna Derecha: Responsables, Detalles y Tiempos */}
+                  {/* Columna derecha: responsables, detalles y tiempos */}
                   <div className="work-order-form-col">
+                    <div className="work-order-modal-section-title is-compact">
+                      <span>2</span>
+                      <div>
+                        <h3>Responsables y horario</h3>
+                        <p>Revisa la agenda del operario antes de crear la orden.</p>
+                      </div>
+                    </div>
+
                     <div className="form-group-row">
                       <label className="field">
                         <span>Técnico asignado *</span>
                         <select
                           required
                           value={orderForm.operatorId}
-                          onChange={(e) => setOrderForm({ ...orderForm, operatorId: e.target.value })}
+                          onChange={(e) => {
+                            setOrderForm({ ...orderForm, operatorId: e.target.value });
+                            setAvailabilityOpen(false);
+                          }}
                         >
                           <option value="">Selecciona técnico...</option>
                           {technicians.map((person) => (
@@ -948,6 +1291,38 @@ export function WorkOrderListPage() {
                           ))}
                         </select>
                       </label>
+
+                      <div className="work-order-availability-action">
+                        <div>
+                          <strong>Disponibilidad del operario</strong>
+                          <span>
+                            {selectedModalOperator
+                              ? `${selectedModalOperator.full_name} · ${orderForm.scheduledDate} · ${orderForm.scheduledStartTime}`
+                              : "Selecciona un técnico para revisar su agenda."}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          disabled={!orderForm.operatorId || availabilityLoading}
+                          onClick={() => void toggleAvailabilityPanel()}
+                        >
+                          <CalendarBlank size={18} />
+                          {availabilityLoading ? "Actualizando..." : availabilityOpen ? "Ocultar disponibilidad" : "Ver disponibilidad"}
+                        </button>
+                      </div>
+
+                      {availabilityOpen && (
+                        <OperatorAvailabilityPanel
+                          orders={allWorkOrders}
+                          operatorId={orderForm.operatorId}
+                          operatorName={selectedModalOperator?.full_name}
+                          selectedDate={orderForm.scheduledDate}
+                          selectedDates={orderForm.orderType === "OL" && orderForm.cleaningMode === "RUTINARIA" ? routineDates : undefined}
+                          startTime={orderForm.scheduledStartTime}
+                          plannedHours={orderForm.plannedHours}
+                        />
+                      )}
 
                       <label className="field">
                         <span>Supervisor *</span>
@@ -977,15 +1352,17 @@ export function WorkOrderListPage() {
                     </label>
 
                   <div className="form-group-row">
-                    <label className="field">
-                      <span>Fecha programada *</span>
-                      <input
-                        type="date"
-                        required
-                        value={orderForm.scheduledDate}
-                        onChange={(e) => setOrderForm({ ...orderForm, scheduledDate: e.target.value })}
-                      />
-                    </label>
+                    {!(orderForm.orderType === "OL" && orderForm.cleaningMode === "RUTINARIA") && (
+                      <label className="field">
+                        <span>Fecha programada *</span>
+                        <input
+                          type="date"
+                          required
+                          value={orderForm.scheduledDate}
+                          onChange={(e) => setOrderForm({ ...orderForm, scheduledDate: e.target.value })}
+                        />
+                      </label>
+                    )}
 
                     <label className="field">
                       <span>Hora de inicio *</span>
@@ -1042,10 +1419,11 @@ export function WorkOrderListPage() {
                             {opt.label}
                           </option>
                         ))}
-                        <option value="custom">✍️ Ingresar manualmente (ej. 7.5 h, 11 h...)</option>
+                        <option value="custom">Ingresar manualmente (ej. 7.5 h, 11 h...)</option>
                       </select>
                     )}
                   </div>
+
                   </div>
                 </div>
 
@@ -1072,4 +1450,3 @@ export function WorkOrderListPage() {
     </section>
   );
 }
-
