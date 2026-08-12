@@ -13,9 +13,17 @@ const OCCUPIED_STATUSES = new Set([
   "REPROCESO",
 ]);
 
+const VISIBLE_STATUSES = new Set([
+  ...OCCUPIED_STATUSES,
+  "PENDIENTE_DE_SUPERVISION",
+  "PENDIENTE_DE_VALIDACION",
+  "PENDIENTE_DE_CONFORMIDAD",
+]);
+
 interface AvailabilityInput {
   orders: WorkOrder[];
   operatorId: string;
+  operatorName?: string;
   dates: string[];
   startTime: string;
   plannedHours: number;
@@ -85,6 +93,22 @@ function isOrderOccupied(order: WorkOrder, currentOrderId?: string) {
     OCCUPIED_STATUSES.has(order.status)
   );
 }
+function isOrderVisibleInAvailability(order: WorkOrder, currentOrderId?: string) {
+  return (
+    order.id !== currentOrderId &&
+    order.orderType !== "OS" &&
+    !order.code.startsWith("OS-") &&
+    VISIBLE_STATUSES.has(order.status)
+  );
+}
+
+function normalize(value?: string) {
+  return (value || "").trim().toLowerCase();
+}
+
+function belongsToOperator(order: WorkOrder, operatorId: string, operatorName?: string) {
+  return order.operatorId === operatorId || (!!operatorName && normalize(order.operatorName) === normalize(operatorName));
+}
 
 function overlaps(order: WorkOrder, startTime: string, plannedHours: number) {
   const start = toMinutes(startTime);
@@ -99,7 +123,7 @@ export function findScheduleConflicts(input: AvailabilityInput) {
   const dateSet = new Set(input.dates);
   return input.orders.filter(
     (order) =>
-      order.operatorId === input.operatorId &&
+      belongsToOperator(order, input.operatorId, input.operatorName) &&
       dateSet.has(order.scheduledDate) &&
       isOrderOccupied(order, input.currentOrderId) &&
       overlaps(order, input.startTime, input.plannedHours),
@@ -124,6 +148,7 @@ export function OperatorAvailabilityPanel({
   const conflicts = findScheduleConflicts({
     orders,
     operatorId,
+    operatorName,
     dates,
     startTime,
     plannedHours,
@@ -133,7 +158,7 @@ export function OperatorAvailabilityPanel({
   const occupiedByDate = useMemo(() => {
     const grouped = new Map<string, WorkOrder[]>();
     orders
-      .filter((order) => order.operatorId === operatorId && isOrderOccupied(order, currentOrderId))
+      .filter((order) => belongsToOperator(order, operatorId, operatorName) && isOrderVisibleInAvailability(order, currentOrderId))
       .forEach((order) => {
         grouped.set(order.scheduledDate, [...(grouped.get(order.scheduledDate) ?? []), order]);
       });
@@ -141,7 +166,7 @@ export function OperatorAvailabilityPanel({
       grouped.set(key, [...items].sort((left, right) => toMinutes(left.scheduledStartTime) - toMinutes(right.scheduledStartTime)));
     });
     return grouped;
-  }, [currentOrderId, operatorId, orders]);
+  }, [currentOrderId, operatorId, operatorName, orders]);
 
   const weekOrders = calendarDates.flatMap((date) => occupiedByDate.get(date) ?? []);
   const weekHours = weekOrders.reduce((total, order) => total + Math.max(1, order.plannedHours || 1), 0);
@@ -199,7 +224,7 @@ export function OperatorAvailabilityPanel({
               <section className={selected ? "is-selected" : ""} key={date}>
                 <header>
                   <strong>{formatDate(date)}</strong>
-                  <span>{dayOrders.length ? `${dayOrders.length} ocupada${dayOrders.length === 1 ? "" : "s"}` : "Libre"}</span>
+                  <span>{dayOrders.length ? `${dayOrders.length} registrada${dayOrders.length === 1 ? "" : "s"}` : "Libre"}</span>
                 </header>
                 <div>
                   {dayOrders.length ? dayOrders.map((order) => (
