@@ -220,8 +220,8 @@ export function MovimientoFormPage() {
       qc.invalidateQueries({ queryKey: ["piezas-prestadas-material", materialId] });
       // Respuesta 202: solicitud pendiente de aprobación (ALMACENERO)
       if (resp && typeof resp === "object" && !Array.isArray(resp) && "solicitud_id" in resp) {
-        const r = resp as { mensaje: string };
-        setExitoPendiente(r.mensaje);
+        const r = resp as unknown as { mensaje?: string };
+        setExitoPendiente(r.mensaje || "Solicitud enviada para aprobación.");
         return;
       }
       // Aviso estuche incompleto

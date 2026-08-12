@@ -240,7 +240,7 @@ export function WorkOrderListPage() {
   async function openCreateOrderModal() {
     const { people } = await loadAuxiliaryData();
     const activeTechs = people.length ? people : technicians;
-    const defaultOperator = activeTechs.find((t) => t.email === user?.email || t.worker_code === user?.username) || activeTechs[0];
+    const defaultOperator = activeTechs.find((t) => t.email === user?.email || t.worker_code === user?.workerCode) || activeTechs[0];
     const sups = activeTechs.filter((t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR");
     const defaultSup = sups.length ? sups[0] : activeTechs[0];
 
@@ -287,8 +287,8 @@ export function WorkOrderListPage() {
         title: orderForm.title.trim() || orderForm.description.trim().substring(0, 40),
         assetId: orderForm.assetId || undefined,
         directAssetId: orderForm.assetId || null,
-        assetCode: selectedAsset ? (selectedAsset.fm_code || selectedAsset.code) : undefined,
-        assetName: selectedAsset?.name,
+        assetCode: selectedAsset ? (selectedAsset.fmCode || selectedAsset.code) : undefined,
+        assetName: selectedAsset?.draft.name,
         directLocationId: locationId || null,
         operatorId: selectedOperator?.id,
         operatorName: selectedOperator?.full_name,
@@ -908,7 +908,7 @@ export function WorkOrderListPage() {
                         <option value="">Sin bien asociado</option>
                         {assets.map((asset) => (
                           <option key={asset.id} value={asset.id}>
-                            {asset.fm_code || asset.code} — {asset.name}
+                            {asset.fmCode || asset.code} — {asset.draft.name}
                           </option>
                         ))}
                       </select>
