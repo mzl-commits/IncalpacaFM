@@ -409,3 +409,12 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
             contenedor.material.recalcular_cantidad()
 
         return creadas
+
+
+class MaterialFrecuenciaInspeccionSerializer(serializers.ModelSerializer):
+    periodicidad_inspeccion_dias = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Material
+        fields = ["id", "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias"]
+        read_only_fields = ["id", "periodicidad_inspeccion_dias"]

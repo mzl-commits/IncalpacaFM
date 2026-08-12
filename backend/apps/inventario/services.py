@@ -86,9 +86,12 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
             cantidad_cajas=cantidad_cajas,
             responsable=responsable, observaciones=observaciones,
         )
-        Material.objects.filter(pk=material.pk).update(
-            cantidad_total=material.cantidad_total - cantidad
-        )
+        nuevo_total = material.cantidad_total - cantidad
+        Material.objects.filter(pk=material.pk).update(cantidad_total=nuevo_total)
+
+    # Notificar si stock queda en 0
+    if nuevo_total == 0:
+        _notify_zero_stock(material)
     return mov
 
 def registrar_salida_pieza(pieza: Pieza, responsable, referencia_externa="", observaciones="", piezas_hijas_ids=None):
@@ -195,4 +198,57 @@ def registrar_baja_pieza(pieza: Pieza, responsable, observaciones=""):
 
         if padre_a_resincronizar:
             _sincronizar_estado_contenedor(padre_a_resincronizar)
+
+    # Notificar baja definitiva de pieza a Inspectores + Admin
+    _notify_pieza_retirada(pieza, mov)
     return mov
+
+
+def _notify_pieza_retirada(pieza: "Pieza", movimiento: "Movimiento"):
+    """Notifica a Inspectores y Administradores cuando una pieza es retirada definitivamente."""
+    try:
+        from apps.accounts.models import AccountProfile
+        from apps.notifications.services import queue_for_roles
+        queue_for_roles(
+            event="PIEZA_RETIRADA",
+            roles=[AccountProfile.Role.INSPECTOR, AccountProfile.Role.ADMIN],
+            subject=f"Pieza retirada: {pieza.codigo}",
+            body=(
+                f"La pieza {pieza.codigo} ({pieza.material.nombre}) fue dada de baja definitivamente. "
+                f"Revisar si estaba en programación de inspección activa."
+            ),
+            entity=movimiento,
+            context={
+                "piezaId": pieza.id,
+                "piezaCodigo": pieza.codigo,
+                "materialNombre": pieza.material.nombre,
+            },
+            discriminator=f"pieza-baja-{pieza.id}",
+        )
+    except Exception:
+        pass  # No bloquear la baja por un fallo de notificación
+
+
+def _notify_zero_stock(material: "Material"):
+    """Notifica a Almaceneros y Administradores cuando el stock de un material llega a 0."""
+    try:
+        from apps.accounts.models import AccountProfile
+        from apps.notifications.services import queue_for_roles
+        queue_for_roles(
+            event="STOCK_AGOTADO",
+            roles=[AccountProfile.Role.ALMACENERO, AccountProfile.Role.ADMIN],
+            subject=f"Stock agotado: {material.nombre}",
+            body=(
+                f"El material «{material.nombre}» (código: {material.codigo}) "
+                f"ha alcanzado stock 0. Revisar reposición."
+            ),
+            entity=material,
+            context={
+                "materialId": material.id,
+                "materialNombre": material.nombre,
+                "materialCodigo": material.codigo,
+            },
+            discriminator=f"stock-agotado-{material.id}",
+        )
+    except Exception:
+        pass  # No bloquear la baja por un fallo de notificación
