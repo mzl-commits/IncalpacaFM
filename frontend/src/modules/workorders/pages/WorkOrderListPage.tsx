@@ -1,8 +1,12 @@
-﻿import { CaretRight, Plus } from "@phosphor-icons/react";
+import { CaretRight, CheckCircle, FloppyDisk, Plus, Wrench, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
+import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
+import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
+import { useLocations } from "@/modules/assets/locationMapQueries";
 import {
   FilterDate,
   FilterSelect,
@@ -16,20 +20,110 @@ import {
   useListFilterParams,
 } from "@/components/filters/filterUtils";
 import {
+  ADMIN_PRIORITIES,
+  SPECIALTIES,
   adminPriorityLabels,
   getWorkOrderStatusLabel,
   specialtyLabels,
   WORK_ORDER_STATUSES,
   workOrderStatusLabels,
   workOrderTypeLabels,
+  type AdminPriority,
+  type Specialty,
   type WorkOrderStatus,
   type WorkOrderType,
 } from "@/modules/workorders/workOrderModel";
 import {
+  createWorkOrder,
   getWorkOrderAssetDisplayCode,
   listWorkOrders,
   WORK_ORDERS_UPDATED_EVENT,
 } from "@/modules/workorders/workOrderRepository";
+
+const TIME_SLOTS_12H = [
+  { value: "06:00", label: "06:00 AM" },
+  { value: "06:30", label: "06:30 AM" },
+  { value: "07:00", label: "07:00 AM" },
+  { value: "07:30", label: "07:30 AM" },
+  { value: "08:00", label: "08:00 AM" },
+  { value: "08:30", label: "08:30 AM" },
+  { value: "09:00", label: "09:00 AM" },
+  { value: "09:30", label: "09:30 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "10:30", label: "10:30 AM" },
+  { value: "11:00", label: "11:00 AM" },
+  { value: "11:30", label: "11:30 AM" },
+  { value: "12:00", label: "12:00 PM (Mediodía)" },
+  { value: "12:30", label: "12:30 PM" },
+  { value: "13:00", label: "01:00 PM" },
+  { value: "13:30", label: "01:30 PM" },
+  { value: "14:00", label: "02:00 PM" },
+  { value: "14:30", label: "02:30 PM" },
+  { value: "15:00", label: "03:00 PM" },
+  { value: "15:30", label: "03:30 PM" },
+  { value: "16:00", label: "04:00 PM" },
+  { value: "16:30", label: "04:30 PM" },
+  { value: "17:00", label: "05:00 PM" },
+  { value: "17:30", label: "05:30 PM" },
+  { value: "18:00", label: "06:00 PM" },
+  { value: "18:30", label: "06:30 PM" },
+  { value: "19:00", label: "07:00 PM" },
+  { value: "20:00", label: "08:00 PM" },
+];
+
+const PLANNED_HOURS_OPTIONS = [
+  { value: 0.5, label: "30 minutos" },
+  { value: 1, label: "1 hora" },
+  { value: 1.5, label: "1 hora y media" },
+  { value: 2, label: "2 horas" },
+  { value: 2.5, label: "2 horas y media" },
+  { value: 3, label: "3 horas" },
+  { value: 3.5, label: "3 horas y media" },
+  { value: 4, label: "4 horas" },
+  { value: 4.5, label: "4 horas y media" },
+  { value: 5, label: "5 horas" },
+  { value: 5.5, label: "5 horas y media" },
+  { value: 6, label: "6 horas" },
+  { value: 6.5, label: "6 horas y media" },
+  { value: 7, label: "7 horas" },
+  { value: 7.5, label: "7 horas y media" },
+  { value: 8, label: "8 horas" },
+  { value: 8.5, label: "8 horas y media" },
+  { value: 9, label: "9 horas" },
+  { value: 9.5, label: "9 horas y media" },
+  { value: 10, label: "10 horas" },
+  { value: 12, label: "12 horas" },
+];
+
+interface WorkOrderFormState {
+  title: string;
+  description: string;
+  assetId: string;
+  locationId: string;
+  operatorId: string;
+  supervisorId: string;
+  specialty: Specialty | "";
+  orderType: WorkOrderType;
+  priority: AdminPriority;
+  scheduledDate: string;
+  scheduledStartTime: string;
+  plannedHours: number;
+}
+
+const emptyOrderForm: WorkOrderFormState = {
+  title: "",
+  description: "",
+  assetId: "",
+  locationId: "",
+  operatorId: "",
+  supervisorId: "USR-SUP-001",
+  specialty: "ELECTRICIDAD",
+  orderType: "OT",
+  priority: "MEDIA",
+  scheduledDate: new Date().toISOString().split("T")[0],
+  scheduledStartTime: "08:00",
+  plannedHours: 2,
+};
 
 const FILTER_KEYS = [
   "q",
@@ -111,6 +205,121 @@ export function WorkOrderListPage() {
   const isAdministrator = user?.role === "ADMINISTRADOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
 
+  const locationsQuery = useLocations();
+  const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [assets, setAssets] = useState<Awaited<ReturnType<typeof listRegisteredAssets>>>([]);
+  const [workOrderModalOpen, setWorkOrderModalOpen] = useState(false);
+  const [orderForm, setOrderForm] = useState<WorkOrderFormState>(emptyOrderForm);
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState("");
+  const [manualHoursMode, setManualHoursMode] = useState(false);
+
+  async function loadAuxiliaryData() {
+    try {
+      const [people, assetList] = await Promise.all([
+        listTechnicians().catch(() => []),
+        listRegisteredAssets().catch(() => []),
+      ]);
+      setTechnicians(people);
+      setAssets(assetList);
+      return { people, assetList };
+    } catch {
+      return { people: [], assetList: [] };
+    }
+  }
+
+  const supervisors = useMemo(() => {
+    const sups = technicians.filter(
+      (t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR"
+    );
+    return sups.length ? sups : technicians;
+  }, [technicians]);
+
+  async function openCreateOrderModal() {
+    const { people } = await loadAuxiliaryData();
+    const activeTechs = people.length ? people : technicians;
+    const defaultOperator = activeTechs.find((t) => t.email === user?.email || t.worker_code === user?.username) || activeTechs[0];
+    const sups = activeTechs.filter((t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR");
+    const defaultSup = sups.length ? sups[0] : activeTechs[0];
+
+    setOrderForm({
+      ...emptyOrderForm,
+      operatorId: defaultOperator?.id ?? "",
+      supervisorId: defaultSup?.id ?? "",
+      scheduledDate: new Date().toISOString().split("T")[0],
+    });
+    setWorkOrderModalOpen(true);
+    setOrderError("");
+    setOrderSuccess("");
+  }
+
+  function handleSelectAsset(assetId: string) {
+    const asset = assets.find((a) => a.id === assetId);
+    setOrderForm((prev) => ({
+      ...prev,
+      assetId,
+      locationId: asset?.locationDetail?.id || prev.locationId,
+    }));
+  }
+
+  async function saveWorkOrder(event: React.FormEvent) {
+    event.preventDefault();
+    if (!orderForm.description.trim()) {
+      setOrderError("Ingresa la descripción o motivo de la orden operativa.");
+      return;
+    }
+    setOrderSaving(true);
+    setOrderError("");
+    setOrderSuccess("");
+    try {
+      const selectedOperator = technicians.find((t) => t.id === orderForm.operatorId) || technicians[0];
+      const selectedAsset = assets.find((a) => a.id === orderForm.assetId);
+      const selectedSupervisor = supervisors.find((s) => s.id === orderForm.supervisorId) || technicians[0];
+      const defaultLocationId = locations[0]?.id || "";
+      const locationId = orderForm.locationId || selectedAsset?.locationDetail?.id || defaultLocationId;
+
+      await createWorkOrder({
+        orderType: orderForm.orderType,
+        description: orderForm.description.trim(),
+        directRequestDescription: orderForm.description.trim(),
+        title: orderForm.title.trim() || orderForm.description.trim().substring(0, 40),
+        assetId: orderForm.assetId || undefined,
+        directAssetId: orderForm.assetId || null,
+        assetCode: selectedAsset ? (selectedAsset.fm_code || selectedAsset.code) : undefined,
+        assetName: selectedAsset?.name,
+        directLocationId: locationId || null,
+        operatorId: selectedOperator?.id,
+        operatorName: selectedOperator?.full_name,
+        technicianWorkerCode: selectedOperator?.worker_code,
+        supervisorId: selectedSupervisor?.id,
+        supervisorName: selectedSupervisor?.full_name,
+        supervisorWorkerCode: selectedSupervisor?.worker_code,
+        specialty: (orderForm.specialty || selectedOperator?.specialty || "ELECTRICIDAD") as Specialty,
+        type: orderForm.orderType === "OL" ? "RUTINARIO" : "CORRECTIVO",
+        priority: orderForm.priority,
+        adminPriority: orderForm.priority,
+        scheduledDate: orderForm.scheduledDate || new Date().toISOString().split("T")[0],
+        scheduledStartTime: orderForm.scheduledStartTime || "08:00",
+        plannedHours: Number(orderForm.plannedHours) || 2,
+        status: "PROGRAMADA",
+      });
+
+      const updatedOrders = await listWorkOrders();
+      setAllWorkOrders(updatedOrders);
+      setWorkOrderModalOpen(false);
+      setOrderSuccess("Orden operativa registrada exitosamente.");
+      setTimeout(() => setOrderSuccess(""), 4000);
+    } catch (err: any) {
+      const serverDetail = err?.response?.data?.detail || err?.response?.data?.directLocationId || err?.response?.data?.scheduledStartTime;
+      const errorMsg = typeof serverDetail === "string" ? serverDetail : Array.isArray(serverDetail) ? serverDetail[0] : "No se pudo crear la orden operativa. Revisa los campos obligatorios.";
+      setOrderError(errorMsg);
+    } finally {
+      setOrderSaving(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
     async function refreshWorkOrders() {
@@ -119,6 +328,7 @@ export function WorkOrderListPage() {
     }
 
     void refreshWorkOrders();
+    void loadAuxiliaryData();
     window.addEventListener(WORK_ORDERS_UPDATED_EVENT, refreshWorkOrders);
 
     return () => {
@@ -323,13 +533,18 @@ export function WorkOrderListPage() {
           <h1>Órdenes operativas</h1>
           <p>Consulta programación, responsables, avance y estado de OT, OL y OS generadas.</p>
         </div>
-        {isAdministrator && (
-          <Link className="button button-primary" to="/ordenes-trabajo/nueva">
-            <Plus size={18} weight="bold" />
-            Crear orden
-          </Link>
-        )}
+        <button className="button button-primary" type="button" onClick={openCreateOrderModal}>
+          <Plus size={18} weight="bold" />
+          <span>Agregar orden operativa</span>
+        </button>
       </div>
+
+      {orderSuccess && (
+        <div className="form-success-banner" style={{ background: "#E8F5E9", border: "1px solid #C8E6C9", color: "#2E7D32", padding: "12px 16px", borderRadius: "8px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "10px" }}>
+          <CheckCircle size={20} weight="bold" />
+          <span>{orderSuccess}</span>
+        </div>
+      )}
 
       <div className="metrics-grid">
         <article>
@@ -608,6 +823,252 @@ export function WorkOrderListPage() {
           )}
         </div>
       </div>
+
+      {workOrderModalOpen &&
+        createPortal(
+          <div
+            className="work-order-modal-backdrop"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setWorkOrderModalOpen(false);
+            }}
+          >
+            <aside className="technician-editor modal-widget work-order-modal-widget" aria-labelledby="work-order-modal-title">
+              <header className="work-order-modal-header">
+                <div className="work-order-header-icon">
+                  <Wrench size={22} weight="bold" />
+                </div>
+                <div>
+                  <h2 id="work-order-modal-title">Agregar orden operativa</h2>
+                  <p>Asigna trabajos directos de mantenimiento, rutinas o inspecciones.</p>
+                </div>
+                <button
+                  className="icon-button modal-close-btn"
+                  type="button"
+                  aria-label="Cerrar modal"
+                  onClick={() => setWorkOrderModalOpen(false)}
+                >
+                  <X size={20} weight="bold" />
+                </button>
+              </header>
+
+              <form onSubmit={saveWorkOrder} className="work-order-modal-form work-order-horizontal-form">
+                <div className="work-order-form-grid">
+                  {/* Columna Izquierda: Tipo, Clasificación, Activo y Ubicación */}
+                  <div className="work-order-form-col">
+                    <div className="form-group-row">
+                      <label className="field">
+                        <span>Tipo de orden *</span>
+                        <select
+                          value={orderForm.orderType}
+                          onChange={(e) => setOrderForm({ ...orderForm, orderType: e.target.value as WorkOrderType })}
+                        >
+                          {Object.entries(workOrderTypeLabels).map(([code, name]) => (
+                            <option key={code} value={code}>
+                              {code} — {name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="field">
+                        <span>Prioridad *</span>
+                        <select
+                          value={orderForm.priority}
+                          onChange={(e) => setOrderForm({ ...orderForm, priority: e.target.value as AdminPriority })}
+                        >
+                          {ADMIN_PRIORITIES.map((prio) => (
+                            <option key={prio} value={prio}>
+                              {adminPriorityLabels[prio]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="field">
+                      <span>Especialidad *</span>
+                      <select
+                        value={orderForm.specialty}
+                        onChange={(e) => setOrderForm({ ...orderForm, specialty: e.target.value as Specialty })}
+                      >
+                        {SPECIALTIES.map((spec) => (
+                          <option key={spec} value={spec}>
+                            {specialtyLabels[spec]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span>Bien / Activo (Opcional)</span>
+                      <select
+                        value={orderForm.assetId}
+                        onChange={(e) => handleSelectAsset(e.target.value)}
+                      >
+                        <option value="">Sin bien asociado</option>
+                        {assets.map((asset) => (
+                          <option key={asset.id} value={asset.id}>
+                            {asset.fm_code || asset.code} — {asset.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span>Ubicación / Ambiente</span>
+                      <select
+                        value={orderForm.locationId}
+                        onChange={(e) => setOrderForm({ ...orderForm, locationId: e.target.value })}
+                      >
+                        <option value="">Seleccionar ubicación...</option>
+                        {locations.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.locationCode ? `${item.locationCode} - ` : ""}{item.building} / {item.area} / {item.room}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  {/* Columna Derecha: Responsables, Detalles y Tiempos */}
+                  <div className="work-order-form-col">
+                    <div className="form-group-row">
+                      <label className="field">
+                        <span>Técnico asignado *</span>
+                        <select
+                          required
+                          value={orderForm.operatorId}
+                          onChange={(e) => setOrderForm({ ...orderForm, operatorId: e.target.value })}
+                        >
+                          <option value="">Selecciona técnico...</option>
+                          {technicians.map((person) => (
+                            <option key={person.id} value={person.id}>
+                              {person.full_name} ({person.worker_code})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="field">
+                        <span>Supervisor *</span>
+                        <select
+                          value={orderForm.supervisorId}
+                          onChange={(e) => setOrderForm({ ...orderForm, supervisorId: e.target.value })}
+                        >
+                          <option value="">Selecciona supervisor...</option>
+                          {supervisors.map((sup) => (
+                            <option key={sup.id} value={sup.id}>
+                              {sup.full_name} ({sup.worker_code})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="field">
+                      <span>Descripción de la tarea *</span>
+                      <textarea
+                        required
+                        rows={3}
+                        placeholder="Describe la tarea operativa o trabajo de mantenimiento a realizar..."
+                        value={orderForm.description}
+                        onChange={(e) => setOrderForm({ ...orderForm, description: e.target.value })}
+                      />
+                    </label>
+
+                  <div className="form-group-row">
+                    <label className="field">
+                      <span>Fecha programada *</span>
+                      <input
+                        type="date"
+                        required
+                        value={orderForm.scheduledDate}
+                        onChange={(e) => setOrderForm({ ...orderForm, scheduledDate: e.target.value })}
+                      />
+                    </label>
+
+                    <label className="field">
+                      <span>Hora de inicio *</span>
+                      <select
+                        value={orderForm.scheduledStartTime}
+                        onChange={(e) => setOrderForm({ ...orderForm, scheduledStartTime: e.target.value })}
+                      >
+                        {TIME_SLOTS_12H.map((slot) => (
+                          <option key={slot.value} value={slot.value}>
+                            {slot.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="field">
+                    <span>Duración estimada *</span>
+                    {manualHoursMode ? (
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0.25"
+                          max="24"
+                          required
+                          autoFocus
+                          placeholder="Ej. 7.5"
+                          value={orderForm.plannedHours}
+                          onChange={(e) => setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) })}
+                        />
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          style={{ height: '42px', padding: '0 12px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                          onClick={() => setManualHoursMode(false)}
+                        >
+                          Ver lista
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        value={PLANNED_HOURS_OPTIONS.some((o) => o.value === orderForm.plannedHours) ? orderForm.plannedHours : "custom"}
+                        onChange={(e) => {
+                          if (e.target.value === "custom") {
+                            setManualHoursMode(true);
+                          } else {
+                            setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) });
+                          }
+                        }}
+                      >
+                        {PLANNED_HOURS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                        <option value="custom">✍️ Ingresar manualmente (ej. 7.5 h, 11 h...)</option>
+                      </select>
+                    )}
+                  </div>
+                  </div>
+                </div>
+
+                {orderError && <div className="form-error" role="alert">{orderError}</div>}
+
+                <div className="modal-actions-bar">
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => setWorkOrderModalOpen(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button className="button button-primary" type="submit" disabled={orderSaving}>
+                    <FloppyDisk size={18} weight="bold" />
+                    <span>{orderSaving ? "Guardando..." : "Crear orden operativa"}</span>
+                  </button>
+                </div>
+              </form>
+            </aside>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }

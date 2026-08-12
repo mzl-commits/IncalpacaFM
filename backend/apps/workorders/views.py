@@ -8,7 +8,7 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
-from rest_framework import generics, response, views
+from rest_framework import generics, permissions, response, views
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
@@ -47,10 +47,8 @@ def participant_queryset(request):
 
 
 class WorkOrderListCreateView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = WorkOrderSerializer
-
-    def get_permissions(self):
-        return [IsAdministrator()] if self.request.method == "POST" else [IsWorkOrderParticipant()]
 
     def get_queryset(self):
         return participant_queryset(self.request)
@@ -157,7 +155,9 @@ class WorkOrderPhotoView(views.APIView):
     def get(self, request, pk, stage):
         normalized_stage = {
             "inicio": WorkOrderPhoto.Stage.START,
+            "start": WorkOrderPhoto.Stage.START,
             "final": WorkOrderPhoto.Stage.FINISH,
+            "finish": WorkOrderPhoto.Stage.FINISH,
         }.get(stage.lower())
         if not normalized_stage:
             from rest_framework.exceptions import NotFound
