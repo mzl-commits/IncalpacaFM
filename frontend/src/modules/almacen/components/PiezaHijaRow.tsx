@@ -9,9 +9,11 @@ import type { PiezaBase } from "@/modules/almacen/types";
 export function PiezaHijaRow({
   pieza,
   materialId,
+  isInspector,
 }: {
   pieza: PiezaBase & { material_nombre?: string; material_medida?: string };
   materialId: number;
+  isInspector?: boolean;
 }) {
   const qc = useQueryClient();
   const [confirm, setConfirm] = useState(false);
@@ -94,7 +96,7 @@ export function PiezaHijaRow({
 
       <StatusBadge value={pieza.estado} />
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-        {confirm ? (
+        {!isInspector && (confirm ? (
           <>
             <span style={{ fontSize: 11, color: "var(--muted)" }}>¿Quitar del estuche?</span>
             <button
@@ -133,7 +135,7 @@ export function PiezaHijaRow({
           >
             <Trash size={13} />
           </button>
-        )}
+        ))}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
+import { useAuth } from "@/modules/accounts/AuthContext";
 import { deleteMaterial, deleteMaterialForzado, getMaterialDetalle } from "@/modules/almacen/catalogoRepository";
 import { listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
@@ -20,6 +21,8 @@ export function MaterialDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const materialId = Number(id);
+  const { user } = useAuth();
+  const isInspector = user?.role === "INSPECTOR";
 
   const { data: material, isLoading, error } = useQuery({
     queryKey: ["material", materialId],
@@ -167,12 +170,14 @@ export function MaterialDetailPage() {
         </div>
 
         <div className="mat-detail-actions">
-          <Link
-            className="button button-secondary button-sm"
-            to={`/almacen/movimientos/nuevo?material=${material.id}`}
-          >
-            <ArrowRight size={14} /> Registrar movimiento
-          </Link>
+          {!isInspector && (
+            <Link
+              className="button button-secondary button-sm"
+              to={`/almacen/movimientos/nuevo?material=${material.id}`}
+            >
+              <ArrowRight size={14} /> Registrar movimiento
+            </Link>
+          )}
           {material.control_individual && (
             <Link
               className="button button-secondary button-sm"
@@ -181,19 +186,23 @@ export function MaterialDetailPage() {
               <ClipboardText size={14} /> Nueva inspección
             </Link>
           )}
-          <Link
-            className="button button-secondary button-sm"
-            to={`/almacen/catalogo/${material.id}/editar`}
-          >
-            <PencilSimple size={14} /> Editar
-          </Link>
-          <button
-            type="button"
-            className="button button-danger-subtle button-sm"
-            onClick={() => setDeleteStep("confirming")}
-          >
-            <Trash size={14} /> Eliminar
-          </button>
+          {!isInspector && (
+            <Link
+              className="button button-secondary button-sm"
+              to={`/almacen/catalogo/${material.id}/editar`}
+            >
+              <PencilSimple size={14} /> Editar
+            </Link>
+          )}
+          {!isInspector && (
+            <button
+              type="button"
+              className="button button-danger-subtle button-sm"
+              onClick={() => setDeleteStep("confirming")}
+            >
+              <Trash size={14} /> Eliminar
+            </button>
+          )}
         </div>
       </div>
 
@@ -380,8 +389,8 @@ export function MaterialDetailPage() {
             </dl>
           </div>
 
-          {/* Ajuste de stock (solo materiales sin control individual) */}
-          {!material.control_individual && (
+          {/* Ajuste de stock (solo materiales sin control individual, no disponible para Inspector) */}
+          {!material.control_individual && !isInspector && (
             <AjustarStockPanel material={material} />
           )}
 
@@ -390,13 +399,15 @@ export function MaterialDetailPage() {
             <div className="data-panel">
               <div className="table-toolbar">
                 <strong style={{ fontSize: 15 }}>Piezas ({material.cantidad_total})</strong>
-                <Link
-                  className="button button-secondary"
-                  to={`/almacen/catalogo/${material.id}/alta-piezas`}
-                  style={{ fontSize: 13 }}
-                >
-                  <Plus size={14} /> Alta de piezas
-                </Link>
+                {!isInspector && (
+                  <Link
+                    className="button button-secondary"
+                    to={`/almacen/catalogo/${material.id}/alta-piezas`}
+                    style={{ fontSize: 13 }}
+                  >
+                    <Plus size={14} /> Alta de piezas
+                  </Link>
+                )}
               </div>
               <div className="pieza-tree">
                 {material.piezas.length === 0 && (
@@ -409,6 +420,7 @@ export function MaterialDetailPage() {
                     mostrarTrimestre={ultimaInspeccion}
                     periodicidadDias={material.periodicidad_inspeccion_dias}
                     materialId={materialId}
+                    isInspector={isInspector}
                   />
                 ))}
               </div>

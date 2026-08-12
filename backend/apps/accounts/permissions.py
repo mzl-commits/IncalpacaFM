@@ -63,19 +63,6 @@ class IsAlmaceneroOrAdministratorWrite(BasePermission):
         }
 
 
-class IsInspectorOrAdministrator(BasePermission):
-    """
-    Requiere rol ADMINISTRADOR o INSPECTOR.
-    """
-    message = "Esta acción requiere permisos de Administrador o Inspector."
-
-    def has_permission(self, request, view):
-        return user_role(request.user) in {
-            AccountProfile.Role.ADMIN,
-            AccountProfile.Role.INSPECTOR,
-        }
-
-
 class IsInspectorOrAdministratorWrite(BasePermission):
     """
     Requiere sesión iniciada para lecturas (SAFE_METHODS).
@@ -90,5 +77,25 @@ class IsInspectorOrAdministratorWrite(BasePermission):
             return True
         return user_role(request.user) in {
             AccountProfile.Role.ADMIN,
+            AccountProfile.Role.INSPECTOR,
+        }
+
+
+class IsAlmaceneroAdminOrInspectorWrite(BasePermission):
+    """
+    Requiere sesión iniciada para leer (GET/HEAD/OPTIONS).
+    Requiere rol ADMINISTRADOR, ALMACENERO o INSPECTOR para escribir
+    (usado puntualmente en la frecuencia de inspección de un material).
+    """
+    message = "Esta acción requiere permisos de Administrador, Almacenero o Inspector."
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        return user_role(request.user) in {
+            AccountProfile.Role.ADMIN,
+            AccountProfile.Role.ALMACENERO,
             AccountProfile.Role.INSPECTOR,
         }

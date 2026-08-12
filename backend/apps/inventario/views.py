@@ -1,8 +1,9 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.utils import timezone
 
+from apps.accounts.permissions import IsAlmaceneroOrAdministratorWrite
 from apps.inventario.models import Movimiento
 from apps.catalogo.models import Pieza
 from apps.inventario.serializers import (
@@ -15,12 +16,11 @@ from apps.inventario.serializers import (
     BajaPiezaSerializer,
     PiezaPrestadaSerializer,
 )
-from django.utils import timezone
 
 class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Movimiento.objects.select_related("material", "pieza", "responsable").all()
     serializer_class = MovimientoSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAlmaceneroOrAdministratorWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()

@@ -43,6 +43,8 @@ type NavItem = {
   icon: typeof House;
   end?: boolean;
   count?: string | number;
+  /** Si está definido, el ítem solo es visible para esos roles. Omitir = todos los roles con acceso al grupo. */
+  itemRoles?: UserRole[];
 };
 
 type ModuleGroup = {
@@ -89,13 +91,16 @@ const modules: ModuleGroup[] = [
     paths: ["/almacen"],
     roles: ["ADMINISTRADOR", "ALMACENERO", "INSPECTOR"],
     items: [
+      // Catálogo: visible para todos los roles del grupo
       { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true, count: "10" },
-      { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
-      { to: "/almacen/checklist", label: "Devolución", icon: ListChecks },
-      { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText },
-      { to: "/almacen/plantillas", label: "Plantillas SST", icon: Files },
-      { to: "/almacen/calendario", label: "Calendario", icon: CalendarBlank },
-      { to: "/almacen/plan-anual", label: "Plan anual", icon: CalendarPlus },
+      // Almacenero + Admin: gestión de stock
+      { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
+      { to: "/almacen/checklist", label: "Devolución", icon: ListChecks, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
+      // Inspector + Admin: inspección
+      { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
+      { to: "/almacen/plantillas", label: "Plantillas SST", icon: Files, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
+      { to: "/almacen/calendario", label: "Calendario", icon: CalendarBlank, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
+      { to: "/almacen/plan-anual", label: "Plan anual", icon: CalendarPlus, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
     ],
   },
   {
@@ -406,11 +411,16 @@ export function AppShell() {
             </header>
 
             <nav className="flyout-nav-list">
-              {activeFlyoutModule.items.map(({ to, label, icon: ItemIcon, end, count }, idx) => {
+              {activeFlyoutModule.items
+                .filter((item) => !item.itemRoles || (user && item.itemRoles.includes(user.role)))
+                .map(({ to, label, icon: ItemIcon, end, count }, idx) => {
                 const isSubActive =
                   location.pathname === to ||
                   (!end && to !== "/" && location.pathname.startsWith(`${to}/`));
-                const hasAnyActive = activeFlyoutModule.items.some(
+                const visibleItems = activeFlyoutModule.items.filter(
+                  (item) => !item.itemRoles || (user && item.itemRoles.includes(user.role)),
+                );
+                const hasAnyActive = visibleItems.some(
                   (it) =>
                     location.pathname === it.to ||
                     (!it.end && it.to !== "/" && location.pathname.startsWith(`${it.to}/`)),
