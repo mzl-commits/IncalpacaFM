@@ -207,9 +207,11 @@ export function TechnicianManagementPage() {
     setError("");
     setOrderSuccess("");
     try {
-      const selectedOperator = technicians.find((t) => t.id === orderForm.operatorId);
+      const selectedOperator = technicians.find((t) => t.id === orderForm.operatorId) || technicians[0];
       const selectedAsset = assets.find((a) => a.id === orderForm.assetId);
-      const selectedSupervisor = supervisors.find((s) => s.id === orderForm.supervisorId);
+      const selectedSupervisor = supervisors.find((s) => s.id === orderForm.supervisorId) || technicians[0];
+      const defaultLocationId = locations[0]?.id || "";
+      const locationId = orderForm.locationId || selectedAsset?.locationDetail?.id || defaultLocationId;
 
       await createWorkOrder({
         orderType: orderForm.orderType,
@@ -220,13 +222,14 @@ export function TechnicianManagementPage() {
         directAssetId: orderForm.assetId || null,
         assetCode: selectedAsset ? (selectedAsset.fm_code || selectedAsset.code) : undefined,
         assetName: selectedAsset?.name,
-        directLocationId: orderForm.locationId || null,
-        operatorId: orderForm.operatorId || undefined,
+        directLocationId: locationId || null,
+        operatorId: selectedOperator?.id,
         operatorName: selectedOperator?.full_name,
-        technicianWorkerCode: selectedOperator?.worker_code || "tecnico",
-        supervisorId: orderForm.supervisorId || undefined,
-        supervisorName: selectedSupervisor?.name,
-        specialty: (orderForm.specialty || "ELECTRICIDAD") as Specialty,
+        technicianWorkerCode: selectedOperator?.worker_code,
+        supervisorId: selectedSupervisor?.id,
+        supervisorName: selectedSupervisor?.full_name,
+        supervisorWorkerCode: selectedSupervisor?.worker_code,
+        specialty: (orderForm.specialty || selectedOperator?.specialty || "ELECTRICIDAD") as Specialty,
         type: orderForm.orderType === "OL" ? "RUTINARIO" : "CORRECTIVO",
         priority: orderForm.priority,
         adminPriority: orderForm.priority,
@@ -238,10 +241,12 @@ export function TechnicianManagementPage() {
 
       await refresh();
       setWorkOrderModalOpen(false);
-      setOrderSuccess("Orden operativa registrada exitosamente.");
+      setOrderSuccess("Orden operativa asignada exitosamente.");
       setTimeout(() => setOrderSuccess(""), 4000);
-    } catch {
-      setError("No se pudo crear la orden operativa. Inténtalo nuevamente.");
+    } catch (err: any) {
+      const serverDetail = err?.response?.data?.detail || err?.response?.data?.directLocationId || err?.response?.data?.scheduledStartTime;
+      const errorMsg = typeof serverDetail === "string" ? serverDetail : Array.isArray(serverDetail) ? serverDetail[0] : "No se pudo crear la orden operativa. Revisa los campos obligatorios.";
+      setError(errorMsg);
     } finally {
       setOrderSaving(false);
     }
