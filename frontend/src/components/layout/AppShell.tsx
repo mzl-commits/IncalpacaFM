@@ -65,11 +65,12 @@ const modules: ModuleGroup[] = [
     label: "Mantenimiento",
     shortLabel: "Mantenimiento",
     icon: Wrench,
-    paths: ["/", "/incidencias", "/ordenes-trabajo"],
+    paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada"],
     items: [
       { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true },
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, count: "6" },
       { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
+      { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
     ],
   },
   {
@@ -295,12 +296,6 @@ export function AppShell() {
   }, [flyoutOpen]);
 
   function handleRailClick(mod: ModuleGroup) {
-    if (mod.id === "dashboard" || mod.id === "home") {
-      setFlyoutOpen(false);
-      navigate("/");
-      return;
-    }
-
     if (flyoutOpen && activeFlyoutModuleId === mod.id) {
       setFlyoutOpen(false);
     } else {
@@ -311,6 +306,7 @@ export function AppShell() {
 
   const activeFlyoutModule =
     roleModules.find((mod) => mod.id === activeFlyoutModuleId) ?? roleModules[0] ?? modules[1];
+  const technicianNavigation = roleModules.find((mod) => mod.id === "dashboard")?.items ?? [];
 
   function openMobileMenu() {
     setMobileMenuOpen(true);
@@ -332,6 +328,26 @@ export function AppShell() {
 
   return (
     <div className="app-frame-overlay">
+      {user?.role === "TECNICO" ? (
+        <aside className="technician-sidebar" aria-label="Navegación del técnico">
+          <div className="technician-sidebar-brand">
+            <BrandLogo size={36} variant="light" />
+            <span><strong>FM Incalpaca</strong><small>Mi trabajo</small></span>
+          </div>
+          <nav className="technician-sidebar-nav" aria-label="Mi trabajo">
+            {technicianNavigation.map(({ to, label, icon: Icon, end, count }) => (
+              <NavLink key={to} to={to} end={end} className={({ isActive }) => `technician-sidebar-link ${isActive ? "is-active" : ""}`}>
+                <Icon size={20} weight="duotone" /><span>{label}</span>{count !== undefined && <small>{count}</small>}
+              </NavLink>
+            ))}
+          </nav>
+          <NavLink to="/perfil" className="technician-sidebar-profile">
+            <span>{initials}</span><div><strong>{user.fullName}</strong><small>Técnico</small></div>
+          </NavLink>
+          <button className="technician-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
+        </aside>
+      ) : (
+      <>
       {/* 2-LEVEL SIDEBAR: FIXED NARROW RAIL + OVERLAY FLYOUT PANEL */}
       <aside ref={sidebarRef} className="two-level-sidebar-overlay" aria-label="Navegación principal">
         {/* LEVEL 1: NARROW RAIL (Fixed 92px, White background) */}
@@ -461,6 +477,8 @@ export function AppShell() {
           </div>
         )}
       </aside>
+      </>
+      )}
 
       {/* MOBILE NAVIGATION */}
       <nav className="mobile-navigation" aria-label="Accesos rápidos">
@@ -561,7 +579,7 @@ export function AppShell() {
       </dialog>
 
       {/* MAIN CONTENT FRAME: Starts immediately after rail (margin-left: 92px) */}
-      <div className="content-frame-overlay">
+      <div className={`content-frame-overlay ${user?.role === "TECNICO" ? "is-technician" : ""}`}>
         <header className="topbar">
           <div className="topbar-context">
             <SquaresFour size={22} weight="duotone" />
@@ -608,7 +626,7 @@ export function AppShell() {
 
 function itemsForRole(items: NavItem[], user: ReturnType<typeof useAuth>["user"]) {
   if (user?.role === "TECNICO") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo");
+    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
   }
   if (user?.role === "SUPERVISOR") {
     return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
