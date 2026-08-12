@@ -61,11 +61,8 @@ export function MaterialFormPage() {
     periodicidad_unidad: "meses",
     unidad_manejo: 0,
     unidades_por_caja: "",
-<<<<<<< HEAD
     moneda: "PEN",
-=======
     unidad_movimiento_base: null,
->>>>>>> a0e492d (Refactor catalogos (UnidadMedida/TipoManejoStock) + almaceneros autorizados por OT)
   });
 
   useEffect(() => {
@@ -76,7 +73,6 @@ export function MaterialFormPage() {
   const [categoriaId, setCategoriaId] = useState<number>(0);
   const [catalogoModalOpen, setCatalogoModalOpen] = useState(false);
 
-<<<<<<< HEAD
   // Queries parametrizados por almacén activo
   const { data: categorias = [] } = useQuery({
     queryKey: ["categorias", almacenId],
@@ -84,26 +80,31 @@ export function MaterialFormPage() {
     enabled: !!almacenId,
   });
 
-  const { data: subcategorias = [] } = useQuery({
-    queryKey: ["subcategorias", almacenId, categoriaId],
-    queryFn: () => listSubcategorias(almacenId, categoriaId),
-    enabled: !!almacenId && !!categoriaId,
-=======
-  // Queries
-  const { data: categorias = [] } = useQuery({ queryKey: ["categorias"], queryFn: listCategorias });
-  const { data: unidadesMedida = [] } = useQuery({ queryKey: ["unidades-medida"], queryFn: listUnidadesMedida });
-  const { data: tiposManejo = [] } = useQuery({ queryKey: ["tipos-manejo-stock"], queryFn: listTiposManejoStock });
-  const unidadesLongitud = unidadesMedida.filter((u) => u.familia === "longitud" && u.activo);
-  const tipoManejoSeleccionado = tiposManejo.find((t) => t.id === form.unidad_manejo);
+  const { data: unidadesMedida = [] } = useQuery({
+    queryKey: ["unidades-medida"],
+    queryFn: listUnidadesMedida,
+  });
 
-  // Valores por defecto de los catálogos (unidad "mm" y manejo "unidad") una
-  // vez que cargan, solo para material nuevo (en edición se usan los del material).
+  const { data: tiposManejo = [] } = useQuery({
+    queryKey: ["tipos-manejo-stock"],
+    queryFn: listTiposManejoStock,
+  });
+
+  const unidadesLongitud = unidadesMedida.filter(
+    (u) => u.familia === "longitud" && u.activo,
+  );
+  const tipoManejoSeleccionado = tiposManejo.find(
+    (t) => t.id === form.unidad_manejo,
+  );
+
   useEffect(() => {
     if (isEditMode) return;
+
     if (!form.unidad_medida && unidadesMedida.length > 0) {
       const mm = unidadesMedida.find((u) => u.codigo === "mm") ?? unidadesMedida[0];
       if (mm) set("unidad_medida", mm.id);
     }
+
     if (!form.unidad_manejo && tiposManejo.length > 0) {
       const unidad = tiposManejo.find((t) => t.codigo === "unidad") ?? tiposManejo[0];
       if (unidad) set("unidad_manejo", unidad.id);
@@ -111,12 +112,10 @@ export function MaterialFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, unidadesMedida, tiposManejo, form.unidad_medida, form.unidad_manejo]);
 
-  // Subcategorías filtradas por la categoría seleccionada (Paso 1 del formulario)
   const { data: subcategorias = [] } = useQuery({
-    queryKey: ["subcategorias", categoriaId],
-    queryFn: () => listSubcategorias(categoriaId),
-    enabled: !!categoriaId,
->>>>>>> a0e492d (Refactor catalogos (UnidadMedida/TipoManejoStock) + almaceneros autorizados por OT)
+    queryKey: ["subcategorias", almacenId, categoriaId],
+    queryFn: () => listSubcategorias(almacenId, categoriaId),
+    enabled: !!almacenId && !!categoriaId,
   });
 
   const { data: materialExistente, isLoading: isLoadingMaterial } = useQuery({

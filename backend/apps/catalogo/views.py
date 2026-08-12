@@ -16,6 +16,9 @@ from apps.accounts.permissions import (
 from apps.catalogo.models import (
     Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
 )
+
+from apps.catalogo.views import AlmacenScopedMixin
+
 from apps.catalogo.serializers import (
     CategoriaSerializer,
     SubcategoriaSerializer,
