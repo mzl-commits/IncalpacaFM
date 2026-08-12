@@ -41,3 +41,27 @@ export async function classifyAsset(id: string, taxonomyId: string) {
   });
   return data;
 }
+
+export async function printAssetPdf(id: string): Promise<void> {
+  const response = await api.get(`/assets/${id}/pdf/`, { responseType: "blob" });
+  const blob = new Blob([response.data], { type: "application/pdf" });
+  const blobUrl = URL.createObjectURL(blob);
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.src = blobUrl;
+
+  document.body.appendChild(iframe);
+
+  iframe.onload = () => {
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    }, 300);
+  };
+}
