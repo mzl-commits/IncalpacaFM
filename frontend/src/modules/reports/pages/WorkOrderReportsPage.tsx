@@ -89,11 +89,43 @@ export function WorkOrderReportsPage() {
     } catch { setMessage("No se pudo generar el informe."); }
   }
 
+  async function printPdf() {
+    if (!selectedId) return;
+    setMessage("Preparando PDF para impresión...");
+    try {
+      const report = await generateWorkOrderReport(selectedId);
+      const result = await api.get(report.downloadPath, { responseType: "blob" });
+      const blob = new Blob([result.data], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = blobUrl;
+
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setMessage("Diálogo de impresión del PDF abierto.");
+        }, 300);
+      };
+    } catch {
+      setMessage("No se pudo abrir la impresión del PDF.");
+    }
+  }
+
   const manualCosts = costs.filter((c) => c.category !== "MATERIAL");
   const usedTechMaterials = techMaterials.filter((m) => m.tipo === "USADO");
 
   return <section className="work-order-reports-page"><header className="page-heading"><div><p className="breadcrumb">Informes / Órdenes de trabajo</p><h1>Informes detallados de OT</h1><p>Consolida jornadas, técnicos, satisfacción, costos y evidencias de inicio y final.</p></div></header>
-    <div className="work-order-report-layout"><section className="data-panel work-order-report-config"><label className="field"><span>Orden de trabajo</span><select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{orders.map((order) => <option key={order.id} value={order.id}>{order.code} · {order.assetDisplayCode || order.assetCode || "Sin bien"}</option>)}</select></label>{selected && <dl className="work-order-report-summary"><div><dt>Código</dt><dd><a href={`/ordenes-trabajo/${selected.id}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>{selected.code}</a></dd></div><div><dt>Estado</dt><dd>{selected.status}</dd></div><div><dt>Técnico principal</dt><dd>{selected.operatorName}</dd></div><div><dt>Horas efectivas</dt><dd>{Math.round((selected.effectiveWorkMinutes ?? 0) / 60 * 10) / 10} h</dd></div><div><dt>Satisfacción</dt><dd>{selected.satisfaction?.rating ? `${selected.satisfaction.rating}/5` : "Pendiente"}</dd></div></dl>}<div className="work-order-report-actions"><button className="button button-primary" type="button" onClick={() => void generate()} disabled={!selectedId}><FilePdf size={18}/>Generar PDF</button><button className="button button-secondary" type="button" onClick={() => window.print()}><Printer size={18}/>Imprimir vista</button></div>{message && <p className="save-state">{message}</p>}</section>
+    <div className="work-order-report-layout"><section className="data-panel work-order-report-config"><label className="field"><span>Orden de trabajo</span><select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{orders.map((order) => <option key={order.id} value={order.id}>{order.code} · {order.assetDisplayCode || order.assetCode || "Sin bien"}</option>)}</select></label>{selected && <dl className="work-order-report-summary"><div><dt>Código</dt><dd><a href={`/ordenes-trabajo/${selected.id}`} style={{textDecoration: "underline", color: "var(--brand-primary)"}}>{selected.code}</a></dd></div><div><dt>Estado</dt><dd>{selected.status}</dd></div><div><dt>Técnico principal</dt><dd>{selected.operatorName}</dd></div><div><dt>Horas efectivas</dt><dd>{Math.round((selected.effectiveWorkMinutes ?? 0) / 60 * 10) / 10} h</dd></div><div><dt>Satisfacción</dt><dd>{selected.satisfaction?.rating ? `${selected.satisfaction.rating}/5` : "Pendiente"}</dd></div></dl>}<div className="work-order-report-actions"><button className="button button-primary" type="button" onClick={() => void generate()} disabled={!selectedId}><FilePdf size={18}/>Generar PDF</button><button className="button button-secondary" type="button" onClick={() => void printPdf()} disabled={!selectedId}><Printer size={18}/>Imprimir</button></div>{message && <p className="save-state">{message}</p>}</section>
       <section className="data-panel work-order-cost-panel">
         <header>
           <div>
