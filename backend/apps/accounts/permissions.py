@@ -19,6 +19,16 @@ class IsAdministrator(BasePermission):
         return user_role(request.user) == AccountProfile.Role.ADMIN
 
 
+class IsAdministratorOrSupervisor(BasePermission):
+    message = "Esta acción requiere permisos de Administrador/FM o Supervisor."
+
+    def has_permission(self, request, view):
+        return user_role(request.user) in {
+            AccountProfile.Role.ADMIN,
+            AccountProfile.Role.SUPERVISOR,
+        }
+
+
 class IsTechnicianOrAdministrator(BasePermission):
     def has_permission(self, request, view):
         return user_role(request.user) in {

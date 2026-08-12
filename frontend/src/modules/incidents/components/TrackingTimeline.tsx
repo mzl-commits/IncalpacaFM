@@ -38,6 +38,7 @@ export function TrackingTimeline({ events }: Props) {
             <div>
               <h4>{statusLabels[event.status]}</h4>
               <p>{event.description}</p>
+              {event.actor && <span className="tracking-actor">Realizado por: <strong>{event.actor}</strong></span>}
               <small>{formatDate(event.date)}</small>
             </div>
           </div>

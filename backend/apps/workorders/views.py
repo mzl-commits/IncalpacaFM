@@ -13,7 +13,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
 from apps.accounts.models import AccountProfile
-from apps.accounts.permissions import IsAdministrator, IsWorkOrderParticipant, user_role
+from apps.accounts.permissions import IsAdministrator, IsAdministratorOrSupervisor, IsWorkOrderParticipant, user_role
 
 from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto, WorkOrderReport
 from .reporting import build_work_order_pdf
@@ -60,6 +60,43 @@ class WorkOrderDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return participant_queryset(self.request)
+
+
+class WorkOrderPlanningUpdateView(views.APIView):
+    """Actualiza los datos de planificación de una OT desde su ficha."""
+
+    permission_classes = [IsAdministratorOrSupervisor]
+
+    def patch(self, request, pk):
+        order = get_object_or_404(participant_queryset(request), pk=pk)
+        if order.status in {WorkOrder.Status.CLOSED, WorkOrder.Status.CANCELLED}:
+            return response.Response({"detail": "No se puede editar una orden cerrada o cancelada."}, status=400)
+
+        allowed = {"specialty", "adminPriority", "status", "scheduledDate", "scheduledStartTime", "plannedHours", "administratorNotes", "operatorId", "supervisorId"}
+        payload = {key: value for key, value in request.data.items() if key in allowed}
+        serializer = WorkOrderSerializer(order, data=payload, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        # El estado es controlado aquí porque el serializer ordinario lo expone solo en lectura.
+        if "status" in payload:
+            valid_statuses = {choice[0] for choice in WorkOrder.Status.choices}
+            if payload["status"] not in valid_statuses:
+                return response.Response({"status": "Estado no válido."}, status=400)
+            order.status = payload["status"]
+
+        users = get_user_model().objects.select_related("account_profile")
+        for field, role, payload_key in (("technician", AccountProfile.Role.TECHNICIAN, "operatorId"), ("supervisor", AccountProfile.Role.SUPERVISOR, "supervisorId")):
+            if payload_key not in payload:
+                continue
+            person = get_object_or_404(users, account_profile__id=payload[payload_key], account_profile__role=role, is_active=True)
+            setattr(order, field, person)
+
+        for field in ("specialty", "admin_priority", "scheduled_date", "scheduled_start_time", "planned_hours", "administrator_notes"):
+            if field in validated:
+                setattr(order, field, validated[field])
+        order.save()
+        return response.Response(WorkOrderSerializer(order, context={"request": request}).data)
 
 
 class WorkOrderQuickAssignView(views.APIView):
