@@ -62,13 +62,13 @@ type ModuleGroup = {
 
 const modules: ModuleGroup[] = [
   {
-    id: "home",
-    label: "Inicio",
-    shortLabel: "Inicio",
-    icon: House,
+    id: "dashboard",
+    label: "Dashboard",
+    shortLabel: "Dashboard",
+    icon: SquaresFour,
     paths: ["/"],
     items: [
-      { to: "/", label: "Resumen ejecutivo", icon: House, end: true },
+      { to: "/", label: "Dashboard general", icon: SquaresFour, end: true },
     ],
   },
   {
@@ -292,9 +292,8 @@ export function AppShell() {
     };
   }, [flyoutOpen]);
 
-  // Handle clicking a module on the rail
   function handleRailClick(mod: ModuleGroup) {
-    if (mod.id === "home") {
+    if (mod.id === "dashboard" || mod.id === "home") {
       setFlyoutOpen(false);
       navigate("/");
       return;
@@ -612,10 +611,10 @@ export function AppShell() {
 
 function itemsForRole(items: NavItem[], user: ReturnType<typeof useAuth>["user"]) {
   if (user?.role === "TECNICO") {
-    return items.filter((item) => item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
+    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
   }
   if (user?.role === "SUPERVISOR") {
-    return items.filter((item) => item.to === "/ordenes-trabajo" || item.to === "/supervision" || item.to === "/mi-jornada");
+    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/supervision" || item.to === "/mi-jornada");
   }
   return items;
 }
