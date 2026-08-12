@@ -20,6 +20,7 @@ import {
   getAssetDetail,
   classifyAsset,
   updateAssetDetail,
+  printAssetPdf,
   type AssetDetailRecord,
   type AssetDetailUpdate,
 } from "@/modules/assets/assetDetailRepository";
@@ -334,7 +335,7 @@ export function AssetDetailPage() {
             <UserPlus />
             Asignar nuevo responsable
           </button>
-          <button className="button button-secondary" onClick={() => window.print()}>
+          <button className="button button-secondary" type="button" onClick={() => void printAssetPdf(asset.id)}>
             <Printer />
             Imprimir ficha
           </button>
