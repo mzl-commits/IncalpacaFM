@@ -4,18 +4,21 @@ import {
   CheckCircle,
   ClockCounterClockwise,
   MapPin,
+  PencilSimple,
   ShieldCheck,
   Siren,
   Tag,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useAuth } from "@/modules/accounts/AuthContext";
 import { getPublicAsset } from "@/modules/assets/assetEntryRepository";
 
 type PublicAsset = Awaited<ReturnType<typeof getPublicAsset>>;
 
 export function PublicAssetPage() {
   const { token = "" } = useParams();
+  const { user } = useAuth();
   const [asset, setAsset] = useState<PublicAsset | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -29,6 +32,7 @@ export function PublicAssetPage() {
 
   const visibleCode = asset.display_code || asset.fm_code || asset.code;
   const internalCode = asset.internal_code || asset.code;
+  const canEdit = user?.role === "ADMINISTRADOR" && Boolean(asset.admin_edit_id);
 
   return <main className="public-page"><section className="public-card">
     <header><img src="/logo-incalpaca.png" alt="Incalpaca Logo" style={{ maxHeight: "32px", width: "auto" }} /><div><strong style={{ fontFamily: "var(--font-heading)" }}>FM Incalpaca</strong><small>Identificación pública del activo</small></div><span className="public-verified"><CheckCircle weight="fill" />Verificado</span></header>
@@ -38,6 +42,7 @@ export function PublicAssetPage() {
     {asset.service_tracking && <section className="public-tracking" aria-labelledby="public-tracking-title"><div className="public-tracking-heading"><ClockCounterClockwise size={21} /><div><h2 id="public-tracking-title">Seguimiento de tu reporte</h2><p>Estado actual: <strong>{asset.service_tracking.current_label}</strong></p></div></div><ol className="public-tracking-steps">{asset.service_tracking.steps.map((step) => <li className={`is-${step.state}`} key={step.id}><span aria-hidden="true">{step.state === "complete" ? "✓" : ""}</span><div><strong>{step.label}</strong>{step.at && <small>{new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(step.at))}</small>}</div></li>)}</ol><small className="public-tracking-note">Aquí puedes ver el avance general. No compartimos datos personales ni notas internas.</small>{asset.service_tracking.satisfaction?.available && <Link className="button button-secondary" to={asset.service_tracking.satisfaction.url}><CheckCircle size={18} /> Evaluar atención (opcional)</Link>}{asset.service_tracking.satisfaction?.completed && <small className="public-tracking-note">Gracias, tu evaluación del servicio fue registrada.</small>}</section>}
     <aside className="public-privacy"><ShieldCheck size={20} /><p><strong>Consulta segura</strong><span>Esta página no muestra responsables, costos, documentos, números de serie ni ubicaciones específicas.</span></p></aside>
     <div className="public-actions"><Link className="button button-primary" to={`/solicitud-trabajo?asset=${encodeURIComponent(token)}`}><Siren size={19} />Reportar una incidencia</Link><small>No necesitas iniciar sesión. El reporte quedará asociado a este bien.</small></div>
+    {canEdit && <div className="public-admin-shortcut"><Link className="button button-secondary" to={`/bienes/${asset.admin_edit_id}`}><PencilSimple size={18} />Editar bien</Link><small>Acceso administrativo: la ficha pública no muestra información interna.</small></div>}
     <footer>Última actualización: {new Intl.DateTimeFormat("es-PE", { dateStyle: "long" }).format(new Date(asset.updated_at))}</footer>
   </section></main>;
 }
