@@ -18,7 +18,8 @@ class AssetEntryApiTests(TestCase):
     def setUp(self):
         call_command('seed_demo_data', verbosity=0)
         self.client = APIClient()
-        self.client.force_authenticate(get_user_model().objects.get(username='admin'))
+        self.admin = get_user_model().objects.get(username='admin')
+        self.client.force_authenticate(self.admin)
 
     def test_seed_is_idempotent_and_list_uses_database(self):
         before = dict(Asset.objects.values_list('code', 'fm_code'))
@@ -78,6 +79,7 @@ class AssetEntryApiTests(TestCase):
     def test_public_endpoint_excludes_sensitive_fields(self):
         asset = Asset.objects.filter(fm_code__isnull=False).order_by('code').first()
         self.assertIsNotNone(asset)
+        self.client.force_authenticate(user=None)
         response = self.client.get(f'/api/v1/public/assets/{asset.public_token}/')
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('serial_number', response.json())
@@ -86,6 +88,14 @@ class AssetEntryApiTests(TestCase):
         self.assertNotIn('fm_code', response.json())
         self.assertEqual(response.json()['code'], asset.fm_code)
         self.assertEqual(response.json()['display_code'], asset.fm_code)
+        self.assertIsNone(response.json()['admin_edit_id'])
+
+    def test_public_endpoint_exposes_edit_shortcut_only_to_administrator(self):
+        asset = Asset.objects.filter(fm_code__isnull=False).order_by('code').first()
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(f'/api/v1/public/assets/{asset.public_token}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['admin_edit_id'], str(asset.id))
 
     def test_public_endpoint_uses_technical_code_while_classification_is_pending(self):
         asset = Asset.objects.filter(fm_code__isnull=True).order_by('code').first()
