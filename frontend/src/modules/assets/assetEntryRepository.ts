@@ -157,6 +157,7 @@ export async function getPublicAsset(token: string) {
     general_location: string;
     photo_url: string | null;
     report_url: string;
+    admin_edit_id: string | null;
     service_tracking: {
       current_stage: string;
       current_label: string;

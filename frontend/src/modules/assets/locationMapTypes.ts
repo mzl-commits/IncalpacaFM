@@ -25,6 +25,7 @@ export interface LocationOption {
   specificLocation: string;
   headcount: number | null;
   squareMeters: number | null;
+  buildingSquareMeters: number | null;
   commonSpace: boolean;
   active: boolean;
   displayName: string;

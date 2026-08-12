@@ -663,6 +663,16 @@ tr:hover td { background: var(--surface-muted); }
 .technician-schedule-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .technician-schedule-heading h1 { margin: 5px 0 7px; font-size: 32px; letter-spacing: -.025em; }
 .technician-schedule-heading p { margin: 0; color: var(--muted); max-width: 68ch; }
+.team-schedule-selector { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .7fr) auto; align-items: end; gap: 16px; padding: 18px 20px; border: 1px solid var(--surface-border-strong); border-radius: 10px; background: var(--surface-raised); }
+.team-schedule-selector > div:first-child { display: grid; gap: 4px; }
+.team-schedule-selector > div:first-child > span { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.team-schedule-selector h2 { margin: 0; font-size: 18px; }
+.team-schedule-selector p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.team-schedule-selector .field { display: grid; gap: 6px; margin: 0; }
+.team-schedule-selector .field > span { font-size: 12px; font-weight: 750; }
+.team-schedule-selector select { min-height: 42px; }
+.team-schedule-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.team-schedule-actions .button { min-height: 42px; white-space: nowrap; }
 .technician-week-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 58px; padding: 7px 10px; border: 1px solid #e0e0e0; border-radius: 8px; background: #ffffff; }
 .technician-week-toolbar > div { display: flex; align-items: center; gap: 9px; color: var(--primary); }
 .technician-week-toolbar .icon-button { border: 1px solid transparent; }
@@ -730,6 +740,14 @@ tr:hover td { background: var(--surface-muted); }
 .technician-empty-state strong { color: var(--text); }
 .technician-empty-state p { margin: 0; }
 .technician-schedule-loading { min-height: 310px; border: 1px solid #e0e0e0; border-radius: 8px; background: linear-gradient(90deg, #f6f6f6 25%, #ffffff 37%, #f6f6f6 63%); background-size: 400% 100%; animation: schedule-shimmer 1.2s ease infinite; }
+.work-order-planning-editor { margin-bottom: 18px; }
+.work-order-planning-editor .detail-card-heading { align-items: flex-start; }
+.work-order-planning-editor .detail-card-heading > div { flex: 1; }
+.work-order-planning-editor .detail-card-heading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.work-order-planning-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--surface-divider); }
+.work-order-planning-form .field { min-width: 0; }
+.work-order-planning-form .field-wide, .work-order-planning-form .form-error, .work-order-planning-actions { grid-column: 1 / -1; }
+.work-order-planning-actions { display: flex; justify-content: flex-end; gap: 10px; }
 @keyframes schedule-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .technician-schedule-loading { animation: none; } }
 @media (max-width: 780px) {
@@ -737,6 +755,9 @@ tr:hover td { background: var(--surface-muted); }
   .technician-schedule-heading { display: grid; gap: 14px; }
   .technician-schedule-heading h1 { font-size: 27px; }
   .technician-schedule-heading .button { width: 100%; min-height: 46px; justify-content: center; }
+  .team-schedule-selector { grid-template-columns: 1fr; padding: 16px; }
+  .team-schedule-actions .button { flex: 1; justify-content: center; }
+  .work-order-planning-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .technician-week-toolbar { min-height: 52px; padding: 4px; }
   .technician-week-toolbar > div { justify-content: center; text-align: center; font-size: 13px; }
   .technician-week-toolbar > div svg { display: none; }
@@ -771,6 +792,7 @@ tr:hover td { background: var(--surface-muted); }
   .technician-work-history dd { font-size: 11px; }
   .technician-history-empty { justify-content: flex-start; min-height: 105px; }
 }
+@media (max-width: 520px) { .work-order-planning-form { grid-template-columns: 1fr; } .work-order-planning-editor .detail-card-heading { align-items: stretch; flex-wrap: wrap; } .work-order-planning-editor .detail-card-heading .button { width: 100%; justify-content: center; } .work-order-planning-actions .button { flex: 1; justify-content: center; } }
 
 .technician-management-page { display: grid; gap: 20px; }
 .planning-queue { overflow: hidden; }.planning-queue > header { display: flex; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #e8e8e8; }.planning-queue h2 { margin: 0; color: var(--primary); font-size: 18px; }.planning-queue header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }.planning-queue > header > span { color: #5b5b5b; font-size: 13px; font-weight: 700; }.planning-queue > a { display: grid; grid-template-columns: 140px 150px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #efefef; color: inherit; text-decoration: none; }.planning-queue > a:hover { background: #f7f7f7; }.planning-queue a strong, .planning-queue a b { color: #505050; }.planning-queue a span, .planning-queue a small { color: var(--muted); font-size: 12px; }.planning-queue > p { padding: 18px 20px; color: var(--muted); }
@@ -1651,6 +1673,9 @@ td { padding: 13px 14px; }
 .public-logo { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 3px; background: var(--primary); color: #ffffff; font-weight: 800; }
 .public-verified { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--success); font-size: 12px; font-weight: 700; }
 .public-asset-title { padding: 22px 0 4px; }
+.public-admin-shortcut { display: grid; justify-items: end; gap: 6px; margin: 18px 0 2px; }
+.public-admin-shortcut .button { gap: .45rem; }
+.public-admin-shortcut small { color: var(--muted); font-size: .78rem; text-align: right; }
 .public-asset-title h1 { font-size: 26px; }
 .public-asset-title .status-cluster { margin-block: 15px; }
 .public-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2552,6 +2577,8 @@ td { padding: 13px 14px; }
   background: #f6f6f6;
   color: #4f4f4f;
 }
+.tracking-actor { display: block; margin: 5px 0 2px; color: var(--muted); font-size: 12px; }
+.tracking-actor strong { color: var(--text); font-weight: 750; }
 
 @media (max-width: 720px) {
   .tracking-public-heading {
@@ -2563,9 +2590,8 @@ td { padding: 13px 14px; }
   }
 }
 .supervisor-review-page .metrics-grid { margin-bottom: 20px; }
-.supervisor-review-workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, .85fr); align-items: start; gap: 20px; }
-.supervisor-review-table, .supervisor-review-detail { margin: 0; min-width: 0; }
-.supervisor-review-detail { position: sticky; top: 18px; }
+.supervisor-review-workspace { display: block; }
+.supervisor-review-table { margin: 0; min-width: 0; }
 .supervisor-review-heading { align-items: flex-start; justify-content: space-between; gap: 16px; }
 .supervisor-review-heading > div:first-child { display: flex; align-items: flex-start; gap: 11px; }
 .supervisor-review-heading > div:first-child > svg { margin-top: 2px; color: #4d4d4d; }
@@ -2579,9 +2605,10 @@ td { padding: 13px 14px; }
 .supervisor-tabs button span { display: grid; min-width: 20px; height: 20px; place-items: center; border-radius: 999px; background: #e4e4e4; color: #313131; font-size: 11px; }
 .supervisor-tabs button.is-active { background: #313131; color: #ffffff; }
 .supervisor-tabs button.is-active span { background: rgb(255 255 255 / .2); color: #ffffff; }
-.supervisor-review-table tr { cursor: pointer; }
-.supervisor-review-table tr.is-selected td { background: #f1f1f1; }
-.supervisor-review-table tr.is-selected td:first-child { box-shadow: inset 3px 0 0 #4d4d4d; }
+.supervisor-review-table tbody tr { cursor: pointer; transition: background-color 160ms ease; }
+.supervisor-review-table tbody tr:hover td { background: var(--surface-hover); }
+.supervisor-review-table tbody tr:focus-visible { outline: 3px solid rgb(77 77 77 / .3); outline-offset: -3px; }
+.supervisor-review-table tbody tr:focus-visible td { background: var(--surface-hover); }
 .supervisor-order-cards { display: none; }
 .supervisor-detail-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 0 -24px; }
 .supervisor-detail-list > div { min-height: 78px; padding: 14px 24px; border-right: 1px solid var(--surface-divider); border-bottom: 1px solid var(--surface-divider); }
@@ -2589,11 +2616,6 @@ td { padding: 13px 14px; }
 .supervisor-detail-list > div:nth-last-child(-n + 2) { border-bottom: 0; }
 .supervisor-detail-list dd { margin-top: 6px; font-weight: 650; }
 .supervisor-readonly-actions { margin-top: 22px; }
-
-@media (max-width: 1100px) {
-  .supervisor-review-workspace { grid-template-columns: 1fr; }
-  .supervisor-review-detail { position: static; }
-}
 
 @media (max-width: 720px) {
   .supervisor-review-page .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -3064,6 +3086,15 @@ td { padding: 13px 14px; }
   vertical-align: middle;
   color: #000000;
 }
+
+/* Selector compartido: se ancla al campo y se cierra al escoger una opción. */
+.combobox { position: relative; isolation: isolate; }
+.combobox > input { width: 100%; }
+.combobox-panel { position: absolute; z-index: 30; top: calc(100% + 4px); right: 0; left: 0; max-height: 15rem; overflow-y: auto; border: 1px solid var(--border, #dfe6ef); border-radius: 8px; background: #fff; box-shadow: 0 6px 12px rgb(0 0 0 / 10%); }
+.combobox-message { padding: 8px 10px; color: var(--muted); font-size: 13px; }
+.combobox-option { display: block; width: 100%; padding: 8px 10px; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: left; }
+.combobox-option span { margin-left: 6px; color: var(--muted); font-size: 12px; }
+.combobox-option:hover, .combobox-option:focus-visible { background: #f3f4f6; outline: none; }
 
 /* Selector tipo carrito para la vista del técnico */
 .technician-material-workspace {

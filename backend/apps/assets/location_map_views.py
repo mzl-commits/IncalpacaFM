@@ -18,12 +18,13 @@ from apps.accounts.permissions import IsAdministrator
 from apps.audit.services import record_audit
 
 from .location_map_serializers import (
+    BuildingAreaUpdateSerializer,
     LocationMapSummarySerializer,
     LocationMapUploadSerializer,
     LocationAreaUpdateSerializer,
     LocationSerializer,
 )
-from .models import Location, LocationMap
+from .models import BuildingArea, Location, LocationMap
 
 IMAGE_CONTENT_TYPES = {
     ".jpg": "image/jpeg",
@@ -55,6 +56,15 @@ class LocationListView(generics.ListAPIView):
             .order_by("zone", "building", "area", "room")
         )
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Una sola consulta para que el catÃ¡logo no haga una bÃºsqueda por ambiente.
+        context["building_areas_by_identity"] = {
+            (item.site, item.zone, item.building): item.square_meters
+            for item in BuildingArea.objects.all()
+        }
+        return context
+
 
 class LocationAreaUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAdministrator]
@@ -74,6 +84,39 @@ class LocationAreaUpdateView(generics.UpdateAPIView):
             before={"square_meters": str(previous_area) if previous_area is not None else None},
             after={"square_meters": str(updated.square_meters) if updated.square_meters is not None else None},
         )
+
+
+class BuildingAreaUpdateView(APIView):
+    """Actualiza la superficie del edificio asociado al ambiente seleccionado."""
+
+    permission_classes = [IsAdministrator]
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        location = get_object_or_404(Location.objects.select_for_update(), pk=pk, active=True)
+        building_area, _ = BuildingArea.objects.select_for_update().get_or_create(
+            site=location.site,
+            zone=location.zone,
+            building=location.building,
+        )
+        previous_area = building_area.square_meters
+        serializer = BuildingAreaUpdateSerializer(building_area, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated = serializer.save()
+        record_audit(
+            request=request,
+            action="BUILDING_AREA_UPDATED",
+            entity="BuildingArea",
+            entity_id=updated.id,
+            before={
+                "site": location.site,
+                "zone": location.zone,
+                "building": location.building,
+                "square_meters": str(previous_area) if previous_area is not None else None,
+            },
+            after={"square_meters": str(updated.square_meters) if updated.square_meters is not None else None},
+        )
+        return Response({"square_meters": updated.square_meters})
 
 
 class LocationMapListCreateView(generics.ListCreateAPIView):

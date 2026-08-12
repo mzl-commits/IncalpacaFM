@@ -3,6 +3,7 @@ from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 
+from apps.accounts.models import AccountProfile
 from apps.audit.services import record_audit
 from .file_validation import validate_uploaded_file
 from apps.taxonomy.services import (
@@ -321,12 +322,19 @@ class PublicAssetSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
     report_url = serializers.SerializerMethodField()
     service_tracking = serializers.SerializerMethodField()
+    admin_edit_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
         fields = ('code', 'display_code', 'name', 'brand', 'model', 'condition', 'administrative_status',
                   'operational_status', 'classification', 'general_location', 'photo_url',
-                  'report_url', 'service_tracking', 'updated_at')
+                  'report_url', 'service_tracking', 'admin_edit_id', 'updated_at')
+
+    def get_admin_edit_id(self, obj) -> str | None:
+        """El atajo de ediciÃ³n solo se entrega al administrador autenticado."""
+        request = self.context.get('request')
+        profile = getattr(getattr(request, 'user', None), 'account_profile', None)
+        return str(obj.id) if profile and profile.role == AccountProfile.Role.ADMIN else None
 
     def get_code(self, obj) -> str:
         return obj.fm_code or obj.code

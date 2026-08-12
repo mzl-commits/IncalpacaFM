@@ -133,6 +133,34 @@ class Location(UUIDModel):
         return f'{code}{self.zone} / {self.building} / {self.area} / {self.room}'
 
 
+class BuildingArea(UUIDModel):
+    """Superficie declarada para un edificio, independiente de sus ambientes."""
+
+    site = models.CharField(max_length=100, blank=True, default='')
+    zone = models.CharField(max_length=100)
+    building = models.CharField(max_length=100)
+    square_meters = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="TamaÃ±o del edificio (m2)",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("site", "zone", "building"),
+                name="uq_building_area_identity",
+            )
+        ]
+        verbose_name = "Superficie de edificio"
+        verbose_name_plural = "Superficies de edificios"
+
+    def __str__(self):
+        return f"{self.zone} / {self.building}"
+
+
 class LocationMap(UUIDModel):
     location = models.ForeignKey(
         Location,
