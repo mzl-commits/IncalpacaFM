@@ -18,6 +18,7 @@ from .views import (
     AssetClassificationView,
     AssetDetailView,
     AssetListCreateView,
+    AssetPdfView,
     PublicAssetPhotoView,
     PublicAssetView,
     TaxonomyModelListView,
@@ -69,6 +70,7 @@ urlpatterns = [
     ),
     path('assets/', AssetListCreateView.as_view(), name='asset-list-create'),
     path('assets/<uuid:pk>/', AssetDetailView.as_view(), name='asset-detail'),
+    path('assets/<uuid:pk>/pdf/', AssetPdfView.as_view(), name='asset-pdf'),
     path(
         'assets/<uuid:pk>/classify/',
         AssetClassificationView.as_view(),
