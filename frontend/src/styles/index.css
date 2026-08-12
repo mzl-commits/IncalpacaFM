@@ -4699,76 +4699,98 @@ table th *,
 
 .modal-actions-bar .button-secondary:hover {
   background: #F5F5F5 !important;
-  border-color: #C0C0C0 !important;
+  border-color: #C0C0C0;
 }
 
-/* WORK ORDER DETAIL PAGE - COMPACT & MODERN REFINEMENT */
+/* WORK ORDER DETAIL PAGE - COMPACT & MONOCHROME REFINEMENT */
 .wo-detail-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-width: 1140px;
+  gap: 22px !important;
+  max-width: 1160px;
   margin: 0 auto;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
 .wo-detail-page-heading {
-  margin-bottom: 4px !important;
+  margin-bottom: 6px !important;
+}
+
+.wo-detail-page-heading h1 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
 }
 
 .wo-subtitle {
-  font-size: 13.5px;
-  color: #666;
+  font-size: 14px !important;
+  color: #555555 !important;
   margin-top: 2px;
 }
 
 .wo-subtitle-sm {
-  font-size: 12.5px;
-  color: #777;
+  font-size: 13px !important;
+  color: #555555 !important;
   margin: 0;
 }
 
 .wo-back-btn {
-  gap: 6px !important;
-  font-size: 13.5px !important;
-  padding: 6px 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 38px !important;
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 1px solid #D8D8D8 !important;
   border-radius: 8px !important;
+  padding: 0 16px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  transition: all 180ms ease-in-out !important;
+  text-decoration: none !important;
 }
 
-/* HERO BANNER TARJETA COMPACTA */
+.wo-back-btn:hover {
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  border-color: #111111 !important;
+}
+
+/* HERO BANNER TARJETA COMPACTA MONOCROMA */
 .wo-detail-hero-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  background: #FFFFFF;
-  border: 1px solid #E2E2E2;
-  border-radius: 12px;
-  padding: 16px 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  gap: 20px;
+  background: #FFFFFF !important;
+  border: 1px solid #D8D8D8 !important;
+  border-radius: 12px !important;
+  padding: 20px 24px !important;
+  box-shadow: none !important;
 }
 
 .wo-hero-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .wo-hero-icon-box {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  border-radius: 10px;
-  background: #111111;
-  color: #FFFFFF;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  border-radius: 10px !important;
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  display: grid !important;
+  place-items: center !important;
+  box-shadow: none !important;
 }
 
 .wo-hero-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .wo-hero-badges {
@@ -4784,149 +4806,165 @@ table th *,
   letter-spacing: 0.5px;
   background: #111111;
   color: #FFFFFF;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 6px;
 }
 
 .wo-badge-type {
   font-size: 12px;
   font-weight: 600;
-  background: #F0F0F0;
-  color: #333333;
-  padding: 2px 8px;
+  background: #EAEAEA;
+  color: #111111;
+  padding: 3px 9px;
   border-radius: 6px;
+  border: 1px solid #D8D8D8;
 }
 
 .wo-badge-priority {
   font-size: 12px;
   font-weight: 600;
-  background: #EFF6FF;
-  color: #1D4ED8;
-  padding: 2px 8px;
+  background: #F5F5F5;
+  color: #333333;
+  padding: 3px 9px;
   border-radius: 6px;
+  border: 1px solid #D8D8D8;
 }
 
 .wo-badge-origin {
   font-size: 12px;
   font-weight: 600;
-  background: #FDF2F8;
-  color: #BE185D;
-  padding: 2px 8px;
+  background: #F5F5F5;
+  color: #111111;
+  padding: 3px 9px;
   border-radius: 6px;
+  border: 1px solid #D8D8D8;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  transition: all 180ms ease-in-out;
 }
 
 .wo-badge-origin:hover {
-  text-decoration: underline;
+  background: #111111;
+  color: #FFFFFF;
+  border-color: #111111;
 }
 
 .wo-hero-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #111111;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
   margin: 0;
   line-height: 1.3;
 }
 
-/* WORKFLOW GRID 4 PASOS */
+/* WORKFLOW GRID 4 PASOS MONOCROMA */
 .wo-workflow-section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px !important;
 }
 
 .compact-heading {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 0 !important;
 }
 
 .compact-heading h2 {
-  font-size: 15px !important;
+  font-size: 18px !important;
   font-weight: 700 !important;
+  color: #111111 !important;
   margin: 0 !important;
 }
 
 .wo-workflow-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
 }
 
 .wo-step-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 16px 18px;
   border-radius: 10px;
-  background: #F8F9FA;
-  border: 1px solid #E9ECEF;
+  background: #FFFFFF;
+  border: 1px solid #D8D8D8;
+  transition: all 180ms ease-in-out;
+}
+
+.wo-step-card:hover {
+  border-color: #111111;
 }
 
 .wo-step-card.is-done {
-  background: #F0FDF4;
-  border-color: #BBF7D0;
+  background: #F8F9FA;
+  border-color: #111111;
 }
 
 .wo-step-card.is-active {
-  background: #EFF6FF;
-  border-color: #BFDBFE;
+  background: #FFFFFF;
+  border-color: #111111;
+  box-shadow: inset 0 0 0 1px #111111;
 }
 
 .wo-step-card.is-returned {
-  background: #FEF2F2;
-  border-color: #FECACA;
+  background: #F5F5F5;
+  border-color: #999999;
 }
 
 .wo-step-num {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px !important;
+  font-weight: 600 !important;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6B7280;
+  color: #555555 !important;
 }
 
 .wo-step-status {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #111827;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
 }
 
 .wo-step-time, .wo-step-comment {
-  font-size: 12px;
-  color: #4B5563;
-  line-height: 1.3;
+  font-size: 13px !important;
+  color: #555555 !important;
+  line-height: 1.35;
 }
 
-/* COMPACT CARDS & GRIDS */
+/* COMPACT CARDS & GRIDS MONOCROMA */
 .wo-compact-card {
-  padding: 16px 18px !important;
-  border-radius: 10px !important;
-  border: 1px solid #E2E2E2 !important;
+  background: #FFFFFF !important;
+  padding: 20px 24px !important;
+  border-radius: 12px !important;
+  border: 1px solid #D8D8D8 !important;
+  box-shadow: none !important;
 }
 
 .wo-compact-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-  gap: 12px !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+  gap: 20px !important;
+  align-items: stretch !important;
 }
 
 .wo-compact-list {
   display: flex;
   flex-direction: column;
-  gap: 6px !important;
-  margin-top: 10px !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
 }
 
 .wo-compact-list div {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-bottom: 1px dashed #EAEAEA;
 }
 
@@ -4935,73 +4973,153 @@ table th *,
 }
 
 .wo-compact-list dt {
-  font-size: 12.5px;
-  color: #666;
-  font-weight: 500;
+  font-size: 13px !important;
+  color: #555555 !important;
+  font-weight: 600 !important;
 }
 
 .wo-compact-list dd {
-  font-size: 13px;
-  font-weight: 600;
-  color: #111;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #111111 !important;
+  text-align: right;
 }
 
 .wo-compact-dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
-  margin: 10px 0;
+  gap: 14px;
+  margin: 12px 0;
 }
 
 .wo-compact-dl div dt {
-  font-size: 11.5px;
-  color: #666;
+  font-size: 12.5px !important;
+  color: #555555 !important;
+  font-weight: 600 !important;
 }
 
 .wo-compact-dl div dd {
-  font-size: 13px;
-  font-weight: 600;
-  color: #111;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #111111 !important;
 }
 
 .wo-notes-text {
-  font-size: 13.5px;
-  color: #333;
-  line-height: 1.4;
-  margin-top: 8px;
+  font-size: 14px !important;
+  color: #333333 !important;
+  line-height: 1.5;
+  margin-top: 10px;
 }
 
 .wo-compact-photo-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 16px;
+  margin-top: 12px;
 }
 
 .wo-compact-photo-card {
-  border: 1px solid #E5E7EB;
-  border-radius: 8px;
+  border: 1px solid #D8D8D8;
+  border-radius: 10px;
   overflow: hidden;
   margin: 0;
+  background: #FFFFFF;
 }
 
 .wo-compact-photo-card figcaption {
   display: flex;
   justify-content: space-between;
-  padding: 6px 10px;
-  background: #F9FAFB;
-  border-bottom: 1px solid #E5E7EB;
-  font-size: 12px;
+  padding: 8px 12px;
+  background: #F8F8F8;
+  border-bottom: 1px solid #EAEAEA;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111111;
 }
 
 .wo-compact-photo-card img {
   width: 100%;
-  max-height: 200px;
+  max-height: 220px;
   object-fit: cover;
 }
 
 .wo-compact-form {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
   border-top: 1px solid #EAEAEA;
+}
+
+/* BOTONES PRINCIPALES Y SECUNDARIOS MONOCROMA */
+.admin-evaluation-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.admin-evaluation-actions .button-primary,
+.work-order-detail-actions .button-primary {
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #111111 !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  transition: all 180ms ease-in-out !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.admin-evaluation-actions .button-primary:hover,
+.work-order-detail-actions .button-primary:hover {
+  background: #333333 !important;
+  border-color: #333333 !important;
+}
+
+.admin-evaluation-actions .button-secondary,
+.work-order-detail-actions .button-secondary {
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 1px solid #D8D8D8 !important;
+  border-radius: 8px !important;
+  padding: 10px 18px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  transition: all 180ms ease-in-out !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.admin-evaluation-actions .button-secondary:hover,
+.work-order-detail-actions .button-secondary:hover {
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  border-color: #111111 !important;
+}
+
+.admin-evaluation-actions .button-danger {
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 1px solid #111111 !important;
+  border-radius: 8px !important;
+  padding: 10px 18px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  transition: all 180ms ease-in-out !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-evaluation-actions .button-danger:hover {
+  background: #111111 !important;
+  color: #FFFFFF !important;
 }
