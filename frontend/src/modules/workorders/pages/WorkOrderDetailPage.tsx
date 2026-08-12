@@ -960,7 +960,7 @@ export function WorkOrderDetailPage() {
                 color: photoMessage.type === "success" ? "#1B5E20" : "#C62828",
                 border: `1px solid ${photoMessage.type === "success" ? "#C8E6C9" : "#FFCDD2"}`,
                 display: "flex",
-                justify: "space-between",
+                justifyContent: "space-between",
                 alignItems: "center",
               }}
             >
