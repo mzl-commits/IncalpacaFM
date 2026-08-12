@@ -149,10 +149,19 @@ export function TechnicianManagementPage() {
     setError("");
   }
 
+  const supervisors = useMemo(() => {
+    const sups = technicians.filter(
+      (t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR"
+    );
+    return sups.length ? sups : technicians;
+  }, [technicians]);
+
   function openWorkOrderModal(operatorId = "") {
+    const defaultSup = supervisors[0];
     setOrderForm({
       ...emptyOrderForm,
       operatorId: operatorId || (technicians[0]?.id ?? ""),
+      supervisorId: defaultSup?.id ?? "",
       scheduledDate: new Date().toISOString().split("T")[0],
     });
     setWorkOrderModalOpen(true);
@@ -181,7 +190,7 @@ export function TechnicianManagementPage() {
     try {
       const selectedOperator = technicians.find((t) => t.id === orderForm.operatorId);
       const selectedAsset = assets.find((a) => a.id === orderForm.assetId);
-      const selectedSupervisor = SUPERVISORS.find((s) => s.id === orderForm.supervisorId);
+      const selectedSupervisor = supervisors.find((s) => s.id === orderForm.supervisorId);
 
       await createWorkOrder({
         orderType: orderForm.orderType,
@@ -580,9 +589,10 @@ export function TechnicianManagementPage() {
                           value={orderForm.supervisorId}
                           onChange={(e) => setOrderForm({ ...orderForm, supervisorId: e.target.value })}
                         >
-                          {SUPERVISORS.map((sup) => (
+                          <option value="">Selecciona supervisor...</option>
+                          {supervisors.map((sup) => (
                             <option key={sup.id} value={sup.id}>
-                              {sup.name}
+                              {sup.full_name} ({sup.worker_code})
                             </option>
                           ))}
                         </select>

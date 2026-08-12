@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 
 from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginSerializer, UserListSerializer, TechnicianSerializer
 from .models import AccountProfile
-from .permissions import IsAdministrator
+from .permissions import IsAdministrator, IsAuthenticatedReadAdministratorWrite
 from apps.notifications.services import queue_notification
 from config.schema import DetailResponseSerializer, ImportResultSerializer
 
@@ -82,7 +82,7 @@ class UserListView(views.APIView):
 
 
 class TechnicianListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
     serializer_class = TechnicianSerializer
 
     def get_queryset(self):
@@ -91,6 +91,8 @@ class TechnicianListCreateView(generics.ListCreateAPIView):
                 AccountProfile.Role.TECHNICIAN,
                 AccountProfile.Role.ALMACENERO,
                 AccountProfile.Role.INSPECTOR,
+                AccountProfile.Role.SUPERVISOR,
+                AccountProfile.Role.ADMIN,
             ]
         ).order_by('first_name', 'last_name', 'username')
 
