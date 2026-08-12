@@ -27,7 +27,10 @@ from apps.workorders.models import WorkOrder
 
 
 class Command(BaseCommand):
-    help = "Carga datos de prueba idempotentes coherentes con el modelo del SGTB."
+    help = (
+        "Carga datos de demostración idempotentes (usuarios, equipo, activos, stock, "
+        "reportes y OT). No usar como inicialización de producción."
+    )
 
     @transaction.atomic
     def handle(self, *args, **options):
