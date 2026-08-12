@@ -121,3 +121,101 @@ export async function registrarBajaPieza(input: BajaPiezaInput): Promise<Movimie
   const { data } = await api.post<Movimiento>("/movimientos/baja-pieza/", input);
   return data;
 }
+
+// ─── Solicitudes de movimiento (flujo de aprobación ALMACENERO) ───────────────
+
+export type TipoSolicitud = "salida_material" | "salida_pieza" | "baja_material" | "baja_pieza";
+export type EstadoSolicitud = "pendiente" | "aprobada" | "rechazada";
+
+export interface SolicitudMovimiento {
+  id: number;
+  tipo: TipoSolicitud;
+  tipo_display: string;
+  estado: EstadoSolicitud;
+  estado_display: string;
+  material: number | null;
+  material_nombre: string | null;
+  material_codigo: string | null;
+  pieza: number | null;
+  pieza_codigo: string | null;
+  piezas_hijas_ids: number[];
+  cantidad: number;
+  cantidad_cajas: number | null;
+  referencia_externa: string;
+  observaciones: string;
+  solicitado_por: number;
+  solicitado_por_nombre: string | null;
+  creado_en: string;
+  resuelto_en: string | null;
+  resuelto_por: number | null;
+  resuelto_por_nombre: string | null;
+  motivo_rechazo: string;
+  movimiento: number | null;
+}
+
+export interface RespuestaSolicitudPendiente {
+  solicitud_id: number;
+  estado: EstadoSolicitud;
+  tipo: TipoSolicitud;
+  mensaje: string;
+}
+
+export interface CrearSolicitudInput {
+  tipo: TipoSolicitud;
+  material?: number;
+  pieza?: number;
+  piezas_hijas_ids?: number[];
+  cantidad?: number;
+  cantidad_cajas?: number;
+  referencia_externa?: string;
+  observaciones?: string;
+}
+
+export async function listSolicitudes(params: {
+  estado?: EstadoSolicitud;
+  tipo?: TipoSolicitud;
+} = {}): Promise<SolicitudMovimiento[]> {
+  const { data } = await api.get<SolicitudMovimiento[]>("/solicitudes/", { params });
+  return data;
+}
+
+export async function crearSolicitudMovimiento(
+  input: CrearSolicitudInput,
+): Promise<RespuestaSolicitudPendiente> {
+  const { data } = await api.post<RespuestaSolicitudPendiente>("/solicitudes/", input);
+  return data;
+}
+
+export async function aprobarSolicitud(id: number): Promise<{ mensaje: string }> {
+  const { data } = await api.post<{ mensaje: string }>(`/solicitudes/${id}/aprobar/`);
+  return data;
+}
+
+export async function rechazarSolicitud(
+  id: number,
+  motivo_rechazo?: string,
+): Promise<{ mensaje: string }> {
+  const { data } = await api.post<{ mensaje: string }>(`/solicitudes/${id}/rechazar/`, {
+    motivo_rechazo: motivo_rechazo ?? "",
+  });
+  return data;
+}
+
+// ─── Exportación Excel ────────────────────────────────────────────────────────
+
+export async function descargarExcelMovimientos(materialId?: number): Promise<void> {
+  const params = materialId ? { material: materialId } : {};
+  const { data, headers } = await api.get("/movimientos/exportar-excel/", {
+    params,
+    responseType: "blob",
+  });
+  const contentDisposition: string = headers["content-disposition"] ?? "";
+  const match = contentDisposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? "movimientos.xlsx";
+  const url = URL.createObjectURL(new Blob([data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

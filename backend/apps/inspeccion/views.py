@@ -1,5 +1,4 @@
 from rest_framework import viewsets, status
-from rest_framework.permissions import AllowAny
 
 from datetime import timedelta, date
 from django.utils import timezone
@@ -91,7 +90,7 @@ class InspeccionViewSet(viewsets.ModelViewSet):
     queryset = Inspeccion.objects.select_related(
         "material", "pieza", "plantilla", "inspector"
     ).prefetch_related("respuestas__criterio", "piezas_lote").all()
-    permission_classes = [AllowAny]
+    permission_classes = [IsInspectorOrAdministratorWrite]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -192,7 +191,7 @@ class InspeccionViewSet(viewsets.ModelViewSet):
 class RespuestaCriterioViewSet(viewsets.ModelViewSet):
     queryset = RespuestaCriterio.objects.select_related("inspeccion", "criterio").all()
     serializer_class = RespuestaCriterioSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsInspectorOrAdministratorWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -206,7 +205,7 @@ class ProgramacionInspeccionViewSet(viewsets.ReadOnlyModelViewSet):
         "material__subcategoria", "pieza__material__subcategoria", "plan"
     ).all()
     serializer_class = ProgramacionInspeccionSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsInspectorOrAdministratorWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -228,7 +227,7 @@ class ProgramacionInspeccionViewSet(viewsets.ReadOnlyModelViewSet):
 class PlanInspeccionAnualViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PlanInspeccionAnual.objects.all()
     serializer_class = PlanInspeccionAnualSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsInspectorOrAdministratorWrite]
 
     @action(detail=False, methods=["post"], url_path="generar")
     def generar(self, request):

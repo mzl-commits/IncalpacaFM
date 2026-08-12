@@ -38,6 +38,7 @@ const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as 
 export function CatalogoPage() {
   const { user } = useAuth();
   const isTechnician = user?.role === "TECNICO";
+  const isInspector = user?.role === "INSPECTOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
@@ -183,7 +184,7 @@ export function CatalogoPage() {
             <MapTrifold size={18} />
             <span>Croquis del almacén</span>
           </button>
-          {!isTechnician && <Link className="btn-primary" to="/almacen/catalogo/nuevo">
+          {!isTechnician && !isInspector && <Link className="btn-primary" to="/almacen/catalogo/nuevo">
             <Plus size={18} weight="bold" />
             <span>Nuevo material</span>
           </Link>}

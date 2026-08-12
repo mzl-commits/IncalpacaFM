@@ -19,6 +19,7 @@ import {
 import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
+import { useAuth } from "@/modules/accounts/AuthContext";
 
 function Field({ label, required, error, hint, children, wide }: {
   label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
@@ -35,6 +36,8 @@ function Field({ label, required, error, hint, children, wide }: {
 
 export function MovimientoFormPage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const esAlmacenero = user?.role === "ALMACENERO";
   const [params] = useSearchParams();
   const preselMaterial = params.get("material") ? Number(params.get("material")) : 0;
 
@@ -49,6 +52,7 @@ export function MovimientoFormPage() {
   const [error, setError] = useState("");
   const [avisoEstuche, setAvisoEstuche] = useState<{ aviso: string; excluidas: number[] } | null>(null);
   const [exito, setExito] = useState(false);
+  const [exitoPendiente, setExitoPendiente] = useState<string | null>(null); // mensaje de solicitud pendiente
 
   // F2: selección de hijas cuando se elige un contenedor (salida)
   const [todasHijas, setTodasHijas] = useState(true);
@@ -200,9 +204,9 @@ export function MovimientoFormPage() {
         if (!piezaId) throw new Error("Selecciona una pieza.");
         return registrarBajaPieza({ pieza_id: piezaId, responsable_id: responsableId, observaciones });
       } else {
-        const esPorCaja = material?.unidad_manejo === "caja";
-        const cantidadPayload = esPorCaja ? undefined : cantidad;
-        const cantidadCajasPayload = esPorCaja ? cantidadCajas : undefined;
+        const esPorEmpaque = material?.unidad_manejo !== undefined && material.unidad_manejo !== "unidad";
+        const cantidadPayload = esPorEmpaque ? undefined : cantidad;
+        const cantidadCajasPayload = esPorEmpaque ? cantidadCajas : undefined;
         if (tipo === "salida") return registrarSalidaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, referencia_externa: referencia, observaciones });
         if (tipo === "entrada") return registrarEntradaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, observaciones });
         return registrarBajaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, observaciones });
@@ -210,9 +214,17 @@ export function MovimientoFormPage() {
     },
     onSuccess: (resp) => {
       qc.invalidateQueries({ queryKey: ["movimientos"] });
+      qc.invalidateQueries({ queryKey: ["solicitudes"] });
       qc.invalidateQueries({ queryKey: ["material", materialId] });
       qc.invalidateQueries({ queryKey: ["checklist-prestados"] });
       qc.invalidateQueries({ queryKey: ["piezas-prestadas-material", materialId] });
+      // Respuesta 202: solicitud pendiente de aprobación (ALMACENERO)
+      if (resp && typeof resp === "object" && !Array.isArray(resp) && "solicitud_id" in resp) {
+        const r = resp as { mensaje: string };
+        setExitoPendiente(r.mensaje);
+        return;
+      }
+      // Aviso estuche incompleto
       if (resp && typeof resp === "object" && !Array.isArray(resp) && "aviso" in resp) {
         const r = resp as { aviso?: string; hijas_excluidas?: number[] };
         if (r.aviso) {
@@ -231,6 +243,21 @@ export function MovimientoFormPage() {
       }
     },
   });
+
+  if (exitoPendiente) {
+    return (
+      <section className="success-panel">
+        <h2 style={{ color: "var(--accent-600, #2563eb)" }}>\u23f3 Solicitud enviada — pendiente de aprobación</h2>
+        <p style={{ maxWidth: 440, textAlign: "center", color: "var(--neutral-600)" }}>
+          {exitoPendiente}
+        </p>
+        <div className="success-actions">
+          <Link className="button button-primary" to="/almacen/movimientos">Ver historial</Link>
+          <Link className="button button-secondary" to="/almacen/movimientos/nuevo">Nueva solicitud</Link>
+        </div>
+      </section>
+    );
+  }
 
   if (exito || avisoEstuche) {
     return (
@@ -366,11 +393,11 @@ export function MovimientoFormPage() {
                   </Field>
                 )
               ) : material ? (
-                material.unidad_manejo === "caja" ? (
+                material.unidad_manejo !== "unidad" ? (
                   <Field
-                    label="Cantidad de cajas"
+                    label={`Cantidad de ${material.unidad_manejo ?? "empaque"}`}
                     required
-                    hint={`Cada caja trae ${material.unidades_por_caja ?? "?"} unidades · Total: ${
+                    hint={`Cada ${material.unidad_manejo ?? "empaque"} trae ${material.unidades_por_caja ?? "?"} unidades · Total: ${
                       cantidadCajas * (material.unidades_por_caja ?? 0)
                     } unidades`}
                   >
@@ -663,9 +690,9 @@ export function MovimientoFormPage() {
               )}
             </div>
           ) : material ? (
-            <div className="help-note">
-              {material.unidad_manejo === "caja"
-                ? `Este material es consumible y se maneja por caja (${material.unidades_por_caja} unidades c/u). Indica cuántas cajas mover.`
+          <div className="help-note">
+              {material.unidad_manejo !== "unidad"
+                ? `Este material es consumible y se maneja por ${material.unidad_manejo ?? "empaque"} (${material.unidades_por_caja ?? "?"} unidades c/u). Indica cuántos mover.`
                 : "Este material es consumible. Indica la cantidad a mover."}
             </div>
           ) : null}
