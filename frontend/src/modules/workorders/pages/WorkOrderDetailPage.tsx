@@ -121,8 +121,8 @@ function getTextValue(data: Record<string, unknown> | { comment?: unknown } | nu
 
 function getRatingLabel(data: Record<string, unknown> | { rating?: unknown } | null | undefined) {
   const value = data && "rating" in data ? data.rating : undefined;
-  if (typeof value === "number") return `${value} / 5 ⭐`;
-  if (typeof value === "string" && value.trim()) return `${value} / 5 ⭐`;
+  if (typeof value === "number") return `${value} de 5`;
+  if (typeof value === "string" && value.trim()) return `${value} de 5`;
   return "Sin puntuación";
 }
 
@@ -369,8 +369,8 @@ export function WorkOrderDetailPage() {
         <div className="page-heading wo-detail-page-heading">
           <div>
             <p className="breadcrumb">Mantenimiento / Ordenes operativas / Detalle</p>
-            <h1>Orden no encontrada</h1>
-            <p className="wo-subtitle">La orden indicada no existe o ya no está disponible.</p>
+            <h1 className="wo-page-title">Orden no encontrada</h1>
+            <p className="wo-subtitle wo-section-description">La orden indicada no existe o ya no está disponible.</p>
           </div>
           <Link className="button button-secondary wo-back-btn" to="/ordenes-trabajo">
             <ArrowLeft size={16} weight="bold" />
@@ -442,8 +442,8 @@ export function WorkOrderDetailPage() {
       <div className="page-heading wo-detail-page-heading">
         <div>
           <p className="breadcrumb">Mantenimiento / Ordenes operativas / {workOrder.code}</p>
-          <h1>{orderCopy.detailTitle}</h1>
-          <p className="wo-subtitle">Detalle y seguimiento operativo.</p>
+          <h1 className="wo-page-title">{orderCopy.detailTitle}</h1>
+          <p className="wo-subtitle wo-section-description">Detalle y seguimiento operativo.</p>
         </div>
 
         <Link className="button button-secondary wo-back-btn" to="/ordenes-trabajo">
@@ -482,10 +482,10 @@ export function WorkOrderDetailPage() {
       {/* 3. SERVICIO EXTERNO (SI ES OS) */}
       {isServiceOrder && (
         <article className="data-panel detail-card service-order-admin-card wo-compact-card">
-          <div className="service-order-admin-heading">
+          <div className="service-order-admin-heading compact-heading">
+            <ShareNetwork size={22} weight="bold" />
             <div>
-              <span>Servicio externo</span>
-              <h2>Gestión administrativa de OS</h2>
+              <h2 className="wo-section-title">Gestión administrativa de OS</h2>
             </div>
             <span className={`status ${statusClass[workOrder.status]}`}>
               {getWorkOrderStatusLabel(workOrder)}
@@ -493,22 +493,22 @@ export function WorkOrderDetailPage() {
           </div>
 
           <dl className="service-order-summary wo-compact-dl">
-            <div><dt>Proveedor</dt><dd>{serviceDetails.provider}</dd></div>
-            <div><dt>Orden de compra/servicio</dt><dd>{serviceDetails.documentCode}</dd></div>
-            <div><dt>Monto</dt><dd>{serviceDetails.amount}</dd></div>
-            <div><dt>Fecha del servicio</dt><dd>{formatDate(workOrder.scheduledDate)}</dd></div>
+            <div><dt className="wo-field-label">Proveedor</dt><dd className="wo-field-value">{serviceDetails.provider}</dd></div>
+            <div><dt className="wo-field-label">Orden de compra/servicio</dt><dd className="wo-field-value">{serviceDetails.documentCode}</dd></div>
+            <div><dt className="wo-field-label">Monto</dt><dd className="wo-field-value">{serviceDetails.amount}</dd></div>
+            <div><dt className="wo-field-label">Fecha del servicio</dt><dd className="wo-field-value">{formatDate(workOrder.scheduledDate)}</dd></div>
           </dl>
 
           <div className="service-order-status-panel wo-compact-status-panel">
             <div>
-              <strong>{serviceStatusCopy.title}</strong>
-              <p>{serviceStatusCopy.description}</p>
+              <strong className="wo-field-value">{serviceStatusCopy.title}</strong>
+              <p className="wo-section-description">{serviceStatusCopy.description}</p>
             </div>
             <dl>
-              <div><dt>Comentario</dt><dd>{serviceCommentSaved}</dd></div>
+              <div><dt className="wo-field-label">Comentario</dt><dd className="wo-field-value">{serviceCommentSaved}</dd></div>
               <div>
-                <dt>Adjuntos</dt>
-                <dd>
+                <dt className="wo-field-label">Adjuntos</dt>
+                <dd className="wo-field-value">
                   {savedServiceAttachments.length ? (
                     <span className="service-attachment-list">
                       {savedServiceAttachments.map((name) => (
@@ -524,7 +524,7 @@ export function WorkOrderDetailPage() {
           {isAdmin && !["CERRADA", "CANCELADA"].includes(workOrder.status) && (
             <form className="admin-review-form" onSubmit={(event) => event.preventDefault()}>
               <label className="field field-wide">
-                <span>Comentario administrativo</span>
+                <span className="wo-field-label">Comentario administrativo</span>
                 <textarea
                   rows={2}
                   value={serviceComment}
@@ -534,7 +534,7 @@ export function WorkOrderDetailPage() {
               </label>
 
               <label className="field field-wide">
-                <span>Adjuntos de la OS</span>
+                <span className="wo-field-label">Adjuntos de la OS</span>
                 <input
                   type="file"
                   multiple
@@ -590,18 +590,18 @@ export function WorkOrderDetailPage() {
       {/* CORRECCIÓN VINCULADA BANNER */}
       {(workOrder.correctionOfId || workOrder.correctionWorkOrderId) && (
         <article className="data-panel linked-work-order-card wo-compact-linked">
-          <Briefcase size={20} weight="bold" />
+          <Briefcase size={22} weight="bold" />
           <div>
             {workOrder.correctionOfId ? (
               <>
-                <strong>{orderCopy.linkedPrefix}</strong>
+                <strong className="wo-field-value">{orderCopy.linkedPrefix}</strong>
                 <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionOfId}`}>
                   {workOrder.correctionOfCode}
                 </Link>
               </>
             ) : (
               <>
-                <strong>Tiene corrección vinculada:</strong>
+                <strong className="wo-field-value">Tiene corrección vinculada:</strong>
                 <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>
                   {workOrder.correctionWorkOrderCode}
                 </Link>
@@ -616,10 +616,10 @@ export function WorkOrderDetailPage() {
         <div className="work-order-progress data-panel wo-compact-progress">
           <div className="work-order-progress-heading">
             <div>
-              <span>{orderCopy.progressLabel}</span>
-              <strong>{workOrder.progressPercentage} %</strong>
+              <span className="wo-field-label">{orderCopy.progressLabel}</span>
+              <strong className="wo-field-value">{workOrder.progressPercentage} %</strong>
             </div>
-            <small>Actualizado: {formatDateTime(workOrder.updatedAt)}</small>
+            <small className="wo-secondary-text">Actualizado: {formatDateTime(workOrder.updatedAt)}</small>
           </div>
           <div className="progress-track" aria-label={`Avance ${workOrder.progressPercentage}%`}>
             <div
@@ -634,58 +634,58 @@ export function WorkOrderDetailPage() {
       {!isServiceOrder && (
         <article className="data-panel detail-card wo-workflow-section wo-compact-card">
           <div className="detail-card-heading compact-heading">
-            <ShieldCheck size={20} weight="bold" />
-            <h2>{orderCopy.validationTitle}</h2>
+            <ShieldCheck size={22} weight="bold" />
+            <h2 className="wo-section-title">{orderCopy.validationTitle}</h2>
           </div>
 
           <div className="wo-workflow-grid">
             <div className={`wo-step-card ${workOrder.progressPercentage === 100 ? "is-done" : "is-active"}`}>
-              <span className="wo-step-num">{orderCopy.operatorStep}</span>
-              <strong className="wo-step-status">{workOrder.progressPercentage === 100 ? orderCopy.doneLabel : orderCopy.runningLabel}</strong>
-              <small className="wo-step-time">{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</small>
+              <span className="wo-step-num wo-field-label">{orderCopy.operatorStep}</span>
+              <strong className="wo-step-status wo-field-value">{workOrder.progressPercentage === 100 ? orderCopy.doneLabel : orderCopy.runningLabel}</strong>
+              <small className="wo-step-time wo-secondary-text">{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</small>
             </div>
 
             <div className={`wo-step-card ${workOrder.supervisor_validation?.approved ? "is-done" : workOrder.supervisor_validation ? "is-returned" : "is-pending"}`}>
-              <span className="wo-step-num">2. Supervisión</span>
-              <strong className="wo-step-status">{getValidationLabel(workOrder.supervisor_validation)}</strong>
-              <small className="wo-step-comment">{supervisorComment}</small>
+              <span className="wo-step-num wo-field-label">2. Supervisión</span>
+              <strong className="wo-step-status wo-field-value">{getValidationLabel(workOrder.supervisor_validation)}</strong>
+              <small className="wo-step-comment wo-secondary-text">{supervisorComment}</small>
             </div>
 
             <div className={`wo-step-card ${needsAdminReview ? "is-active" : workOrder.administrator_validation?.approved ? "is-done" : workOrder.administrator_validation ? "is-returned" : "is-pending"}`}>
-              <span className="wo-step-num">3. Administración</span>
-              <strong className="wo-step-status">{needsAdminReview ? "Esperando decisión" : getValidationLabel(workOrder.administrator_validation)}</strong>
-              <small className="wo-step-comment">{needsAdminReview ? orderCopy.adminPendingHelp : adminRegisteredComment}</small>
+              <span className="wo-step-num wo-field-label">3. Administración</span>
+              <strong className="wo-step-status wo-field-value">{needsAdminReview ? "Esperando decisión" : getValidationLabel(workOrder.administrator_validation)}</strong>
+              <small className="wo-step-comment wo-secondary-text">{needsAdminReview ? orderCopy.adminPendingHelp : adminRegisteredComment}</small>
             </div>
 
             <div className={`wo-step-card ${workOrder.satisfaction ? "is-done" : "is-pending"}`}>
-              <span className="wo-step-num">4. Solicitante</span>
-              <strong className="wo-step-status">{workOrder.satisfaction ? "Evaluado" : "Sin evaluación"}</strong>
-              <small className="wo-step-comment">{getRatingLabel(workOrder.satisfaction)}</small>
+              <span className="wo-step-num wo-field-label">4. Solicitante</span>
+              <strong className="wo-step-status wo-field-value">{workOrder.satisfaction ? "Evaluado" : "Sin evaluación"}</strong>
+              <small className="wo-step-comment wo-secondary-text">{getRatingLabel(workOrder.satisfaction)}</small>
             </div>
           </div>
 
           {returnInfo && (
             <div className="return-observation-card wo-compact-return">
-              <strong>{returnInfo.title}</strong>
-              <p>{returnInfo.comment}</p>
-              <small>{returnInfo.nextStep}</small>
+              <strong className="wo-field-value">{returnInfo.title}</strong>
+              <p className="wo-normal-text">{returnInfo.comment}</p>
+              <small className="wo-secondary-text">{returnInfo.nextStep}</small>
             </div>
           )}
 
           {isAdmin && returnInfo && correctionSchedule && (
             <div className="correction-scheduled-card wo-compact-card">
               <div>
-                <CheckCircle size={20} weight="bold" />
+                <CheckCircle size={22} weight="bold" />
                 <div>
-                  <strong>Corrección programada</strong>
-                  <p>{orderCopy.correctionCreated}</p>
+                  <strong className="wo-section-title">Corrección programada</strong>
+                  <p className="wo-section-description">{orderCopy.correctionCreated}</p>
                 </div>
               </div>
               <dl className="wo-compact-dl">
-                <div><dt>Fecha</dt><dd>{formatDate(correctionSchedule.scheduledDate)}</dd></div>
-                <div><dt>Hora</dt><dd>{correctionSchedule.scheduledStartTime}</dd></div>
-                <div><dt>Duración</dt><dd>{correctionSchedule.plannedHours} h</dd></div>
-                <div><dt>Indicaciones</dt><dd>{correctionSchedule.administratorNotes}</dd></div>
+                <div><dt className="wo-field-label">Fecha</dt><dd className="wo-field-value">{formatDate(correctionSchedule.scheduledDate)}</dd></div>
+                <div><dt className="wo-field-label">Hora</dt><dd className="wo-field-value">{correctionSchedule.scheduledStartTime}</dd></div>
+                <div><dt className="wo-field-label">Duración</dt><dd className="wo-field-value">{correctionSchedule.plannedHours} h</dd></div>
+                <div><dt className="wo-field-label">Indicaciones</dt><dd className="wo-field-value">{correctionSchedule.administratorNotes}</dd></div>
               </dl>
             </div>
           )}
@@ -693,12 +693,12 @@ export function WorkOrderDetailPage() {
           {canScheduleCorrection && (
             <form className="correction-schedule-form wo-compact-form" onSubmit={handleScheduleCorrection}>
               <div>
-                <strong>Programar corrección</strong>
-                <p>{orderCopy.correctionHelp}</p>
+                <strong className="wo-section-title">Programar corrección</strong>
+                <p className="wo-section-description">{orderCopy.correctionHelp}</p>
               </div>
               <div className="form-grid">
                 <label className="field">
-                  <span>Fecha</span>
+                  <span className="wo-field-label">Fecha</span>
                   <input
                     type="date"
                     min={todayKey()}
@@ -707,7 +707,7 @@ export function WorkOrderDetailPage() {
                   />
                 </label>
                 <label className="field">
-                  <span>Hora</span>
+                  <span className="wo-field-label">Hora</span>
                   <input
                     type="time"
                     value={correctionTime}
@@ -715,7 +715,7 @@ export function WorkOrderDetailPage() {
                   />
                 </label>
                 <label className="field">
-                  <span>Horas est.</span>
+                  <span className="wo-field-label">Horas est.</span>
                   <input
                     type="number"
                     min={1}
@@ -725,7 +725,7 @@ export function WorkOrderDetailPage() {
                   />
                 </label>
                 <label className="field field-wide">
-                  <span>{orderCopy.correctionNotesLabel}</span>
+                  <span className="wo-field-label">{orderCopy.correctionNotesLabel}</span>
                   <textarea
                     rows={2}
                     value={correctionNotes}
@@ -760,7 +760,7 @@ export function WorkOrderDetailPage() {
           {isAdmin && needsAdminReview && (
             <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleAdminReview(true); }}>
               <label className="field field-wide">
-                <span>Comentario administrativo</span>
+                <span className="wo-field-label">Comentario administrativo</span>
                 <textarea
                   rows={2}
                   value={adminComment}
@@ -795,16 +795,16 @@ export function WorkOrderDetailPage() {
       <div className="detail-grid work-order-detail-grid wo-compact-grid">
         <article className="data-panel detail-card wo-compact-card">
           <div className="detail-card-heading compact-heading">
-            <Briefcase size={18} weight="bold" />
-            <h2>{orderCopy.dataTitle}</h2>
+            <Briefcase size={22} weight="bold" />
+            <h2 className="wo-section-title">{orderCopy.dataTitle}</h2>
           </div>
           <dl className="detail-list wo-compact-list">
-            <div><dt>Especialidad</dt><dd>{specialtyLabels[workOrder.specialty] || workOrder.specialty}</dd></div>
-            <div><dt>Prioridad</dt><dd>{adminPriorityLabels[workOrder.adminPriority] || workOrder.adminPriority}</dd></div>
-            <div><dt>Estado</dt><dd>{getWorkOrderStatusLabel(workOrder)}</dd></div>
-            <div><dt>Origen</dt><dd>{workOrder.requestCode}</dd></div>
+            <div><dt className="wo-field-label">Especialidad</dt><dd className="wo-field-value">{specialtyLabels[workOrder.specialty] || workOrder.specialty}</dd></div>
+            <div><dt className="wo-field-label">Prioridad</dt><dd className="wo-field-value">{adminPriorityLabels[workOrder.adminPriority] || workOrder.adminPriority}</dd></div>
+            <div><dt className="wo-field-label">Estado</dt><dd className="wo-field-value">{getWorkOrderStatusLabel(workOrder)}</dd></div>
+            <div><dt className="wo-field-label">Origen</dt><dd className="wo-field-value">{workOrder.requestCode}</dd></div>
             {getWorkOrderAssetDisplayCode(workOrder) && (
-              <div><dt>Bien asociado</dt><dd>{workOrder.assetId ? <Link className="detail-link" to={`/bienes/${workOrder.assetId}`}>{getWorkOrderAssetDisplayCode(workOrder)}</Link> : getWorkOrderAssetDisplayCode(workOrder)}</dd></div>
+              <div><dt className="wo-field-label">Bien asociado</dt><dd className="wo-field-value">{workOrder.assetId ? <Link className="detail-link" to={`/bienes/${workOrder.assetId}`}>{getWorkOrderAssetDisplayCode(workOrder)}</Link> : getWorkOrderAssetDisplayCode(workOrder)}</dd></div>
             )}
           </dl>
         </article>
@@ -812,56 +812,56 @@ export function WorkOrderDetailPage() {
         {!isServiceOrder && (
           <article className="data-panel detail-card wo-compact-card">
             <div className="detail-card-heading compact-heading">
-              <User size={18} weight="bold" />
-              <h2>Responsables</h2>
+              <User size={22} weight="bold" />
+              <h2 className="wo-section-title">Responsables</h2>
             </div>
             <dl className="detail-list wo-compact-list">
-              <div><dt>{orderCopy.operatorLabel}</dt><dd>{workOrder.operatorName || "No asignado"}</dd></div>
-              <div><dt>Supervisor</dt><dd>{workOrder.supervisorName || "No asignado"}</dd></div>
+              <div><dt className="wo-field-label">{orderCopy.operatorLabel}</dt><dd className="wo-field-value">{workOrder.operatorName || "No asignado"}</dd></div>
+              <div><dt className="wo-field-label">Supervisor</dt><dd className="wo-field-value">{workOrder.supervisorName || "No asignado"}</dd></div>
             </dl>
           </article>
         )}
 
         <article className="data-panel detail-card wo-compact-card">
           <div className="detail-card-heading compact-heading">
-            <CalendarBlank size={18} weight="bold" />
-            <h2>{orderCopy.scheduleTitle}</h2>
+            <CalendarBlank size={22} weight="bold" />
+            <h2 className="wo-section-title">{orderCopy.scheduleTitle}</h2>
           </div>
           <dl className="detail-list wo-compact-list">
-            <div><dt>Programada</dt><dd>{formatDate(workOrder.scheduledDate)}</dd></div>
-            <div><dt>Inicio</dt><dd>{formatDateTime(workOrder.startedAt)}</dd></div>
-            <div><dt>Finalización</dt><dd>{formatDateTime(workOrder.finishedAt)}</dd></div>
-            <div><dt>Cierre</dt><dd>{formatDateTime(workOrder.closedAt)}</dd></div>
+            <div><dt className="wo-field-label">Programada</dt><dd className="wo-field-value">{formatDate(workOrder.scheduledDate)}</dd></div>
+            <div><dt className="wo-field-label">Inicio</dt><dd className="wo-field-value">{formatDateTime(workOrder.startedAt)}</dd></div>
+            <div><dt className="wo-field-label">Finalización</dt><dd className="wo-field-value">{formatDateTime(workOrder.finishedAt)}</dd></div>
+            <div><dt className="wo-field-label">Cierre</dt><dd className="wo-field-value">{formatDateTime(workOrder.closedAt)}</dd></div>
           </dl>
         </article>
 
         {!isServiceOrder && (
           <article className="data-panel detail-card wo-compact-card">
             <div className="detail-card-heading compact-heading">
-              <ClockCounterClockwise size={18} weight="bold" />
-              <h2>{orderCopy.durationTitle}</h2>
+              <ClockCounterClockwise size={22} weight="bold" />
+              <h2 className="wo-section-title">{orderCopy.durationTitle}</h2>
             </div>
             <dl className="detail-list wo-compact-list">
-              <div><dt>Efectivo</dt><dd>{formatMinutesDuration(workOrder.effectiveWorkMinutes)}</dd></div>
-              <div><dt>Calendario</dt><dd>{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</dd></div>
+              <div><dt className="wo-field-label">Efectivo</dt><dd className="wo-field-value">{formatMinutesDuration(workOrder.effectiveWorkMinutes)}</dd></div>
+              <div><dt className="wo-field-label">Calendario</dt><dd className="wo-field-value">{formatWorkDuration(workOrder.startedAt, workOrder.finishedAt)}</dd></div>
             </dl>
           </article>
         )}
 
         <article className="data-panel detail-card wo-compact-card">
           <div className="detail-card-heading compact-heading">
-            <MapPin size={18} weight="bold" />
-            <h2>{orderCopy.locationTitle}</h2>
+            <MapPin size={22} weight="bold" />
+            <h2 className="wo-section-title">{orderCopy.locationTitle}</h2>
           </div>
           {request ? (
             <dl className="detail-list wo-compact-list">
-              <div><dt>Zona</dt><dd>{request.zone}</dd></div>
-              <div><dt>Edificio</dt><dd>{request.building}</dd></div>
-              <div><dt>Área</dt><dd>{request.area}</dd></div>
-              <div><dt>Ambiente</dt><dd>{request.room}</dd></div>
+              <div><dt className="wo-field-label">Zona</dt><dd className="wo-field-value">{request.zone}</dd></div>
+              <div><dt className="wo-field-label">Edificio</dt><dd className="wo-field-value">{request.building}</dd></div>
+              <div><dt className="wo-field-label">Área</dt><dd className="wo-field-value">{request.area}</dd></div>
+              <div><dt className="wo-field-label">Ambiente</dt><dd className="wo-field-value">{request.room}</dd></div>
             </dl>
           ) : (
-            <p className="detail-empty">Sin ubicación vinculada.</p>
+            <p className="detail-empty wo-secondary-text">Sin ubicación vinculada.</p>
           )}
         </article>
       </div>
@@ -870,10 +870,10 @@ export function WorkOrderDetailPage() {
       {!isServiceOrder && (
         <article className="data-panel detail-card work-order-photo-evidence wo-compact-card">
           <div className="detail-card-heading compact-heading">
-            <ClipboardText size={18} weight="bold" />
+            <ClipboardText size={22} weight="bold" />
             <div>
-              <h2>Evidencia fotográfica</h2>
-              <p className="wo-subtitle-sm">Comparativa visual del trabajo (Antes / Después).</p>
+              <h2 className="wo-section-title">Evidencia fotográfica</h2>
+              <p className="wo-subtitle-sm wo-section-description">Comparativa visual del trabajo (Antes / Después).</p>
             </div>
           </div>
           <div className="work-order-photo-grid wo-compact-photo-grid">
@@ -882,8 +882,8 @@ export function WorkOrderDetailPage() {
               ["Después", photoUrls.finish, "Sin foto final."],
             ] as const).map(([label, url, help]) => (
               <figure className="work-order-photo-card wo-compact-photo-card" key={label}>
-                <figcaption><strong>{label}</strong><span>{url ? "Disponible" : "Sin foto"}</span></figcaption>
-                {url ? <img src={url} alt={`Estado del bien ${label.toLowerCase()}`} /> : <div className="work-order-photo-empty">{help}</div>}
+                <figcaption><strong className="wo-field-value">{label}</strong><span className="wo-secondary-text">{url ? "Disponible" : "Sin foto"}</span></figcaption>
+                {url ? <img src={url} alt={`Estado del bien ${label.toLowerCase()}`} /> : <div className="work-order-photo-empty wo-secondary-text">{help}</div>}
               </figure>
             ))}
           </div>
@@ -893,29 +893,29 @@ export function WorkOrderDetailPage() {
       {/* INDICACIONES DEL ADMINISTRADOR */}
       <article className="data-panel detail-card work-order-notes wo-compact-card">
         <div className="detail-card-heading compact-heading">
-          <ClipboardText size={18} weight="bold" />
-          <h2>Indicaciones del administrador</h2>
+          <ClipboardText size={22} weight="bold" />
+          <h2 className="wo-section-title">Indicaciones del administrador</h2>
         </div>
-        <p className="wo-notes-text">{workOrder.administratorNotes || "Sin indicaciones adicionales."}</p>
+        <p className="wo-notes-text wo-normal-text">{workOrder.administratorNotes || "Sin indicaciones adicionales."}</p>
       </article>
 
       {/* SIGUIENTE PASO DE EJECUCIÓN */}
       {!isServiceOrder && (
         <article className="data-panel detail-card work-order-actions-card technician-next-action-card wo-compact-card">
           <div className="detail-card-heading compact-heading">
-            <Wrench size={18} weight="bold" />
-            <h2>Siguiente paso</h2>
+            <Wrench size={22} weight="bold" />
+            <h2 className="wo-section-title">Siguiente paso</h2>
           </div>
           {isAdmin ? (
             <MaterialesOTAdminSection workOrderId={workOrder.id} emptyMessage={orderCopy.executionEmpty} />
           ) : (
-            <p className="detail-empty">{orderCopy.executionEmpty}</p>
+            <p className="detail-empty wo-secondary-text">{orderCopy.executionEmpty}</p>
           )}
 
           {canRegisterProgress ? (
             <>
               <div className="technician-next-action-copy">
-                <strong>
+                <strong className="wo-field-value">
                   {workOrder.status === "EN_PROCESO"
                     ? isCleaningOrder ? "Continúa la limpieza" : "Continúa el trabajo"
                     : workOrder.progressPercentage > 0
@@ -938,7 +938,7 @@ export function WorkOrderDetailPage() {
               </div>
             </>
           ) : (
-            <p className="detail-empty">
+            <p className="detail-empty wo-secondary-text">
               {workOrder.correctionWorkOrderId
                 ? "Esta orden tiene una corrección vinculada. Abre la nueva orden para continuar."
                 : "No hay acciones pendientes para el técnico."}
