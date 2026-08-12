@@ -20,6 +20,8 @@ import type {
   UnidadMedida,
   UnidadManejo,
 } from "@/modules/almacen/types";
+import { unidadManejoLabels } from "@/modules/almacen/types";
+
 
 // ─── Tipos y constantes del formulario ───────────────────────────────────────
 type Fase = "form" | "exito";
@@ -153,26 +155,25 @@ export function MaterialFormPage() {
     if (!form.nombre.trim()) errs.nombre = "El nombre es requerido.";
     if (!form.subcategoria) errs.subcategoria = "Selecciona una subcategoría.";
     if (!form.tipo_control) errs.tipo_control = "Selecciona el tipo de control.";
-    if (
+    const usaEmpaque =
       form.tipo_control === "no_retornable" &&
       !form.control_individual &&
-      form.unidad_manejo === "caja" &&
-      !(Number(form.unidades_por_caja) > 0)
-    ) {
-      errs.unidades_por_caja = "Indica cuántas unidades trae cada caja.";
+      form.unidad_manejo !== "unidad";
+    if (usaEmpaque && !(Number(form.unidades_por_caja) > 0)) {
+      errs.unidades_por_caja = "Indica cuántas unidades trae cada empaque.";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
 
   function buildPayload(): MaterialCreatePayload {
-    const usaCaja =
+    const usaEmpaque =
       form.tipo_control === "no_retornable" &&
       !form.control_individual &&
-      form.unidad_manejo === "caja";
+      form.unidad_manejo !== "unidad";
     return {
       ...form,
-      unidades_por_caja: usaCaja ? Number(form.unidades_por_caja) : null,
+      unidades_por_caja: usaEmpaque ? Number(form.unidades_por_caja) : null,
     };
   }
   function handleSubmit(e: React.FormEvent) {
@@ -490,17 +491,47 @@ export function MaterialFormPage() {
                     style={{ maxWidth: 220 }}
                   >
                     <option value="unidad">Por unidad suelta</option>
-                    <option value="caja">Por caja</option>
+                    <optgroup label="Empaques cerrados">
+                      <option value="caja">Por caja</option>
+                      <option value="bolsa">Por bolsa</option>
+                      <option value="paquete">Por paquete</option>
+                      <option value="fardo">Por fardo</option>
+                      <option value="saco">Por saco</option>
+                      <option value="balde">Por balde</option>
+                      <option value="cunete">Por cuñete</option>
+                      <option value="tambor">Por tambor / cilindro</option>
+                      <option value="bidon">Por bidón</option>
+                      <option value="frasco">Por frasco</option>
+                      <option value="blister">Por blíster</option>
+                    </optgroup>
+                    <optgroup label="Rollos / enrollados">
+                      <option value="rollo">Por rollo</option>
+                      <option value="bobina">Por bobina</option>
+                      <option value="carrete">Por carrete</option>
+                    </optgroup>
+                    <optgroup label="Medidas de cantidad">
+                      <option value="millar">Por millar</option>
+                      <option value="ciento">Por ciento</option>
+                      <option value="docena">Por docena</option>
+                    </optgroup>
+                    <optgroup label="Juegos / conjuntos">
+                      <option value="juego">Por juego / kit</option>
+                    </optgroup>
+                    <optgroup label="Piezas largas / planas">
+                      <option value="plancha">Por plancha / lámina</option>
+                      <option value="barra">Por barra</option>
+                      <option value="hoja">Por hoja</option>
+                    </optgroup>
                   </select>
                 </Field>
 
-                {form.unidad_manejo === "caja" ? (
+                {form.unidad_manejo !== "unidad" ? (
                   <div className="form-grid" style={{ marginTop: 12 }}>
                     <Field
-                      label="Unidades por caja"
+                      label={`Unidades por ${unidadManejoLabels[form.unidad_manejo as UnidadManejo] ?? "empaque"}`}
                       required
                       error={errors.unidades_por_caja}
-                      hint="Cuántas unidades trae cada caja cerrada."
+                      hint="¿Cuántas unidades trae cada unidad de manejo?"
                     >
                       <input
                         type="number"
@@ -517,7 +548,7 @@ export function MaterialFormPage() {
                       />
                     </Field>
                     <Field
-                      label="Cantidad de cajas iniciales"
+                      label={`Cantidad de ${unidadManejoLabels[form.unidad_manejo as UnidadManejo] ?? "empaques"} iniciales`}
                       hint="Se usa solo para calcular el stock total en unidades."
                     >
                       <input

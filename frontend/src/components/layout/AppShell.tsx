@@ -123,6 +123,7 @@ const modules: ModuleGroup[] = [
     shortLabel: "QR",
     icon: Barcode,
     paths: ["/bienes/qr", "/administracion/taxonomia/codigos"],
+    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
     items: [
       { to: "/bienes/qr", label: "Imprimir QR", icon: Barcode },
       { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Tag },

@@ -1,5 +1,5 @@
-import { ArrowRight, WarningCircle } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, ClockCountdown, FileXls, WarningCircle } from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Fragment, useMemo, useState } from "react";
 
@@ -9,11 +9,23 @@ import { FilterSelect, FilterDate, ListFilterPanel } from "@/components/filters/
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listMovimientos, listChecklistPrestados } from "@/modules/almacen/inventarioRepository";
+import {
+  listMovimientos,
+  listChecklistPrestados,
+  listSolicitudes,
+  aprobarSolicitud,
+  rechazarSolicitud,
+  descargarExcelMovimientos,
+} from "@/modules/almacen/inventarioRepository";
+import { useAuth } from "@/modules/accounts/AuthContext";
 
 const FILTER_KEYS = ["material", "pieza", "tipo", "desde", "hasta"] as const;
 
 export function MovimientosPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const esAdmin = user?.role === "ADMINISTRADOR";
+  const esAlmacenero = user?.role === "ALMACENERO";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
 
   // El campo "Buscar" (values.material) es texto libre (código/nombre de
@@ -69,6 +81,41 @@ export function MovimientosPage() {
     const fechaMov = p.ultimo_movimiento?.fecha?.slice(0, 10);
     return fechaMov && fechaMov < hoy;
   });
+
+  // Solicitudes pendientes (solo para admin)
+  const { data: solicitudesPendientes = [] } = useQuery({
+    queryKey: ["solicitudes", "pendiente"],
+    queryFn: () => listSolicitudes({ estado: "pendiente" }),
+    enabled: esAdmin,
+    refetchInterval: 30_000, // refresca cada 30 seg
+  });
+
+  const aprobarMut = useMutation({
+    mutationFn: (id: number) => aprobarSolicitud(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["solicitudes"] });
+      qc.invalidateQueries({ queryKey: ["movimientos"] });
+    },
+  });
+
+  const rechazarMut = useMutation({
+    mutationFn: ({ id, motivo }: { id: number; motivo?: string }) =>
+      rechazarSolicitud(id, motivo),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["solicitudes"] }),
+  });
+
+  const [motivoRechazos, setMotivoRechazos] = useState<Record<number, string>>({});
+  const [excelLoading, setExcelLoading] = useState(false);
+
+  async function handleExcel() {
+    setExcelLoading(true);
+    try {
+      const materialFiltro = values.pieza ? undefined : undefined; // se extiende si hay filtro por material
+      await descargarExcelMovimientos(materialFiltro);
+    } finally {
+      setExcelLoading(false);
+    }
+  }
 
   // Stats
   const totalSalidas = movimientos.filter((m) => m.tipo === "salida").length;
@@ -253,15 +300,45 @@ export function MovimientosPage() {
           <h1>Movimientos de stock</h1>
           <p>Historial de salidas, entradas y bajas del almacén.</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={handleExcel}
+            disabled={excelLoading}
+            title="Exportar historial a Excel"
+          >
+            <FileXls size={16} />{excelLoading ? " Generando..." : " Exportar Excel"}
+          </button>
           <Link to="/almacen/checklist" className="button button-secondary">
             Checklist del día
           </Link>
-          <Link to="/almacen/movimientos/nuevo" className="button button-primary">
-            <ArrowRight size={16} /> Registrar movimiento
-          </Link>
+          {!esAlmacenero && (
+            <Link to="/almacen/movimientos/nuevo" className="button button-primary">
+              <ArrowRight size={16} /> Registrar movimiento
+            </Link>
+          )}
+          {esAlmacenero && (
+            <Link to="/almacen/movimientos/nuevo" className="button button-primary">
+              <ClockCountdown size={16} /> Solicitar movimiento
+            </Link>
+          )}
         </div>
       </div>
+
+      {/* Banner almacenero: aviso de flujo de aprobación */}
+      {esAlmacenero && (
+        <div className="alert-banner" style={{ background: "var(--accent-50, #eff6ff)", borderColor: "var(--accent-300, #93c5fd)" }}>
+          <ClockCountdown size={20} style={{ color: "var(--accent-600, #2563eb)" }} />
+          <div>
+            <strong>Tus movimientos de salida y baja requieren aprobación</strong>
+            <p style={{ margin: "4px 0 0", fontSize: 13 }}>
+              Al solicitar una salida o baja, quedará pendiente hasta que un administrador la apruebe.
+              Las entradas se registran de forma inmediata.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Alertas de piezas prestadas sin devolver */}
       {prestadasAntiguas.length > 0 && (
@@ -278,6 +355,76 @@ export function MovimientosPage() {
               </Link>
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Panel de solicitudes pendientes para admin */}
+      {esAdmin && solicitudesPendientes.length > 0 && (
+        <div className="panel" style={{ marginBottom: "1.5rem", borderLeft: "4px solid var(--warning-400, #f59e0b)" }}>
+          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <ClockCountdown size={18} style={{ color: "var(--warning-500)" }} />
+            Solicitudes pendientes de aprobación ({solicitudesPendientes.length})
+          </h2>
+          <table className="data-table" style={{ width: "100%", marginTop: 8 }}>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Material / Pieza</th>
+                <th>Cantidad</th>
+                <th>Solicitado por</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {solicitudesPendientes.map((s) => (
+                <tr key={s.id}>
+                  <td><span className="badge status-warning">{s.tipo_display}</span></td>
+                  <td>
+                    {s.material_codigo && <strong>{s.material_codigo}</strong>}
+                    {s.pieza_codigo && <strong>{s.pieza_codigo}</strong>}
+                    {" "}{s.material_nombre ?? "—"}
+                  </td>
+                  <td>
+                    {s.cantidad_cajas != null
+                      ? `${s.cantidad_cajas} emp. × ${s.cantidad_cajas > 0 ? Math.round(s.cantidad / s.cantidad_cajas) : "?"} u./emp. = ${s.cantidad} u.`
+                      : `${s.cantidad} u.`
+                    }
+                  </td>
+
+                  <td>{s.solicitado_por_nombre}</td>
+                  <td>{new Date(s.creado_en).toLocaleDateString("es-PE")}</td>
+                  <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button
+                      className="btn btn-xs btn-primary"
+                      disabled={aprobarMut.isPending}
+                      onClick={() => aprobarMut.mutate(s.id)}
+                    >
+                      Aprobar
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Motivo (opcional)"
+                      style={{ fontSize: 12, padding: "2px 6px", width: 130 }}
+                      value={motivoRechazos[s.id] ?? ""}
+                      onChange={(e) =>
+                        setMotivoRechazos((prev) => ({ ...prev, [s.id]: e.target.value }))
+                      }
+                    />
+                    <button
+                      className="btn btn-xs btn-danger"
+                      disabled={rechazarMut.isPending}
+                      onClick={() =>
+                        rechazarMut.mutate({ id: s.id, motivo: motivoRechazos[s.id] })
+                      }
+                    >
+                      Rechazar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
