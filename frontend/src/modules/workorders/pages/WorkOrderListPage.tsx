@@ -173,15 +173,30 @@ export function WorkOrderListPage() {
       ]);
       setTechnicians(people);
       setAssets(assetList);
-    } catch {}
+      return { people, assetList };
+    } catch {
+      return { people: [], assetList: [] };
+    }
   }
 
-  function openCreateOrderModal() {
-    void loadAuxiliaryData();
-    const defaultOperator = technicians.find((t) => t.email === user?.email || t.worker_code === user?.username) || technicians[0];
+  const supervisors = useMemo(() => {
+    const sups = technicians.filter(
+      (t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR"
+    );
+    return sups.length ? sups : technicians;
+  }, [technicians]);
+
+  async function openCreateOrderModal() {
+    const { people } = await loadAuxiliaryData();
+    const activeTechs = people.length ? people : technicians;
+    const defaultOperator = activeTechs.find((t) => t.email === user?.email || t.worker_code === user?.username) || activeTechs[0];
+    const sups = activeTechs.filter((t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR");
+    const defaultSup = sups.length ? sups[0] : activeTechs[0];
+
     setOrderForm({
       ...emptyOrderForm,
       operatorId: defaultOperator?.id ?? "",
+      supervisorId: defaultSup?.id ?? "",
       scheduledDate: new Date().toISOString().split("T")[0],
     });
     setWorkOrderModalOpen(true);
@@ -257,6 +272,7 @@ export function WorkOrderListPage() {
     }
 
     void refreshWorkOrders();
+    void loadAuxiliaryData();
     window.addEventListener(WORK_ORDERS_UPDATED_EVENT, refreshWorkOrders);
 
     return () => {
@@ -883,9 +899,10 @@ export function WorkOrderListPage() {
                           value={orderForm.supervisorId}
                           onChange={(e) => setOrderForm({ ...orderForm, supervisorId: e.target.value })}
                         >
-                          {SUPERVISORS.map((sup) => (
+                          <option value="">Selecciona supervisor...</option>
+                          {supervisors.map((sup) => (
                             <option key={sup.id} value={sup.id}>
-                              {sup.name}
+                              {sup.full_name} ({sup.worker_code})
                             </option>
                           ))}
                         </select>
