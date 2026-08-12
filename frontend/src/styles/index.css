@@ -6580,9 +6580,9 @@ table th *,
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .05em !important;
-  color: #AAAAAA !important;
-  background: #FAFAFA !important;
-  padding: 10px 14px !important;
+  color: #FFFFFF !important;
+  background: #111111 !important;
+  padding: 11px 14px !important;
 }
 .technician-timesheet tbody td {
   padding: 11px 14px !important;
