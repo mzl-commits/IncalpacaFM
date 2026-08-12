@@ -670,67 +670,31 @@ export function TechnicianManagementPage() {
                     </label>
                   </div>
 
-                  <div className="field">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 600, fontSize: '13px', color: '#333' }}>Duración estimada *</span>
-                      <button
-                        type="button"
-                        style={{ background: 'none', border: 'none', color: '#0066CC', cursor: 'pointer', fontSize: '12px', fontWeight: 600, textDecoration: 'underline' }}
-                        onClick={() => setCustomDurationMode(!customDurationMode)}
-                      >
-                        {customDurationMode ? "⚡ Elegir de la lista" : "✍️ Ingresar manualmente"}
-                      </button>
-                    </div>
-
-                    {customDurationMode ? (
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input
-                          type="number"
-                          step="0.25"
-                          min="0.25"
-                          max="24"
-                          placeholder="Ej. 1.5 horas"
-                          value={orderForm.plannedHours}
-                          onChange={(e) => setOrderForm({ ...orderForm, plannedHours: Math.max(0.1, Number(e.target.value)) })}
-                        />
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}>horas</span>
-                      </div>
-                    ) : (
-                      <select
+                  <div className="form-group-row">
+                    <label className="field">
+                      <span>Duración estimada (horas) *</span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.25"
+                        max="24"
+                        required
+                        placeholder="Ej. 2 (o 1.5, 0.5, 8...)"
                         value={orderForm.plannedHours}
-                        onChange={(e) => {
-                          if (e.target.value === "custom") {
-                            setCustomDurationMode(true);
-                          } else {
-                            setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) });
-                          }
-                        }}
-                      >
-                        <option value={0.5}>0.5 h (30 minutos)</option>
-                        <option value={1}>1.0 h (1 hora)</option>
-                        <option value={1.5}>1.5 h (1 hora y 30 min)</option>
-                        <option value={2}>2.0 h (2 horas)</option>
-                        <option value={2.5}>2.5 h (2 horas y 30 min)</option>
-                        <option value={3}>3.0 h (3 horas)</option>
-                        <option value={3.5}>3.5 h (3 horas y 30 min)</option>
-                        <option value={4}>4.0 h (4 horas - Media jornada)</option>
-                        <option value={5}>5.0 h (5 horas)</option>
-                        <option value={6}>6.0 h (6 horas)</option>
-                        <option value={8}>8.0 h (8 horas - Jornada completa)</option>
-                        <option value="custom">✍️ Ingresar manualmente en horas...</option>
-                      </select>
-                    )}
-                  </div>
+                        onChange={(e) => setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) })}
+                      />
+                    </label>
 
-                  {/* RESUMEN DE VENTANA DE HORARIO (INICIO Y FIN ESTIMADA) */}
-                  <div style={{ background: '#F8F9FA', border: '1px solid #D8D8D8', borderRadius: '8px', padding: '10px 14px', marginTop: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#111111' }}>
-                      <span><strong>Hora Inicio:</strong> {format12HTime(orderForm.scheduledStartTime)}</span>
-                      <span><strong>Hora Fin estimada:</strong> {getCalculatedEndTime(orderForm.scheduledStartTime, orderForm.plannedHours)}</span>
-                    </div>
-                    <small style={{ display: 'block', marginTop: '4px', color: '#666666', fontSize: '12px' }}>
-                      ⏱️ Horario reservado: {format12HTime(orderForm.scheduledStartTime)} a {getCalculatedEndTime(orderForm.scheduledStartTime, orderForm.plannedHours)} ({orderForm.plannedHours} hora{orderForm.plannedHours === 1 ? "" : "s"})
-                    </small>
+                    <label className="field">
+                      <span>Hora de fin estimada</span>
+                      <input
+                        type="text"
+                        readOnly
+                        disabled
+                        value={getCalculatedEndTime(orderForm.scheduledStartTime, orderForm.plannedHours)}
+                        style={{ background: '#F8F9FA', color: '#111111', fontWeight: 600, cursor: 'not-allowed' }}
+                      />
+                    </label>
                   </div>
                   </div>
                 </div>
