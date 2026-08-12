@@ -606,6 +606,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                 "status": "REPORTADO",
                 "description": "Solicitud registrada correctamente.",
                 "date": obj.created_at.isoformat(),
+                "actor": obj.requester.get_full_name() or obj.requester.username,
             }
         ]
         if obj.status in {Incident.Status.REVIEW, Incident.Status.ATTENDED, Incident.Status.IN_PROGRESS, Incident.Status.CLOSED}:
@@ -615,6 +616,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                     "status": "EN_REVISION",
                     "description": "La solicitud fue revisada por administración.",
                     "date": obj.updated_at.isoformat(),
+                    "actor": "Administración FM",
                 }
             )
         if obj.status == Incident.Status.REJECTED:
@@ -624,6 +626,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                     "status": "RECHAZADO",
                     "description": obj.rejection_reason or "La solicitud no fue aprobada para atención.",
                     "date": obj.updated_at.isoformat(),
+                    "actor": "Administración FM",
                 }
             )
         order = self._work_order(obj)
@@ -634,6 +637,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                     "status": "ASIGNADO",
                     "description": f"Orden de trabajo {order.code} generada y asignada.",
                     "date": order.created_at.isoformat(),
+                    "actor": order.supervisor.get_full_name() or order.supervisor.username,
                 }
             )
             if order.started_at:
@@ -643,6 +647,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                         "status": "EN_PROCESO",
                         "description": "La atención fue iniciada por el técnico asignado.",
                         "date": order.started_at.isoformat(),
+                        "actor": order.technician.get_full_name() or order.technician.username,
                     }
                 )
             for advance in order.advances or []:
@@ -652,6 +657,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                         "status": "EN_PROCESO",
                         "description": advance.get("observation") or f"Avance registrado al {advance.get('percentage', order.progress_percentage)}%.",
                         "date": advance.get("createdAt") or order.updated_at.isoformat(),
+                        "actor": advance.get("operatorName") or order.technician.get_full_name() or order.technician.username,
                     }
                 )
             if order.status == "PENDIENTE_DE_CONFORMIDAD":
@@ -661,6 +667,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                         "status": "FINALIZADO",
                         "description": "La atención fue finalizada y puedes evaluarla de forma opcional.",
                         "date": order.updated_at.isoformat(),
+                        "actor": order.technician.get_full_name() or order.technician.username,
                     }
                 )
             if order.closed_at:
@@ -670,6 +677,7 @@ class PublicIncidentTrackingSerializer(serializers.ModelSerializer):
                         "status": "FINALIZADO",
                         "description": "La orden de trabajo fue cerrada.",
                         "date": order.closed_at.isoformat(),
+                        "actor": "Administración FM",
                     }
                 )
         return events

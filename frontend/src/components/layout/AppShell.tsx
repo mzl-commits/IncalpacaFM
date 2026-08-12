@@ -62,12 +62,14 @@ type ModuleGroup = {
 const modules: ModuleGroup[] = [
   {
     id: "dashboard",
-    label: "Dashboard",
-    shortLabel: "Dashboard",
-    icon: SquaresFour,
-    paths: ["/"],
+    label: "Mantenimiento",
+    shortLabel: "Mantenimiento",
+    icon: Wrench,
+    paths: ["/", "/incidencias", "/ordenes-trabajo"],
     items: [
-      { to: "/", label: "Dashboard general", icon: SquaresFour, end: true },
+      { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, count: "6" },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
     ],
   },
   {
@@ -104,16 +106,14 @@ const modules: ModuleGroup[] = [
     ],
   },
   {
-    id: "operations",
-    label: "Atención y mantenimiento",
-    shortLabel: "Mantenimiento",
-    icon: Wrench,
-    paths: ["/incidencias", "/ordenes-trabajo", "/supervision", "/mi-jornada"],
-    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
+    id: "team",
+    label: "Equipo",
+    shortLabel: "Equipo",
+    icon: UsersThree,
+    paths: ["/ordenes-trabajo", "/mi-jornada"],
+    roles: ["ADMINISTRADOR", "SUPERVISOR"],
     items: [
-      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, count: "6" },
       { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
-      { to: "/supervision", label: "Revisión de OT", icon: ShieldCheck },
       { to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank },
     ],
   },
@@ -184,16 +184,16 @@ function isGroupActive(pathname: string, paths: string[]) {
 }
 
 function getRouteContext(pathname: string) {
-  if (pathname === "/") return ["Panel ejecutivo", "Inicio"];
+  if (pathname === "/") return ["Mantenimiento", "Panel operativo"];
   if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
   if (pathname.startsWith("/mapa")) return ["Activos y espacios", "Mapa de activos"];
   if (pathname.startsWith("/bienes/entradas")) return ["Activos y espacios", "Entradas"];
   if (pathname.startsWith("/bienes")) return ["Activos y espacios", "Inventario"];
   if (pathname.startsWith("/asignaciones")) return ["Activos y espacios", "Asignaciones"];
-  if (pathname.startsWith("/incidencias")) return ["Atención y mantenimiento", "Reportes"];
-  if (pathname.startsWith("/supervision")) return ["Supervisión", "Revisión de OT"];
-  if (pathname.startsWith("/ordenes-trabajo")) return ["Atención y mantenimiento", "Órdenes operativas"];
+  if (pathname.startsWith("/incidencias")) return ["Mantenimiento", "Reportes"];
+  if (pathname.startsWith("/supervision")) return ["Mantenimiento", "Órdenes de trabajo"];
+  if (pathname.startsWith("/ordenes-trabajo")) return ["Mantenimiento", "Órdenes de trabajo"];
   if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
@@ -608,10 +608,10 @@ export function AppShell() {
 
 function itemsForRole(items: NavItem[], user: ReturnType<typeof useAuth>["user"]) {
   if (user?.role === "TECNICO") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
+    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo");
   }
   if (user?.role === "SUPERVISOR") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/supervision" || item.to === "/mi-jornada");
+    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
   }
   return items;
 }

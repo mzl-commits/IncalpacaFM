@@ -25,7 +25,7 @@ import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
 import type { WorkOrder } from "@/modules/workorders/types";
 
 const FINAL = new Set(["CERRADA", "CANCELADA"]);
-const ASSIGNABLE_STATUSES = new Set(["PROGRAMADA", "PENDIENTE_REPROGRAMACION", "DEVUELTA"]);
+const ASSIGNABLE_STATUSES = new Set(["PROGRAMADA", "PENDIENTE_REPROGRAMACION", "PENDIENTE_DE_REPROGRAMACION", "DEVUELTA"]);
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 function minutes(order: WorkOrder) {
@@ -86,7 +86,7 @@ export function TechnicianDetailPage() {
     ? evaluations.reduce((sum, order) => sum + (order.satisfaction?.rating ?? 0), 0) / evaluations.length
     : 0;
   const pendingOrders = orders
-    .filter((order) => order.operatorId !== id && ASSIGNABLE_STATUSES.has(order.status))
+    .filter((order) => ASSIGNABLE_STATUSES.has(order.status) && order.progressPercentage < 100)
     .sort((left, right) => left.scheduledDate.localeCompare(right.scheduledDate))
     .slice(0, 5);
   const week = monday(new Date());
