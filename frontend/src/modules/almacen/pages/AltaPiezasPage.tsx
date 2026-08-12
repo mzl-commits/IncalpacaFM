@@ -8,12 +8,12 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { labelPieza } from "@/utils/pieza";
 
 import {
   altaEstucheInline,
   altaPiezasSueltas,
   getMaterialDetalle,
+  updatePieza,
 } from "@/modules/almacen/catalogoRepository";
 import type {
   AltaEstucheInlinePayload,
@@ -66,6 +66,20 @@ export function AltaPiezasPage() {
   const [hijasSpec, setHijasSpec] = useState<PiezaHijaInlineSpec[]>([
     { nombre: "", medida: "", cantidad: 1 },
   ]);
+
+  // ── Personalización de piezas recién creadas (campo "detalle") ──
+  const [detalles, setDetalles] = useState<Record<number, string>>({});
+  const [guardando, setGuardando] = useState<number | null>(null);
+
+  async function guardarDetalle(piezaId: number) {
+    setGuardando(piezaId);
+    try {
+      await updatePieza(piezaId, { detalle: detalles[piezaId] ?? "" });
+      qc.invalidateQueries({ queryKey: ["material", materialId] });
+    } finally {
+      setGuardando(null);
+    }
+  }
 
   const { data: material, isLoading } = useQuery({
     queryKey: ["material", materialId],
@@ -177,13 +191,33 @@ export function AltaPiezasPage() {
                           {misHijas.length} item{misHijas.length !== 1 ? "s" : ""}
                         </span>
                       </div>
-                      {/* Filas hijas */}
+                      {/* Filas hijas — cada una con su nombre/nota personalizable */}
                       <div className="pieza-tree-children">
                         {misHijas.map((hija) => (
-                          <div key={hija.id} className="pieza-tree-hija">
+                          <div
+                            key={hija.id}
+                            className="pieza-tree-hija"
+                            style={{ gap: 8, alignItems: "center" }}
+                          >
                             <Package size={13} className="text-muted" style={{ flexShrink: 0 }} />
-                            <code className="pieza-code">{labelPieza(hija)}</code>
-                            <span className="text-muted-sm">Item</span>
+                            <code className="pieza-code">{hija.codigo}</code>
+                            <input
+                              type="text"
+                              placeholder="Nombre o nota (opcional)"
+                              value={detalles[hija.id] ?? hija.detalle ?? ""}
+                              onChange={(e) =>
+                                setDetalles((prev) => ({ ...prev, [hija.id]: e.target.value }))
+                              }
+                              style={{ flex: 1, fontSize: 12, padding: "3px 8px" }}
+                            />
+                            <button
+                              type="button"
+                              className="button button-secondary button-sm"
+                              onClick={() => guardarDetalle(hija.id)}
+                              disabled={guardando === hija.id}
+                            >
+                              {guardando === hija.id ? "…" : "Guardar"}
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -192,11 +226,33 @@ export function AltaPiezasPage() {
                 })}
               </div>
             ) : (
-              // Piezas sueltas
-              <div className="alta-piezas-chips">
+              // Piezas sueltas — cada una con su nombre/nota personalizable
+              <div
+                className="alta-piezas-chips"
+                style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}
+              >
                 {piezasCreadas.map((p) => (
-                  <div key={p.id} className="alta-pieza-chip">
-                    <code className="pieza-code">{p.codigo}</code>
+                  <div key={p.id} className="flex-row" style={{ gap: 8 }}>
+                    <code className="pieza-code" style={{ flexShrink: 0 }}>
+                      {p.codigo}
+                    </code>
+                    <input
+                      type="text"
+                      placeholder="Nombre o nota para esta pieza (opcional)"
+                      value={detalles[p.id] ?? p.detalle ?? ""}
+                      onChange={(e) =>
+                        setDetalles((prev) => ({ ...prev, [p.id]: e.target.value }))
+                      }
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => guardarDetalle(p.id)}
+                      disabled={guardando === p.id}
+                    >
+                      {guardando === p.id ? "…" : "Guardar"}
+                    </button>
                   </div>
                 ))}
               </div>

@@ -1,6 +1,5 @@
 from rest_framework import viewsets, status
 from rest_framework.permissions import AllowAny
-from apps.accounts.permissions import IsInspectorOrAdministrator
 
 from datetime import timedelta, date
 from django.utils import timezone
@@ -28,16 +27,30 @@ from apps.inspeccion.serializers import (
     PlanInspeccionAnualSerializer,
 )
 
+from django.db.models import ProtectedError
+from apps.accounts.permissions import IsInspectorOrAdministratorWrite
+
 class PlantillaCriterioViewSet(viewsets.ModelViewSet):
     queryset = PlantillaCriterio.objects.prefetch_related("criterios").all()
     serializer_class = PlantillaCriterioSerializer
-    permission_classes = [IsInspectorOrAdministrator]
+    permission_classes = [IsInspectorOrAdministratorWrite]
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {
+                    "detail": "No se puede eliminar esta plantilla porque está asignada a una subcategoría de materiales o tiene inspecciones asociadas."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class CriterioViewSet(viewsets.ModelViewSet):
     queryset = Criterio.objects.select_related("plantilla").all()
     serializer_class = CriterioSerializer
-    permission_classes = [IsInspectorOrAdministrator]
+    permission_classes = [IsInspectorOrAdministratorWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -45,6 +58,34 @@ class CriterioViewSet(viewsets.ModelViewSet):
         if plantilla_id:
             qs = qs.filter(plantilla_id=plantilla_id)
         return qs
+
+    @action(detail=False, methods=["post"], url_path="reordenar")
+    def reordenar(self, request):
+        """
+        Body: [{"id": 1, "orden": 1}, {"id": 2, "orden": 2}, ...]
+        """
+        items = request.data
+        if not isinstance(items, list):
+            return Response(
+                {"detail": "Se esperaba una lista de objetos con 'id' y 'orden'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ids = [item.get("id") for item in items if isinstance(item, dict) and "id" in item]
+        criterios_dict = {c.id: c for c in Criterio.objects.filter(id__in=ids)}
+        updated = []
+        for item in items:
+            cid = item.get("id")
+            nuevo_orden = item.get("orden")
+            if cid in criterios_dict and isinstance(nuevo_orden, int):
+                c = criterios_dict[cid]
+                c.orden = nuevo_orden
+                updated.append(c)
+
+        if updated:
+            Criterio.objects.bulk_update(updated, ["orden"])
+
+        return Response({"status": "ok", "actualizados": len(updated)})
 
 class InspeccionViewSet(viewsets.ModelViewSet):
     queryset = Inspeccion.objects.select_related(

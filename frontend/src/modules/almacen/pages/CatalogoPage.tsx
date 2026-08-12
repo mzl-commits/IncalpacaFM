@@ -415,94 +415,29 @@ export function CatalogoPage() {
             onCopyBasket={copyBasket}
             onClearBasket={() => setBasket({})}
           />
-        ) : <div style={{ width: "100%", overflowX: "auto" }}>
-          <table className="catalog-table">
-            <thead>
-              <tr>
-                <th style={{ width: 110 }}>Código</th>
-                <th>Nombre</th>
-                <th>Categoría</th>
-                <th style={{ width: 140 }}>Tipo</th>
-                <th style={{ width: 150 }}>Stock / Piezas</th>
-                <th style={{ width: 160 }}>Ubicación</th>
-                <th style={{ width: 50 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "32px 0" }}>
-                    Cargando materiales…
-                  </td>
-                </tr>
-              )}
-              {!isLoading && materiales.length === 0 && (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "32px 0" }}>
-                    No hay materiales que coincidan con los criterios de búsqueda.
-                  </td>
-                </tr>
-              )}
-              {materiales.map((m) => {
-                const stockAlerta = !m.control_individual && m.cantidad_total < STOCK_MINIMO;
-                const busquedaPieza = values.q && /^[A-Z0-9]{4,8}$/i.test(values.q.trim());
-                return (
-                  <tr key={m.id}>
-                    <td>
-                      <span className="code-cell">{m.codigo}</span>
-                    </td>
-                    <td>
-                      <div className="name-title">{m.nombre}</div>
-                      {m.marca && (
-                        <div className="name-subtitle">
-                          {m.marca} {m.modelo}
-                        </div>
-                      )}
-                      {busquedaPieza && (
-                        <div style={{ fontSize: 11, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                          <Package size={10} />
-                          Contiene pieza: <strong>{values.q?.toUpperCase()}</strong>
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <div className="category-title">{m.categoria_nombre}</div>
-                      {m.subcategoria_nombre && (
-                        <div className="category-subtitle">{m.subcategoria_nombre}</div>
-                      )}
-                    </td>
-                    <td>
-                      <span className="type-badge">
-                        {m.control_individual ? "Piezas" : "Consumible"}
-                      </span>
-                    </td>
-                    <td>
-                      {m.control_individual ? (
-                        <span className="stock-text">{m.cantidad_total} piezas</span>
-                      ) : (
-                        <span className={`stock-text ${stockAlerta ? "stock-alert-text" : ""}`}>
-                          {stockAlerta && <WarningCircle size={14} />}
-                          {m.cantidad_total} unid.
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ fontSize: 13 }}>{m.ubicacion_fisica || "—"}</td>
-                    <td>
-                      <Link
-                        to={`/almacen/catalogo/${m.id}`}
-                        className="row-action-btn"
-                        aria-label={`Ver detalle de ${m.nombre}`}
-                        title="Ver detalle"
-                      >
-                        <CaretRight size={17} />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>}
+        ) : (
+          <div className="catalogo-groups">
+            {isLoading && (
+              <div className="text-center-empty col-span-all">Cargando materiales…</div>
+            )}
+            {!isLoading && materiales.length === 0 && (
+              <div className="text-center-empty col-span-all">
+                No hay materiales que coincidan con los criterios de búsqueda.
+              </div>
+            )}
+            {materiales.map((m) => {
+              const busquedaPieza = !!values.q && /^[A-Z0-9]{4,8}$/i.test(values.q.trim());
+              return (
+                <MaterialCard
+                  key={m.id}
+                  m={m}
+                  busquedaPieza={busquedaPieza}
+                  q={values.q ?? ""}
+                />
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

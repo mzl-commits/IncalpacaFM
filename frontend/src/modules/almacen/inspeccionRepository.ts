@@ -44,18 +44,25 @@ export async function deletePlantillaCriterio(id: number): Promise<void> {
   await api.delete(`/plantillas-criterios/${id}/`);
 }
 
-export async function createCriterio(payload: Pick<Criterio, "plantilla" | "texto" | "orden">): Promise<Criterio> {
+type CriterioCreatePayload = Pick<Criterio, "plantilla" | "texto" | "orden">;
+type CriterioUpdatePayload = Partial<CriterioCreatePayload>;
+
+export async function createCriterio(payload: CriterioCreatePayload): Promise<Criterio> {
   const { data } = await api.post<Criterio>("/criterios/", payload);
   return data;
 }
 
-export async function updateCriterio(id: number, payload: Pick<Criterio, "plantilla" | "texto" | "orden">): Promise<Criterio> {
+export async function updateCriterio(id: number, payload: CriterioUpdatePayload): Promise<Criterio> {
   const { data } = await api.patch<Criterio>(`/criterios/${id}/`, payload);
   return data;
 }
 
 export async function deleteCriterio(id: number): Promise<void> {
   await api.delete(`/criterios/${id}/`);
+}
+
+export async function reordenarCriterios(items: Array<{ id: number; orden: number }>): Promise<void> {
+  await api.post("/criterios/reordenar/", items);
 }
 
 // ─── Inspecciones ─────────────────────────────────────────────────────────────

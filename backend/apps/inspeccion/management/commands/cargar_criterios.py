@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from apps.inspeccion.models import PlantillaCriterio, Criterio
 
 CRITERIOS = {
@@ -58,22 +58,43 @@ CRITERIOS = {
         "Identificación de inspección vigente (cinta o etiqueta trimestral).",
         "Herramienta apta para un uso seguro.",
     ],
+    "EPP (equipo de protección personal)": [
+        "Estado del casco.",
+        "Lentes de seguridad sin rayaduras que afecten la visión.",
+        "Guantes sin cortes ni desgaste excesivo.",
+        "Calzado de seguridad en buen estado.",
+        "Arnés sin deshilachados ni cortes (si aplica).",
+        "Fecha de fabricación / vencimiento vigente.",
+        "Identificación o código visible.",
+    ],
+    "Escaleras": [
+        "Peldaños completos y sin grietas.",
+        "Base antideslizante en buen estado.",
+        "Sin deformaciones ni oxidación en la estructura.",
+        "Mecanismo de apertura o traba funciona correctamente.",
+        "Etiqueta de capacidad de carga legible.",
+        "Identificación o código patrimonial visible.",
+        "Identificación de inspección vigente.",
+    ],
+    "Iluminaria (linternas / equipos de iluminación)": [
+        "Carcasa sin fisuras ni roturas.",
+        "Encendido y apagado funciona correctamente.",
+        "Batería o pilas en buen estado.",
+        "Sin parpadeos ni fallas de intensidad.",
+        "Lente o difusor sin rajaduras.",
+        "Correa o sujeción en buen estado (si aplica).",
+        "Identificación o código visible.",
+    ],
 }
 
 class Command(BaseCommand):
-    help = "Carga los criterios de inspección en las plantillas ya existentes (Manual, Inalámbrica, Eléctrica)."
+    help = "Carga los criterios de inspección en las plantillas (Manual, Inalámbrica, Eléctrica, EPP, Escaleras, Iluminaria)."
 
     def handle(self, *args, **options):
         for nombre_plantilla, criterios in CRITERIOS.items():
-            try:
-                plantilla = PlantillaCriterio.objects.get(nombre=nombre_plantilla)
-            except PlantillaCriterio.DoesNotExist:
-                raise CommandError(
-                    f"La plantilla '{nombre_plantilla}' no existe en la base de datos. "
-                    "Este comando no crea plantillas nuevas — verifica el nombre exacto."
-                )
-
-            self.stdout.write(f"Plantilla '{nombre_plantilla}' encontrada (id={plantilla.id}).")
+            plantilla, creada = PlantillaCriterio.objects.get_or_create(nombre=nombre_plantilla)
+            estado = "creada" if creada else "encontrada"
+            self.stdout.write(f"Plantilla '{nombre_plantilla}' {estado} (id={plantilla.id}).")
 
             for orden, texto in enumerate(criterios, start=1):
                 Criterio.objects.update_or_create(
