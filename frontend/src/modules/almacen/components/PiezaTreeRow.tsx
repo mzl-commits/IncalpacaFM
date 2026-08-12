@@ -13,12 +13,14 @@ export function PiezaTreeRow({
   mostrarTrimestre,
   periodicidadDias,
   materialId,
+  isInspector,
 }: {
   pieza: PiezaAnidada;
   mostrarTrimestre: string | null;
   /** material.periodicidad_inspeccion_dias — requerido por TrimestreBadge para calcular vigencia */
   periodicidadDias: number;
   materialId: number;
+  isInspector?: boolean;
 }) {
   const qc = useQueryClient();
   const esContenedor = pieza.total_hijas > 0;
@@ -146,7 +148,7 @@ export function PiezaTreeRow({
           )}
 
           {/* Botón + Pieza (solo en estuches) */}
-          {delStep === "idle" && (
+          {delStep === "idle" && !isInspector && (
             <button
               type="button"
               title="Agregar item a este estuche"
@@ -162,7 +164,7 @@ export function PiezaTreeRow({
             </button>
           )}
 
-          {delStep === "idle" && (
+          {delStep === "idle" && !isInspector && (
             <button
               title={esContenedor ? "Eliminar estuche y todas sus piezas" : "Eliminar pieza"}
               style={{
@@ -326,7 +328,7 @@ export function PiezaTreeRow({
       {pieza.piezas_hijas.length > 0 && (
         <div className="pieza-tree-children">
           {pieza.piezas_hijas.map((hija) => (
-            <PiezaHijaRow key={hija.id} pieza={hija} materialId={materialId} />
+            <PiezaHijaRow key={hija.id} pieza={hija} materialId={materialId} isInspector={isInspector} />
           ))}
         </div>
       )}

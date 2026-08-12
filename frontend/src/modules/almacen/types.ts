@@ -6,7 +6,15 @@ export const STOCK_MINIMO = 5;
 // ─── Enums / literales ────────────────────────────────────────────────────────
 
 export type TipoControl = "retornable" | "no_retornable";
-export type UnidadManejo = "unidad" | "caja";
+export type UnidadManejo =
+  | "unidad"
+  | "caja" | "bolsa" | "paquete" | "fardo" | "saco"
+  | "balde" | "cunete" | "tambor" | "bidon" | "frasco" | "blister"
+  | "rollo" | "bobina" | "carrete"
+  | "millar" | "ciento" | "docena"
+  | "juego"
+  | "plancha" | "barra" | "hoja";
+
 export type EstadoPieza = "Disponible" | "Prestado" | "Mantenimiento" | "Baja";
 export type TipoMovimiento = "salida" | "entrada" | "baja";
 export type TipoInspeccion = "individual" | "grupal";
@@ -66,9 +74,30 @@ export const tipoControlLabels: Record<TipoControl, string> = {
 };
 
 export const unidadManejoLabels: Record<UnidadManejo, string> = {
-  unidad: "Unidad",
-  caja: "Caja",
+  unidad:  "Por unidad suelta",
+  caja:    "Por caja",
+  bolsa:   "Por bolsa",
+  paquete: "Por paquete",
+  fardo:   "Por fardo",
+  saco:    "Por saco",
+  balde:   "Por balde",
+  cunete:  "Por cu\u00f1ete",
+  tambor:  "Por tambor / cilindro",
+  bidon:   "Por bid\u00f3n",
+  frasco:  "Por frasco",
+  blister: "Por bl\u00edster",
+  rollo:   "Por rollo",
+  bobina:  "Por bobina",
+  carrete: "Por carrete",
+  millar:  "Por millar",
+  ciento:  "Por ciento",
+  docena:  "Por docena",
+  juego:   "Por juego / kit",
+  plancha: "Por plancha / l\u00e1mina",
+  barra:   "Por barra",
+  hoja:    "Por hoja",
 };
+
 
 // ─── Catálogo ─────────────────────────────────────────────────────────────────
 

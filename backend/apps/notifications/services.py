@@ -95,24 +95,42 @@ def _dispatch_async(notification_id):
         return
 
 
-def queue_for_roles(*, event, roles, subject, body, entity=None, context=None, discriminator=''):
+def queue_for_roles(
+    *, event, roles, subject, body, entity=None, context=None, discriminator='',
+    delivery_channel=Notification.DeliveryChannel.BOTH,
+):
+    """Encola una notificación para todos los usuarios activos de los roles dados.
+
+    Si el canal es BOTH pero el usuario no tiene email, degrada a SYSTEM para
+    que al menos reciba la notificación en la bandeja interna.
+    """
     users = get_user_model().objects.filter(
         is_active=True,
         account_profile__active=True,
         account_profile__role__in=roles,
-    ).exclude(email='')
-    return [
-        queue_notification(
-            event=event,
-            recipient=user,
-            subject=subject,
-            body=body,
-            entity=entity,
-            context=context,
-            discriminator=discriminator,
+    )
+    result = []
+    for user in users:
+        # Si el canal requiere email pero el usuario no lo tiene, degrada a SISTEMA
+        effective_channel = delivery_channel
+        if (
+            delivery_channel == Notification.DeliveryChannel.BOTH
+            and not (user.email or '').strip()
+        ):
+            effective_channel = Notification.DeliveryChannel.SYSTEM
+        result.append(
+            queue_notification(
+                event=event,
+                recipient=user,
+                subject=subject,
+                body=body,
+                entity=entity,
+                context=context,
+                discriminator=discriminator,
+                delivery_channel=effective_channel,
+            )
         )
-        for user in users
-    ]
+    return result
 
 
 def queue_for_administrators(*, event, subject, body, entity=None, context=None, discriminator=''):

@@ -75,9 +75,36 @@ class Material(models.Model):
     ]
 
     UNIDAD_MANEJO_CHOICES = [
-        ("unidad", "Unidad"),
-        ("caja", "Caja"),
+        # ── Por pieza / unidad suelta ──────────────────────
+        ("unidad",   "Por unidad suelta"),
+        # ── Empaques cerrados ─────────────────────────────
+        ("caja",     "Por caja"),
+        ("bolsa",    "Por bolsa"),
+        ("paquete",  "Por paquete"),
+        ("fardo",    "Por fardo"),
+        ("saco",     "Por saco"),
+        ("balde",    "Por balde"),
+        ("cunete",   "Por cuñete"),
+        ("tambor",   "Por tambor / cilindro"),
+        ("bidon",    "Por bidón"),
+        ("frasco",   "Por frasco"),
+        ("blister",  "Por blíster"),
+        # ── Rollos / enrollados ───────────────────────────
+        ("rollo",    "Por rollo"),
+        ("bobina",   "Por bobina"),
+        ("carrete",  "Por carrete"),
+        # ── Medidas de cantidad ───────────────────────────
+        ("millar",   "Por millar"),
+        ("ciento",   "Por ciento"),
+        ("docena",   "Por docena"),
+        # ── Juegos / conjuntos ────────────────────────────
+        ("juego",    "Por juego / kit"),
+        # ── Piezas largas / planas ────────────────────────
+        ("plancha",  "Por plancha / lámina"),
+        ("barra",    "Por barra"),
+        ("hoja",     "Por hoja"),
     ]
+
 
     subcategoria = models.ForeignKey(
         Subcategoria, on_delete=models.PROTECT, related_name="materiales"
@@ -130,11 +157,11 @@ class Material(models.Model):
     # cantidad_total SIEMPRE queda expresado en unidades, sin importar el modo.
     unidad_manejo = models.CharField(
         max_length=10, choices=UNIDAD_MANEJO_CHOICES, default="unidad",
-        help_text="Cómo se cuenta el stock de este consumible: por unidad suelta o por caja.",
+        help_text="Cómo se cuenta el stock de este consumible: por unidad suelta o por empaque (caja, bolsa, saco, millar, etc.).",
     )
     unidades_por_caja = models.PositiveIntegerField(
         null=True, blank=True,
-        help_text="Cuántas unidades trae cada caja. Requerido si unidad_manejo='caja'.",
+        help_text="Cuántas unidades trae cada empaque. Requerido si unidad_manejo no es 'unidad'.",
     )
 
     activo = models.BooleanField(default=True)

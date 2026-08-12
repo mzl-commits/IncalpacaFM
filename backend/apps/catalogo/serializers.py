@@ -46,14 +46,14 @@ class PiezaAnidadaSerializer(serializers.ModelSerializer):
         model = Pieza
         fields = ["id", "codigo", "detalle", "estado", "foto", "material_nombre", "material_medida", "total_hijas", "hijas_disponibles", "piezas_hijas"]
 
-    def get_piezas_hijas(self, obj) -> list[dict]:
+    def get_piezas_hijas(self, obj):
         hijas = obj.piezas_hijas.all()
         return PiezaSerializer(hijas, many=True).data
 
-    def get_total_hijas(self, obj) -> int:
+    def get_total_hijas(self, obj):
         return obj.piezas_hijas.count()
 
-    def get_hijas_disponibles(self, obj) -> int:
+    def get_hijas_disponibles(self, obj):
         return obj.piezas_hijas.filter(estado="Disponible").count()
 
 class MaterialSerializer(serializers.ModelSerializer):
@@ -85,7 +85,7 @@ class MaterialSerializer(serializers.ModelSerializer):
         # cantidad_total YA NO va aquí — ahora es editable
         read_only_fields = ["codigo", "creado_en"]
 
-    def get_es_inspeccionable(self, obj) -> bool:
+    def get_es_inspeccionable(self, obj):
         return bool(
             obj.subcategoria.plantilla_inspeccion_id
             and obj.subcategoria.categoria.requiere_inspeccion
@@ -129,7 +129,7 @@ class MaterialDetalleSerializer(MaterialSerializer):
     class Meta(MaterialSerializer.Meta):
         fields = MaterialSerializer.Meta.fields + ["piezas"]
 
-    def get_piezas(self, obj) -> list[dict]:
+    def get_piezas(self, obj):
         piezas_raiz = obj.piezas.filter(padre__isnull=True)
         return PiezaAnidadaSerializer(piezas_raiz, many=True).data
 
@@ -409,3 +409,12 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
             contenedor.material.recalcular_cantidad()
 
         return creadas
+
+
+class MaterialFrecuenciaInspeccionSerializer(serializers.ModelSerializer):
+    periodicidad_inspeccion_dias = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Material
+        fields = ["id", "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias"]
+        read_only_fields = ["id", "periodicidad_inspeccion_dias"]

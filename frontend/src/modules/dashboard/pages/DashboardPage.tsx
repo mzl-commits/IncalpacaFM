@@ -36,6 +36,8 @@ import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorde
 import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
 import UserDashboardPage from "@/modules/accounts/pages/UserDashboardPage";
 import { SupervisorWorkOrderReviewPage } from "@/modules/workorders/pages/SupervisorWorkOrderReviewPage";
+import AlmaceneroDashboardPage from "@/modules/almacen/pages/AlmaceneroDashboardPage";
+import InspectorDashboardPage from "@/modules/almacen/pages/InspectorDashboardPage";
 import {
   retirementStatusLabels,
   type RetirementRequest,
@@ -584,5 +586,7 @@ export function DashboardPage() {
   const { user } = useAuth();
   if (user?.role === "SOLICITANTE") return <UserDashboardPage />;
   if (user?.role === "SUPERVISOR") return <SupervisorWorkOrderReviewPage />;
+  if (user?.role === "ALMACENERO") return <AlmaceneroDashboardPage />;
+  if (user?.role === "INSPECTOR") return <InspectorDashboardPage />;
   return user?.role === "TECNICO" ? <TechnicianDashboard /> : <AdministrativeDashboard />;
 }

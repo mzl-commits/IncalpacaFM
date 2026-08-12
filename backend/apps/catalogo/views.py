@@ -5,13 +5,17 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.db.models import Q, Exists, OuterRef
 
-from apps.accounts.permissions import IsAlmaceneroOrAdministratorWrite
+from apps.accounts.permissions import (
+    IsAlmaceneroOrAdministratorWrite,
+    IsAlmaceneroAdminOrInspectorWrite,
+)
 from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
 from apps.catalogo.serializers import (
     CategoriaSerializer,
     SubcategoriaSerializer,
     MaterialSerializer,
     MaterialDetalleSerializer,
+    MaterialFrecuenciaInspeccionSerializer,
     PiezaSerializer,
     AltaPiezasSueltasSerializer,
     AltaEstucheSerializer,
@@ -47,6 +51,21 @@ class MaterialViewSet(viewsets.ModelViewSet):
         if self.action == "retrieve":
             return MaterialDetalleSerializer
         return MaterialSerializer
+
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path="frecuencia-inspeccion",
+        permission_classes=[IsAlmaceneroAdminOrInspectorWrite],
+    )
+    def frecuencia_inspeccion(self, request, pk=None):
+        material = self.get_object()
+        serializer = MaterialFrecuenciaInspeccionSerializer(
+            material, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
     def get_queryset(self):
         qs = super().get_queryset()

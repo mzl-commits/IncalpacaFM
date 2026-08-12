@@ -16,4 +16,8 @@ app.conf.beat_schedule = {
         'task': 'apps.notifications.tasks.evaluate_operational_health_task',
         'schedule': 900.0,
     },
+    'evaluate-inspection-alerts': {
+        'task': 'apps.notifications.tasks.evaluate_inspection_alerts_task',
+        'schedule': 86400.0,  # once a day
+    },
 }
