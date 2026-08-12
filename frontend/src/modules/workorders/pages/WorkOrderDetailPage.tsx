@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Archive,
   Briefcase,
   CalendarBlank,
   CheckCircle,
@@ -452,10 +453,22 @@ export function WorkOrderDetailPage() {
           <p>{orderCopy.detailDescription}</p>
         </div>
 
-        <Link className="button button-secondary" to="/ordenes-trabajo">
-          <ArrowLeft size={18} />
-          Volver
-        </Link>
+        <div className="detail-actions">
+          {isAdmin && workOrder.assetId && !isCleaningOrder && (
+            <Link
+              className="button button-danger"
+              to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}
+              title="Registra el diagnóstico y sustento antes de solicitar la baja"
+            >
+              <Archive size={18} />
+              Iniciar baja
+            </Link>
+          )}
+          <Link className="button button-secondary" to="/ordenes-trabajo">
+            <ArrowLeft size={18} />
+            Volver
+          </Link>
+        </div>
       </div>
 
       <div className={`detail-header data-panel work-order-detail-hero is-${orderCopy.typeCode.toLowerCase()}`}>
