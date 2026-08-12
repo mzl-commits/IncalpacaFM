@@ -5183,6 +5183,7 @@ table th *,
 .asset-edit-dialog {
   width: 100% !important;
   max-width: 820px !important;
+  max-height: 92dvh !important;
   background: #FFFFFF !important;
   border-radius: 14px !important;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25) !important;
@@ -5256,9 +5257,36 @@ table th *,
   color: #111111 !important;
 }
 
-/* Formulario horizontal compacto */
+/* Formulario — ocupa el espacio restante y hace scroll si hay overflow */
 .asset-edit-dialog form {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Área scrollable del cuerpo del formulario */
+.asset-edit-dialog form > .asset-edit-fields,
+.asset-edit-dialog form > .asset-edit-error,
+.asset-edit-dialog form > .asset-edit-boundary {
+  /* los campos y el aviso son parte del área scrollable — ver contenedor */
+}
+
+/* Contenedor scrollable que envuelve campos + aviso */
+.asset-edit-dialog-body {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
   padding: 20px 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+
+/* Fallback: si no hay .asset-edit-dialog-body, el form mismo con padding */
+.asset-edit-dialog form:not(:has(.asset-edit-dialog-body)) {
+  padding: 20px 24px !important;
+  overflow-y: auto !important;
 }
 
 .asset-edit-fields {
@@ -5311,14 +5339,15 @@ table th *,
   line-height: 1.4 !important;
 }
 
-/* Footer de Botones idéntico al de la imagen de referencia */
+/* Footer siempre visible en la parte inferior del diálogo */
 .asset-edit-dialog footer {
-  margin-top: 20px !important;
-  padding-top: 16px !important;
-  border-top: 1px solid #F0F0F0 !important;
+  flex-shrink: 0 !important;
+  padding: 16px 24px !important;
+  border-top: 1px solid #EBEBEB !important;
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
-  gap: 14px !important;
+  gap: 12px !important;
+  background: #FFFFFF !important;
 }
 
 .asset-edit-dialog footer .button-primary {

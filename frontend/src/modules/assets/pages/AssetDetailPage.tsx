@@ -516,86 +516,88 @@ export function AssetDetailPage() {
                 <X />
               </button>
             </header>
-            <form onSubmit={saveAsset}>
-              {editError && (
-                <div className="asset-edit-error" role="alert">
-                  {editError}
+            <form onSubmit={saveAsset} style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
+              <div className="asset-edit-dialog-body">
+                {editError && (
+                  <div className="asset-edit-error" role="alert">
+                    {editError}
+                  </div>
+                )}
+                <div className="asset-edit-fields">
+                  <label className="field field-wide">
+                    <span>Nombre del bien *</span>
+                    <input
+                      required
+                      value={editForm.name}
+                      onChange={(event) => updateEditField("name", event.target.value)}
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>Descripción *</span>
+                    <textarea
+                      required
+                      rows={3}
+                      value={editForm.description}
+                      onChange={(event) => updateEditField("description", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Marca</span>
+                    <input
+                      value={editForm.brand}
+                      onChange={(event) => updateEditField("brand", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Modelo</span>
+                    <ModelCreatableSelect
+                      taxonomyId={asset?.taxonomy_detail?.id ?? ""}
+                      value={editForm.model}
+                      onChange={(val) => updateEditField("model", val)}
+                      disabled={!asset?.taxonomy_detail?.id}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Número de serie</span>
+                    <input
+                      value={editForm.serial_number}
+                      onChange={(event) => updateEditField("serial_number", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Condición *</span>
+                    <select
+                      required
+                      value={editForm.condition}
+                      onChange={(event) => updateEditField("condition", event.target.value)}
+                    >
+                      {["Nuevo", "Bueno", "Regular", "Requiere revisión"].map((condition) => (
+                        <option value={condition} key={condition}>
+                          {condition}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Criticidad *</span>
+                    <select
+                      required
+                      value={editForm.criticality}
+                      onChange={(event) => updateEditField("criticality", event.target.value)}
+                    >
+                      {["Baja", "Media", "Alta", "Crítica"].map((criticality) => (
+                        <option value={criticality} key={criticality}>
+                          {criticality}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-              )}
-              <div className="asset-edit-fields">
-                <label className="field field-wide">
-                  <span>Nombre del bien *</span>
-                  <input
-                    required
-                    value={editForm.name}
-                    onChange={(event) => updateEditField("name", event.target.value)}
-                  />
-                </label>
-                <label className="field field-wide">
-                  <span>Descripción *</span>
-                  <textarea
-                    required
-                    rows={3}
-                    value={editForm.description}
-                    onChange={(event) => updateEditField("description", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Marca</span>
-                  <input
-                    value={editForm.brand}
-                    onChange={(event) => updateEditField("brand", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Modelo</span>
-                  <ModelCreatableSelect
-                    taxonomyId={asset?.taxonomy_detail?.id ?? ""}
-                    value={editForm.model}
-                    onChange={(val) => updateEditField("model", val)}
-                    disabled={!asset?.taxonomy_detail?.id}
-                  />
-                </label>
-                <label className="field">
-                  <span>Número de serie</span>
-                  <input
-                    value={editForm.serial_number}
-                    onChange={(event) => updateEditField("serial_number", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Condición *</span>
-                  <select
-                    required
-                    value={editForm.condition}
-                    onChange={(event) => updateEditField("condition", event.target.value)}
-                  >
-                    {["Nuevo", "Bueno", "Regular", "Requiere revisión"].map((condition) => (
-                      <option value={condition} key={condition}>
-                        {condition}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Criticidad *</span>
-                  <select
-                    required
-                    value={editForm.criticality}
-                    onChange={(event) => updateEditField("criticality", event.target.value)}
-                  >
-                    {["Baja", "Media", "Alta", "Crítica"].map((criticality) => (
-                      <option value={criticality} key={criticality}>
-                        {criticality}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <aside className="asset-edit-boundary">
+                  La ubicación y el responsable se pueden asignar desde la pestaña de Responsables para conservar su
+                  historial.
+                </aside>
               </div>
-              <aside className="asset-edit-boundary">
-                La ubicación y el responsable se pueden asignar desde la pestaña de Responsables para conservar su
-                historial.
-              </aside>
               <footer>
                 <button
                   className="button button-secondary"
@@ -639,77 +641,79 @@ export function AssetDetailPage() {
                 <X />
               </button>
             </header>
-            <form onSubmit={saveNewResponsible}>
-              <div className="asset-edit-fields">
-                <label className="field field-wide">
-                  <span>Nombre completo del nuevo responsable *</span>
-                  <input
-                    required
-                    placeholder="Ej. Marco Quispe Flores"
-                    value={newRespForm.responsible}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, responsible: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="field">
-                  <span>Área / Departamento *</span>
-                  <input
-                    required
-                    placeholder="Ej. Mantenimiento / Facility"
-                    value={newRespForm.area}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, area: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="field">
-                  <span>Fecha de inicio *</span>
-                  <input
-                    type="date"
-                    required
-                    value={newRespForm.start_date}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, start_date: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="field">
-                  <span>Edificio / Piso</span>
-                  <input
-                    placeholder="Ej. Edificio B / Piso 2"
-                    value={newRespForm.building}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, building: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="field">
-                  <span>Oficina / Sala / Ubicación exacta</span>
-                  <input
-                    placeholder="Ej. Gerencia General / Sala A"
-                    value={newRespForm.room}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, room: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="field field-wide">
-                  <span>Motivo de la asignación / observaciones *</span>
-                  <textarea
-                    required
-                    rows={3}
-                    placeholder="Ej. Reasignación por rotación de puesto / custodia operativa"
-                    value={newRespForm.reason}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, reason: e.target.value })
-                    }
-                  />
-                </label>
+            <form onSubmit={saveNewResponsible} style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
+              <div className="asset-edit-dialog-body">
+                <div className="asset-edit-fields">
+                  <label className="field field-wide">
+                    <span>Nombre completo del nuevo responsable *</span>
+                    <input
+                      required
+                      placeholder="Ej. Marco Quispe Flores"
+                      value={newRespForm.responsible}
+                      onChange={(e) =>
+                        setNewRespForm({ ...newRespForm, responsible: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Área / Departamento *</span>
+                    <input
+                      required
+                      placeholder="Ej. Mantenimiento / Facility"
+                      value={newRespForm.area}
+                      onChange={(e) =>
+                        setNewRespForm({ ...newRespForm, area: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Fecha de inicio *</span>
+                    <input
+                      type="date"
+                      required
+                      value={newRespForm.start_date}
+                      onChange={(e) =>
+                        setNewRespForm({ ...newRespForm, start_date: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Edificio / Piso</span>
+                    <input
+                      placeholder="Ej. Edificio B / Piso 2"
+                      value={newRespForm.building}
+                      onChange={(e) =>
+                        setNewRespForm({ ...newRespForm, building: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Oficina / Sala / Ubicación exacta</span>
+                    <input
+                      placeholder="Ej. Gerencia General / Sala A"
+                      value={newRespForm.room}
+                      onChange={(e) =>
+                        setNewRespForm({ ...newRespForm, room: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>Motivo de la asignación / observaciones *</span>
+                    <textarea
+                      required
+                      rows={3}
+                      placeholder="Ej. Reasignación por rotación de puesto / custodia operativa"
+                      value={newRespForm.reason}
+                      onChange={(e) =>
+                        setNewRespForm({ ...newRespForm, reason: e.target.value })
+                      }
+                    />
+                  </label>
+                </div>
+                <aside className="asset-edit-boundary">
+                  Al guardar, el responsable actual y la ubicación se actualizarán automáticamente en la sección Situación Actual y quedará registrado en el historial.
+                </aside>
               </div>
-              <aside className="asset-edit-boundary">
-                Al guardar, el responsable actual y la ubicación se actualizarán automáticamente en la sección Situación Actual y quedará registrado en el historial.
-              </aside>
               <footer>
                 <button
                   className="button button-secondary"
