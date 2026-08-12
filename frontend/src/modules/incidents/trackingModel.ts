@@ -12,6 +12,7 @@ export interface TrackingEvent {
   status: TrackingStatus;
   description: string;
   date: string;
+  actor?: string;
 }
 
 export interface WorkEvidence {

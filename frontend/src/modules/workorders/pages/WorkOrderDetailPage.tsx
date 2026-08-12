@@ -22,6 +22,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "@/services/api";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
+import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
 import { MaterialesOTAdminSection } from "@/modules/workorders/components/MaterialesOTAdminSection";
 import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
@@ -42,9 +43,22 @@ import {
   scheduleWorkOrderCorrection,
   startWorkOrder,
   updateServiceOrderStatus,
+  updateWorkOrderPlanning,
   updateWorkOrderPhoto,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
+
+type PlanningForm = {
+  specialty: WorkOrder["specialty"];
+  adminPriority: WorkOrder["adminPriority"];
+  status: WorkOrder["status"];
+  scheduledDate: string;
+  scheduledStartTime: string;
+  plannedHours: number;
+  operatorId: string;
+  supervisorId: string;
+  administratorNotes: string;
+};
 
 const statusClass: Record<WorkOrderStatus, string> = {
   PROGRAMADA: "status-neutral",
@@ -235,6 +249,11 @@ export function WorkOrderDetailPage() {
   const [photoUrls, setPhotoUrls] = useState<{ start: string | null; finish: string | null }>({ start: null, finish: null });
   const [uploadingPhoto, setUploadingPhoto] = useState<"start" | "finish" | null>(null);
   const [photoMessage, setPhotoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [editingPlanning, setEditingPlanning] = useState(false);
+  const [planningPeople, setPlanningPeople] = useState<Technician[]>([]);
+  const [planningError, setPlanningError] = useState("");
+  const [savingPlanning, setSavingPlanning] = useState(false);
+  const [planning, setPlanning] = useState<PlanningForm>({ specialty: "ELECTRICIDAD", adminPriority: "MEDIA", status: "PROGRAMADA", scheduledDate: "", scheduledStartTime: "08:00", plannedHours: 2, operatorId: "", supervisorId: "", administratorNotes: "" });
 
   async function handleUploadPhoto(type: "start" | "finish", file: File) {
     if (!workOrder) return;
@@ -474,6 +493,7 @@ export function WorkOrderDetailPage() {
   };
 
   const isAdmin = user?.role === "ADMINISTRADOR";
+  const canEditPlanning = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
   const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
   const isAssignedTechnician = user?.id === workOrder.operatorId;
   const canRegisterProgress = isAssignedTechnician && !isServiceOrder && !workOrder.correctionWorkOrderId && ![
@@ -494,6 +514,41 @@ export function WorkOrderDetailPage() {
   const serviceStatusCopy = getServiceStatusCopy(workOrder);
   const savedServiceAttachments = getStringList(workOrder.administrator_validation, "attachments");
   const serviceCommentSaved = getTextValue(workOrder.administrator_validation, "comment", "Sin comentario administrativo.");
+
+  async function openPlanningEditor() {
+    if (!workOrder) return;
+    setPlanning({
+      specialty: workOrder.specialty,
+      adminPriority: workOrder.adminPriority,
+      status: workOrder.status,
+      scheduledDate: workOrder.scheduledDate,
+      scheduledStartTime: workOrder.scheduledStartTime?.slice(0, 5) || "08:00",
+      plannedHours: workOrder.plannedHours || 2,
+      operatorId: workOrder.operatorId,
+      supervisorId: workOrder.supervisorId,
+      administratorNotes: workOrder.administratorNotes || "",
+    });
+    setPlanningError("");
+    setEditingPlanning(true);
+    if (!planningPeople.length) {
+      try { setPlanningPeople((await listTechnicians()).filter((person) => person.active)); } catch { setPlanningError("No se pudo cargar el equipo para editar responsables."); }
+    }
+  }
+
+  async function savePlanning(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!workOrder) return;
+    setSavingPlanning(true);
+    setPlanningError("");
+    try {
+      const updated = await updateWorkOrderPlanning(workOrder.id, planning);
+      setWorkOrder(updated);
+      setEditingPlanning(false);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail ?? "No se pudieron guardar los cambios de la orden.";
+      setPlanningError(typeof detail === "string" ? detail : JSON.stringify(detail));
+    } finally { setSavingPlanning(false); }
+  }
 
   return (
     <section className="wo-detail-wrapper">
@@ -863,6 +918,28 @@ export function WorkOrderDetailPage() {
       )}
 
       {/* 5. TARJETAS COMPACTAS EN GRID REDUCIDO */}
+      {canEditPlanning && (
+        <article className="data-panel detail-card work-order-planning-editor">
+          <div className="detail-card-heading compact-heading">
+            <Briefcase size={18} weight="bold" />
+            <div><h2>Edición operativa</h2><p>Administrador y supervisor pueden actualizar planificación, responsables y estado. Los tiempos reales se conservan desde la ejecución.</p></div>
+            <button className="button button-secondary button-sm" type="button" onClick={() => void openPlanningEditor()}>{editingPlanning ? "Actualizando…" : "Editar orden"}</button>
+          </div>
+          {editingPlanning && <form className="work-order-planning-form" onSubmit={savePlanning}>
+            <label className="field"><span>Especialidad</span><select value={planning.specialty} onChange={(event) => setPlanning((current) => ({ ...current, specialty: event.target.value as WorkOrder["specialty"] }))}>{Object.entries(specialtyLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="field"><span>Prioridad</span><select value={planning.adminPriority} onChange={(event) => setPlanning((current) => ({ ...current, adminPriority: event.target.value as WorkOrder["adminPriority"] }))}>{Object.entries(adminPriorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="field"><span>Estado</span><select value={planning.status} onChange={(event) => setPlanning((current) => ({ ...current, status: event.target.value as WorkOrder["status"] }))}>{Object.entries(statusClass).map(([value]) => <option key={value} value={value}>{getWorkOrderStatusLabel({ ...workOrder, status: value as WorkOrderStatus })}</option>)}</select></label>
+            <label className="field"><span>Operario</span><select value={planning.operatorId} onChange={(event) => setPlanning((current) => ({ ...current, operatorId: event.target.value }))}>{planningPeople.filter((person) => person.role === "TECNICO").map((person) => <option key={person.id} value={person.id}>{person.full_name}</option>)}</select></label>
+            <label className="field"><span>Supervisor</span><select value={planning.supervisorId} onChange={(event) => setPlanning((current) => ({ ...current, supervisorId: event.target.value }))}>{planningPeople.filter((person) => person.role === "SUPERVISOR").map((person) => <option key={person.id} value={person.id}>{person.full_name}</option>)}</select></label>
+            <label className="field"><span>Fecha programada</span><input type="date" value={planning.scheduledDate} onChange={(event) => setPlanning((current) => ({ ...current, scheduledDate: event.target.value }))} /></label>
+            <label className="field"><span>Hora</span><input type="time" value={planning.scheduledStartTime} onChange={(event) => setPlanning((current) => ({ ...current, scheduledStartTime: event.target.value }))} /></label>
+            <label className="field"><span>Horas previstas</span><input min="0.25" step="0.25" type="number" value={planning.plannedHours} onChange={(event) => setPlanning((current) => ({ ...current, plannedHours: Number(event.target.value) }))} /></label>
+            <label className="field field-wide"><span>Notas de planificación</span><textarea rows={3} value={planning.administratorNotes} onChange={(event) => setPlanning((current) => ({ ...current, administratorNotes: event.target.value }))} /></label>
+            {planningError && <p className="form-error">{planningError}</p>}
+            <div className="work-order-planning-actions"><button className="button button-secondary" type="button" onClick={() => setEditingPlanning(false)}>Cancelar</button><button className="button button-primary" disabled={savingPlanning}>Guardar cambios</button></div>
+          </form>}
+        </article>
+      )}
       <div className="detail-grid work-order-detail-grid wo-compact-grid">
         <article className="data-panel detail-card wo-compact-card">
           <div className="detail-card-heading compact-heading">
