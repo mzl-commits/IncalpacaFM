@@ -63,6 +63,30 @@ const TIME_SLOTS_12H = [
   { value: "20:00", label: "08:00 PM" },
 ];
 
+const PLANNED_HOURS_OPTIONS = [
+  { value: 0.5, label: "30 minutos" },
+  { value: 1, label: "1 hora" },
+  { value: 1.5, label: "1 hora y media" },
+  { value: 2, label: "2 horas" },
+  { value: 2.5, label: "2 horas y media" },
+  { value: 3, label: "3 horas" },
+  { value: 3.5, label: "3 horas y media" },
+  { value: 4, label: "4 horas" },
+  { value: 4.5, label: "4 horas y media" },
+  { value: 5, label: "5 horas" },
+  { value: 5.5, label: "5 horas y media" },
+  { value: 6, label: "6 horas" },
+  { value: 6.5, label: "6 horas y media" },
+  { value: 7, label: "7 horas" },
+  { value: 7.5, label: "7 horas y media" },
+  { value: 8, label: "8 horas" },
+  { value: 8.5, label: "8 horas y media" },
+  { value: 9, label: "9 horas" },
+  { value: 9.5, label: "9 horas y media" },
+  { value: 10, label: "10 horas" },
+  { value: 12, label: "12 horas" },
+];
+
 interface WorkOrderFormState {
   title: string;
   description: string;
@@ -127,6 +151,7 @@ export function TechnicianManagementPage() {
   const [orderForm, setOrderForm] = useState<WorkOrderFormState>(emptyOrderForm);
   const [orderSaving, setOrderSaving] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState("");
+  const [manualHoursMode, setManualHoursMode] = useState(false);
 
   async function refresh() {
     const [people, workOrders, workRequests, warehouses, assetList] = await Promise.all([
@@ -667,25 +692,50 @@ export function TechnicianManagementPage() {
                     </label>
                   </div>
 
-                  <label className="field">
+                  <div className="field">
                     <span>Duración estimada *</span>
-                    <select
-                      value={orderForm.plannedHours}
-                      onChange={(e) => setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) })}
-                    >
-                      <option value={0.5}>30 minutos</option>
-                      <option value={1}>1 hora</option>
-                      <option value={1.5}>1 hora y media</option>
-                      <option value={2}>2 horas</option>
-                      <option value={2.5}>2 horas y media</option>
-                      <option value={3}>3 horas</option>
-                      <option value={3.5}>3 horas y media</option>
-                      <option value={4}>4 horas</option>
-                      <option value={5}>5 horas</option>
-                      <option value={6}>6 horas</option>
-                      <option value={8}>8 horas</option>
-                    </select>
-                  </label>
+                    {manualHoursMode ? (
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0.25"
+                          max="24"
+                          required
+                          autoFocus
+                          placeholder="Ej. 7.5"
+                          value={orderForm.plannedHours}
+                          onChange={(e) => setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) })}
+                        />
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          style={{ height: '42px', padding: '0 12px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                          onClick={() => setManualHoursMode(false)}
+                        >
+                          Ver lista
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        value={PLANNED_HOURS_OPTIONS.some((o) => o.value === orderForm.plannedHours) ? orderForm.plannedHours : "custom"}
+                        onChange={(e) => {
+                          if (e.target.value === "custom") {
+                            setManualHoursMode(true);
+                          } else {
+                            setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) });
+                          }
+                        }}
+                      >
+                        {PLANNED_HOURS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                        <option value="custom">✍️ Ingresar manualmente (ej. 7.5 h, 11 h...)</option>
+                      </select>
+                    )}
+                  </div>
                   </div>
                 </div>
 
