@@ -6007,42 +6007,48 @@ table th *,
 /* ── Resumen de horas ─────────────────────────────────────── */
 .technician-hours-overview {
   display: grid !important;
-  gap: 14px !important;
-  padding: 20px 24px !important;
-  border: 1px solid #E8E8E8 !important;
+  gap: 20px !important;
+  padding: 24px !important;
+  border: 1px solid #E4E4E4 !important;
   border-radius: 12px !important;
   background: #FFFFFF !important;
-  box-shadow: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
 }
 .technician-hours-overview > header {
   display: flex !important;
-  align-items: flex-start !important;
+  align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
+  border-bottom: 1px solid #F0F0F0 !important;
+  padding-bottom: 16px !important;
 }
 .technician-hours-overview h2 {
   margin: 0 !important;
-  font-size: 15px !important;
+  font-size: 16px !important;
   font-weight: 700 !important;
   color: #111111 !important;
 }
 .technician-hours-overview header p {
-  margin: 3px 0 0 !important;
-  font-size: 12px !important;
-  color: #999999 !important;
+  margin: 4px 0 0 !important;
+  font-size: 13px !important;
+  color: #777777 !important;
 }
 .technician-hours-overview > header > strong {
-  font-size: 28px !important;
-  font-weight: 760 !important;
-  letter-spacing: -.04em !important;
+  font-size: 32px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.03em !important;
   color: #111111 !important;
-  white-space: nowrap !important;
+  background: #F8F8F8 !important;
+  padding: 6px 14px !important;
+  border-radius: 8px !important;
+  border: 1px solid #EEEEEE !important;
 }
 .technician-hours-progress {
-  height: 6px !important;
+  height: 8px !important;
   border-radius: 999px !important;
   background: #F0F0F0 !important;
   overflow: hidden !important;
+  margin-top: 4px !important;
 }
 .technician-hours-progress > div {
   height: 100% !important;
@@ -6051,9 +6057,9 @@ table th *,
   transition: width 300ms ease !important;
 }
 .technician-hours-progress-copy {
-  margin: 0 !important;
-  font-size: 12.5px !important;
-  color: #777777 !important;
+  margin: -8px 0 0 !important;
+  font-size: 13px !important;
+  color: #666666 !important;
 }
 .technician-hours-progress-copy strong {
   color: #111111 !important;
@@ -6062,149 +6068,162 @@ table th *,
 .technician-hours-summary {
   display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;
-  gap: 12px !important;
+  gap: 16px !important;
   margin: 0 !important;
-  border-top: 1px solid #F0F0F0 !important;
-  padding-top: 14px !important;
 }
 .technician-hours-summary > div {
-  padding: 14px 16px !important;
-  background: #F8F8F8 !important;
-  border-radius: 8px !important;
-  border: 1px solid #EEEEEE !important;
+  padding: 16px !important;
+  background: #FFFFFF !important;
+  border-radius: 10px !important;
+  border: 1px solid #E4E4E4 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
 }
 .technician-hours-summary dt {
-  font-size: 10.5px !important;
+  font-size: 11px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .06em !important;
-  color: #AAAAAA !important;
+  color: #888888 !important;
 }
 .technician-hours-summary dd {
-  margin: 6px 0 4px !important;
-  font-size: 22px !important;
-  font-weight: 760 !important;
+  margin: 8px 0 4px !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
   letter-spacing: -.03em !important;
   color: #111111 !important;
 }
 .technician-hours-summary small {
-  font-size: 11.5px !important;
-  color: #999999 !important;
+  font-size: 12px !important;
+  color: #777777 !important;
 }
 
 /* ── Carga por técnico (vista supervisor/admin) ───────────── */
 .team-schedule-summary {
-  border: 1px solid #E8E8E8 !important;
+  border: 1px solid #E4E4E4 !important;
   border-radius: 12px !important;
-  background: #FFFFFF !important;
+  background: #FBFBFB !important;
   overflow: hidden !important;
 }
 .team-schedule-summary > header {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: 16px 20px !important;
-  border-bottom: 1px solid #F0F0F0 !important;
+  padding: 18px 24px !important;
+  border-bottom: 1px solid #EEEEEE !important;
+  background: #FFFFFF !important;
 }
 .team-schedule-summary > header span {
-  font-size: 10.5px !important;
+  font-size: 11px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: .07em !important;
-  color: #AAAAAA !important;
+  letter-spacing: .06em !important;
+  color: #888888 !important;
 }
 .team-schedule-summary h2 {
-  margin: 3px 0 0 !important;
-  font-size: 15px !important;
+  margin: 4px 0 0 !important;
+  font-size: 16px !important;
   font-weight: 700 !important;
   color: #111111 !important;
 }
 .team-schedule-summary > header p {
-  margin: 2px 0 0 !important;
-  font-size: 12px !important;
-  color: #999999 !important;
+  margin: 4px 0 0 !important;
+  font-size: 13px !important;
+  color: #777777 !important;
 }
 .team-schedule-summary > header > strong {
   font-size: 13px !important;
   font-weight: 700 !important;
-  color: #555555 !important;
-  background: #F4F4F4 !important;
-  border: 1px solid #E8E8E8 !important;
-  border-radius: 20px !important;
-  padding: 4px 12px !important;
+  color: #111111 !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E4E4E4 !important;
+  border-radius: 8px !important;
+  padding: 6px 14px !important;
   white-space: nowrap !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
 }
 .team-schedule-summary-grid {
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
-  gap: 0 !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+  padding: 24px !important;
+}
+.team-schedule-summary-grid > article {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  padding: 20px !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E4E4E4 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 150ms, box-shadow 150ms !important;
+}
+.team-schedule-summary-grid > article:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) !important;
+}
+.team-schedule-summary-grid > article > div:first-child,
+.team-schedule-summary-grid > article > div:nth-child(2) {
+  /* No need to change HTML structure, we can just use flex for the header */
 }
 .team-schedule-summary-grid > article {
   display: grid !important;
   grid-template-columns: auto 1fr !important;
-  gap: 10px 12px !important;
-  align-items: start !important;
-  padding: 16px 18px !important;
-  border-right: 1px solid #F0F0F0 !important;
-  border-bottom: 1px solid #F0F0F0 !important;
-  transition: background 140ms !important;
-}
-.team-schedule-summary-grid > article:hover {
-  background: #FAFAFA !important;
+  align-items: center !important;
+  gap: 12px 14px !important;
 }
 .team-schedule-avatar {
-  width: 36px !important;
-  height: 36px !important;
+  width: 42px !important;
+  height: 42px !important;
   border-radius: 50% !important;
   background: #111111 !important;
   color: #FFFFFF !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  flex-shrink: 0 !important;
 }
 .team-schedule-person {
   display: grid !important;
-  gap: 2px !important;
+  gap: 3px !important;
 }
 .team-schedule-person strong {
-  font-size: 13px !important;
-  font-weight: 660 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
   color: #111111 !important;
 }
 .team-schedule-person span {
-  font-size: 11px !important;
-  color: #999999 !important;
+  font-size: 12px !important;
+  color: #777777 !important;
 }
 .team-schedule-summary-grid dl {
   display: grid !important;
   grid-column: 1 / -1 !important;
   grid-template-columns: repeat(3, 1fr) !important;
-  gap: 8px !important;
-  margin: 0 !important;
-  padding-top: 10px !important;
-  border-top: 1px solid #F2F2F2 !important;
+  gap: 10px !important;
+  margin: 4px 0 0 !important;
+  padding-top: 16px !important;
+  border-top: 1px solid #EEEEEE !important;
 }
 .team-schedule-summary-grid dl > div {
-  padding: 10px 12px !important;
-  background: #F8F8F8 !important;
+  padding: 10px !important;
+  background: #FBFBFB !important;
   border-radius: 8px !important;
   border: 1px solid #EFEFEF !important;
+  text-align: center !important;
 }
 .team-schedule-summary-grid dt {
   font-size: 10px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: .06em !important;
-  color: #AAAAAA !important;
+  letter-spacing: .04em !important;
+  color: #888888 !important;
 }
 .team-schedule-summary-grid dd {
-  margin: 4px 0 0 !important;
-  font-size: 20px !important;
-  font-weight: 760 !important;
-  letter-spacing: -.03em !important;
+  margin: 6px 0 0 !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
   color: #111111 !important;
 }
 
