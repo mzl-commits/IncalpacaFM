@@ -539,8 +539,8 @@ export function MovimientoFormPage() {
         return;
       }
       if (resp && typeof resp === "object" && !Array.isArray(resp) && "solicitud_id" in resp) {
-        const r = resp as { mensaje: string };
-        setExitoPendiente(r.mensaje);
+        const r = resp as unknown as { mensaje?: string };
+        setExitoPendiente(r.mensaje || "Solicitud enviada para aprobación.");
         return;
       }
       if (resp && typeof resp === "object" && !Array.isArray(resp) && "aviso" in resp) {

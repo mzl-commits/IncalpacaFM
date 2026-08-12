@@ -252,8 +252,8 @@ export function TechnicianManagementPage() {
         title: orderForm.title.trim() || orderForm.description.trim().substring(0, 40),
         assetId: orderForm.assetId || undefined,
         directAssetId: orderForm.assetId || null,
-        assetCode: selectedAsset ? (selectedAsset.fm_code || selectedAsset.code) : undefined,
-        assetName: selectedAsset?.name,
+        assetCode: selectedAsset ? (selectedAsset.fmCode || selectedAsset.code) : undefined,
+        assetName: selectedAsset?.draft.name,
         directLocationId: locationId || null,
         operatorId: selectedOperator?.id,
         operatorName: selectedOperator?.full_name,
@@ -307,7 +307,7 @@ export function TechnicianManagementPage() {
     }
   }
 
-  const roleLabel = (role: "TECNICO" | "ALMACENERO" | "INSPECTOR") =>
+  const roleLabel = (role: Technician["role"]) =>
     role === "ALMACENERO" ? "Almacenero" : role === "INSPECTOR" ? "Inspector" : "Técnico";
 
   return (
@@ -462,7 +462,7 @@ export function TechnicianManagementPage() {
             </label>
             <label className="field">
               <span>Rol *</span>
-              <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as "TECNICO" | "ALMACENERO" | "INSPECTOR" })}>
+              <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Technician["role"] })}>
                 {ROLE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
             </label>
@@ -598,7 +598,7 @@ export function TechnicianManagementPage() {
                         <option value="">Sin bien asociado</option>
                         {assets.map((asset) => (
                           <option key={asset.id} value={asset.id}>
-                            {asset.fm_code || asset.code} — {asset.name}
+                            {asset.fmCode || asset.code} — {asset.draft.name}
                           </option>
                         ))}
                       </select>

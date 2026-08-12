@@ -10,9 +10,9 @@ export type Technician = {
   position: string;
   hourly_rate: number;
   active: boolean;
-  role: "TECNICO" | "ALMACENERO" | "INSPECTOR";
-  almacen: number | null;
-  almacen_nombre: string | null;
+  role: "TECNICO" | "SUPERVISOR" | "ADMINISTRADOR" | "ALMACENERO" | "INSPECTOR";
+  almacen?: number | null;
+  almacen_nombre?: string | null;
 };
 
 export type TechnicianInput = Omit<Technician, "id" | "almacen_nombre"> & { temporary_password?: string };
