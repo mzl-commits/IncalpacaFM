@@ -38,6 +38,8 @@ import type { UserRole } from "@/modules/accounts/types";
 import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
 import { NotificationCenter } from "@/modules/notifications/components/NotificationCenter";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { listWorkRequests, WORK_REQUESTS_UPDATED_EVENT } from "@/modules/incidents/incidentRepository";
+import { listWorkOrders, WORK_ORDERS_UPDATED_EVENT } from "@/modules/workorders/workOrderRepository";
 
 type NavItem = {
   to: string;
@@ -69,8 +71,8 @@ const modules: ModuleGroup[] = [
     paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada"],
     items: [
       { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true },
-      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, count: "6" },
-      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
       { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
     ],
   },
@@ -87,7 +89,7 @@ const modules: ModuleGroup[] = [
       { to: "/bienes/qr", label: "Códigos QR", icon: Barcode },
       { to: "/mapa", label: "Mapa de activos", icon: MapTrifold },
       { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: ShieldCheck },
-      { to: "/bienes", label: "Inventario general", icon: ListDashes, end: true, count: "31" },
+      { to: "/bienes", label: "Inventario general", icon: ListDashes, end: true },
     ],
   },
   {
@@ -112,7 +114,7 @@ const modules: ModuleGroup[] = [
     paths: ["/ordenes-trabajo", "/mi-jornada"],
     roles: ["ADMINISTRADOR", "SUPERVISOR"],
     items: [
-      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
       { to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank },
     ],
   },
@@ -153,8 +155,8 @@ const modules: ModuleGroup[] = [
       { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Barcode },
       { to: "/administracion/modelos", label: "Modelos de bienes", icon: Tag },
       { to: "/administracion/mapas-ambientes", label: "Mapas de ambientes", icon: MapTrifold },
-      { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree, count: "2" },
-      { to: "/administracion/reportantes", label: "Usuarios que reportaron", icon: UserCircle },
+      { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree },
+      { to: "/administracion/usuarios", label: "Usuarios", icon: UserCircle },
       { to: "/administracion/formularios", label: "Formularios de inspección", icon: ListChecks },
       { to: "/documentos", label: "Documentos", icon: Files },
       { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
@@ -197,6 +199,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
   if (pathname.startsWith("/administracion/tecnicos")) return ["Administración", "Técnicos"];
+  if (pathname.startsWith("/administracion/usuarios")) return ["Administración", "Usuarios"];
   if (pathname.startsWith("/administracion/reportantes")) return ["Administración", "Reportantes"];
   if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
   if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
@@ -218,10 +221,36 @@ export function AppShell() {
   const navigate = useNavigate();
 
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
+  const [liveCounts, setLiveCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let active = true;
+    const refreshCounts = async () => {
+      const [requests, orders] = await Promise.all([listWorkRequests().catch(() => []), listWorkOrders().catch(() => [])]);
+      if (!active) return;
+      const visibleOrders = orders.filter((order) => {
+        if (user?.role === "TECNICO") return order.operatorId === user.id;
+        if (user?.role === "SUPERVISOR") return order.supervisorId === user.id;
+        return true;
+      });
+      setLiveCounts({
+        "/incidencias": requests.filter((request) => !["CERRADA", "CANCELADA", "RESUELTA"].includes(request.status)).length,
+        "/ordenes-trabajo": visibleOrders.filter((order) => !["CERRADA", "CANCELADA"].includes(order.status)).length,
+      });
+    };
+    void refreshCounts();
+    window.addEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshCounts);
+    window.addEventListener(WORK_ORDERS_UPDATED_EVENT, refreshCounts);
+    return () => {
+      active = false;
+      window.removeEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshCounts);
+      window.removeEventListener(WORK_ORDERS_UPDATED_EVENT, refreshCounts);
+    };
+  }, [user?.id, user?.role, user?.workerCode]);
 
   const roleModules = modules
     .filter((mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)))
-    .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user) }))
+    .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user).map((item) => ({ ...item, count: liveCounts[item.to] })) }))
     .filter((mod) => mod.items.length > 0);
   const roleQuickActions = user?.role === "ADMINISTRADOR" ? quickActions : [];
   const railModules = roleModules.filter((mod) => mod.id !== "administration");
