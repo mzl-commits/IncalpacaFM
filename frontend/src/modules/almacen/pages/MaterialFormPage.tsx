@@ -491,37 +491,24 @@ export function MaterialFormPage() {
                     style={{ maxWidth: 220 }}
                   >
                     <option value="unidad">Por unidad suelta</option>
-                    <optgroup label="Empaques cerrados">
-                      <option value="caja">Por caja</option>
-                      <option value="bolsa">Por bolsa</option>
-                      <option value="paquete">Por paquete</option>
-                      <option value="fardo">Por fardo</option>
-                      <option value="saco">Por saco</option>
-                      <option value="balde">Por balde</option>
-                      <option value="cunete">Por cuñete</option>
-                      <option value="tambor">Por tambor / cilindro</option>
-                      <option value="bidon">Por bidón</option>
-                      <option value="frasco">Por frasco</option>
-                      <option value="blister">Por blíster</option>
-                    </optgroup>
-                    <optgroup label="Rollos / enrollados">
-                      <option value="rollo">Por rollo</option>
-                      <option value="bobina">Por bobina</option>
-                      <option value="carrete">Por carrete</option>
-                    </optgroup>
-                    <optgroup label="Medidas de cantidad">
-                      <option value="millar">Por millar</option>
-                      <option value="ciento">Por ciento</option>
-                      <option value="docena">Por docena</option>
-                    </optgroup>
-                    <optgroup label="Juegos / conjuntos">
-                      <option value="juego">Por juego / kit</option>
-                    </optgroup>
-                    <optgroup label="Piezas largas / planas">
-                      <option value="plancha">Por plancha / lámina</option>
-                      <option value="barra">Por barra</option>
-                      <option value="hoja">Por hoja</option>
-                    </optgroup>
+                    <option value="Paquete">Por Paquete</option>
+                    <option value="Bolsa">Por Bolsa</option>
+                    <option value="Blister">Por Blister</option>
+                    <option value="Rollo">Por Rollo</option>
+                    <option value="Docena">Por Docena</option>
+                    <option value="Millar">Por Millar</option>
+                    <option value="Litro">Por Litro</option>
+                    <option value="Mililitro">Por Mililitro</option>
+                    <option value="Galon">Por Galon</option>
+                    <option value="Bidon">Por Bidon</option>
+                    <option value="Kilogramo">Por Kilogramo</option>
+                    <option value="Gramo">Por Gramo</option>
+                    <option value="Libra">Por Libra</option>
+                    <option value="Metro">Por Metro</option>
+                    <option value="Centimetro">Por Centimetro</option>
+                    <option value="Milimetro">Por Milimetro</option>
+                    <option value="MetroCuadrado">Por MetroCuadrado</option>
+
                   </select>
                 </Field>
 

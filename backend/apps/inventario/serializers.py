@@ -75,6 +75,7 @@ class SalidaMaterialSerializer(serializers.Serializer):
     responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     referencia_externa = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+    lote_id = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
 
     def validate(self, attrs):
         attrs = _resolver_cantidad_por_caja(attrs)
@@ -90,6 +91,7 @@ class SalidaMaterialSerializer(serializers.Serializer):
             referencia_externa=validated_data["referencia_externa"],
             observaciones=validated_data["observaciones"],
             cantidad_cajas=validated_data.get("cantidad_cajas"),
+            lote_id=validated_data.get("lote_id", ""),
         )
 
 
@@ -220,6 +222,10 @@ class SolicitudMovimientoSerializer(serializers.ModelSerializer):
     material_nombre = serializers.CharField(source="material.nombre", read_only=True, default=None)
     material_codigo = serializers.CharField(source="material.codigo", read_only=True, default=None)
     pieza_codigo = serializers.CharField(source="pieza.codigo", read_only=True, default=None)
+    # Nombre del tipo de material al que pertenece la pieza (ej. "Martillo")
+    pieza_nombre = serializers.CharField(source="pieza.material.nombre", read_only=True, default=None)
+    # Detalle específico de la pieza individual (ej. "Martillo de Juan", "Estuche azul")
+    pieza_detalle = serializers.CharField(source="pieza.detalle", read_only=True, default=None)
     solicitado_por_nombre = serializers.SerializerMethodField()
     resuelto_por_nombre = serializers.SerializerMethodField()
 
@@ -228,13 +234,13 @@ class SolicitudMovimientoSerializer(serializers.ModelSerializer):
         fields = [
             "id", "tipo", "tipo_display", "estado", "estado_display",
             "material", "material_nombre", "material_codigo",
-            "pieza", "pieza_codigo", "piezas_hijas_ids",
+            "pieza", "pieza_codigo", "pieza_nombre", "pieza_detalle", "piezas_hijas_ids",
             "cantidad", "cantidad_cajas",
             "referencia_externa", "observaciones",
             "solicitado_por", "solicitado_por_nombre",
             "creado_en", "resuelto_en",
             "resuelto_por", "resuelto_por_nombre",
-            "motivo_rechazo", "movimiento",
+            "motivo_rechazo", "motivo_no_entrega", "movimiento",
         ]
 
     def get_solicitado_por_nombre(self, obj):
@@ -286,3 +292,108 @@ class AprobarSolicitudSerializer(serializers.Serializer):
 
 class RechazarSolicitudSerializer(serializers.Serializer):
     motivo_rechazo = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+# ─── Grupos de Solicitudes (Objetivo 1) ──────────────────────────────────────
+
+from apps.inventario.models import GrupoSolicitud  # noqa: E402
+from apps.workorders.models import WorkOrder  # noqa: E402
+
+
+class GrupoSolicitudItemInputSerializer(serializers.Serializer):
+    """Representa un item individual dentro del payload de creación de un grupo."""
+    TIPOS_PERMITIDOS_V1 = ["salida_material"]
+
+    tipo = serializers.ChoiceField(choices=SolicitudMovimiento.Tipo.choices)
+    material = serializers.IntegerField()  # obligatorio en v1 (no pieza)
+    cantidad = serializers.IntegerField(required=False, min_value=1, allow_null=True, default=None)
+    cantidad_cajas = serializers.IntegerField(required=False, allow_null=True, min_value=1, default=None)
+    observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_tipo(self, value):
+        if value not in self.TIPOS_PERMITIDOS_V1:
+            raise serializers.ValidationError(
+                "Por ahora los grupos de solicitud solo admiten salida_material. "
+                "Para piezas, usa el flujo de solicitud individual existente."
+            )
+        return value
+
+
+class GrupoSolicitudCreateSerializer(serializers.Serializer):
+    """Serializer para crear un GrupoSolicitud con N items de un solo POST."""
+    work_order = serializers.PrimaryKeyRelatedField(
+        queryset=WorkOrder.objects.all(), required=False, allow_null=True, default=None
+    )
+    observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+    items = serializers.ListField(
+        child=GrupoSolicitudItemInputSerializer(),
+        allow_empty=False,
+        help_text="Lista de materiales solicitados en este grupo (mínimo 1).",
+    )
+
+
+class GrupoSolicitudDetailSerializer(serializers.ModelSerializer):
+    """Serializer de lectura para un GrupoSolicitud y sus items."""
+    solicitado_por_nombre = serializers.SerializerMethodField()
+    work_order_code = serializers.CharField(source="work_order.code", read_only=True, default=None)
+    work_order_detail = serializers.SerializerMethodField()
+    estado = serializers.CharField(read_only=True)
+    items = SolicitudMovimientoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = GrupoSolicitud
+        fields = [
+            "id", "solicitado_por", "solicitado_por_nombre",
+            "work_order", "work_order_code", "work_order_detail", "observaciones",
+            "creado_en", "estado", "items",
+        ]
+
+    def get_solicitado_por_nombre(self, obj):
+        if obj.solicitado_por:
+            return obj.solicitado_por.get_full_name() or obj.solicitado_por.username
+        return None
+
+    def get_work_order_detail(self, obj):
+        if not obj.work_order:
+            return None
+        ot = obj.work_order
+        tech_principal = (
+            ot.technician.get_full_name() or ot.technician.username
+            if ot.technician else "N/A"
+        )
+        tech_apoyo = [
+            u.get_full_name() or u.username
+            for u in ot.supporting_technicians.all()
+        ]
+        return {
+            "id": str(ot.id),
+            "code": ot.code,
+            "status": ot.status,
+            "status_display": ot.get_status_display(),
+            "technician_name": tech_principal,
+            "supporting_technicians": tech_apoyo,
+        }
+
+
+class ResolverParcialItemSerializer(serializers.Serializer):
+    """Representa la decisión del administrador para un item individual del grupo."""
+    solicitud_id = serializers.IntegerField()
+    aprobado = serializers.BooleanField()
+    motivo_no_entrega = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        if not attrs.get("aprobado") and not attrs.get("motivo_no_entrega", "").strip():
+            raise serializers.ValidationError({
+                "motivo_no_entrega": "El motivo de no entrega es obligatorio si el material no es aprobado."
+            })
+        return attrs
+
+
+class ResolverParcialGrupoSerializer(serializers.Serializer):
+    """Payload para aprobación/rechazo parcial de un grupo."""
+    items = serializers.ListField(
+        child=ResolverParcialItemSerializer(),
+        allow_empty=False,
+        help_text="Decisión para cada item del grupo.",
+    )
+

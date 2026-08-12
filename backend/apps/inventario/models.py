@@ -49,6 +49,44 @@ class Movimiento(models.Model):
         return f"{self.get_tipo_display()} - {objetivo} ({self.fecha.date()})"
 
 
+class GrupoSolicitud(models.Model):
+    """
+    Agrupa varias SolicitudMovimiento enviadas juntas en un mismo envío del
+    formulario por un ALMACENERO.  Un grupo = 1 notificación al administrador.
+    FK opcional a WorkOrder para vincular al trabajo que originó el pedido.
+    """
+    solicitado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="grupos_solicitud_creados",
+    )
+    work_order = models.ForeignKey(
+        "workorders.WorkOrder",
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name="grupos_solicitud",
+        help_text="Orden de Trabajo que origina este pedido de materiales (opcional).",
+    )
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado_en"]
+
+    @property
+    def tiene_pendientes(self) -> bool:
+        return self.items.filter(estado=SolicitudMovimiento.Estado.PENDIENTE).exists()
+
+    @property
+    def estado(self) -> str:
+        """Retorna 'pendiente' si al menos un item está pendiente, de lo contrario 'resuelta'."""
+        return "pendiente" if self.tiene_pendientes else "resuelta"
+
+
+    def __str__(self):
+        return f"Grupo #{self.pk} — {self.solicitado_por} ({self.creado_en.date()})"
+
+
 class SolicitudMovimiento(models.Model):
     """Solicitud de salida o baja de stock iniciada por un ALMACENERO.
     Permanece en estado PENDIENTE hasta que un ADMINISTRADOR la apruebe o rechace.
@@ -110,6 +148,29 @@ class SolicitudMovimiento(models.Model):
         related_name="solicitud_origen",
     )
 
+    # ── Campos nuevos (Objetivo 1) ────────────────────────────────────────────
+    # Grupo al que pertenece esta solicitud (nullable: solicitudes unitarias antiguas no tienen grupo)
+    grupo = models.ForeignKey(
+        GrupoSolicitud,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="items",
+        help_text="Grupo de solicitudes al que pertenece este item (None = solicitud unitaria suelta).",
+    )
+    # FK directa a WorkOrder solo para solicitudes agrupadas (texto libre sigue en referencia_externa)
+    work_order = models.ForeignKey(
+        "workorders.WorkOrder",
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name="solicitudes_movimiento",
+        help_text="Orden de Trabajo que originó esta solicitud (solo en flujo de aprobación).",
+    )
+    # Motivo cuando un item puntual del grupo es rechazado parcialmente
+    motivo_no_entrega = models.TextField(
+        blank=True,
+        help_text="Razón por la que este item específico no fue entregado en una aprobación parcial.",
+    )
+
     class Meta:
         ordering = ["-creado_en"]
 
@@ -118,4 +179,4 @@ class SolicitudMovimiento(models.Model):
             self.pieza.codigo if self.pieza
             else (self.material.codigo if self.material else "—")
         )
-        return f"[{self.get_estado_display()}] {self.get_tipo_display()} · {objetivo}"
+        return f"[{self.get_estado_display()}] {self.get_tipo_display()} · {objetivo}"
