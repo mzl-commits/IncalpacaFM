@@ -71,35 +71,6 @@ const TIME_SLOTS_12H = [
   { value: "20:00", label: "08:00 PM" },
 ];
 
-function format12HTime(time24: string): string {
-  if (!time24) return "08:00 AM";
-  const slot = TIME_SLOTS_12H.find((s) => s.value === time24);
-  if (slot) return slot.label;
-  const [hStr, mStr = "00"] = time24.split(":");
-  const h = parseInt(hStr, 10);
-  if (isNaN(h)) return "08:00 AM";
-  const period = h >= 12 ? "PM" : "AM";
-  const displayH = h % 12 === 0 ? 12 : h % 12;
-  return `${displayH.toString().padStart(2, "0")}:${mStr} ${period}`;
-}
-
-function getCalculatedEndTime(startTime24: string, plannedHours: number): string {
-  if (!startTime24) return "10:00 AM";
-  const [hStr, mStr = "00"] = startTime24.split(":");
-  const startH = parseInt(hStr, 10);
-  const startM = parseInt(mStr, 10);
-  if (isNaN(startH) || isNaN(startM)) return "10:00 AM";
-
-  let totalMinutes = startH * 60 + startM + Math.round((plannedHours || 1) * 60);
-  totalMinutes = Math.min(totalMinutes, 24 * 60 - 1);
-  const endH = Math.floor(totalMinutes / 60);
-  const endM = totalMinutes % 60;
-  const period = endH >= 12 ? "PM" : "AM";
-  const displayH = endH % 12 === 0 ? 12 : endH % 12;
-  const displayM = endM.toString().padStart(2, "0");
-  return `${displayH.toString().padStart(2, "0")}:${displayM} ${period}`;
-}
-
 interface WorkOrderFormState {
   title: string;
   description: string;
@@ -219,7 +190,6 @@ export function WorkOrderListPage() {
   const [orderSaving, setOrderSaving] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [orderSuccess, setOrderSuccess] = useState("");
-  const [customDurationMode, setCustomDurationMode] = useState(false);
 
   async function loadAuxiliaryData() {
     try {
@@ -1007,68 +977,25 @@ export function WorkOrderListPage() {
                     </label>
                   </div>
 
-                  <div className="field">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 600, fontSize: '13px', color: '#333' }}>Duración estimada *</span>
-                      <button
-                        type="button"
-                        style={{ background: 'none', border: 'none', color: '#0066CC', cursor: 'pointer', fontSize: '12px', fontWeight: 600, textDecoration: 'underline' }}
-                        onClick={() => setCustomDurationMode(!customDurationMode)}
-                      >
-                        {customDurationMode ? "⚡ Elegir de la lista" : "✍️ Ingresar manualmente"}
-                      </button>
-                    </div>
-
-                    {customDurationMode ? (
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input
-                          type="number"
-                          step="0.25"
-                          min="0.25"
-                          max="24"
-                          placeholder="Ej. 1.5 horas"
-                          value={orderForm.plannedHours}
-                          onChange={(e) => setOrderForm({ ...orderForm, plannedHours: Math.max(0.1, Number(e.target.value)) })}
-                        />
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}>horas</span>
-                      </div>
-                    ) : (
-                      <select
-                        value={orderForm.plannedHours}
-                        onChange={(e) => {
-                          if (e.target.value === "custom") {
-                            setCustomDurationMode(true);
-                          } else {
-                            setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) });
-                          }
-                        }}
-                      >
-                        <option value={0.5}>0.5 h (30 minutos)</option>
-                        <option value={1}>1.0 h (1 hora)</option>
-                        <option value={1.5}>1.5 h (1 hora y 30 min)</option>
-                        <option value={2}>2.0 h (2 horas)</option>
-                        <option value={2.5}>2.5 h (2 horas y 30 min)</option>
-                        <option value={3}>3.0 h (3 horas)</option>
-                        <option value={3.5}>3.5 h (3 horas y 30 min)</option>
-                        <option value={4}>4.0 h (4 horas - Media jornada)</option>
-                        <option value={5}>5.0 h (5 horas)</option>
-                        <option value={6}>6.0 h (6 horas)</option>
-                        <option value={8}>8.0 h (8 horas - Jornada completa)</option>
-                        <option value="custom">✍️ Ingresar manualmente en horas...</option>
-                      </select>
-                    )}
-                  </div>
-
-                  {/* RESUMEN DE VENTANA DE HORARIO (INICIO Y FIN ESTIMADA) */}
-                  <div style={{ background: '#F8F9FA', border: '1px solid #D8D8D8', borderRadius: '8px', padding: '10px 14px', marginTop: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#111111' }}>
-                      <span><strong>Hora Inicio:</strong> {format12HTime(orderForm.scheduledStartTime)}</span>
-                      <span><strong>Hora Fin estimada:</strong> {getCalculatedEndTime(orderForm.scheduledStartTime, orderForm.plannedHours)}</span>
-                    </div>
-                    <small style={{ display: 'block', marginTop: '4px', color: '#666666', fontSize: '12px' }}>
-                      ⏱️ Horario reservado: {format12HTime(orderForm.scheduledStartTime)} a {getCalculatedEndTime(orderForm.scheduledStartTime, orderForm.plannedHours)} ({orderForm.plannedHours} hora{orderForm.plannedHours === 1 ? "" : "s"})
-                    </small>
-                  </div>
+                  <label className="field">
+                    <span>Duración estimada *</span>
+                    <select
+                      value={orderForm.plannedHours}
+                      onChange={(e) => setOrderForm({ ...orderForm, plannedHours: Number(e.target.value) })}
+                    >
+                      <option value={0.5}>30 minutos</option>
+                      <option value={1}>1 hora</option>
+                      <option value={1.5}>1 hora y media</option>
+                      <option value={2}>2 horas</option>
+                      <option value={2.5}>2 horas y media</option>
+                      <option value={3}>3 horas</option>
+                      <option value={3.5}>3 horas y media</option>
+                      <option value={4}>4 horas</option>
+                      <option value={5}>5 horas</option>
+                      <option value={6}>6 horas</option>
+                      <option value={8}>8 horas</option>
+                    </select>
+                  </label>
                   </div>
                 </div>
 
