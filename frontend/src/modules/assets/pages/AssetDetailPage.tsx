@@ -14,6 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import {
@@ -149,7 +150,8 @@ export function AssetDetailPage() {
     } finally {
       setSaving(false);
     }
-  }  function handleOpenAddResponsible() {
+  }
+  function handleOpenAddResponsible() {
     setNewRespForm({
       responsible: activeAssignment?.responsible && activeAssignment.responsible !== "Sin asignar" ? activeAssignment.responsible : "",
       area: activeAssignment?.area || "",
@@ -496,7 +498,7 @@ export function AssetDetailPage() {
       )}
 
       {/* EDIT ASSET MODAL */}
-      {editing && (
+      {editing && createPortal(
         <div className="asset-edit-backdrop" role="presentation">
           <section
             className="asset-edit-dialog"
@@ -610,11 +612,12 @@ export function AssetDetailPage() {
               </footer>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ADD NEW RESPONSIBLE MODAL */}
-      {addingResponsible && (
+      {addingResponsible && createPortal(
         <div className="asset-edit-backdrop" role="presentation">
           <section
             className="asset-edit-dialog"
@@ -722,11 +725,12 @@ export function AssetDetailPage() {
               </footer>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* EDIT EXISTING RESPONSIBLE MODAL */}
-      {editingResponsibleItem && (
+      {editingResponsibleItem && createPortal(
         <div className="asset-edit-backdrop" role="presentation">
           <section
             className="asset-edit-dialog"
@@ -831,7 +835,8 @@ export function AssetDetailPage() {
               </footer>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
