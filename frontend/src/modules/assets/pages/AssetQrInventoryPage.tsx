@@ -1,6 +1,7 @@
 import {
   ArrowClockwise,
   ArrowSquareOut,
+  Archive,
   CalendarBlank,
   CheckCircle,
   MagnifyingGlass,
@@ -21,6 +22,7 @@ import {
   type ActiveFilter,
 } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
+import { useAuth } from "@/modules/accounts/AuthContext";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { getAssetDisplayCode, type RegisteredAsset } from "@/modules/assets/entryModel";
 
@@ -148,6 +150,7 @@ function AssetQrPreview({ asset }: { asset: RegisteredAsset }) {
   );
 }
 export function AssetQrInventoryPage() {
+  const { user } = useAuth();
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   const [assets, setAssets] = useState<RegisteredAsset[]>([]);
@@ -712,6 +715,15 @@ export function AssetQrInventoryPage() {
                           <Printer size={17} aria-hidden="true" />
                           Imprimir
                         </button>
+                        {user?.role === "ADMINISTRADOR" && (
+                          <Link
+                            to={`/bienes/${asset.id}`}
+                            title="Abre la ficha del bien para iniciar su evaluación de baja con diagnóstico técnico"
+                          >
+                            <Archive size={17} aria-hidden="true" />
+                            Iniciar baja
+                          </Link>
+                        )}
                         <a
                           href={asset.publicUrl}
                           target="_blank"

@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Archive,
   CheckCircle,
   DownloadSimple,
   FloppyDisk,
@@ -25,6 +26,8 @@ import {
 } from "@/modules/assets/assetDetailRepository";
 import { ModelCreatableSelect } from "@/modules/assets/components/ModelCreatableSelect";
 import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
+import { listWorkOrders } from "@/modules/workorders/workOrderRepository";
+import type { WorkOrder } from "@/modules/workorders/types";
 
 type DetailTab = "overview" | "responsibles" | "repairs" | "qr";
 type ResponsibleItem = AssetDetailRecord["responsible_history"][number];
@@ -44,6 +47,7 @@ export function AssetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [retirementWorkOrder, setRetirementWorkOrder] = useState<WorkOrder | null>(null);
   // New Responsible Modal State
   const [addingResponsible, setAddingResponsible] = useState(false);
   const [newRespForm, setNewRespForm] = useState({
@@ -85,6 +89,21 @@ export function AssetDetailPage() {
       .then(setAsset)
       .catch(() => setError("No se pudo cargar la ficha del bien."));
   }, [id]);
+
+  useEffect(() => {
+    if (!asset?.id || user?.role !== "ADMINISTRADOR") return;
+    let active = true;
+    void listWorkOrders()
+      .then((orders) => {
+        if (!active) return;
+        const related = orders
+          .filter((order) => order.assetId === asset.id && order.status !== "CANCELADA")
+          .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0];
+        setRetirementWorkOrder(related ?? null);
+      })
+      .catch(() => active && setRetirementWorkOrder(null));
+    return () => { active = false; };
+  }, [asset?.id, user?.role]);
 
   useEffect(() => {
     if (asset)
@@ -329,6 +348,27 @@ export function AssetDetailPage() {
               <PencilSimple />
               Editar ficha
             </button>
+          )}
+          {user?.role === "ADMINISTRADOR" && (
+            retirementWorkOrder ? (
+              <Link
+                className="button button-danger"
+                to={`/ordenes-trabajo/${retirementWorkOrder.id}/diagnostico`}
+                title={`Iniciar evaluación de baja desde ${retirementWorkOrder.code}`}
+              >
+                <Archive />
+                Iniciar baja
+              </Link>
+            ) : (
+              <Link
+                className="button button-secondary"
+                to="/ordenes-trabajo"
+                title="Una baja requiere una orden de trabajo y diagnóstico técnico"
+              >
+                <Archive />
+                Preparar baja
+              </Link>
+            )
           )}
           <button className="button button-primary" type="button" onClick={handleOpenAddResponsible}>
             <UserPlus />
