@@ -7,8 +7,10 @@ from .views import (
     LoginView,
     UserListView,
     TechnicianListCreateView,
+    AccountManagementListCreateView,
     TechnicianImportView,
     TechnicianDetailView,
+    AccountManagementDetailView,
     TechnicianManualNotificationView,
 )
 
@@ -19,6 +21,8 @@ urlpatterns = [
     path("auth/change-password/", ChangePasswordView.as_view(), name="auth-change-password"),
     path("users/", UserListView.as_view(), name="user-list"),
     path("technicians/", TechnicianListCreateView.as_view(), name="technician-list"),
+    path("users/manage/", AccountManagementListCreateView.as_view(), name="account-management-list"),
+    path("users/manage/<uuid:pk>/", AccountManagementDetailView.as_view(), name="account-management-detail"),
     path("technicians/import/", TechnicianImportView.as_view(), name="technician-import"),
     path("technicians/<uuid:pk>/", TechnicianDetailView.as_view(), name="technician-detail"),
     path("technicians/<uuid:pk>/notifications/", TechnicianManualNotificationView.as_view(), name="technician-notifications"),

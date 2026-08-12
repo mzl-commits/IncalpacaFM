@@ -372,6 +372,40 @@ a { color: inherit; text-decoration: none; }
   background: #F7F7F7;
 }
 
+.user-management-page { display: grid; gap: 20px; }
+.user-management-heading, .user-management-actions { display: flex; align-items: center; gap: 12px; }
+.user-management-heading { justify-content: space-between; }
+.user-management-notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border: 1px solid #cfcfcf; border-radius: 8px; background: #fafafa; color: #444; }
+.user-management-notice.is-error { border-color: #989898; color: #303030; }
+.user-management-notice .button { min-height: 36px; }
+.user-management-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.user-management-summary > div { display: flex; align-items: center; gap: 12px; min-height: 92px; padding: 18px 22px; border-right: 1px solid var(--border); }
+.user-management-summary > div:last-child { border-right: 0; }
+.user-management-summary span { display: grid; gap: 3px; }
+.user-management-summary strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+.user-management-summary small, .user-management-editor header p, .responsive-table small { color: var(--muted); }
+.user-management-editor { display: grid; gap: 20px; padding: 22px; }
+.user-management-editor > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.user-management-editor h2 { margin: 0; font-size: 19px; }
+.user-management-editor header p { margin: 5px 0 0; font-size: 14px; }
+.field-toggle { display: flex; align-items: center; gap: 9px; min-height: 44px; padding-top: 24px; }
+.field-toggle input { inline-size: 17px; block-size: 17px; }
+.user-management-list { overflow: hidden; }
+.user-management-empty { display: grid; min-height: 180px; justify-items: center; align-content: center; gap: 8px; padding: 28px; color: var(--muted); text-align: center; }
+.user-management-empty strong { color: var(--text); }
+.responsive-table small { display: block; margin-top: 3px; font-size: 12px; }
+.table-action { display: inline-flex; align-items: center; gap: 6px; }
+.status-badge.is-muted { opacity: .62; }
+@media (max-width: 760px) {
+  .user-management-heading { align-items: stretch; flex-direction: column; }
+  .user-management-actions { flex-wrap: wrap; }
+  .user-management-actions .button { flex: 1 1 190px; justify-content: center; }
+  .user-management-summary { grid-template-columns: 1fr; }
+  .user-management-summary > div { min-height: 68px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .user-management-summary > div:last-child { border-bottom: 0; }
+  .user-management-notice { align-items: stretch; flex-direction: column; }
+}
+
 /* Técnico: un único contexto de trabajo, sin rail ni menú flotante. */
 .technician-sidebar {
   position: fixed;
@@ -400,6 +434,22 @@ a { color: inherit; text-decoration: none; }
 .technician-sidebar-logout { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: #64748b; font-size: 13px; font-weight: 650; cursor: pointer; }
 .technician-sidebar-logout:hover { background: #f1f5f9; color: #0f172a; }
 .content-frame-overlay.is-technician { margin-left: 264px; width: calc(100% - 264px); }
+
+.user-create-page { max-width: 1100px; }
+.user-create-form { overflow: hidden; }
+.user-create-form .form-section { padding: 24px; border-bottom: 1px solid #e5e7eb; }
+.user-create-form .form-section:last-of-type { border-bottom: 0; }
+.user-role-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.user-role-option { display: flex; gap: 10px; min-height: 76px; padding: 14px; border: 1px solid #d7dce2; border-radius: 9px; cursor: pointer; }
+.user-role-option:hover { border-color: #94a3b8; background: #f8fafc; }
+.user-role-option.is-selected { border-color: #0f172a; background: #f1f5f9; box-shadow: inset 0 0 0 1px #0f172a; }
+.user-role-option input { width: 17px; height: 17px; margin-top: 2px; accent-color: #0f172a; }
+.user-role-option span { display: grid; gap: 3px; }
+.user-role-option strong { color: #1f2937; font-size: 14px; }
+.user-role-option small { color: #64748b; font-size: 12px; line-height: 1.35; }
+.user-role-summary { display: flex; align-items: center; gap: 7px; margin: 16px 0 0; color: #475569; font-size: 13px; }
+.user-role-summary svg { color: #0f172a; flex: 0 0 auto; }
+@media (max-width: 700px) { .user-create-form .form-section { padding: 18px; }.user-role-options { grid-template-columns: 1fr; }.user-role-summary { align-items: flex-start; } }
 
 @media (max-width: 760px) {
   .technician-sidebar { display: none; }
