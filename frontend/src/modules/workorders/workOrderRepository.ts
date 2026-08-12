@@ -97,6 +97,38 @@ export async function registerWorkOrderProgress(
   notifyChanges();
   return data;
 }
+
+export async function updateWorkOrderPhoto(
+  id: string,
+  stage: "START" | "FINISH",
+  photoFile: File,
+): Promise<WorkOrder> {
+  const payload = new FormData();
+  payload.append("action", "UPDATE_PHOTO");
+  payload.append("observation", stage);
+  if (stage === "START") {
+    payload.append("startPhoto", photoFile);
+  } else {
+    payload.append("finishPhoto", photoFile);
+  }
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, payload, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  notifyChanges();
+  return data;
+}
+
+export async function deleteWorkOrderPhoto(
+  id: string,
+  stage: "START" | "FINISH",
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: "DELETE_PHOTO",
+    observation: stage,
+  });
+  notifyChanges();
+  return data;
+}
 export async function superviseWorkOrder(
   id: string,
   approved: boolean,

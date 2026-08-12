@@ -480,6 +480,8 @@ class WorkOrderActionSerializer(serializers.Serializer):
             "SERVICE_START",
             "SERVICE_CLOSE",
             "SERVICE_CANCEL",
+            "UPDATE_PHOTO",
+            "DELETE_PHOTO",
         )
     )
     percentage = serializers.IntegerField(required=False, min_value=0, max_value=100)
@@ -515,41 +517,42 @@ class WorkOrderActionSerializer(serializers.Serializer):
         now = timezone.now()
         before = {"status": order.status, "progress": order.progress_percentage}
 
-        role = getattr(request.user.account_profile, 'role', None)
-        technical_actions = {'START', 'PAUSE', 'PROGRESS', 'DIAGNOSIS'}
-        if role == AccountProfile.Role.TECHNICIAN:
-            if order.technician_id != request.user.id and not order.supporting_technicians.filter(pk=request.user.id).exists():
-                raise PermissionDenied('Solo los técnicos asignados pueden actualizar esta orden.')
-            if action not in technical_actions:
-                raise PermissionDenied('Esta acción corresponde a la validación administrativa.')
-        elif role == AccountProfile.Role.SUPERVISOR:
-            if order.supervisor_id != request.user.id:
-                raise PermissionDenied('Solo el supervisor asignado puede revisar esta orden.')
-            if action not in {'SUPERVISOR_APPROVE', 'SUPERVISOR_RETURN'}:
-                raise PermissionDenied('Esta acción corresponde al administrador o al operario.')
-        elif role == AccountProfile.Role.ADMIN:
-            if action in technical_actions or action.startswith('SUPERVISOR_') or action in {'CONFORM', 'REOPEN'}:
-                raise PermissionDenied('Esta acción corresponde al operario, supervisor o solicitante.')
-        expected_statuses = {
-            'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.PENDING_RESCHEDULE, WorkOrder.Status.RETURNED, WorkOrder.Status.IN_PROGRESS},
-            'PAUSE': {WorkOrder.Status.IN_PROGRESS},
-            'PROGRESS': {WorkOrder.Status.IN_PROGRESS},
-            'SUPERVISOR_APPROVE': {WorkOrder.Status.SUPERVISION},
-            'SUPERVISOR_RETURN': {WorkOrder.Status.SUPERVISION},
-            'ADMIN_APPROVE': {WorkOrder.Status.ADMIN_REVIEW},
-            'ADMIN_RETURN': {WorkOrder.Status.ADMIN_REVIEW},
-            'CONFORM': {WorkOrder.Status.CONFORMITY},
-            'REOPEN': {WorkOrder.Status.CONFORMITY},
-            'RESCHEDULE_CORRECTION': {WorkOrder.Status.RETURNED},
-            'SERVICE_START': {WorkOrder.Status.SCHEDULED},
-            'SERVICE_CLOSE': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.IN_PROGRESS},
-            'SERVICE_CANCEL': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.IN_PROGRESS},
-        }
-        allowed_statuses = expected_statuses.get(action)
-        if allowed_statuses and order.status not in allowed_statuses:
-            raise serializers.ValidationError({
-                'action': 'La acción no corresponde al estado actual de la orden.'
-            })
+        if action not in {"UPDATE_PHOTO", "DELETE_PHOTO"}:
+            role = getattr(request.user.account_profile, 'role', None)
+            technical_actions = {'START', 'PAUSE', 'PROGRESS', 'DIAGNOSIS'}
+            if role == AccountProfile.Role.TECHNICIAN:
+                if order.technician_id != request.user.id and not order.supporting_technicians.filter(pk=request.user.id).exists():
+                    raise PermissionDenied('Solo los técnicos asignados pueden actualizar esta orden.')
+                if action not in technical_actions:
+                    raise PermissionDenied('Esta acción corresponde a la validación administrativa.')
+            elif role == AccountProfile.Role.SUPERVISOR:
+                if order.supervisor_id != request.user.id:
+                    raise PermissionDenied('Solo el supervisor asignado puede revisar esta orden.')
+                if action not in {'SUPERVISOR_APPROVE', 'SUPERVISOR_RETURN'}:
+                    raise PermissionDenied('Esta acción corresponde al administrador o al operario.')
+            elif role == AccountProfile.Role.ADMIN:
+                if action in technical_actions or action.startswith('SUPERVISOR_') or action in {'CONFORM', 'REOPEN'}:
+                    raise PermissionDenied('Esta acción corresponde al operario, supervisor o solicitante.')
+            expected_statuses = {
+                'START': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.PENDING_RESCHEDULE, WorkOrder.Status.RETURNED, WorkOrder.Status.IN_PROGRESS},
+                'PAUSE': {WorkOrder.Status.IN_PROGRESS},
+                'PROGRESS': {WorkOrder.Status.IN_PROGRESS},
+                'SUPERVISOR_APPROVE': {WorkOrder.Status.SUPERVISION},
+                'SUPERVISOR_RETURN': {WorkOrder.Status.SUPERVISION},
+                'ADMIN_APPROVE': {WorkOrder.Status.ADMIN_REVIEW},
+                'ADMIN_RETURN': {WorkOrder.Status.ADMIN_REVIEW},
+                'CONFORM': {WorkOrder.Status.CONFORMITY},
+                'REOPEN': {WorkOrder.Status.CONFORMITY},
+                'RESCHEDULE_CORRECTION': {WorkOrder.Status.RETURNED},
+                'SERVICE_START': {WorkOrder.Status.SCHEDULED},
+                'SERVICE_CLOSE': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.IN_PROGRESS},
+                'SERVICE_CANCEL': {WorkOrder.Status.SCHEDULED, WorkOrder.Status.IN_PROGRESS},
+            }
+            allowed_statuses = expected_statuses.get(action)
+            if allowed_statuses and order.status not in allowed_statuses:
+                raise serializers.ValidationError({
+                    'action': 'La acción no corresponde al estado actual de la orden.'
+                })
 
         if action.startswith("SERVICE_") and order.order_type != WorkOrder.OrderType.SERVICE:
             raise serializers.ValidationError({
@@ -864,6 +867,30 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 "at": now.isoformat(),
                 "by": request.user.get_full_name(),
             }
+        elif action == "UPDATE_PHOTO":
+            stage_param = str(self.validated_data.get("observation") or "START").upper()
+            target_stage = WorkOrderPhoto.Stage.START if stage_param in {"START", "INICIO", "ANTES"} else WorkOrderPhoto.Stage.FINISH
+            photo_file = self.validated_data.get("startPhoto") or self.validated_data.get("finishPhoto")
+            if not photo_file:
+                raise serializers.ValidationError({"photo": "Adjunta la fotografía de evidencia."})
+
+            existing = WorkOrderPhoto.objects.filter(work_order=order, stage=target_stage).first()
+            if existing:
+                existing.image = photo_file
+                existing.uploaded_by = request.user
+                existing.save()
+            else:
+                WorkOrderPhoto.objects.create(
+                    work_order=order,
+                    stage=target_stage,
+                    image=photo_file,
+                    uploaded_by=request.user,
+                )
+            record_privacy_event(request=request, context="EVIDENCIA", subject_reference=order.code)
+        elif action == "DELETE_PHOTO":
+            stage_param = str(self.validated_data.get("observation") or "START").upper()
+            target_stage = WorkOrderPhoto.Stage.START if stage_param in {"START", "INICIO", "ANTES"} else WorkOrderPhoto.Stage.FINISH
+            WorkOrderPhoto.objects.filter(work_order=order, stage=target_stage).delete()
         elif action in {"CONFORM", "REOPEN"}:
             accepted = action == "CONFORM"
             order.conformity = {
