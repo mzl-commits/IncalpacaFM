@@ -39,7 +39,9 @@ import {
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
   listWorkOrders,
+  registerWorkOrderProgress,
   scheduleWorkOrderCorrection,
+  startWorkOrder,
   updateServiceOrderStatus,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
@@ -231,6 +233,30 @@ export function WorkOrderDetailPage() {
   const [serviceAttachments, setServiceAttachments] = useState<string[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [photoUrls, setPhotoUrls] = useState<{ start: string | null; finish: string | null }>({ start: null, finish: null });
+  const [uploadingPhoto, setUploadingPhoto] = useState<"start" | "finish" | null>(null);
+
+  async function handleUploadPhoto(type: "start" | "finish", file: File) {
+    if (!workOrder) return;
+    setUploadingPhoto(type);
+    try {
+      let updated: WorkOrder;
+      if (type === "start") {
+        updated = await startWorkOrder(workOrder.id, file);
+      } else {
+        updated = await registerWorkOrderProgress(workOrder.id, {
+          percentage: workOrder.progressPercentage || 100,
+          observation: "Evidencia fotográfica final subida.",
+          evidenceNames: [],
+          finishPhoto: file,
+        });
+      }
+      setWorkOrder(updated);
+    } catch {
+      alert("No se pudo subir la foto de evidencia. Intenta nuevamente.");
+    } finally {
+      setUploadingPhoto(null);
+    }
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -893,11 +919,28 @@ export function WorkOrderDetailPage() {
           </div>
           <div className="work-order-photo-grid wo-compact-photo-grid">
             {([
-              ["Antes", photoUrls.start, "Sin foto de inicio."],
-              ["Después", photoUrls.finish, "Sin foto final."],
-            ] as const).map(([label, url, help]) => (
+              ["Antes", photoUrls.start, "Sin foto de inicio.", "start" as const],
+              ["Después", photoUrls.finish, "Sin foto final.", "finish" as const],
+            ] as const).map(([label, url, help, photoType]) => (
               <figure className="work-order-photo-card wo-compact-photo-card" key={label}>
-                <figcaption><strong>{label}</strong><span>{url ? "Disponible" : "Sin foto"}</span></figcaption>
+                <figcaption style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <strong>{label}</strong>
+                  <label style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "#111111", fontWeight: 600, background: "#FFFFFF", border: "1px solid #D8D8D8", borderRadius: "6px", padding: "2px 8px" }}>
+                    {uploadingPhoto === photoType ? "Subiendo..." : url ? "Cambiar foto" : "+ Subir foto"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      disabled={uploadingPhoto !== null}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          void handleUploadPhoto(photoType, file);
+                        }
+                      }}
+                    />
+                  </label>
+                </figcaption>
                 {url ? <img src={url} alt={`Estado del bien ${label.toLowerCase()}`} /> : <div className="work-order-photo-empty">{help}</div>}
               </figure>
             ))}
