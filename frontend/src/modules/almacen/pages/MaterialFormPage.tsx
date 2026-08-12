@@ -154,6 +154,7 @@ export function MaterialFormPage() {
     if (!form.subcategoria) errs.subcategoria = "Selecciona una subcategoría.";
     if (!form.tipo_control) errs.tipo_control = "Selecciona el tipo de control.";
     if (
+      form.tipo_control === "no_retornable" &&
       !form.control_individual &&
       form.unidad_manejo === "caja" &&
       !(Number(form.unidades_por_caja) > 0)
@@ -164,6 +165,16 @@ export function MaterialFormPage() {
     return Object.keys(errs).length === 0;
   }
 
+  function buildPayload(): MaterialCreatePayload {
+    const usaCaja =
+      form.tipo_control === "no_retornable" &&
+      !form.control_individual &&
+      form.unidad_manejo === "caja";
+    return {
+      ...form,
+      unidades_por_caja: usaCaja ? Number(form.unidades_por_caja) : null,
+    };
+  }
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
@@ -207,7 +218,6 @@ export function MaterialFormPage() {
       </section>
     );
   }
-
 
   if (isEditMode && (isLoadingMaterial || !formInicializado)) {
     return <div className="loading-panel">Cargando datos del material…</div>;

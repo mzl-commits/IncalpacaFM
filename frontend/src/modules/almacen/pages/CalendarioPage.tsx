@@ -35,11 +35,83 @@ function construirGrilla(mesVisible: Date): Date[] {
   });
 }
 
+/** Agrupa programaciones por equipo (código) o por clasificación (subcategoría). */
+function agruparProgramaciones(
+  items: ProgramacionInspeccion[],
+  agruparPor: "equipo" | "clasificacion",
+): Map<string, ProgramacionInspeccion[]> {
+  const mapa = new Map<string, ProgramacionInspeccion[]>();
+  for (const p of items) {
+    const clave = agruparPor === "clasificacion"
+      ? (p.subcategoria_nombre ?? "Sin clasificación")
+      : (p.pieza_codigo ?? p.material_codigo ?? "Sin código");
+    const lista = mapa.get(clave) ?? [];
+    lista.push(p);
+    mapa.set(clave, lista);
+  }
+  return mapa;
+}
+
+/** Tabla reutilizable: misma vista para "Vencidas", "Próximas" y el panel del día seleccionado. */
+function TablaAgrupada({
+  grupos,
+  agruparPor,
+}: {
+  grupos: Map<string, ProgramacionInspeccion[]>;
+  agruparPor: "equipo" | "clasificacion";
+}) {
+  return (
+    <div className="table-scroll">
+      <table className="tabla-vencidas">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            {agruparPor === "clasificacion" && <th>Material / Pieza</th>}
+            <th>Estado</th>
+            <th>Periodicidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from(grupos.entries()).map(([clave, items]) => (
+            <Fragment key={clave}>
+              <tr className="checklist-section-row">
+                <td colSpan={agruparPor === "clasificacion" ? 4 : 3} className="checklist-section-label">
+                  {agruparPor === "equipo" && items[0]?.objeto_nombre
+                    ? `${clave} · ${items[0].objeto_nombre}`
+                    : clave}{" "}
+                  <span className="text-muted-xs">({items.length})</span>
+                </td>
+              </tr>
+              {items.map((p) => (
+                <tr key={p.id}>
+                  <td className="text-base">
+                    {new Date(p.fecha_programada + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "medium" })}
+                  </td>
+                  {agruparPor === "clasificacion" && (
+                    <td className="text-base">
+                      <span className="text-mono">{p.pieza_codigo ?? p.material_codigo ?? "—"}</span>
+                      {p.objeto_nombre && <span className="text-muted-xs" style={{ display: "block" }}>{p.objeto_nombre}</span>}
+                    </td>
+                  )}
+                  <td><StatusBadge value={p.estado_calculado} label={estadoCalculadoLabels[p.estado_calculado]} /></td>
+                  <td className="text-muted-sm">cada {p.periodicidad_dias} días</td>
+                </tr>
+              ))}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function CalendarioPage() {
   const [mesVisible, setMesVisible] = useState(() => new Date());
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<EstadoCalculado | "todas">("todas");
   const [agruparPor, setAgruparPor] = useState<"equipo" | "clasificacion">("equipo");
+  // Las vencidas empiezan colapsadas: si hay muchas, no deben tapar las próximas.
+  const [verVencidas, setVerVencidas] = useState(false);
 
   const grilla = useMemo(() => construirGrilla(mesVisible), [mesVisible]);
   const desde = toISODate(grilla[0]);
@@ -79,24 +151,24 @@ export function CalendarioPage() {
     queryFn: () => listProgramaciones({ hasta: hastaProximas }),
   });
 
-  const vencidasYProximas = useMemo(() => {
+  const vencidas = useMemo(() => {
     return programacionesUrgentes
-      .filter((p) => p.estado_calculado === "vencida" || p.estado_calculado === "proxima")
+      .filter((p) => p.estado_calculado === "vencida")
       .sort((a, b) => a.fecha_programada.localeCompare(b.fecha_programada));
   }, [programacionesUrgentes]);
 
-  const gruposVencidasYProximas = useMemo(() => {
-    const mapa = new Map<string, ProgramacionInspeccion[]>();
-    for (const p of vencidasYProximas) {
-      const clave = agruparPor === "clasificacion"
-        ? (p.subcategoria_nombre ?? "Sin clasificación")
-        : (p.pieza_codigo ?? p.material_codigo ?? "Sin código");
-      const lista = mapa.get(clave) ?? [];
-      lista.push(p);
-      mapa.set(clave, lista);
-    }
-    return mapa;
-  }, [vencidasYProximas, agruparPor]);
+  const proximas = useMemo(() => {
+    return programacionesUrgentes
+      .filter((p) => p.estado_calculado === "proxima")
+      .sort((a, b) => a.fecha_programada.localeCompare(b.fecha_programada));
+  }, [programacionesUrgentes]);
+
+  const gruposVencidas = useMemo(() => agruparProgramaciones(vencidas, agruparPor), [vencidas, agruparPor]);
+  const gruposProximas = useMemo(() => agruparProgramaciones(proximas, agruparPor), [proximas, agruparPor]);
+  const gruposDia = useMemo(
+    () => agruparProgramaciones(listaDiaSeleccionado, agruparPor),
+    [listaDiaSeleccionado, agruparPor],
+  );
 
   return (
     <section>
@@ -202,11 +274,46 @@ export function CalendarioPage() {
         </div>
       </div>
 
+      {/* ── Vencidas: colapsada por defecto para no tapar las próximas ── */}
       <div className="data-panel mt-16">
         <div className="table-toolbar">
-          <strong style={{ fontSize: 15 }}>Vencidas y próximas</strong>
+          <strong style={{ fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="calendario-punto calendario-punto--vencida" aria-hidden="true" />
+            Vencidas
+          </strong>
           <div className="flex-row-wrap" style={{ alignItems: "center", gap: 12 }}>
-            <span className="text-muted-sm">{vencidasYProximas.length} pendientes de atención (próximos 15 días o vencidas)</span>
+            <span className="text-muted-sm">{vencidas.length} sin atender</span>
+            {vencidas.length > 0 && (
+              <button
+                className="button button-sm button-secondary"
+                onClick={() => setVerVencidas((v) => !v)}
+              >
+                {verVencidas ? "Ocultar" : "Ver detalle"}
+              </button>
+            )}
+          </div>
+        </div>
+        {vencidas.length === 0 ? (
+          <p className="empty-row">No hay inspecciones vencidas.</p>
+        ) : verVencidas ? (
+          <TablaAgrupada grupos={gruposVencidas} agruparPor={agruparPor} />
+        ) : (
+          <p className="empty-row">
+            Hay <strong>{vencidas.length}</strong> inspección{vencidas.length !== 1 ? "es" : ""} vencida
+            {vencidas.length !== 1 ? "s" : ""}. Haz clic en "Ver detalle" para revisarlas.
+          </p>
+        )}
+      </div>
+
+      {/* ── Próximas: siempre visible, es lo que el inspector necesita ver primero ── */}
+      <div className="data-panel mt-16">
+        <div className="table-toolbar">
+          <strong style={{ fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="calendario-punto calendario-punto--proxima" aria-hidden="true" />
+            Próximas (15 días)
+          </strong>
+          <div className="flex-row-wrap" style={{ alignItems: "center", gap: 12 }}>
+            <span className="text-muted-sm">{proximas.length} por venir</span>
             <div className="flex-row" style={{ gap: 4 }}>
               <button
                 className={`button button-sm ${agruparPor === "equipo" ? "button-primary" : "button-secondary"}`}
@@ -223,54 +330,14 @@ export function CalendarioPage() {
             </div>
           </div>
         </div>
-        {vencidasYProximas.length === 0 ? (
-          <p className="empty-row">No hay inspecciones vencidas ni próximas en este rango.</p>
+        {proximas.length === 0 ? (
+          <p className="empty-row">No hay inspecciones próximas en los siguientes 15 días.</p>
         ) : (
-          <div className="table-scroll">
-            <table className="tabla-vencidas">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  {agruparPor === "clasificacion" && <th>Material / Pieza</th>}
-                  <th>Estado</th>
-                  <th>Periodicidad</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from(gruposVencidasYProximas.entries()).map(([clave, items]) => (
-                  <Fragment key={clave}>
-                    <tr className="checklist-section-row">
-                        <td colSpan={agruparPor === "clasificacion" ? 4 : 3} className="checklist-section-label">
-
-                        {agruparPor === "equipo" && items[0]?.objeto_nombre
-                          ? `${clave} · ${items[0].objeto_nombre}`
-                          : clave}{" "}
-                        <span className="text-muted-xs">({items.length})</span>
-                      </td>
-                    </tr>
-                    {items.map((p) => (
-                      <tr key={p.id}>
-                        <td className="text-base">
-                          {new Date(p.fecha_programada + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "medium" })}
-                        </td>
-                        {agruparPor === "clasificacion" && (
-                          <td className="text-base">
-                            <span className="text-mono">{p.pieza_codigo ?? p.material_codigo ?? "—"}</span>
-                            {p.objeto_nombre && <span className="text-muted-xs" style={{ display: "block" }}>{p.objeto_nombre}</span>}
-                          </td>
-                        )}
-                        <td><StatusBadge value={p.estado_calculado} label={estadoCalculadoLabels[p.estado_calculado]} /></td>
-                        <td className="text-muted-sm">cada {p.periodicidad_dias} días</td>
-                      </tr>
-                    ))}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TablaAgrupada grupos={gruposProximas} agruparPor={agruparPor} />
         )}
       </div>
 
+      {/* ── Día seleccionado: ahora usa el mismo agrupador (equipo/clasificación) ── */}
       {diaSeleccionado && (
         <div className="data-panel mt-16">
           <div className="table-toolbar">
@@ -278,30 +345,12 @@ export function CalendarioPage() {
               <CalendarBlank size={18} />
               {new Date(diaSeleccionado + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "long" })}
             </strong>
+            <span className="text-muted-sm">{listaDiaSeleccionado.length} programada{listaDiaSeleccionado.length !== 1 ? "s" : ""}</span>
           </div>
           {listaDiaSeleccionado.length === 0 ? (
             <p className="empty-row">No hay inspecciones programadas este día.</p>
           ) : (
-            <div className="table-scroll">
-              <table className="tabla-vencidas">
-                <thead>
-                  <tr>
-                    <th>Material / Pieza</th>
-                    <th>Estado</th>
-                    <th>Periodicidad</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listaDiaSeleccionado.map((p) => (
-                    <tr key={p.id}>
-                      <td className="text-mono text-base">{p.pieza_codigo ?? p.material_codigo ?? "—"}</td>
-                      <td><StatusBadge value={p.estado_calculado} label={estadoCalculadoLabels[p.estado_calculado]} /></td>
-                      <td className="text-muted-sm col-periodicidad">cada {p.periodicidad_dias} días</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <TablaAgrupada grupos={gruposDia} agruparPor={agruparPor} />
           )}
         </div>
       )}

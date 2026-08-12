@@ -11,6 +11,13 @@ from apps.accounts.models import AccountProfile
 from .models import Notification
 
 
+def daily_discriminator(base):
+    """Componente de discriminador que cambia una vez al día, para que un
+    resumen agregado (sin entidad puntual) se re-encole con datos frescos
+    en cada corrida diaria en vez de quedar pegado al primer envío."""
+    return f"{base}-{timezone.localdate().isoformat()}"
+
+
 def _dedupe_key(event, recipient, entity, discriminator):
     source = ':'.join((
         event,
@@ -118,3 +125,10 @@ def queue_for_administrators(*, event, subject, body, entity=None, context=None,
         context=context,
         discriminator=discriminator,
     )
+
+def weekly_discriminator(base):
+    """Componente de discriminador que cambia una vez por semana (ISO week),
+    para que un resumen agregado se re-encole con datos frescos solo
+    semanalmente en vez de diario."""
+    year, week, _ = timezone.localdate().isocalendar()
+    return f"{base}-{year}-W{week:02d}"

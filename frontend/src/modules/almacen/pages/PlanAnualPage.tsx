@@ -1,6 +1,6 @@
-import { CalendarPlus, WarningCircle } from "@phosphor-icons/react";
+import { CalendarPlus, CaretDown, CaretRight, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
@@ -9,7 +9,7 @@ import {
   listProgramaciones,
 } from "@/modules/almacen/planificacionRepository";
 import { estadoCalculadoLabels, estadoPlanAnualLabels } from "@/modules/almacen/types";
-import type { EstadoCalculado } from "@/modules/almacen/types";
+import type { EstadoCalculado, ProgramacionInspeccion } from "@/modules/almacen/types";
 
 const ESTADOS: EstadoCalculado[] = ["vencida", "proxima", "pendiente", "realizada"];
 
@@ -18,13 +18,15 @@ export function PlanAnualPage() {
   const [anioInput, setAnioInput] = useState(() => new Date().getFullYear());
   const [forzar, setForzar] = useState(false);
   const [errorGenerar, setErrorGenerar] = useState<string | null>(null);
+  const [planExpandido, setPlanExpandido] = useState<number | null>(null);
 
   const { data: planes = [], isLoading: cargandoPlanes } = useQuery({
     queryKey: ["planes-anuales"],
     queryFn: listPlanesAnuales,
   });
 
-  // Sin filtro de fecha: trae todas las programaciones para poder contar por plan.
+  // Sin filtro de fecha: trae todas las programaciones para poder contar por plan
+  // y también para mostrar el detalle del plan expandido, sin pedir de nuevo al backend.
   const { data: programaciones = [], isLoading: cargandoProgramaciones } = useQuery({
     queryKey: ["programaciones-inspeccion-todas"],
     queryFn: () => listProgramaciones(),
@@ -39,6 +41,23 @@ export function PlanAnualPage() {
     }
     return mapa;
   }, [programaciones]);
+
+  // Detalle del plan expandido, agrupado por subcategoría — mismo patrón que
+  // "Vencidas y próximas" en CalendarioPage, para que se sienta consistente.
+  const gruposPlanExpandido = useMemo(() => {
+    if (planExpandido == null) return new Map<string, ProgramacionInspeccion[]>();
+    const mapa = new Map<string, ProgramacionInspeccion[]>();
+    const delPlan = programaciones
+      .filter((p) => p.plan === planExpandido)
+      .sort((a, b) => a.fecha_programada.localeCompare(b.fecha_programada));
+    for (const p of delPlan) {
+      const clave = p.subcategoria_nombre ?? "Sin clasificación";
+      const lista = mapa.get(clave) ?? [];
+      lista.push(p);
+      mapa.set(clave, lista);
+    }
+    return mapa;
+  }, [programaciones, planExpandido]);
 
   const mutacionGenerar = useMutation({
     mutationFn: generarPlanAnual,
@@ -59,6 +78,10 @@ export function PlanAnualPage() {
     mutacionGenerar.mutate({ anio: anioInput, forzar });
   }
 
+  function toggleExpandir(planId: number) {
+    setPlanExpandido((actual) => (actual === planId ? null : planId));
+  }
+
   const cargando = cargandoPlanes || cargandoProgramaciones;
 
   return (
@@ -67,7 +90,11 @@ export function PlanAnualPage() {
         <div>
           <p className="breadcrumb">Inicio / Almacén / Plan anual</p>
           <h1>Plan de inspección anual</h1>
-          <p>Genera el calendario de programaciones del año y revisa su avance por estado.</p>
+          <p>
+            Cada plan agrupa las inspecciones programadas de un año. Al generarlo, se
+            calcula una fecha de inspección por cada material inspeccionable, según su
+            frecuencia configurada. Haz clic en un plan para ver el detalle.
+          </p>
         </div>
       </div>
 
@@ -136,9 +163,10 @@ export function PlanAnualPage() {
           <p className="empty-row">No hay planes anuales generados todavía.</p>
         ) : (
           <div className="table-scroll">
-            <table>
+            <table className="tabla-vencidas">
               <thead>
                 <tr>
+                  <th style={{ width: 28 }}></th>
                   <th>Año</th>
                   <th>Estado</th>
                   <th>Vigencia</th>
@@ -154,33 +182,92 @@ export function PlanAnualPage() {
                     vencida: 0, proxima: 0, pendiente: 0, realizada: 0,
                   };
                   const total = conteos.vencida + conteos.proxima + conteos.pendiente + conteos.realizada;
+                  const expandido = planExpandido === plan.id;
 
                   return (
-                    <tr key={plan.id}>
-                      <td className="text-base" style={{ fontWeight: 700 }}>{plan.anio}</td>
-                      <td>
-                        <span className={`trimestre-badge trimestre-q${
-                          plan.estado === "borrador" ? 1 : plan.estado === "aprobado" ? 2 : 4
-                        }`}>
-                          {estadoPlanAnualLabels[plan.estado]}
-                        </span>
-                      </td>
-                      <td className="text-muted-sm">
-                        {new Date(plan.fecha_inicio + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "medium" })}
-                        {" – "}
-                        {new Date(plan.fecha_fin + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "medium" })}
-                      </td>
-                      {ESTADOS.map((estado) => (
-                        <td key={estado}>
-                          {conteos[estado] > 0 ? (
-                            <StatusBadge value={estado} label={String(conteos[estado])} />
-                          ) : (
-                            <span className="text-muted-sm">0</span>
-                          )}
+                    <Fragment key={plan.id}>
+                      <tr
+                        onClick={() => toggleExpandir(plan.id)}
+                        style={{ cursor: "pointer" }}
+                        className={expandido ? "is-seleccionada" : undefined}
+                      >
+                        <td>
+                          {expandido ? <CaretDown size={14} /> : <CaretRight size={14} />}
                         </td>
-                      ))}
-                      <td className="text-base" style={{ fontWeight: 700 }}>{total}</td>
-                    </tr>
+                        <td className="text-base" style={{ fontWeight: 700 }}>{plan.anio}</td>
+                        <td>
+                          <span className={`trimestre-badge trimestre-q${
+                            plan.estado === "borrador" ? 1 : plan.estado === "aprobado" ? 2 : 4
+                          }`}>
+                            {estadoPlanAnualLabels[plan.estado]}
+                          </span>
+                        </td>
+                        <td className="text-muted-sm">
+                          {new Date(plan.fecha_inicio + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "medium" })}
+                          {" – "}
+                          {new Date(plan.fecha_fin + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "medium" })}
+                        </td>
+                        {ESTADOS.map((estado) => (
+                          <td key={estado}>
+                            {conteos[estado] > 0 ? (
+                              <StatusBadge value={estado} label={String(conteos[estado])} />
+                            ) : (
+                              <span className="text-muted-sm">0</span>
+                            )}
+                          </td>
+                        ))}
+                        <td className="text-base" style={{ fontWeight: 700 }}>{total}</td>
+                      </tr>
+
+                      {expandido && (
+                        <tr>
+                          <td colSpan={4 + ESTADOS.length + 1} style={{ padding: 0, background: "var(--surface-muted, #f9fafb)" }}>
+                            {total === 0 ? (
+                              <p className="empty-row">Este plan no tiene programaciones generadas.</p>
+                            ) : (
+                              <div style={{ padding: "8px 16px 16px" }}>
+                                <table className="tabla-vencidas">
+                                  <thead>
+                                    <tr>
+                                      <th>Material / Pieza</th>
+                                      <th>Fecha</th>
+                                      <th>Estado</th>
+                                      <th>Periodicidad</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {Array.from(gruposPlanExpandido.entries()).map(([clave, items]) => (
+                                      <Fragment key={clave}>
+                                        <tr className="checklist-section-row">
+                                          <td colSpan={4} className="checklist-section-label">
+                                            {clave} <span className="text-muted-xs">({items.length})</span>
+                                          </td>
+                                        </tr>
+                                        {items.map((p) => (
+                                          <tr key={p.id}>
+                                            <td className="text-base">
+                                              <span className="text-mono">{p.pieza_codigo ?? p.material_codigo ?? "—"}</span>
+                                              {p.objeto_nombre && (
+                                                <span className="text-muted-xs" style={{ display: "block" }}>{p.objeto_nombre}</span>
+                                              )}
+                                            </td>
+                                            <td className="text-base">
+                                              {new Date(p.fecha_programada + "T00:00:00").toLocaleDateString("es-PE", { dateStyle: "medium" })}
+                                            </td>
+                                            <td><StatusBadge value={p.estado_calculado} label={estadoCalculadoLabels[p.estado_calculado]} /></td>
+                                            <td className="text-muted-sm col-periodicidad">cada {p.periodicidad_dias} días</td>
+                                          </tr>
+                                        ))}
+                                      </Fragment>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>

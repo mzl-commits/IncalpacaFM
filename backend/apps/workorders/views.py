@@ -2,6 +2,7 @@ import mimetypes
 
 import hashlib
 from django.core.files.base import ContentFile
+from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -19,7 +20,7 @@ from .reporting import build_work_order_pdf
 from .serializers import (
     ReportTemplateSerializer, WorkOrderActionSerializer, WorkOrderCostSerializer,
     WorkOrderCostUpdateSerializer, WorkOrderMaterialSerializer,
-    WorkOrderMaterialWriteSerializer, WorkOrderSerializer,
+    WorkOrderMaterialWriteSerializer, WorkOrderSerializer, validate_technician_availability,
 )
 from config.schema import WorkOrderReportResponseSerializer
 
@@ -61,6 +62,75 @@ class WorkOrderDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return participant_queryset(self.request)
+
+
+class WorkOrderQuickAssignView(views.APIView):
+    """Assign an eligible pending work order from the technician agenda."""
+
+    permission_classes = [IsAdministrator]
+
+    def post(self, request, pk):
+        technician_id = request.data.get("technicianId")
+        if not technician_id:
+            return response.Response(
+                {"technicianId": "Selecciona el técnico que recibirá la orden."},
+                status=400,
+            )
+
+        order = get_object_or_404(
+            WorkOrder.objects.select_related("technician", "incident__asset"), pk=pk
+        )
+        if order.status not in {
+            WorkOrder.Status.SCHEDULED,
+            WorkOrder.Status.PENDING_RESCHEDULE,
+            WorkOrder.Status.RETURNED,
+        }:
+            return response.Response(
+                {"detail": "Solo se pueden reasignar órdenes pendientes de atención."},
+                status=400,
+            )
+
+        technician = get_object_or_404(
+            get_user_model().objects.select_related("account_profile"),
+            account_profile__id=technician_id,
+            account_profile__role=AccountProfile.Role.TECHNICIAN,
+            is_active=True,
+            account_profile__active=True,
+        )
+        validate_technician_availability(
+            technician,
+            order.scheduled_date,
+            order.scheduled_start_time,
+            order.planned_hours,
+            exclude_order_id=order.id,
+        )
+
+        previous_technician = order.technician
+        order.technician = technician
+        if order.status == WorkOrder.Status.PENDING_RESCHEDULE:
+            order.status = WorkOrder.Status.SCHEDULED
+        order.save(update_fields=("technician", "status", "updated_at"))
+
+        from apps.audit.services import record_audit
+        from apps.notifications.services import queue_notification
+
+        record_audit(
+            request=request,
+            action="WORK_ORDER_QUICK_ASSIGNED",
+            entity="WorkOrder",
+            entity_id=order.id,
+            before={"technician": previous_technician.account_profile.worker_code},
+            after={"technician": technician.account_profile.worker_code, "status": order.status},
+        )
+        queue_notification(
+            event="WORK_ORDER_ASSIGNED",
+            recipient=technician,
+            subject=f"Orden asignada {order.code}",
+            body=f"Se te asignó la orden {order.code}. Revisa tu agenda y la trazabilidad.",
+            entity=order,
+            discriminator=f"quick-assign:{technician.id}:{order.updated_at.isoformat()}",
+        )
+        return response.Response(WorkOrderSerializer(order, context={"request": request}).data)
 
 
 class WorkOrderActionView(views.APIView):
