@@ -890,62 +890,65 @@ export function WorkOrderDetailPage() {
         </article>
       )}
 
-      {/* INDICACIONES DEL ADMINISTRADOR */}
-      <article className="data-panel detail-card work-order-notes wo-compact-card">
-        <div className="detail-card-heading compact-heading">
-          <ClipboardText size={18} weight="bold" />
-          <h2>Indicaciones del administrador</h2>
-        </div>
-        <p className="wo-notes-text">{workOrder.administratorNotes || "Sin indicaciones adicionales."}</p>
-      </article>
-
-      {/* SIGUIENTE PASO DE EJECUCIÓN */}
-      {!isServiceOrder && (
-        <article className="data-panel detail-card work-order-actions-card technician-next-action-card wo-compact-card">
+      {/* INDICACIONES Y SIGUIENTE PASO SIDE-BY-SIDE */}
+      <div className="wo-two-column-row">
+        {/* INDICACIONES DEL ADMINISTRADOR */}
+        <article className="data-panel detail-card work-order-notes wo-compact-card">
           <div className="detail-card-heading compact-heading">
-            <Wrench size={18} weight="bold" />
-            <h2>Siguiente paso</h2>
+            <ClipboardText size={18} weight="bold" />
+            <h2>Indicaciones del administrador</h2>
           </div>
-          {isAdmin ? (
-            <MaterialesOTAdminSection workOrderId={workOrder.id} emptyMessage={orderCopy.executionEmpty} />
-          ) : (
-            <p className="detail-empty">{orderCopy.executionEmpty}</p>
-          )}
-
-          {canRegisterProgress ? (
-            <>
-              <div className="technician-next-action-copy">
-                <strong>
-                  {workOrder.status === "EN_PROCESO"
-                    ? isCleaningOrder ? "Continúa la limpieza" : "Continúa el trabajo"
-                    : workOrder.progressPercentage > 0
-                      ? isCleaningOrder ? "Reanuda la limpieza" : "Reanuda el trabajo"
-                      : isCleaningOrder ? "Inicia la limpieza" : "Inicia el trabajo"}
-                </strong>
-              </div>
-              <div className="work-order-detail-actions">
-                <Link className="button button-primary" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
-                  {workOrder.status === "EN_PROCESO"
-                    ? isCleaningOrder ? "Continuar limpieza" : "Continuar trabajo"
-                    : workOrder.progressPercentage > 0
-                      ? isCleaningOrder ? "Reanudar limpieza" : "Reanudar trabajo"
-                      : isCleaningOrder ? "Iniciar limpieza" : "Iniciar trabajo"}
-                </Link>
-                <Link className="technician-optional-link" to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}>
-                  <Stethoscope size={16} />
-                  {orderCopy.diagnosisButton}
-                </Link>
-              </div>
-            </>
-          ) : (
-            <p className="detail-empty">
-              {workOrder.correctionWorkOrderId
-                ? "Esta orden tiene una corrección vinculada. Abre la nueva orden para continuar."
-                : "No hay acciones pendientes para el técnico."}
-            </p>
-          )}
+          <p className="wo-notes-text">{workOrder.administratorNotes || "Sin indicaciones adicionales."}</p>
         </article>
-      )}
+
+        {/* SIGUIENTE PASO DE EJECUCIÓN */}
+        {!isServiceOrder && (
+          <article className="data-panel detail-card work-order-actions-card technician-next-action-card wo-compact-card">
+            <div className="detail-card-heading compact-heading">
+              <Wrench size={18} weight="bold" />
+              <h2>Siguiente paso</h2>
+            </div>
+            {isAdmin ? (
+              <MaterialesOTAdminSection workOrderId={workOrder.id} emptyMessage={orderCopy.executionEmpty} />
+            ) : (
+              <p className="detail-empty">{orderCopy.executionEmpty}</p>
+            )}
+
+            {canRegisterProgress ? (
+              <>
+                <div className="technician-next-action-copy">
+                  <strong>
+                    {workOrder.status === "EN_PROCESO"
+                      ? isCleaningOrder ? "Continúa la limpieza" : "Continúa el trabajo"
+                      : workOrder.progressPercentage > 0
+                        ? isCleaningOrder ? "Reanuda la limpieza" : "Reanuda el trabajo"
+                        : isCleaningOrder ? "Inicia la limpieza" : "Inicia el trabajo"}
+                  </strong>
+                </div>
+                <div className="work-order-detail-actions">
+                  <Link className="button button-primary" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
+                    {workOrder.status === "EN_PROCESO"
+                      ? isCleaningOrder ? "Continuar limpieza" : "Continuar trabajo"
+                      : workOrder.progressPercentage > 0
+                        ? isCleaningOrder ? "Reanudar limpieza" : "Reanudar trabajo"
+                        : isCleaningOrder ? "Iniciar limpieza" : "Iniciar trabajo"}
+                  </Link>
+                  <Link className="technician-optional-link" to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}>
+                    <Stethoscope size={16} />
+                    {orderCopy.diagnosisButton}
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <p className="detail-empty">
+                {workOrder.correctionWorkOrderId
+                  ? "Esta orden tiene una corrección vinculada. Abre la nueva orden para continuar."
+                  : "No hay acciones pendientes para el técnico."}
+              </p>
+            )}
+          </article>
+        )}
+      </div>
     </section>
   );
 }
