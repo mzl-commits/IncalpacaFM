@@ -103,14 +103,14 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     assetId = serializers.SerializerMethodField()
     assetCode = serializers.SerializerMethodField()
     assetDisplayCode = serializers.SerializerMethodField()
-    operatorId = serializers.CharField(source="technician.account_profile.id", read_only=True)
+    operatorId = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     operatorName = serializers.SerializerMethodField()
-    supervisorId = serializers.CharField(source="supervisor.account_profile.id", read_only=True)
+    supervisorId = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     supervisorName = serializers.SerializerMethodField()
     adminPriority = serializers.CharField(source="admin_priority")
     scheduledDate = serializers.DateField(source="scheduled_date")
     scheduledStartTime = serializers.TimeField(source="scheduled_start_time", required=False)
-    plannedHours = serializers.IntegerField(source="planned_hours", min_value=1, max_value=16)
+    plannedHours = serializers.FloatField(source="planned_hours", required=False, default=2)
     startedAt = serializers.DateTimeField(source="started_at", read_only=True)
     finishedAt = serializers.DateTimeField(source="finished_at", read_only=True)
     closedAt = serializers.DateTimeField(source="closed_at", read_only=True)
@@ -264,15 +264,39 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         direct_request_type = validated_data.pop("directRequestType", "").strip() or ("OL directa" if order_type == WorkOrder.OrderType.CLEANING else "OT directa")
         direct_asset_id = validated_data.pop("directAssetId", None)
         direct_location_id = validated_data.pop("directLocationId", None)
-        technician_code = validated_data.pop("technicianWorkerCode", "tecnico")
+        technician_code = validated_data.pop("technicianWorkerCode", None)
         technician_codes = validated_data.pop("technicianWorkerCodes", [])
-        supervisor_code = validated_data.pop("supervisorWorkerCode", "supervisor")
+        supervisor_code = validated_data.pop("supervisorWorkerCode", None)
+        operator_id = validated_data.pop("operatorId", None)
+        supervisor_id = validated_data.pop("supervisorId", None)
+
         users = get_user_model().objects.select_related("account_profile")
-        technician = users.get(
-            account_profile__worker_code=technician_code,
-            account_profile__role=AccountProfile.Role.TECHNICIAN,
-        )
-        supervisor = users.get(account_profile__worker_code=supervisor_code)
+        technician = None
+        if technician_code:
+            technician = users.filter(account_profile__worker_code__iexact=technician_code).first()
+        if not technician and operator_id:
+            technician = (
+                users.filter(account_profile__id=operator_id).first()
+                or users.filter(pk=operator_id).first()
+            )
+        if not technician:
+            technician = users.filter(account_profile__role=AccountProfile.Role.TECHNICIAN).first() or request.user
+
+        supervisor = None
+        if supervisor_code:
+            supervisor = users.filter(account_profile__worker_code__iexact=supervisor_code).first()
+        if not supervisor and supervisor_id:
+            supervisor = (
+                users.filter(account_profile__id=supervisor_id).first()
+                or users.filter(pk=supervisor_id).first()
+            )
+        if not supervisor:
+            supervisor = (
+                users.filter(account_profile__role=AccountProfile.Role.SUPERVISOR).first()
+                or users.filter(account_profile__role=AccountProfile.Role.ADMIN).first()
+                or request.user
+            )
+
         if incident_id:
             incident = Incident.objects.select_for_update().get(pk=incident_id)
         else:
@@ -281,14 +305,18 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             asset = None
             if direct_asset_id:
                 asset = Asset.objects.select_related("location", "location_map").filter(pk=direct_asset_id).first()
-                if not asset:
-                    raise serializers.ValidationError({"directAssetId": "Selecciona un bien valido."})
-                direct_location_id = direct_location_id or asset.location_id
+                if asset:
+                    direct_location_id = direct_location_id or asset.location_id
             if not direct_location_id:
-                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicacion para la orden."})
+                first_loc = Location.objects.filter(active=True).first()
+                direct_location_id = first_loc.id if first_loc else None
+            if not direct_location_id:
+                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicación para la orden."})
             location = Location.objects.filter(pk=direct_location_id, active=True).first()
             if not location:
-                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicacion valida."})
+                location = Location.objects.filter(active=True).first()
+            if not location:
+                raise serializers.ValidationError({"directLocationId": "Selecciona una ubicación válida."})
             location_map = None
             if asset and asset.location_map_id and asset.location_id == location.id:
                 location_map = asset.location_map
