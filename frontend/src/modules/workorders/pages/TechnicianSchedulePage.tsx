@@ -151,7 +151,7 @@ function getExecutionPath(order: TechnicianOrder) {
 
 export function TechnicianSchedulePage() {
   const { user } = useAuth();
-  const isAdministrator = user?.role === "ADMINISTRADOR";
+  const isAdministrator = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
