@@ -4717,9 +4717,10 @@ table th *,
 }
 
 .wo-detail-page-heading h1 {
-  font-size: 22px !important;
+  font-size: 26px !important;
   font-weight: 700 !important;
   color: #111111 !important;
+  letter-spacing: -0.2px;
 }
 
 .wo-subtitle {
