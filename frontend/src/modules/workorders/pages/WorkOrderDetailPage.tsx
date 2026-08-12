@@ -247,10 +247,17 @@ export function WorkOrderDetailPage() {
         type: "success",
         text: `✅ Foto de "${type === "start" ? "Antes" : "Después"}" subida correctamente.`,
       });
-    } catch {
+    } catch (err: any) {
+      const detail =
+        err?.response?.data?.detail ||
+        err?.response?.data?.photo ||
+        err?.response?.data?.startPhoto ||
+        err?.response?.data?.finishPhoto ||
+        err?.response?.data?.action ||
+        "No se pudo guardar la fotografía. Intenta nuevamente.";
       setPhotoMessage({
         type: "error",
-        text: "❌ No se pudo guardar la fotografía. Verifica que sea una imagen válida.",
+        text: `❌ ${typeof detail === "string" ? detail : JSON.stringify(detail)}`,
       });
     } finally {
       setUploadingPhoto(null);
