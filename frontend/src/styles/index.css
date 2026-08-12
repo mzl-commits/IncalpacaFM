@@ -5881,3 +5881,819 @@ table th *,
     gap: 12px !important;
   }
 }
+
+/* ============================================================
+   AGENDA SEMANAL — REDISEÑO VISUAL (supervisor / técnico)
+   Sin cambios en lógica. Solo CSS override con !important.
+   Paleta: negro #111, blanco #fff, grises #F4F4F4 / #E8E8E8
+   Tipografía: Inter variable
+   ============================================================ */
+
+/* ── Página base ─────────────────────────────────────────── */
+.technician-schedule-page {
+  display: grid !important;
+  gap: 20px !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  max-width: 1440px !important;
+}
+
+/* ── Cabecera ─────────────────────────────────────────────── */
+.technician-schedule-heading {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding-bottom: 18px !important;
+  border-bottom: 1px solid #E8E8E8 !important;
+}
+.technician-schedule-heading .breadcrumb {
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: #AAAAAA !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  margin: 0 !important;
+}
+.technician-schedule-heading h1 {
+  margin: 4px 0 6px !important;
+  font-size: 24px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.03em !important;
+  color: #111111 !important;
+}
+.technician-schedule-heading p {
+  margin: 0 !important;
+  font-size: 13px !important;
+  color: #777777 !important;
+}
+.technician-schedule-heading .button {
+  flex-shrink: 0 !important;
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #111111 !important;
+  border-radius: 8px !important;
+  padding: 9px 18px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Toolbar semana ───────────────────────────────────────── */
+.technician-week-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 52px !important;
+  padding: 0 8px !important;
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 10px !important;
+  background: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.technician-week-toolbar > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 13.5px !important;
+  font-weight: 640 !important;
+  color: #111111 !important;
+}
+.technician-week-toolbar > div svg {
+  color: #888888 !important;
+}
+.technician-week-toolbar .icon-button {
+  width: 36px !important;
+  height: 36px !important;
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 8px !important;
+  background: #FFFFFF !important;
+  color: #333333 !important;
+  transition: background 120ms !important;
+}
+.technician-week-toolbar .icon-button:hover {
+  background: #F4F4F4 !important;
+}
+
+/* ── Resumen de horas ─────────────────────────────────────── */
+.technician-hours-overview {
+  display: grid !important;
+  gap: 14px !important;
+  padding: 20px 24px !important;
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.technician-hours-overview > header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+.technician-hours-overview h2 {
+  margin: 0 !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.technician-hours-overview header p {
+  margin: 3px 0 0 !important;
+  font-size: 12px !important;
+  color: #999999 !important;
+}
+.technician-hours-overview > header > strong {
+  font-size: 28px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.04em !important;
+  color: #111111 !important;
+  white-space: nowrap !important;
+}
+.technician-hours-progress {
+  height: 6px !important;
+  border-radius: 999px !important;
+  background: #F0F0F0 !important;
+  overflow: hidden !important;
+}
+.technician-hours-progress > div {
+  height: 100% !important;
+  border-radius: 999px !important;
+  background: #111111 !important;
+  transition: width 300ms ease !important;
+}
+.technician-hours-progress-copy {
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  color: #777777 !important;
+}
+.technician-hours-progress-copy strong {
+  color: #111111 !important;
+  font-weight: 700 !important;
+}
+.technician-hours-summary {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 12px !important;
+  margin: 0 !important;
+  border-top: 1px solid #F0F0F0 !important;
+  padding-top: 14px !important;
+}
+.technician-hours-summary > div {
+  padding: 14px 16px !important;
+  background: #F8F8F8 !important;
+  border-radius: 8px !important;
+  border: 1px solid #EEEEEE !important;
+}
+.technician-hours-summary dt {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  color: #AAAAAA !important;
+}
+.technician-hours-summary dd {
+  margin: 6px 0 4px !important;
+  font-size: 22px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.03em !important;
+  color: #111111 !important;
+}
+.technician-hours-summary small {
+  font-size: 11.5px !important;
+  color: #999999 !important;
+}
+
+/* ── Carga por técnico (vista supervisor/admin) ───────────── */
+.team-schedule-summary {
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  overflow: hidden !important;
+}
+.team-schedule-summary > header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid #F0F0F0 !important;
+}
+.team-schedule-summary > header span {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  color: #AAAAAA !important;
+}
+.team-schedule-summary h2 {
+  margin: 3px 0 0 !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.team-schedule-summary > header p {
+  margin: 2px 0 0 !important;
+  font-size: 12px !important;
+  color: #999999 !important;
+}
+.team-schedule-summary > header > strong {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #555555 !important;
+  background: #F4F4F4 !important;
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 20px !important;
+  padding: 4px 12px !important;
+  white-space: nowrap !important;
+}
+.team-schedule-summary-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+  gap: 0 !important;
+}
+.team-schedule-summary-grid > article {
+  display: grid !important;
+  grid-template-columns: auto 1fr !important;
+  gap: 10px 12px !important;
+  align-items: start !important;
+  padding: 16px 18px !important;
+  border-right: 1px solid #F0F0F0 !important;
+  border-bottom: 1px solid #F0F0F0 !important;
+  transition: background 140ms !important;
+}
+.team-schedule-summary-grid > article:hover {
+  background: #FAFAFA !important;
+}
+.team-schedule-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: #111111 !important;
+  color: #FFFFFF !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+.team-schedule-person {
+  display: grid !important;
+  gap: 2px !important;
+}
+.team-schedule-person strong {
+  font-size: 13px !important;
+  font-weight: 660 !important;
+  color: #111111 !important;
+}
+.team-schedule-person span {
+  font-size: 11px !important;
+  color: #999999 !important;
+}
+.team-schedule-summary-grid dl {
+  display: grid !important;
+  grid-column: 1 / -1 !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding-top: 10px !important;
+  border-top: 1px solid #F2F2F2 !important;
+}
+.team-schedule-summary-grid dl > div {
+  padding: 10px 12px !important;
+  background: #F8F8F8 !important;
+  border-radius: 8px !important;
+  border: 1px solid #EFEFEF !important;
+}
+.team-schedule-summary-grid dt {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  color: #AAAAAA !important;
+}
+.team-schedule-summary-grid dd {
+  margin: 4px 0 0 !important;
+  font-size: 20px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.03em !important;
+  color: #111111 !important;
+}
+
+/* ── Enfoque de hoy ──────────────────────────────────────── */
+.technician-today-focus {
+  display: grid !important;
+  gap: 16px !important;
+  padding: 20px 24px !important;
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+}
+.technician-today-focus > header {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  gap: 12px !important;
+  align-items: start !important;
+}
+.technician-today-focus > header > div > span {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  color: #AAAAAA !important;
+}
+.technician-today-focus h2 {
+  margin: 4px 0 0 !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.technician-today-focus dl {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 0 !important;
+}
+.technician-today-focus dl > div {
+  min-height: 62px !important;
+  padding: 10px 12px !important;
+  border: 1px solid #EEEEEE !important;
+  border-radius: 8px !important;
+  background: #F8F8F8 !important;
+}
+.technician-today-focus dt {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  color: #AAAAAA !important;
+}
+.technician-today-focus dd {
+  margin: 5px 0 0 !important;
+  font-size: 22px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.03em !important;
+  color: #111111 !important;
+  line-height: 1 !important;
+}
+/* Items de enfoque hoy */
+.technician-today-focus-list {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+.technician-today-item {
+  display: grid !important;
+  gap: 6px !important;
+  min-height: 110px !important;
+  padding: 14px !important;
+  border: 1px solid #E8E8E8 !important;
+  border-left: 3px solid #111111 !important;
+  border-radius: 10px !important;
+  background: #FFFFFF !important;
+  text-decoration: none !important;
+  color: #111111 !important;
+  transition: background 130ms, transform 130ms, border-color 130ms !important;
+}
+.technician-today-item:hover {
+  background: #F8F8F8 !important;
+  transform: translateY(-1px) !important;
+}
+.technician-today-item > span {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+}
+.technician-today-item b,
+.technician-today-item i {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 20px !important;
+  padding: 2px 7px !important;
+  border-radius: 4px !important;
+  font-size: 10.5px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em !important;
+}
+.technician-today-item b {
+  background: #111111 !important;
+  color: #FFFFFF !important;
+}
+.technician-today-item i {
+  background: #F2F2F2 !important;
+  color: #555555 !important;
+  border: 1px solid #E5E5E5 !important;
+}
+.technician-today-item strong {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.technician-today-item small {
+  font-size: 12px !important;
+  color: #777777 !important;
+  line-height: 1.4 !important;
+}
+.technician-today-item em {
+  align-self: end !important;
+  font-size: 11.5px !important;
+  font-style: normal !important;
+  font-weight: 660 !important;
+  color: #555555 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+.technician-today-item.is-active {
+  background: #F6F6F6 !important;
+  border-left-color: #111111 !important;
+}
+.technician-today-item.is-returned {
+  border-left-color: #888888 !important;
+}
+.technician-today-item.is-returned b {
+  background: #888888 !important;
+}
+.technician-today-item.is-ol,
+.technician-today-item.is-ol-routine {
+  border-left-color: #3A7A6A !important;
+}
+.technician-today-empty {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 56px !important;
+  padding: 14px 16px !important;
+  border: 1px dashed #DDDDDD !important;
+  border-radius: 8px !important;
+  color: #888888 !important;
+  font-size: 13px !important;
+  background: #FAFAFA !important;
+}
+
+/* ── Leyenda ─────────────────────────────────────────────── */
+.technician-task-legend {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px 14px !important;
+  margin: 0 !important;
+  font-size: 11.5px !important;
+  color: #666666 !important;
+  font-weight: 600 !important;
+}
+.technician-task-legend span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.technician-task-legend i {
+  width: 9px !important;
+  height: 9px !important;
+  border-radius: 3px !important;
+  border: 1px solid transparent !important;
+  flex-shrink: 0 !important;
+}
+.technician-task-legend i.is-pending { background: #111111 !important; border-color: #111111 !important; }
+.technician-task-legend i.is-active { background: #FFFFFF !important; border: 2px solid #111111 !important; }
+.technician-task-legend i.is-returned { background: #888888 !important; border-color: #888888 !important; }
+.technician-task-legend i.is-done { background: #DDDDDD !important; border-color: #CCCCCC !important; }
+.technician-task-legend i.is-ol { background: #CCEEE6 !important; border-color: #3A7A6A !important; }
+
+/* ── Calendario semanal ───────────────────────────────────── */
+.technician-week-grid {
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  overflow-x: auto !important;
+  box-shadow: none !important;
+}
+.technician-hour-rail {
+  background: #FAFAFA !important;
+  border-right: 1px solid #EEEEEE !important;
+}
+.technician-hour-rail > header {
+  border-bottom: 1px solid #EEEEEE !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #AAAAAA !important;
+  text-transform: uppercase !important;
+}
+.technician-hour-rail span {
+  color: #BBBBBB !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+}
+.technician-day {
+  border-right: 1px solid #F0F0F0 !important;
+  background: #FFFFFF !important;
+}
+.technician-day > header {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid #F0F0F0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #AAAAAA !important;
+}
+.technician-day > header strong {
+  font-size: 17px !important;
+  font-weight: 760 !important;
+  color: #111111 !important;
+}
+.technician-day > header small {
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  color: #BBBBBB !important;
+}
+.technician-day.is-today > header {
+  background: #F5F5F5 !important;
+  border-left: 2px solid #111111 !important;
+}
+.technician-day.is-today > header strong {
+  color: #111111 !important;
+}
+/* Tarjetas de tarea en el calendario */
+.technician-task {
+  display: grid !important;
+  gap: 4px !important;
+  padding: 9px 10px !important;
+  border: 1px solid #E5E5E5 !important;
+  border-left: 3px solid #CCCCCC !important;
+  border-radius: 7px !important;
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  text-decoration: none !important;
+  transition: background 120ms, border-color 120ms !important;
+  box-shadow: none !important;
+}
+.technician-task:hover {
+  background: #F8F8F8 !important;
+  border-color: #CCCCCC !important;
+}
+.technician-task strong {
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.technician-task span {
+  font-size: 11px !important;
+  color: #666666 !important;
+}
+.technician-task small {
+  display: flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  font-size: 10.5px !important;
+  color: #999999 !important;
+}
+.technician-task em {
+  font-size: 10.5px !important;
+  font-style: normal !important;
+  font-weight: 660 !important;
+  color: #555555 !important;
+}
+.technician-task.is-pending { border-left-color: #111111 !important; background: #FFFFFF !important; }
+.technician-task.is-active { border-left-color: #111111 !important; background: #F6F6F6 !important; }
+.technician-task.is-returned { border-left-color: #888888 !important; }
+.technician-task.is-done,
+.technician-task.is-closed { border-left-color: #DDDDDD !important; opacity: .7 !important; }
+.technician-task.is-done strong,
+.technician-task.is-closed strong { color: #888888 !important; }
+.technician-task.is-ol,
+.technician-task.is-ol-routine { border-left-color: #3A7A6A !important; }
+
+/* Topline badges en tarea del calendario */
+.technician-task-topline {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 4px !important;
+}
+.technician-task-topline b,
+.technician-task-topline i,
+.technician-order-type {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 18px !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  font-size: 9.5px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+}
+.technician-task-topline b,
+.technician-order-type {
+  background: #F0F0F0 !important;
+  color: #444444 !important;
+  border: 1px solid #E5E5E5 !important;
+}
+.technician-task-topline i { background: #EEEEEE !important; color: #555555 !important; border: none !important; }
+.technician-task.is-active .technician-task-topline i { background: #111111 !important; color: #FFFFFF !important; }
+.technician-task.is-returned .technician-task-topline i { background: #888888 !important; color: #FFFFFF !important; }
+.technician-task.is-done .technician-task-topline i,
+.technician-task.is-closed .technician-task-topline i { background: #DDDDDD !important; color: #777777 !important; }
+.technician-day-empty {
+  margin: 12px 8px !important;
+  font-size: 11.5px !important;
+  color: #CCCCCC !important;
+  font-weight: 600 !important;
+}
+
+/* ── Hoja resumen (tabla) ─────────────────────────────────── */
+.technician-timesheet {
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  overflow: hidden !important;
+}
+.technician-timesheet > header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid #F0F0F0 !important;
+}
+.technician-timesheet h2 {
+  margin: 0 !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.technician-timesheet p {
+  margin: 3px 0 0 !important;
+  font-size: 12px !important;
+  color: #999999 !important;
+}
+.technician-timesheet table {
+  font-size: 13px !important;
+}
+.technician-timesheet thead th {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  color: #AAAAAA !important;
+  background: #FAFAFA !important;
+  padding: 10px 14px !important;
+}
+.technician-timesheet tbody td {
+  padding: 11px 14px !important;
+  color: #333333 !important;
+  border-top: 1px solid #F4F4F4 !important;
+}
+.technician-timesheet td a {
+  color: #111111 !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+}
+.technician-timesheet td a:hover {
+  text-decoration: underline !important;
+}
+.technician-timesheet tr.is-done,
+.technician-timesheet tr.is-closed { opacity: .6 !important; }
+.technician-timesheet tr.is-active td { background: #FAFAFA !important; }
+.technician-timesheet tr.is-pending td:first-child,
+.technician-timesheet tr.is-active td:first-child { border-left: 3px solid #111111 !important; }
+.technician-timesheet tr.is-returned td:first-child { border-left: 3px solid #888888 !important; }
+.technician-order-type {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  background: #F0F0F0 !important;
+  color: #555555 !important;
+  border: 1px solid #E5E5E5 !important;
+}
+.technician-order-type.is-ol,
+.technician-order-type.is-ol-routine {
+  background: #E6F4F0 !important;
+  color: #3A7A6A !important;
+  border-color: #C0DDD7 !important;
+}
+
+/* ── Historial de trabajo ─────────────────────────────────── */
+.technician-work-history {
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  overflow: hidden !important;
+}
+.technician-work-history > header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid #F0F0F0 !important;
+}
+.technician-work-history h2 {
+  margin: 0 !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.technician-work-history p {
+  margin: 3px 0 0 !important;
+  font-size: 12px !important;
+  color: #999999 !important;
+}
+.technician-work-history > header > strong {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #555555 !important;
+  background: #F4F4F4 !important;
+  border: 1px solid #E8E8E8 !important;
+  border-radius: 20px !important;
+  padding: 4px 12px !important;
+  white-space: nowrap !important;
+}
+.technician-work-history > div > a {
+  display: grid !important;
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 1.4fr) !important;
+  gap: 12px !important;
+  align-items: center !important;
+  min-height: 66px !important;
+  padding: 13px 20px !important;
+  border-bottom: 1px solid #F4F4F4 !important;
+  color: #111111 !important;
+  text-decoration: none !important;
+  transition: background 120ms !important;
+}
+.technician-work-history > div > a:last-child { border-bottom: 0 !important; }
+.technician-work-history > div > a:hover { background: #FAFAFA !important; }
+.technician-work-history > div > a > span > strong {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+.technician-work-history > div > a > span > small {
+  margin-top: 3px !important;
+  font-size: 11.5px !important;
+  color: #999999 !important;
+}
+.technician-work-history dl {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin: 0 !important;
+}
+.technician-work-history dt {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  color: #BBBBBB !important;
+}
+.technician-work-history dd {
+  margin: 4px 0 0 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #333333 !important;
+}
+.technician-history-empty {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  min-height: 110px !important;
+  padding: 24px !important;
+  color: #BBBBBB !important;
+}
+.technician-history-empty span { display: grid !important; gap: 4px !important; }
+.technician-history-empty strong { color: #888888 !important; font-size: 14px !important; }
+.technician-history-empty small { color: #BBBBBB !important; font-size: 12px !important; }
+
+/* ── Estado vacío genérico ────────────────────────────────── */
+.technician-empty-state {
+  display: grid !important;
+  justify-items: center !important;
+  gap: 8px !important;
+  padding: 40px 24px !important;
+  color: #CCCCCC !important;
+  text-align: center !important;
+}
+.technician-empty-state svg { color: #BBBBBB !important; }
+.technician-empty-state strong { color: #888888 !important; font-size: 14px !important; }
+.technician-empty-state p { margin: 0 !important; font-size: 12.5px !important; color: #BBBBBB !important; }
+
+/* ── Skeleton loader ─────────────────────────────────────── */
+.technician-schedule-loading {
+  min-height: 280px !important;
+  border: 1px solid #EEEEEE !important;
+  border-radius: 12px !important;
+  background: linear-gradient(90deg, #F6F6F6 25%, #FAFAFA 37%, #F6F6F6 63%) !important;
+  background-size: 400% 100% !important;
+  animation: schedule-shimmer 1.4s ease infinite !important;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 780px) {
+  .technician-schedule-page { gap: 14px !important; }
+  .technician-schedule-heading { flex-direction: column !important; }
+  .technician-schedule-heading h1 { font-size: 20px !important; }
+  .technician-today-focus { padding: 16px !important; }
+  .technician-today-focus > header { grid-template-columns: 1fr !important; }
+  .technician-today-focus dl { grid-template-columns: repeat(2, 1fr) !important; }
+  .technician-today-focus-list { grid-template-columns: 1fr !important; }
+  .team-schedule-summary-grid { grid-template-columns: 1fr !important; }
+  .technician-hours-summary { grid-template-columns: 1fr !important; }
+}
+
