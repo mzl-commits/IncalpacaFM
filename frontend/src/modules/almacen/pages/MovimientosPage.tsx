@@ -13,6 +13,7 @@ import {
   listMovimientos,
   listChecklistPrestados,
   listSolicitudes,
+  listGruposSolicitud,
   aprobarSolicitud,
   rechazarSolicitud,
   descargarExcelMovimientos,
@@ -82,12 +83,20 @@ export function MovimientosPage() {
     return fechaMov && fechaMov < hoy;
   });
 
-  // Solicitudes pendientes (solo para admin)
+  // Solicitudes pendientes por grupo (solo para admin)
+  const { data: gruposPendientes = [] } = useQuery({
+    queryKey: ["grupos-solicitud", "pendiente"],
+    queryFn: () => listGruposSolicitud({ estado: "pendiente" }),
+    enabled: esAdmin,
+    refetchInterval: 30_000,
+  });
+
+  // Solicitudes pendientes individuales (legacy / respaldos)
   const { data: solicitudesPendientes = [] } = useQuery({
     queryKey: ["solicitudes", "pendiente"],
     queryFn: () => listSolicitudes({ estado: "pendiente" }),
     enabled: esAdmin,
-    refetchInterval: 30_000, // refresca cada 30 seg
+    refetchInterval: 30_000,
   });
 
   const aprobarMut = useMutation({
@@ -358,75 +367,42 @@ export function MovimientosPage() {
         </div>
       )}
 
-      {/* Panel de solicitudes pendientes para admin */}
-      {esAdmin && solicitudesPendientes.length > 0 && (
-        <div className="panel" style={{ marginBottom: "1.5rem", borderLeft: "4px solid var(--warning-400, #f59e0b)" }}>
-          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <ClockCountdown size={18} style={{ color: "var(--warning-500)" }} />
-            Solicitudes pendientes de aprobación ({solicitudesPendientes.length})
-          </h2>
-          <table className="data-table" style={{ width: "100%", marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Material / Pieza</th>
-                <th>Cantidad</th>
-                <th>Solicitado por</th>
-                <th>Fecha</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {solicitudesPendientes.map((s) => (
-                <tr key={s.id}>
-                  <td><span className="badge status-warning">{s.tipo_display}</span></td>
-                  <td>
-                    {s.material_codigo && <strong>{s.material_codigo}</strong>}
-                    {s.pieza_codigo && <strong>{s.pieza_codigo}</strong>}
-                    {" "}{s.material_nombre ?? "—"}
-                  </td>
-                  <td>
-                    {s.cantidad_cajas != null
-                      ? `${s.cantidad_cajas} emp. × ${s.cantidad_cajas > 0 ? Math.round(s.cantidad / s.cantidad_cajas) : "?"} u./emp. = ${s.cantidad} u.`
-                      : `${s.cantidad} u.`
-                    }
-                  </td>
+      {/* Panel de solicitudes de grupo pendientes para admin */}
+      {esAdmin && gruposPendientes.length > 0 && (
+        <div className="panel" style={{ marginBottom: "1.5rem", borderLeft: "4px solid var(--accent-600, #2563eb)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
+                <ClockCountdown size={20} style={{ color: "var(--accent-600, #2563eb)" }} />
+                Grupos de solicitud pendientes ({gruposPendientes.length})
+              </h2>
+              <p style={{ fontSize: 13, color: "var(--muted)", margin: "4px 0 0" }}>
+                Hay {gruposPendientes.length} grupo(s) de materiales pendientes de revisión y aprobación.
+              </p>
+            </div>
+            <Link
+              to={`/almacen/movimientos/solicitudes/${gruposPendientes[0].id}`}
+              className="button button-primary button-sm"
+            >
+              Revisar grupo #{gruposPendientes[0].id}
+            </Link>
+          </div>
 
-                  <td>{s.solicitado_por_nombre}</td>
-                  <td>{new Date(s.creado_en).toLocaleDateString("es-PE")}</td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button
-                      className="btn btn-xs btn-primary"
-                      disabled={aprobarMut.isPending}
-                      onClick={() => aprobarMut.mutate(s.id)}
-                    >
-                      Aprobar
-                    </button>
-                    <input
-                      type="text"
-                      placeholder="Motivo (opcional)"
-                      style={{ fontSize: 12, padding: "2px 6px", width: 130 }}
-                      value={motivoRechazos[s.id] ?? ""}
-                      onChange={(e) =>
-                        setMotivoRechazos((prev) => ({ ...prev, [s.id]: e.target.value }))
-                      }
-                    />
-                    <button
-                      className="btn btn-xs btn-danger"
-                      disabled={rechazarMut.isPending}
-                      onClick={() =>
-                        rechazarMut.mutate({ id: s.id, motivo: motivoRechazos[s.id] })
-                      }
-                    >
-                      Rechazar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {gruposPendientes.map((g) => (
+              <Link
+                key={g.id}
+                to={`/almacen/movimientos/solicitudes/${g.id}`}
+                className="button button-secondary button-sm"
+                style={{ fontSize: 12 }}
+              >
+                Grupo #{g.id} ({g.items.length} items) — {g.solicitado_por_nombre}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
+
 
       {/* Stats */}
       <div className="almacen-stats">
@@ -509,8 +485,26 @@ export function MovimientosPage() {
                         )}
                       </td>
                       <td><StatusBadge value={g.tipo} label={g.tipoDisplay} /></td>
-                      <td style={{ fontSize: 12 }}>{g.responsableNombre}</td>
-                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{g.referencia || "—"}</td>
+                      <td style={{ fontSize: 12 }}>
+                        {g.referencia ? (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: "var(--surface-subtle, #f3f4f6)",
+                              color: "var(--foreground, #111827)",
+                              border: "1px solid var(--border, #e5e7eb)",
+                            }}
+                          >
+                            {g.referencia}
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--muted)" }}>—</span>
+                        )}
+                      </td>
                       <td style={{ fontSize: 12, color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {g.observaciones || "—"}
                       </td>

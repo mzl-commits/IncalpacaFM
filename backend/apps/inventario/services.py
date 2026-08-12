@@ -20,7 +20,7 @@ def _sincronizar_estado_contenedor(contenedor: Pieza):
 
     Pieza.objects.filter(pk=contenedor.pk).update(estado=nuevo_estado)
 
-def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones="", cantidad_cajas=None):
+def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones="", cantidad_cajas=None, lote_id=""):
     """
     Para materiales NO retornables (o retornables sin control individual, ej. brocas sueltas):
     descuenta cantidad_total de inmediato y deja el registro histórico.
@@ -44,6 +44,7 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
             cantidad_cajas=cantidad_cajas,
             responsable=responsable,
             referencia_externa=referencia_externa,
+            lote_id=lote_id,
             observaciones=observaciones,
         )
         Material.objects.filter(pk=material.pk).update(

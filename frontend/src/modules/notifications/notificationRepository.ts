@@ -41,6 +41,8 @@ export function notificationActionPath(item: EmailNotification): string | null {
   if (item.entityType === "Incident") return `/incidencias/${item.entityId}`;
   if (item.entityType === "Asset") return `/bienes/${item.entityId}`;
   if (item.entityType === "Assignment") return `/asignaciones/${item.entityId}`;
+  if (item.entityType === "GrupoSolicitud") return `/almacen/movimientos/solicitudes/${item.entityId}`;
+  if (item.entityType === "SolicitudMovimiento") return `/almacen/movimientos/solicitudes/${item.entityId}`;
   if (item.entityType === "RetirementRequest") return `/bienes/ciclo-vida/bajas/${item.entityId}`;
   return null;
 }

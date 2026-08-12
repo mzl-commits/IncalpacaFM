@@ -510,6 +510,13 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "almacen/movimientos/solicitudes/:id",
+        lazy: lazyRoute(
+          () => import("@/modules/almacen/pages/SolicitudGrupoDetailPage"),
+          "SolicitudGrupoDetailPage",
+        ),
+      },
+      {
         path: "almacen/checklist",
         lazy: lazyRoute(
           () => import("@/modules/almacen/pages/ChecklistPage"),

@@ -7,13 +7,16 @@ export const STOCK_MINIMO = 5;
 
 export type TipoControl = "retornable" | "no_retornable";
 export type UnidadManejo =
-  | "unidad"
+  | "unidad" | "pieza" | "par"
   | "caja" | "bolsa" | "paquete" | "fardo" | "saco"
   | "balde" | "cunete" | "tambor" | "bidon" | "frasco" | "blister"
   | "rollo" | "bobina" | "carrete"
   | "millar" | "ciento" | "docena"
   | "juego"
-  | "plancha" | "barra" | "hoja";
+  | "plancha" | "barra" | "hoja"
+  | "kilogramo" | "gramo" | "libra"
+  | "litro" | "mililitro" | "galon"
+  | "metro" | "centimetro" | "milimetro" | "metro2" | "metro3";
 
 export type EstadoPieza = "Disponible" | "Prestado" | "Mantenimiento" | "Baja";
 export type TipoMovimiento = "salida" | "entrada" | "baja";
@@ -74,28 +77,41 @@ export const tipoControlLabels: Record<TipoControl, string> = {
 };
 
 export const unidadManejoLabels: Record<UnidadManejo, string> = {
-  unidad:  "Por unidad suelta",
-  caja:    "Por caja",
-  bolsa:   "Por bolsa",
-  paquete: "Por paquete",
-  fardo:   "Por fardo",
-  saco:    "Por saco",
-  balde:   "Por balde",
-  cunete:  "Por cu\u00f1ete",
-  tambor:  "Por tambor / cilindro",
-  bidon:   "Por bid\u00f3n",
-  frasco:  "Por frasco",
-  blister: "Por bl\u00edster",
-  rollo:   "Por rollo",
-  bobina:  "Por bobina",
-  carrete: "Por carrete",
-  millar:  "Por millar",
-  ciento:  "Por ciento",
-  docena:  "Por docena",
-  juego:   "Por juego / kit",
-  plancha: "Por plancha / l\u00e1mina",
-  barra:   "Por barra",
-  hoja:    "Por hoja",
+  unidad:     "Por unidad suelta",
+  pieza:      "Por pieza",
+  par:        "Por par",
+  caja:       "Por caja",
+  bolsa:      "Por bolsa",
+  paquete:    "Por paquete",
+  fardo:      "Por fardo",
+  saco:       "Por saco",
+  balde:      "Por balde",
+  cunete:     "Por cuñete",
+  tambor:     "Por tambor / cilindro",
+  bidon:      "Por bidón",
+  frasco:     "Por frasco",
+  blister:    "Por blíster",
+  rollo:      "Por rollo",
+  bobina:     "Por bobina",
+  carrete:    "Por carrete",
+  millar:     "Por millar",
+  ciento:     "Por ciento",
+  docena:     "Por docena",
+  juego:      "Por juego / kit",
+  plancha:    "Por plancha / lámina",
+  barra:      "Por barra",
+  hoja:       "Por hoja",
+  kilogramo:  "Por kilogramo (kg)",
+  gramo:      "Por gramo (g)",
+  libra:      "Por libra (lb)",
+  litro:      "Por litro (L)",
+  mililitro:  "Por mililitro (ml)",
+  galon:      "Por galón",
+  metro:      "Por metro (m)",
+  centimetro: "Por centímetro (cm)",
+  milimetro:  "Por milímetro (mm)",
+  metro2:     "Por metro cuadrado (m²)",
+  metro3:     "Por metro cúbico (m³)",
 };
 
 
