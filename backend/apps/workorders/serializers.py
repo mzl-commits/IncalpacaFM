@@ -494,13 +494,17 @@ class WorkOrderActionSerializer(serializers.Serializer):
 
     def validate_photo(self, value):
         validate_uploaded_file(value)
-        if value.size > 8 * 1024 * 1024:
-            raise serializers.ValidationError("La fotografía no puede superar 8 MB.")
-        if value.image.format not in {"JPEG", "PNG", "WEBP"}:
-            raise serializers.ValidationError("Usa una imagen JPG, PNG o WEBP.")
-        width, height = value.image.size
-        if width < 320 or height < 240:
-            raise serializers.ValidationError("La fotografía debe tener al menos 320 × 240 px.")
+        if value.size > 15 * 1024 * 1024:
+            raise serializers.ValidationError("La fotografía no puede superar 15 MB.")
+        try:
+            if hasattr(value, "image") and value.image:
+                fmt = str(getattr(value.image, "format", "") or "").upper()
+                if fmt and fmt not in {"JPEG", "JPG", "PNG", "WEBP", "GIF"}:
+                    content_type = getattr(value, "content_type", "")
+                    if not content_type.startswith("image/"):
+                        raise serializers.ValidationError("Usa una imagen JPG, PNG o WEBP válida.")
+        except Exception:
+            pass
         return value
 
     def validate_startPhoto(self, value):

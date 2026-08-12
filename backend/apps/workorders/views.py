@@ -155,7 +155,9 @@ class WorkOrderPhotoView(views.APIView):
     def get(self, request, pk, stage):
         normalized_stage = {
             "inicio": WorkOrderPhoto.Stage.START,
+            "start": WorkOrderPhoto.Stage.START,
             "final": WorkOrderPhoto.Stage.FINISH,
+            "finish": WorkOrderPhoto.Stage.FINISH,
         }.get(stage.lower())
         if not normalized_stage:
             from rest_framework.exceptions import NotFound
