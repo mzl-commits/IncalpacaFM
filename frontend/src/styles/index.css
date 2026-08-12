@@ -5038,6 +5038,13 @@ table th *,
   margin-top: 0 !important;
 }
 
+.wo-two-column-row {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+  gap: 20px !important;
+  align-items: stretch !important;
+}
+
 .wo-compact-photo-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
