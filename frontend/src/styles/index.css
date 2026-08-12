@@ -5978,17 +5978,17 @@ table th *,
   display: grid !important;
   gap: 16px !important;
   padding: 18px 20px !important;
-  border: 1px solid #E4E4E4 !important;
+  border: 2px solid #111111 !important;
   border-radius: 10px !important;
   background: #FFFFFF !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 4px 4px 0px rgba(17, 17, 17, 0.08) !important;
 }
 .technician-hours-overview > header {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
-  border-bottom: 1px solid #F0F0F0 !important;
+  border-bottom: 1px solid #E8E8E8 !important;
   padding-bottom: 12px !important;
 }
 .technician-hours-overview h2 {
@@ -6007,15 +6007,15 @@ table th *,
   font-weight: 800 !important;
   letter-spacing: -.03em !important;
   color: #111111 !important;
-  background: #F8F8F8 !important;
+  background: #FFFFFF !important;
   padding: 4px 12px !important;
-  border-radius: 8px !important;
-  border: 1px solid #EEEEEE !important;
+  border-radius: 6px !important;
+  border: 1px solid #111111 !important;
 }
 .technician-hours-progress {
   height: 6px !important;
   border-radius: 999px !important;
-  background: #F0F0F0 !important;
+  background: #E8E8E8 !important;
   overflow: hidden !important;
   margin-top: 0 !important;
 }
@@ -6028,7 +6028,7 @@ table th *,
 .technician-hours-progress-copy {
   margin: -6px 0 0 !important;
   font-size: 12px !important;
-  color: #666666 !important;
+  color: #555555 !important;
 }
 .technician-hours-progress-copy strong {
   color: #111111 !important;
@@ -6044,15 +6044,15 @@ table th *,
   padding: 12px 16px !important;
   background: #FFFFFF !important;
   border-radius: 8px !important;
-  border: 1px solid #E4E4E4 !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+  border: 1px solid #111111 !important;
+  box-shadow: 2px 2px 0px rgba(17, 17, 17, 0.05) !important;
 }
 .technician-hours-summary dt {
   font-size: 10.5px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .06em !important;
-  color: #888888 !important;
+  color: #555555 !important;
 }
 .technician-hours-summary dd {
   margin: 4px 0 2px !important;
@@ -6068,9 +6068,9 @@ table th *,
 
 /* ── Carga por técnico (vista supervisor/admin) ───────────── */
 .team-schedule-summary {
-  border: 1px solid #E4E4E4 !important;
+  border: 2px solid #111111 !important;
   border-radius: 10px !important;
-  background: #FBFBFB !important;
+  background: #FAFAFA !important;
   overflow: hidden !important;
 }
 .team-schedule-summary > header {
@@ -6078,7 +6078,7 @@ table th *,
   align-items: center !important;
   justify-content: space-between !important;
   padding: 14px 20px !important;
-  border-bottom: 1px solid #EEEEEE !important;
+  border-bottom: 1px solid #111111 !important;
   background: #FFFFFF !important;
 }
 .team-schedule-summary > header span {
@@ -6086,7 +6086,7 @@ table th *,
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .06em !important;
-  color: #888888 !important;
+  color: #555555 !important;
 }
 .team-schedule-summary h2 {
   margin: 2px 0 0 !important;
@@ -6104,17 +6104,16 @@ table th *,
   font-weight: 700 !important;
   color: #111111 !important;
   background: #FFFFFF !important;
-  border: 1px solid #E4E4E4 !important;
+  border: 1px solid #111111 !important;
   border-radius: 6px !important;
   padding: 4px 10px !important;
   white-space: nowrap !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
 }
 .team-schedule-summary-grid {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
-  gap: 14px !important;
-  padding: 16px 20px !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+  padding: 18px 20px !important;
 }
 .team-schedule-summary-grid > article {
   display: flex !important;
@@ -6122,14 +6121,14 @@ table th *,
   gap: 12px !important;
   padding: 16px !important;
   background: #FFFFFF !important;
-  border: 1px solid #E4E4E4 !important;
+  border: 1px solid #111111 !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+  box-shadow: 2px 2px 0px rgba(17, 17, 17, 0.05) !important;
   transition: transform 150ms, box-shadow 150ms !important;
 }
 .team-schedule-summary-grid > article:hover {
   transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 4px 4px 0px rgba(17, 17, 17, 0.08) !important;
 }
 .team-schedule-summary-grid > article > div:first-child,
 .team-schedule-summary-grid > article > div:nth-child(2) {
@@ -6173,13 +6172,13 @@ table th *,
   gap: 8px !important;
   margin: 2px 0 0 !important;
   padding-top: 12px !important;
-  border-top: 1px solid #EEEEEE !important;
+  border-top: 1px solid #E8E8E8 !important;
 }
 .team-schedule-summary-grid dl > div {
   padding: 8px 10px !important;
-  background: #FBFBFB !important;
+  background: #FFFFFF !important;
   border-radius: 6px !important;
-  border: 1px solid #EFEFEF !important;
+  border: 1px solid #111111 !important;
   text-align: center !important;
 }
 .team-schedule-summary-grid dt {
@@ -6187,7 +6186,7 @@ table th *,
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .04em !important;
-  color: #888888 !important;
+  color: #555555 !important;
 }
 .team-schedule-summary-grid dd {
   margin: 4px 0 0 !important;
@@ -6201,7 +6200,7 @@ table th *,
   display: grid !important;
   gap: 14px !important;
   padding: 18px 20px !important;
-  border: 1px solid #E8E8E8 !important;
+  border: 2px solid #111111 !important;
   border-radius: 10px !important;
   background: #FFFFFF !important;
 }
@@ -6216,7 +6215,7 @@ table th *,
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .07em !important;
-  color: #AAAAAA !important;
+  color: #555555 !important;
 }
 .technician-today-focus h2 {
   margin: 2px 0 0 !important;
@@ -6233,16 +6232,16 @@ table th *,
 .technician-today-focus dl > div {
   min-height: 54px !important;
   padding: 8px 10px !important;
-  border: 1px solid #EEEEEE !important;
+  border: 1px solid #111111 !important;
   border-radius: 6px !important;
-  background: #F8F8F8 !important;
+  background: #FFFFFF !important;
 }
 .technician-today-focus dt {
   font-size: 9.5px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: .06em !important;
-  color: #AAAAAA !important;
+  color: #555555 !important;
 }
 .technician-today-focus dd {
   margin: 4px 0 0 !important;
@@ -6255,25 +6254,26 @@ table th *,
 /* Items de enfoque hoy */
 .technician-today-focus-list {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
-  gap: 10px !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 12px !important;
 }
 .technician-today-item {
   display: grid !important;
   gap: 6px !important;
   min-height: 98px !important;
   padding: 12px 14px !important;
-  border: 1px solid #E8E8E8 !important;
-  border-left: 3px solid #111111 !important;
+  border: 1px solid #111111 !important;
+  border-left: 4px solid #111111 !important;
   border-radius: 8px !important;
   background: #FFFFFF !important;
   text-decoration: none !important;
   color: #111111 !important;
-  transition: background 130ms, transform 130ms, border-color 130ms !important;
+  transition: background 130ms, transform 130ms, box-shadow 130ms, border-color 130ms !important;
 }
 .technician-today-item:hover {
-  background: #F8F8F8 !important;
+  background: #FAFAFA !important;
   transform: translateY(-1px) !important;
+  box-shadow: 3px 3px 0px rgba(17, 17, 17, 0.1) !important;
 }
 .technician-today-item > span {
   display: flex !important;
