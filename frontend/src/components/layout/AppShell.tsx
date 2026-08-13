@@ -1,9 +1,10 @@
 import {
   ArrowRight,
   Barcode,
+  Buildings,
   CalendarBlank,
   CalendarPlus,
-  CaretDown,
+  CaretLeft,
   ChartBar,
   ChartLineUp,
   ClipboardText,
@@ -32,7 +33,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { SystemUser, UserRole } from "@/modules/accounts/types";
 import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
@@ -110,18 +111,6 @@ const modules: ModuleGroup[] = [
     ],
   },
   {
-    id: "team",
-    label: "Equipo",
-    shortLabel: "Equipo",
-    icon: UsersThree,
-    paths: ["/ordenes-trabajo", "/mi-jornada"],
-    roles: ["ADMINISTRADOR", "SUPERVISOR"],
-    items: [
-      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
-      { to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank },
-    ],
-  },
-  {
     id: "qr",
     label: "Códigos QR",
     shortLabel: "QR",
@@ -157,6 +146,7 @@ const modules: ModuleGroup[] = [
       { to: "/administracion/taxonomia", label: "Taxonomía", icon: TreeStructure },
       { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Barcode },
       { to: "/administracion/modelos", label: "Modelos de bienes", icon: Tag },
+      { to: "/administracion/espacios", label: "Espacios y ambientes", icon: Buildings },
       { to: "/administracion/mapas-ambientes", label: "Mapas de ambientes", icon: MapTrifold },
       { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree },
       { to: "/administracion/usuarios", label: "Usuarios", icon: UserCircle },
@@ -213,6 +203,20 @@ function countMenuActions(user: SystemUser, requests: WorkRequest[], orders: Wor
   return {};
 }
 
+function isGroupActive(pathname: string, paths: string[]) {
+  if (pathname === "/" && paths.includes("/")) return true;
+  if (pathname !== "/" && paths.includes("/")) return false;
+  return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+function compactSupervisorLabel(path: string, label: string) {
+  if (path === "/") return "Inicio";
+  if (path === "/incidencias") return "Reportes";
+  if (path === "/ordenes-trabajo") return "Órdenes";
+  if (path === "/mi-jornada") return "Jornada";
+  return label;
+}
+
 function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Mantenimiento", "Panel operativo"];
   if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
@@ -231,6 +235,7 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/administracion/usuarios")) return ["Administración", "Usuarios"];
   if (pathname.startsWith("/administracion/reportantes")) return ["Administración", "Reportantes"];
   if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
+  if (pathname.startsWith("/administracion/espacios")) return ["Administración", "Espacios y ambientes"];
   if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
   if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];
   if (pathname.startsWith("/auditoria")) return ["Administración", "Auditoría"];
@@ -247,7 +252,6 @@ function getRouteContext(pathname: string) {
 export function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
   const [liveCounts, setLiveCounts] = useState<MenuCounts>({});
@@ -268,14 +272,19 @@ export function AppShell() {
       window.removeEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshCounts);
       window.removeEventListener(WORK_ORDERS_UPDATED_EVENT, refreshCounts);
     };
-  }, [user?.id, user?.role, user?.workerCode]);
+  }, [user]);
 
   const roleModules = modules
     .filter((mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)))
-    .filter((mod) => mod.id !== "team")
     .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user).map((item) => ({ ...item, count: liveCounts[item.to] })) }))
     .filter((mod) => mod.items.length > 0);
   const roleQuickActions = user?.role === "ADMINISTRADOR" ? quickActions : [];
+  const railModules = roleModules.filter((mod) => mod.id !== "administration");
+  const configModule = roleModules.find((mod) => mod.id === "administration");
+  const matchedModuleId = roleModules.find((mod) => isGroupActive(location.pathname, mod.paths))?.id ?? "dashboard";
+  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const [activeFlyoutModuleId, setActiveFlyoutModuleId] = useState(matchedModuleId);
+  const sidebarRef = useRef<HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
@@ -302,6 +311,37 @@ export function AppShell() {
       .toUpperCase() || "SG";
 
   const technicianNavigation = roleModules.find((mod) => mod.id === "dashboard")?.items ?? [];
+  const supervisorNavigation = roleModules.flatMap((mod) => mod.items);
+
+  useEffect(() => {
+    const matched = roleModules.find((mod) => isGroupActive(location.pathname, mod.paths));
+    if (matched && !flyoutOpen) setActiveFlyoutModuleId(matched.id);
+  }, [location.pathname, roleModules, flyoutOpen]);
+
+  useEffect(() => {
+    function closeWhenOutside(event: MouseEvent) {
+      if (flyoutOpen && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) setFlyoutOpen(false);
+    }
+    function closeWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setFlyoutOpen(false);
+    }
+    document.addEventListener("mousedown", closeWhenOutside);
+    document.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeWhenOutside);
+      document.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [flyoutOpen]);
+
+  function toggleModule(module: ModuleGroup) {
+    if (activeFlyoutModuleId === module.id && flyoutOpen) setFlyoutOpen(false);
+    else {
+      setActiveFlyoutModuleId(module.id);
+      setFlyoutOpen(true);
+    }
+  }
+
+  const activeFlyoutModule = roleModules.find((module) => module.id === activeFlyoutModuleId) ?? roleModules[0];
 
   function openMobileMenu() {
     setMobileMenuOpen(true);
@@ -341,31 +381,49 @@ export function AppShell() {
           </NavLink>
           <button className="technician-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
         </aside>
+      ) : user?.role === "SUPERVISOR" ? (
+        <aside className="sidebar-rail-narrow supervisor-compact-rail" aria-label="Navegación del supervisor">
+          <div className="rail-logo-wrap"><BrandLogo size={36} variant="light" /></div>
+          <nav className="rail-vertical-nav">
+            {supervisorNavigation.map(({ to, label, icon: Icon, end, count }) => (
+              <NavLink key={to} to={to} end={end} title={label} className={({ isActive }) => `rail-circle-option ${isActive ? "is-active" : ""}`}>
+                <span className="circle-btn"><Icon size={21} weight="duotone" /></span>
+                <span className="circle-label">{compactSupervisorLabel(to, label)}</span>
+                {count !== undefined && <small className="supervisor-rail-badge">{count}</small>}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="rail-bottom-actions">
+            <NavLink to="/perfil" title="Mi perfil" aria-label="Mi perfil" className="rail-circle-option supervisor-profile-option"><span className="circle-btn">{initials}</span><span className="circle-label">Perfil</span></NavLink>
+            <button type="button" aria-label="Cerrar sesión" className="rail-circle-option logout-circle-option" onClick={logout} title="Cerrar sesión"><span className="circle-btn"><SignOut size={19} /></span><span className="circle-label">Salir</span></button>
+          </div>
+        </aside>
       ) : (
-      <aside className="persistent-sidebar" aria-label="Navegación principal">
-        <div className="persistent-sidebar-brand">
-          <BrandLogo size={36} variant="light" />
-          <span><strong>FM Incalpaca</strong><small>{roleLabel}</small></span>
-        </div>
-        <nav className="persistent-sidebar-nav">
-          {roleModules.map((module) => (
-            <section key={module.id} className="persistent-nav-group" aria-label={module.label}>
-              <h2>{module.label}</h2>
-              {module.items.map(({ to, label, icon: Icon, end, count }) => (
-                <NavLink key={to} to={to} end={end} className={({ isActive }) => `persistent-nav-link ${isActive ? "is-active" : ""}`}>
-                  <Icon size={19} weight="duotone" />
-                  <span>{label}</span>
-                  {count !== undefined && <small>{count}</small>}
-                </NavLink>
-              ))}
-            </section>
-          ))}
-        </nav>
-        <NavLink to="/perfil" className="persistent-sidebar-profile">
-          <span>{initials}</span><div><strong>{user?.fullName}</strong><small>{roleLabel}</small></div>
-        </NavLink>
-        <button className="persistent-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
-      </aside>
+        <aside ref={sidebarRef} className="two-level-sidebar-overlay" aria-label="Navegación principal">
+          <div className="sidebar-rail-narrow">
+            <div className="rail-logo-wrap"><BrandLogo size={36} variant="light" /></div>
+            <nav className="rail-vertical-nav">
+              {railModules.map((module) => {
+                const isActive = (flyoutOpen ? activeFlyoutModuleId : matchedModuleId) === module.id;
+                const Icon = module.icon;
+                return <button key={module.id} type="button" aria-label={module.label} className={`rail-circle-option ${isActive ? "is-active" : ""}`} onClick={() => toggleModule(module)} title={module.label}>
+                  <div className="circle-btn"><Icon size={21} weight={isActive ? "bold" : "duotone"} /></div><span className="circle-label">{module.shortLabel}</span>
+                </button>;
+              })}
+            </nav>
+            <div className="rail-bottom-actions">
+              {configModule && <button type="button" aria-label="Configuración" className={`rail-circle-option ${(flyoutOpen ? activeFlyoutModuleId : matchedModuleId) === "administration" ? "is-active" : ""}`} onClick={() => toggleModule(configModule)} title="Configuración"><div className="circle-btn"><GearSix size={21} weight="duotone" /></div><span className="circle-label">Configuración</span></button>}
+              <button type="button" aria-label="Cerrar sesión" className="rail-circle-option logout-circle-option" onClick={logout} title="Cerrar sesión"><div className="circle-btn"><SignOut size={19} /></div><span className="circle-label">Salir</span></button>
+            </div>
+          </div>
+          {flyoutOpen && activeFlyoutModule && <div className="sidebar-flyout-panel" role="region" aria-label={`Submenú ${activeFlyoutModule.label}`}>
+            <header className="flyout-header"><div><span className="flyout-context-label">Módulo</span><h2 className="flyout-title">{activeFlyoutModule.label}</h2></div><button type="button" className="flyout-close-btn" onClick={() => setFlyoutOpen(false)} aria-label="Cerrar menú"><CaretLeft size={18} /></button></header>
+            <nav className="flyout-nav-list">
+              {activeFlyoutModule.items.map(({ to, label, icon: Icon, end, count }) => <NavLink key={to} to={to} end={end} onClick={() => setFlyoutOpen(false)} className={({ isActive }) => `flyout-item ${isActive ? "is-active" : ""}`}><Icon size={19} weight="duotone" /><span>{label}</span>{count !== undefined && <span className="flyout-badge">{count}</span>}</NavLink>)}
+            </nav>
+            <div className="flyout-footer"><div className="flyout-user-card"><div className="user-avatar-circle">{initials}</div><div className="user-meta"><strong>{user?.fullName}</strong><small>{roleLabel}</small></div><button type="button" className="user-logout-btn" onClick={logout} title="Cerrar sesión"><SignOut size={16} /></button></div></div>
+          </div>}
+        </aside>
       )}
 
       {/* MOBILE NAVIGATION */}
@@ -467,7 +525,7 @@ export function AppShell() {
       </dialog>
 
       {/* MAIN CONTENT FRAME: Starts immediately after rail (margin-left: 92px) */}
-      <div className={`content-frame-overlay ${user?.role === "TECNICO" ? "is-technician" : "is-persistent-sidebar"}`}>
+      <div className={`content-frame-overlay ${user?.role === "TECNICO" ? "is-technician" : user?.role === "SUPERVISOR" ? "is-supervisor-rail" : ""}`}>
         <header className="topbar">
           <div className="topbar-context">
             <SquaresFour size={22} weight="duotone" />

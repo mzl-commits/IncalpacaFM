@@ -10,7 +10,6 @@ import {
   Plus,
   Play,
   QrCode,
-  Warning,
   WarningCircle,
   Wrench,
 } from "@phosphor-icons/react";

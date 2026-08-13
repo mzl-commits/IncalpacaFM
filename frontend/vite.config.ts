@@ -46,9 +46,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("@zxing")) {
-            return "vendor-zxing";
-          }
           if (id.includes("xlsx")) {
             return "vendor-xlsx";
           }
