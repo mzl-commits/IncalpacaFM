@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -5,9 +6,14 @@ from rest_framework.response import Response
 
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAlmaceneroOrAdministratorWrite
+from apps.catalogo.views import AlmacenScopedMixin
 from apps.inventario.models import Movimiento, SolicitudMovimiento, GrupoSolicitud
 from apps.catalogo.models import Pieza, Material
 from apps.workorders.models import WorkOrder
+from apps.catalogo.views import AlmacenScopedMixin
+from apps.inventario.models import Movimiento
+from apps.catalogo.models import Pieza
+
 from apps.inventario.serializers import (
     MovimientoSerializer,
     SalidaMaterialSerializer,
@@ -38,10 +44,11 @@ def _es_almacenero(request):
     return profile is not None and profile.role == AccountProfile.Role.ALMACENERO
 
 
-class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
+class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Movimiento.objects.select_related("material", "pieza", "responsable").all()
     serializer_class = MovimientoSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
+    almacen_lookup = "almacen"
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -50,6 +57,7 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
         tipo = self.request.query_params.get("tipo")
         lote_id = self.request.query_params.get("lote_id")
         responsable_id = self.request.query_params.get("responsable")
+        almacen_id = self.request.query_params.get("almacen")
 
         if material_id:
             qs = qs.filter(material_id=material_id)
@@ -61,46 +69,64 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(lote_id=lote_id)
         if responsable_id:
             qs = qs.filter(responsable_id=responsable_id)
+        if almacen_id and self._almacen_forzado() is None:
+            qs = qs.filter(almacen_id=almacen_id)
         return qs
 
     # ── Acciones con flujo de aprobación para ALMACENERO ──────────────────────
+    # Si el material/pieza es de otro almacén, la request ni siquiera llega
+    # a crear el Movimiento: falla en is_valid(raise_exception=True).
 
     @action(detail=False, methods=["post"], url_path="salida-material")
+    @transaction.atomic
     def salida_material(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.SALIDA_MATERIAL)
-        serializer = SalidaMaterialSerializer(data=request.data)
+        serializer = SalidaMaterialSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="salida-pieza")
+    @transaction.atomic
     def salida_pieza(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.SALIDA_PIEZA)
-        serializer = SalidaPiezaSerializer(data=request.data)
+        serializer = SalidaPiezaSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         movimientos, hijas_excluidas = serializer.save()
-        respuesta = {"movimientos": MovimientoSerializer(movimientos, many=True).data}
+        respuesta = {
+            "movimientos": MovimientoSerializer(movimientos, many=True).data,
+        }
         if hijas_excluidas:
             respuesta["aviso"] = f"{len(hijas_excluidas)} pieza(s) no salieron por no estar disponibles."
             respuesta["hijas_excluidas"] = hijas_excluidas
         return Response(respuesta, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="baja-material")
+    @transaction.atomic
     def baja_material(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.BAJA_MATERIAL)
-        serializer = BajaMaterialSerializer(data=request.data)
+        serializer = BajaMaterialSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="baja-pieza")
+    @transaction.atomic
     def baja_pieza(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.BAJA_PIEZA)
-        serializer = BajaPiezaSerializer(data=request.data)
+        serializer = BajaPiezaSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
@@ -108,15 +134,21 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     # ── Entradas: sin flujo de aprobación ─────────────────────────────────────
 
     @action(detail=False, methods=["post"], url_path="entrada-material")
+    @transaction.atomic
     def entrada_material(self, request):
-        serializer = EntradaMaterialSerializer(data=request.data)
+        serializer = EntradaMaterialSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="entrada-pieza")
+    @transaction.atomic
     def entrada_pieza(self, request):
-        serializer = EntradaPiezaSerializer(data=request.data)
+        serializer = EntradaPiezaSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
@@ -129,6 +161,14 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
         qs = Pieza.objects.filter(estado="Prestado").select_related(
             "material", "padre"
         ).prefetch_related("movimientos")
+
+        almacen_forzado = self._almacen_forzado()
+        if almacen_forzado is not None:
+            almacen_id = almacen_forzado
+        else:
+            almacen_id = request.data.get("almacen")
+            if not almacen_id:
+                return Response({"detail": "Debes indicar el almacén..."}, status=400)
 
         salio_hoy = request.query_params.get("salio_hoy")
         if salio_hoy is not None and salio_hoy.lower() == "true":
@@ -365,7 +405,6 @@ def _format_exc_msg(exc):
         return str(detail)
     return str(exc)
 
-
 def _ejecutar_solicitud(solicitud: SolicitudMovimiento, resuelto_por):
     """Ejecuta el movimiento real al aprobar una solicitud."""
     # El responsable del movimiento real es el admin que aprueba
@@ -463,12 +502,10 @@ def _notificar_resolucion(solicitud: SolicitudMovimiento, *, aprobada: bool, req
     except Exception:
         pass
 
-
 # ─── Endpoints de GrupoSolicitud y OTs activas (Objetivo 1) ─────────────────
 
 from rest_framework.views import APIView  # noqa: E402
 from rest_framework.permissions import IsAuthenticated  # noqa: E402
-
 
 class WorkOrderActivasView(APIView):
     """
@@ -502,7 +539,6 @@ class WorkOrderActivasView(APIView):
             for ot in qs
         ]
         return Response(data)
-
 
 class GrupoSolicitudViewSet(viewsets.ReadOnlyModelViewSet):
     """

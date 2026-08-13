@@ -46,6 +46,7 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
             referencia_externa=referencia_externa,
             lote_id=lote_id,
             observaciones=observaciones,
+            almacen=material.almacen,
         )
         Material.objects.filter(pk=material.pk).update(
             cantidad_total=material.cantidad_total - cantidad
@@ -64,6 +65,7 @@ def registrar_entrada_material(material: Material, cantidad: int, responsable, o
             material=material, tipo="entrada", cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
             responsable=responsable, observaciones=observaciones,
+            almacen=material.almacen,
         )
         Material.objects.filter(pk=material.pk).update(
             cantidad_total=material.cantidad_total + cantidad
@@ -86,6 +88,7 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
             material=material, tipo="baja", cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
             responsable=responsable, observaciones=observaciones,
+            almacen=material.almacen,
         )
         nuevo_total = material.cantidad_total - cantidad
         Material.objects.filter(pk=material.pk).update(cantidad_total=nuevo_total)
@@ -137,6 +140,7 @@ def registrar_salida_pieza(pieza: Pieza, responsable, referencia_externa="", obs
                 material=p.material, pieza=p, tipo="salida",
                 responsable=responsable, referencia_externa=referencia_externa,
                 lote_id=lote, observaciones=observaciones,
+                almacen=p.material.almacen,
             ))
             if p.pk == pieza.pk and es_contenedor:
                 # Su estado se recalcula abajo según sus hijas
@@ -155,6 +159,7 @@ def registrar_entrada_pieza(pieza: Pieza, responsable, observaciones=""):
         mov = Movimiento.objects.create(
             material=pieza.material, pieza=pieza, tipo="entrada",
             responsable=responsable, observaciones=observaciones,
+            almacen=pieza.material.almacen,
         )
         Pieza.objects.filter(pk=pieza.pk).update(estado="Disponible")
 
@@ -187,12 +192,14 @@ def registrar_baja_pieza(pieza: Pieza, responsable, observaciones=""):
                         f"Liberada del estuche {pieza.codigo} dado de baja. "
                         + (observaciones or "")
                     ).strip(),
+                    almacen=hija.material.almacen,
                 )
                 hija.material.recalcular_cantidad()
 
         mov = Movimiento.objects.create(
             material=pieza.material, pieza=pieza, tipo="baja",
             responsable=responsable, observaciones=observaciones,
+            almacen=pieza.material.almacen,
         )
         Pieza.objects.filter(pk=pieza.pk).update(estado="Baja")
         pieza.material.recalcular_cantidad()

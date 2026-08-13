@@ -81,9 +81,12 @@ export interface InspeccionesParams {
 }
 
 export async function listInspecciones(
+  almacenId: number,
   params: InspeccionesParams = {},
 ): Promise<Inspeccion[]> {
-  const { data } = await api.get<Inspeccion[]>("/inspecciones/", { params });
+  const { data } = await api.get<Inspeccion[]>("/inspecciones/", {
+    params: { ...params, almacen: almacenId },
+  });
   return data;
 }
 
@@ -92,8 +95,10 @@ export async function getInspeccion(id: number): Promise<Inspeccion> {
   return data;
 }
 
-export async function listVencidas(): Promise<VencidaItem[]> {
-  const { data } = await api.get<VencidaItem[]>("/inspecciones/vencidas/");
+export async function listVencidas(almacenId: number): Promise<VencidaItem[]> {
+  const { data } = await api.get<VencidaItem[]>("/inspecciones/vencidas/", {
+    params: { almacen: almacenId },
+  });
   return data;
 }
 

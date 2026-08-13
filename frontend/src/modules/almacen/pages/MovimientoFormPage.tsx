@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
   listMateriales,
   listPiezas,
@@ -51,6 +52,7 @@ export function MovimientoFormPage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const esAlmacenero = user?.role === "ALMACENERO";
+  const { almacenId } = useAlmacenActivo();
   const [params] = useSearchParams();
   const preselMaterial = params.get("material") ? Number(params.get("material")) : 0;
 
@@ -95,8 +97,9 @@ export function MovimientoFormPage() {
   const tipoId = useId();
 
   const { data: materiales = [] } = useQuery({
-    queryKey: ["materiales"],
-    queryFn: () => listMateriales(),
+    queryKey: ["materiales", almacenId],
+    queryFn: () => listMateriales(almacenId),
+    enabled: !!almacenId,
   });
 
   const { data: usuarios = [] } = useQuery({
@@ -467,6 +470,8 @@ export function MovimientoFormPage() {
                   style={{ fontSize: 12, padding: "4px 12px", background: modoSalida === "pieza" ? "var(--surface, #fff)" : "transparent", boxShadow: modoSalida === "pieza" ? "0 1px 2px rgba(0,0,0,0.05)" : "none" }}
                   onClick={() => {
                     setModoSalida("pieza");
+                    setMaterialId(0);
+                    setPiezaId(0);
                   }}
                 >
                   Pieza / Estuche (Control Individual)
@@ -509,7 +514,7 @@ export function MovimientoFormPage() {
                               actualizarRenglon(r.id, "materialId", id);
                             }}
                             fetchOptions={async (q) => {
-                              const res = await listMateriales({ q });
+                              const res = await listMateriales(almacenId, { q });
                               return res
                                 .filter((m) => !m.control_individual)
                                 .map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
@@ -603,7 +608,7 @@ export function MovimientoFormPage() {
                       setPiezasSalidaSeleccionadas(new Set());
                     }}
                     fetchOptions={async (q) => {
-                      const res = await listMateriales({ q });
+                      const res = await listMateriales(almacenId, { q });
                       return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
                     }}
                   />

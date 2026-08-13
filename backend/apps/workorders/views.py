@@ -258,7 +258,11 @@ class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
-        return order.materiales_usados.select_related("material", "registrado_por")
+        qs = order.materiales_usados.select_related("material", "registrado_por")
+        almacen_id = self.request.query_params.get("almacen")
+        if almacen_id:
+            qs = qs.filter(material__almacen_id=almacen_id)
+        return qs
 
     def perform_create(self, serializer):
         order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])

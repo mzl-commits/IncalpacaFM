@@ -11,9 +11,11 @@ export type Technician = {
   hourly_rate: number;
   active: boolean;
   role: "TECNICO" | "ALMACENERO" | "INSPECTOR";
+  almacen: number | null;
+  almacen_nombre: string | null;
 };
 
-export type TechnicianInput = Omit<Technician, "id"> & { temporary_password?: string };
+export type TechnicianInput = Omit<Technician, "id" | "almacen_nombre"> & { temporary_password?: string };
 
 export async function listTechnicians() {
   const { data } = await api.get<Technician[]>("/technicians/");

@@ -17,6 +17,8 @@ type ApiUser = {
   position?: string;
   hourly_rate?: number | string;
   must_change_password: boolean;
+  almacen_id?: number | null;
+  almacen_nombre?: string | null;
 };
 
 type AuthContextValue = {
@@ -41,6 +43,8 @@ function mapUser(user: ApiUser): SystemUser {
     hourlyRate: user.hourly_rate,
     mustChangePassword: user.must_change_password,
     active: true,
+    almacenId: user.almacen_id ?? null,
+    almacenNombre: user.almacen_nombre ?? null,
   };
 }
 

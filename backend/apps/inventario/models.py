@@ -5,6 +5,7 @@ from apps.catalogo.models import Material, Pieza
 
 
 class Movimiento(models.Model):
+
     TIPO_CHOICES = [
         ("salida", "Salida"),
         ("entrada", "Entrada"),
@@ -40,6 +41,13 @@ class Movimiento(models.Model):
                    "salida de un estuche completo (contenedor + hijas)."
     )
     observaciones = models.TextField(blank=True)
+
+    ## Manejo de almacenes
+    almacen = models.ForeignKey(
+        "catalogo.Almacen",
+        on_delete=models.PROTECT,
+        related_name="movimientos",
+    )
 
     class Meta:
         ordering = ["-fecha"]

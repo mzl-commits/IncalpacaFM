@@ -2,6 +2,7 @@ import { FolderPlus, PencilSimple, Trash, WarningCircle, X } from "@phosphor-ico
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
   createCategoria,
   createSubcategoria,
@@ -17,9 +18,11 @@ import type { Categoria, Subcategoria } from "@/modules/almacen/types";
 
 interface Props {
   onClose: () => void;
+  onChange?: () => void;
 }
 
-export function GestionCategoriasPanel({ onClose }: Props) {
+export function GestionCategoriasPanel({ onClose, onChange }: Props) {
+  const { almacenId } = useAlmacenActivo();
   const queryClient = useQueryClient();
   const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
 
@@ -39,20 +42,27 @@ export function GestionCategoriasPanel({ onClose }: Props) {
 
   // Queries
   const { data: categorias = [] } = useQuery({
-    queryKey: ["categorias"],
-    queryFn: listCategorias,
+    queryKey: ["categorias", almacenId],
+    queryFn: () => listCategorias(almacenId),
+    enabled: !!almacenId,
   });
 
   const { data: subcategorias = [] } = useQuery({
-    queryKey: ["subcategorias", selectedCatId],
-    queryFn: () => listSubcategorias(selectedCatId ?? undefined),
-    enabled: selectedCatId !== null,
+    queryKey: ["subcategorias", almacenId, selectedCatId],
+    queryFn: () => listSubcategorias(almacenId, selectedCatId!),
+    enabled: !!almacenId && selectedCatId !== null,
   });
 
   const { data: plantillas = [] } = useQuery({
     queryKey: ["plantillas-criterios"],
     queryFn: listPlantillasCriterios,
   });
+
+  const notifyChange = () => {
+    queryClient.invalidateQueries({ queryKey: ["categorias"] });
+    queryClient.invalidateQueries({ queryKey: ["subcategorias"] });
+    if (onChange) onChange();
+  };
 
   // Mutaciones Categoria
   const catMut = useMutation({
@@ -70,6 +80,7 @@ export function GestionCategoriasPanel({ onClose }: Props) {
         });
       }
       return createCategoria({
+        almacen: almacenId,
         nombre: catNombre.trim(),
         prefijo: catPrefijo.trim().toUpperCase(),
         descripcion: catDesc.trim(),
@@ -78,27 +89,27 @@ export function GestionCategoriasPanel({ onClose }: Props) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categorias"] });
       resetCatForm();
+      notifyChange();
     },
-    onError: (err: Error) => setCatError(err.message || "Error al guardar categoria."),
+    onError: (err: Error) => setCatError(err.message || "Error al guardar la categoría."),
   });
 
   const delCatMut = useMutation({
     mutationFn: (id: number) => deleteCategoria(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categorias"] });
-      if (selectedCatId === editCat?.id) setSelectedCatId(null);
+    onSuccess: (_, deletedId) => {
+      if (selectedCatId === deletedId) setSelectedCatId(null);
+      notifyChange();
     },
-    onError: () => setCatError("No se puede eliminar la categoria si contiene subcategorias o materiales."),
+    onError: () => setCatError("No se puede eliminar la categoría si contiene subcategorías o materiales."),
   });
 
   // Mutaciones Subcategoria
   const subMut = useMutation({
     mutationFn: async () => {
       setSubError("");
-      if (!selectedCatId) throw new Error("Selecciona una categoria primero.");
-      if (!subNombre.trim()) throw new Error("El nombre de la subcategoria es obligatorio.");
+      if (!selectedCatId) throw new Error("Selecciona una categoría primero.");
+      if (!subNombre.trim()) throw new Error("El nombre de la subcategoría es obligatorio.");
 
       if (editSub) {
         return updateSubcategoria(editSub.id, {
@@ -114,16 +125,16 @@ export function GestionCategoriasPanel({ onClose }: Props) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["subcategorias"] });
       resetSubForm();
+      notifyChange();
     },
-    onError: (err: Error) => setSubError(err.message || "Error al guardar subcategoria."),
+    onError: (err: Error) => setSubError(err.message || "Error al guardar la subcategoría."),
   });
 
   const delSubMut = useMutation({
     mutationFn: (id: number) => deleteSubcategoria(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subcategorias"] }),
-    onError: () => setSubError("No se puede eliminar la subcategoria si tiene materiales asociados."),
+    onSuccess: () => notifyChange(),
+    onError: () => setSubError("No se puede eliminar la subcategoría si tiene materiales asociados."),
   });
 
   function resetCatForm() {
@@ -159,20 +170,11 @@ export function GestionCategoriasPanel({ onClose }: Props) {
   }
 
   return (
-    <div
-      style={{
-        background: "var(--surface, #fff)",
-        borderRadius: 12,
-        border: "1px solid var(--border, #e5e7eb)",
-        padding: 20,
-        marginBottom: 16,
-        boxShadow: "0 2px 12px rgba(0,0,0,.06)",
-      }}
-    >
+    <div style={{ background: "var(--surface, #fff)", borderRadius: 12, border: "1px solid var(--border, #e5e7eb)", padding: 20, marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <FolderPlus size={20} style={{ color: "var(--accent, #6366f1)" }} />
-          <strong style={{ fontSize: 16 }}>Gestion de Categorias y Subcategorias</strong>
+          <strong style={{ fontSize: 16 }}>Gestión de Categorías y Subcategorías</strong>
         </div>
         <button type="button" onClick={onClose} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)" }}>
           <X size={18} />
@@ -180,10 +182,10 @@ export function GestionCategoriasPanel({ onClose }: Props) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        {/* Columna 1: Categorias */}
+        {/* Categorías */}
         <div>
           <h3 style={{ fontSize: 14, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Categorias</span>
+            <span>Categorías</span>
             {editCat && (
               <button type="button" onClick={resetCatForm} style={{ fontSize: 12, color: "var(--muted)", background: "none", border: 0, cursor: "pointer" }}>
                 + Nueva
@@ -191,38 +193,14 @@ export function GestionCategoriasPanel({ onClose }: Props) {
             )}
           </h3>
 
-          {/* Form Categoria */}
           <div style={{ background: "var(--surface-raised, #f9fafb)", padding: 12, borderRadius: 8, border: "1px solid var(--border, #e5e7eb)", marginBottom: 12 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 8, marginBottom: 8 }}>
-              <input
-                type="text"
-                placeholder="Nombre (ej. Herramientas)"
-                value={catNombre}
-                onChange={(e) => setCatNombre(e.target.value)}
-                style={{ fontSize: 13 }}
-              />
-              <input
-                type="text"
-                placeholder="Prefijo (H)"
-                maxLength={3}
-                value={catPrefijo}
-                onChange={(e) => setCatPrefijo(e.target.value)}
-                style={{ fontSize: 13, textTransform: "uppercase" }}
-              />
+              <input type="text" placeholder="Nombre" value={catNombre} onChange={(e) => setCatNombre(e.target.value)} style={{ fontSize: 13 }} />
+              <input type="text" placeholder="Prefijo" maxLength={3} value={catPrefijo} onChange={(e) => setCatPrefijo(e.target.value)} style={{ fontSize: 13, textTransform: "uppercase" }} />
             </div>
-            <input
-              type="text"
-              placeholder="Descripcion corta (opcional)"
-              value={catDesc}
-              onChange={(e) => setCatDesc(e.target.value)}
-              style={{ fontSize: 13, width: "100%", marginBottom: 8 }}
-            />
+            <input type="text" placeholder="Descripción corta (opcional)" value={catDesc} onChange={(e) => setCatDesc(e.target.value)} style={{ fontSize: 13, width: "100%", marginBottom: 8 }} />
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={catRequiereInspeccion}
-                onChange={(e) => setCatRequiereInspeccion(e.target.checked)}
-              />
+              <input type="checkbox" checked={catRequiereInspeccion} onChange={(e) => setCatRequiereInspeccion(e.target.checked)} />
               Requiere inspección periódica
             </label>
             {catError && (
@@ -236,19 +214,12 @@ export function GestionCategoriasPanel({ onClose }: Props) {
                   Cancelar
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => catMut.mutate()}
-                disabled={catMut.isPending}
-                className="button button-primary"
-                style={{ fontSize: 12, padding: "4px 12px" }}
-              >
-                {catMut.isPending ? "Guardando..." : editCat ? "Guardar cambios" : "+ Crear categoria"}
+              <button type="button" onClick={() => catMut.mutate()} disabled={catMut.isPending} className="button button-primary" style={{ fontSize: 12, padding: "4px 12px" }}>
+                {catMut.isPending ? "Guardando..." : editCat ? "Guardar cambios" : "+ Crear categoría"}
               </button>
             </div>
           </div>
 
-          {/* Lista Categorias */}
           <div style={{ display: "grid", gap: 6, maxHeight: 240, overflowY: "auto" }}>
             {categorias.map((c) => {
               const isSelected = selectedCatId === c.id;
@@ -272,20 +243,10 @@ export function GestionCategoriasPanel({ onClose }: Props) {
                     <strong>{c.nombre}</strong> <code style={{ fontSize: 11, color: "var(--muted)" }}>({c.prefijo})</code>
                   </div>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleEditCat(c); }}
-                      style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", padding: 2 }}
-                      title="Editar"
-                    >
+                    <button type="button" onClick={(e) => { e.stopPropagation(); handleEditCat(c); }} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", padding: 2 }}>
                       <PencilSimple size={14} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); if (confirm(`Eliminar categoria '${c.nombre}'?`)) delCatMut.mutate(c.id); }}
-                      style={{ background: "none", border: 0, cursor: "pointer", color: "var(--error, #dc2626)", padding: 2 }}
-                      title="Eliminar"
-                    >
+                    <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`¿Eliminar categoría '${c.nombre}'?`)) delCatMut.mutate(c.id); }} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--error, #dc2626)", padding: 2 }}>
                       <Trash size={14} />
                     </button>
                   </div>
@@ -295,12 +256,10 @@ export function GestionCategoriasPanel({ onClose }: Props) {
           </div>
         </div>
 
-        {/* Columna 2: Subcategorias de la categoria seleccionada */}
+        {/* Subcategorías */}
         <div>
           <h3 style={{ fontSize: 14, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>
-              Subcategorias {selectedCatId ? `(${categorias.find((c) => c.id === selectedCatId)?.nombre})` : ""}
-            </span>
+            <span>Subcategorías {selectedCatId ? `(${categorias.find((c) => c.id === selectedCatId)?.nombre})` : ""}</span>
             {editSub && (
               <button type="button" onClick={resetSubForm} style={{ fontSize: 12, color: "var(--muted)", background: "none", border: 0, cursor: "pointer" }}>
                 + Nueva
@@ -309,30 +268,15 @@ export function GestionCategoriasPanel({ onClose }: Props) {
           </h3>
 
           {!selectedCatId ? (
-            <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 20 }}>
-              Selecciona una categoria a la izquierda para administrar sus subcategorias.
-            </p>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 20 }}>Selecciona una categoría a la izquierda para administrar sus subcategorías.</p>
           ) : (
             <>
-              {/* Form Subcategoria */}
               <div style={{ background: "var(--surface-raised, #f9fafb)", padding: 12, borderRadius: 8, border: "1px solid var(--border, #e5e7eb)", marginBottom: 12 }}>
-                <input
-                  type="text"
-                  placeholder="Nombre subcategoria (ej. Manuales)"
-                  value={subNombre}
-                  onChange={(e) => setSubNombre(e.target.value)}
-                  style={{ fontSize: 13, width: "100%", marginBottom: 8 }}
-                />
-                <select
-                  value={subPlantilla || ""}
-                  onChange={(e) => setSubPlantilla(e.target.value ? Number(e.target.value) : undefined)}
-                  style={{ fontSize: 13, width: "100%", marginBottom: 8 }}
-                >
-                  <option value="">Sin plantilla de inspeccion</option>
+                <input type="text" placeholder="Nombre subcategoría" value={subNombre} onChange={(e) => setSubNombre(e.target.value)} style={{ fontSize: 13, width: "100%", marginBottom: 8 }} />
+                <select value={subPlantilla || ""} onChange={(e) => setSubPlantilla(e.target.value ? Number(e.target.value) : undefined)} style={{ fontSize: 13, width: "100%", marginBottom: 8 }}>
+                  <option value="">Sin plantilla de inspección</option>
                   {plantillas.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      Plantilla SST: {p.nombre}
-                    </option>
+                    <option key={p.id} value={p.id}>Plantilla SST: {p.nombre}</option>
                   ))}
                 </select>
 
@@ -348,67 +292,30 @@ export function GestionCategoriasPanel({ onClose }: Props) {
                       Cancelar
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => subMut.mutate()}
-                    disabled={subMut.isPending}
-                    className="button button-primary"
-                    style={{ fontSize: 12, padding: "4px 12px" }}
-                  >
-                    {subMut.isPending ? "Guardando..." : editSub ? "Guardar cambios" : "+ Crear subcategoria"}
+                  <button type="button" onClick={() => subMut.mutate()} disabled={subMut.isPending} className="button button-primary" style={{ fontSize: 12, padding: "4px 12px" }}>
+                    {subMut.isPending ? "Guardando..." : editSub ? "Guardar cambios" : "+ Crear subcategoría"}
                   </button>
                 </div>
               </div>
 
-              {/* Lista Subcategorias */}
               <div style={{ display: "grid", gap: 6, maxHeight: 240, overflowY: "auto" }}>
                 {subcategorias.map((s) => (
-                  <div
-                    key={s.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border, #e5e7eb)",
-                      background: "var(--surface, #fff)",
-                      fontSize: 13,
-                    }}
-                  >
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border, #e5e7eb)", background: "var(--surface, #fff)", fontSize: 13 }}>
                     <div>
                       <strong>{s.nombre}</strong>
-                      {s.plantilla_inspeccion_nombre && (
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                          Plantilla: {s.plantilla_inspeccion_nombre}
-                        </div>
-                      )}
+                      {s.plantilla_inspeccion_nombre && <div style={{ fontSize: 11, color: "var(--muted)" }}>Plantilla: {s.plantilla_inspeccion_nombre}</div>}
                     </div>
                     <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleEditSub(s)}
-                        style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", padding: 2 }}
-                        title="Editar"
-                      >
+                      <button type="button" onClick={() => handleEditSub(s)} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", padding: 2 }}>
                         <PencilSimple size={14} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => { if (confirm(`Eliminar subcategoria '${s.nombre}'?`)) delSubMut.mutate(s.id); }}
-                        style={{ background: "none", border: 0, cursor: "pointer", color: "var(--error, #dc2626)", padding: 2 }}
-                        title="Eliminar"
-                      >
+                      <button type="button" onClick={() => { if (confirm(`¿Eliminar subcategoría '${s.nombre}'?`)) delSubMut.mutate(s.id); }} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--error, #dc2626)", padding: 2 }}>
                         <Trash size={14} />
                       </button>
                     </div>
                   </div>
                 ))}
-                {subcategorias.length === 0 && (
-                  <p style={{ fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>
-                    Sin subcategorias en esta categoria.
-                  </p>
-                )}
+                {subcategorias.length === 0 && <p style={{ fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>Sin subcategorías en esta categoría.</p>}
               </div>
             </>
           )}

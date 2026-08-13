@@ -19,6 +19,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
     pieza_codigo = serializers.CharField(source="pieza.codigo", read_only=True, default=None)
     responsable_nombre = serializers.SerializerMethodField()
     tipo_display = serializers.CharField(source="get_tipo_display", read_only=True)
+    almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
 
     class Meta:
         model = Movimiento
@@ -27,7 +28,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
             "pieza", "pieza_codigo", "tipo", "tipo_display", "cantidad",
             "cantidad_cajas",
             "fecha", "responsable", "responsable_nombre", "referencia_externa",
-            "lote_id", "observaciones",
+            "lote_id", "observaciones", "almacen", "almacen_nombre",
         ]
 
     def get_responsable_nombre(self, obj):
@@ -67,6 +68,24 @@ def _resolver_cantidad_por_caja(attrs):
         attrs["cantidad"] = cantidad_cajas * material.unidades_por_caja
     return attrs
 
+def _validar_almacen_forzado(self, objeto, campo):
+    """
+    valida el almacén ANTES de guardar, en vez de crear el
+    Movimiento y recién después comprobar con check_almacen_objeto (patrón
+    viejo: rollback post-save en la vista). 'objeto' es un Material o una
+    Pieza — si es Pieza, se valida el almacén de su propio material (el
+    material real de ESA pieza, no el de un eventual contenedor).
+    'self.context["almacen_forzado"]' lo pasa la vista: es None para
+    Administrador, y el id del almacén asignado para Almacenero/Inspector.
+    """
+    almacen_forzado = self.context.get("almacen_forzado")
+    if almacen_forzado is None:
+        return
+    almacen_id = objeto.almacen_id if hasattr(objeto, "almacen_id") else objeto.material.almacen_id
+    if almacen_id != almacen_forzado:
+        raise serializers.ValidationError({
+            campo: "No puedes registrar movimientos fuera de tu almacén asignado."
+        })
 
 class SalidaMaterialSerializer(serializers.Serializer):
     material_id = serializers.PrimaryKeyRelatedField(queryset=Material.objects.all())
@@ -81,6 +100,7 @@ class SalidaMaterialSerializer(serializers.Serializer):
         attrs = _resolver_cantidad_por_caja(attrs)
         if not attrs.get("cantidad"):
             raise serializers.ValidationError({"cantidad": "Indica la cantidad o la cantidad de cajas."})
+        _validar_almacen_forzado(self, attrs["material_id"], "material_id")
         return attrs
 
     def create(self, validated_data):
@@ -94,7 +114,6 @@ class SalidaMaterialSerializer(serializers.Serializer):
             lote_id=validated_data.get("lote_id", ""),
         )
 
-
 class SalidaPiezaSerializer(serializers.Serializer):
     pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
     responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
@@ -107,6 +126,10 @@ class SalidaPiezaSerializer(serializers.Serializer):
         allow_empty=True,
         default=None,
     )
+
+    def validate(self, attrs):
+        _validar_almacen_forzado(self, attrs["pieza_id"], "pieza_id")
+        return attrs
 
     def create(self, validated_data):
         return registrar_salida_pieza(
@@ -128,6 +151,7 @@ class EntradaMaterialSerializer(serializers.Serializer):
         attrs = _resolver_cantidad_por_caja(attrs)
         if not attrs.get("cantidad"):
             raise serializers.ValidationError({"cantidad": "Indica la cantidad o la cantidad de cajas."})
+        _validar_almacen_forzado(self, attrs["material_id"], "material_id")
         return attrs
 
     def create(self, validated_data):
@@ -143,6 +167,10 @@ class EntradaPiezaSerializer(serializers.Serializer):
     pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
     responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        _validar_almacen_forzado(self, attrs["pieza_id"], "pieza_id")
+        return attrs
 
     def create(self, validated_data):
         return registrar_entrada_pieza(
@@ -162,6 +190,7 @@ class BajaMaterialSerializer(serializers.Serializer):
         attrs = _resolver_cantidad_por_caja(attrs)
         if not attrs.get("cantidad"):
             raise serializers.ValidationError({"cantidad": "Indica la cantidad o la cantidad de cajas."})
+        _validar_almacen_forzado(self, attrs["material_id"], "material_id")
         return attrs
 
     def create(self, validated_data):
@@ -177,6 +206,10 @@ class BajaPiezaSerializer(serializers.Serializer):
     pieza_id = serializers.PrimaryKeyRelatedField(queryset=Pieza.objects.all())
     responsable_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        _validar_almacen_forzado(self, attrs["pieza_id"], "pieza_id")
+        return attrs
 
     def create(self, validated_data):
         return registrar_baja_pieza(
@@ -209,10 +242,9 @@ class PiezaPrestadaSerializer(serializers.ModelSerializer):
             }
         return None
 
-
 # ─── Solicitudes de movimiento (flujo de aprobación) ─────────────────────────
 
-from apps.inventario.models import SolicitudMovimiento  # noqa: E402
+from apps.inventario.models import SolicitudMovimiento 
 
 
 class SolicitudMovimientoSerializer(serializers.ModelSerializer):

@@ -4,18 +4,21 @@ import { Link } from "react-router-dom";
 
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import type { VencidaItem } from "@/modules/almacen/types";
 
 export function InspeccionVencidasPage() {
+  const { almacenId } = useAlmacenActivo();
+
   const { data: vencidas = [], isLoading } = useQuery({
-    queryKey: ["inspecciones-vencidas"],
-    queryFn: listVencidas,
+    queryKey: ["inspecciones-vencidas", almacenId],
+    queryFn: () => listVencidas(almacenId),
   });
 
   // Para cada material vencido, intentamos conseguir la última inspección real
   const { data: inspecciones = [] } = useQuery({
-    queryKey: ["inspecciones"],
-    queryFn: () => listInspecciones(),
+    queryKey: ["inspecciones", almacenId],
+    queryFn: () => listInspecciones(almacenId),
   });
 
   function getUltimaInspeccion(materialId: number): { fecha: string; periodicidadDias: number } | null {
@@ -30,9 +33,9 @@ export function InspeccionVencidasPage() {
   function buildLoteUrl(item: VencidaItem): string {
     if (item.piezas_pendientes.length > 0) {
       const ids = item.piezas_pendientes.map((p) => p.pieza_id).join(",");
-      return `/almacen/inspecciones/nueva?material=${item.material_id}&piezas_lote=${ids}`;
+      return `/almacen/${almacenId}/inspecciones/nueva?material=${item.material_id}&piezas_lote=${ids}`;
     }
-    return `/almacen/inspecciones/nueva?material=${item.material_id}`;
+    return `/almacen/${almacenId}/inspecciones/nueva?material=${item.material_id}`;
   }
 
   if (isLoading) return <div className="loading-panel">Cargando vencidas…</div>;
@@ -47,7 +50,7 @@ export function InspeccionVencidasPage() {
             Materiales con más de 90 días sin inspección o que nunca han sido inspeccionados.
           </p>
         </div>
-        <Link to="/almacen/inspecciones" className="button button-secondary">
+        <Link to={`/almacen/${almacenId}/inspecciones`} className="button button-secondary">
           ← Inspecciones
         </Link>
       </div>
