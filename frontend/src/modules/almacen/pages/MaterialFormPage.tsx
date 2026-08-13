@@ -54,6 +54,7 @@ export function MaterialFormPage() {
     largo: "",
     ubicacion_fisica: "",
     precio: "",
+    clasificacion_operativa: "HERRAMIENTA",
     tipo_control: "retornable",
     control_individual: false,
     periodicidad_valor: 3,
@@ -103,6 +104,7 @@ export function MaterialFormPage() {
         largo: materialExistente.largo ?? "",
         ubicacion_fisica: materialExistente.ubicacion_fisica,
         precio: materialExistente.precio ?? "",
+        clasificacion_operativa: materialExistente.clasificacion_operativa,
         tipo_control: materialExistente.tipo_control,
         control_individual: materialExistente.control_individual,
         periodicidad_valor: materialExistente.periodicidad_valor ?? 3,
@@ -389,6 +391,20 @@ export function MaterialFormPage() {
                   onChange={(e) => set("precio", e.target.value)}
                   placeholder="Ej. 150.00"
                 />
+              </Field>
+              <Field
+                label="Tratamiento en Ã³rdenes de trabajo"
+                hint="Los consumibles generan costo; herramientas y EPP solo dejan trazabilidad de uso."
+                wide
+              >
+                <select
+                  value={form.clasificacion_operativa}
+                  onChange={(e) => set("clasificacion_operativa", e.target.value as typeof form.clasificacion_operativa)}
+                >
+                  <option value="CONSUMIBLE">Consumible â€” genera costo</option>
+                  <option value="HERRAMIENTA">Herramienta reutilizable â€” solo uso</option>
+                  <option value="EPP">EPP reutilizable â€” solo uso</option>
+                </select>
               </Field>
               <Field label="Ubicación física" hint="Ej. A1, Estante 3, Caja de brocas" error={errors.ubicacion_fisica} wide>
                 <input

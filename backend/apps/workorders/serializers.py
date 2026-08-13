@@ -447,10 +447,11 @@ class WorkOrderSerializer(serializers.ModelSerializer):
 class WorkOrderCostSerializer(serializers.ModelSerializer):
     categoryLabel = serializers.CharField(source="get_category_display", read_only=True)
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    sourceMaterial = serializers.IntegerField(source="source_material_id", read_only=True, allow_null=True)
 
     class Meta:
         model = WorkOrderCost
-        fields = ("id", "category", "categoryLabel", "description", "amount", "createdAt")
+        fields = ("id", "category", "categoryLabel", "description", "amount", "sourceMaterial", "createdAt")
         read_only_fields = ("id", "createdAt")
 
 
@@ -641,7 +642,6 @@ class WorkOrderActionSerializer(serializers.Serializer):
             # Check for necessary_no_blocking materials whose required progress percentage is met
             # and check if they still lack stock to notify administrators
             from apps.workorders.models import WorkOrderMaterial
-            from apps.notifications.services import queue_for_administrators
             
             materiales_pendientes = order.materiales_usados.filter(
                 tipo=WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE,
@@ -996,6 +996,9 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
         allow_null=True, read_only=True,
     )
     materialStock = serializers.IntegerField(source="material.cantidad_total", read_only=True)
+    clasificacionOperativa = serializers.CharField(source="material.clasificacion_operativa", read_only=True)
+    clasificacionOperativaLabel = serializers.CharField(source="material.get_clasificacion_operativa_display", read_only=True)
+    precioUnitario = serializers.DecimalField(source="precio_unitario", max_digits=10, decimal_places=2, allow_null=True, read_only=True)
     tipoLabel = serializers.CharField(source="get_tipo_display", read_only=True)
     registradoPorNombre = serializers.SerializerMethodField()
     creadoEn = serializers.DateTimeField(source="creado_en", read_only=True)
@@ -1012,7 +1015,10 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
             "materialCodigo",
             "materialPrecio",
             "materialStock",
+            "clasificacionOperativa",
+            "clasificacionOperativaLabel",
             "cantidad",
+            "precioUnitario",
             "tipo",
             "tipoLabel",
             "esBloqueante",
@@ -1050,6 +1056,14 @@ class WorkOrderMaterialWriteSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    precioUnitario = serializers.DecimalField(
+        source="precio_unitario",
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        required=False,
+        allow_null=True,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1060,8 +1074,13 @@ class WorkOrderMaterialWriteSerializer(serializers.Serializer):
         self.fields["material"].queryset = Material.objects.all()
 
     def validate(self, attrs):
-        material = attrs["material"]
-        cantidad = attrs["cantidad"]
+        material = attrs.get("material")
+        cantidad = attrs.get("cantidad")
+        # En PATCH se puede modificar solo el precio unitario, el tipo o la
+        # cantidad. La verificaciÃ³n de stock aplica Ãºnicamente cuando ambos
+        # valores estÃ¡n presentes en esta solicitud.
+        if material is None or cantidad is None:
+            return attrs
         if material.control_individual:
             from apps.catalogo.models import Pieza
             disponibles = Pieza.objects.filter(

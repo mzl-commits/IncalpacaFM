@@ -16,6 +16,7 @@ from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAdministrator, IsAdministratorOrSupervisor, IsWorkOrderParticipant, user_role
 
 from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto, WorkOrderReport
+from .material_costs import sync_material_costs
 from .reporting import build_work_order_pdf
 from .serializers import (
     ReportTemplateSerializer, WorkOrderActionSerializer, WorkOrderCostSerializer,
@@ -309,7 +310,9 @@ class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
             tipo=serializer.validated_data["tipo"],
             porcentaje_requerido=serializer.validated_data.get("porcentaje_requerido"),
             registrado_por=self.request.user,
+            precio_unitario=serializer.validated_data.get("precio_unitario", serializer.validated_data["material"].precio),
         )
+        sync_material_costs(order, actor=self.request.user)
         return instance
 
     def create(self, request, *args, **kwargs):
@@ -358,13 +361,18 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.tipo = data.get("tipo", instance.tipo)
         if "porcentaje_requerido" in data:
             instance.porcentaje_requerido = data["porcentaje_requerido"]
+        if "precio_unitario" in data:
+            instance.precio_unitario = data["precio_unitario"]
         instance.save()
+        sync_material_costs(instance.work_order, actor=request.user)
         return response.Response(WorkOrderMaterialSerializer(instance).data)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self._check_not_closed(instance)
+        order = instance.work_order
         instance.delete()
+        sync_material_costs(order, actor=request.user)
         from rest_framework import status as http_status
         return response.Response(status=http_status.HTTP_204_NO_CONTENT)
 
@@ -473,29 +481,18 @@ class WorkOrderCostAutocompletarView(views.APIView):
     @extend_schema(request=None, responses={200: WorkOrderCostSerializer(many=True), 201: WorkOrderCostSerializer(many=True)})
     def post(self, request, pk):
         order = get_object_or_404(WorkOrder, pk=pk)
-        materiales_usados = order.materiales_usados.filter(
-            tipo=WorkOrderMaterial.Tipo.USADO
-        ).select_related("material")
-        created = []
-        for uso in materiales_usados:
-            # idempotencia: evitar duplicados por nombre
-            existe = order.cost_items.filter(
-                category=WorkOrderCost.Category.MATERIAL,
-                description=uso.material.nombre,
-            ).exists()
-            if not existe:
-                cost = WorkOrderCost.objects.create(
-                    work_order=order,
-                    category=WorkOrderCost.Category.MATERIAL,
-                    description=uso.material.nombre,
-                    amount=uso.material.precio,  # puede ser None
-                    created_by=request.user,
-                )
-                created.append(cost)
+        result = sync_material_costs(order, actor=request.user)
         all_costs = order.cost_items.all()
         return response.Response(
-            WorkOrderCostSerializer(all_costs, many=True).data,
-            status=201 if created else 200,
+            {
+                "costs": WorkOrderCostSerializer(all_costs, many=True).data,
+                "created": result["created"],
+                "updated": result["updated"],
+                "removed": result["removed"],
+                "materials": result["materials"],
+                "withoutPrice": result["without_price"],
+            },
+            status=201 if result["created"] else 200,
         )
 
 

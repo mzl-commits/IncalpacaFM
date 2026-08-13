@@ -4,7 +4,6 @@ import {
   CalendarBlank,
   CalendarPlus,
   CaretDown,
-  CaretLeft,
   ChartBar,
   ChartLineUp,
   ClipboardText,
@@ -35,12 +34,14 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
-import type { UserRole } from "@/modules/accounts/types";
+import type { SystemUser, UserRole } from "@/modules/accounts/types";
 import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
 import { NotificationCenter } from "@/modules/notifications/components/NotificationCenter";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { listWorkRequests, WORK_REQUESTS_UPDATED_EVENT } from "@/modules/incidents/incidentRepository";
+import type { WorkRequest } from "@/modules/incidents/types";
 import { listWorkOrders, WORK_ORDERS_UPDATED_EVENT } from "@/modules/workorders/workOrderRepository";
+import type { WorkOrder } from "@/modules/workorders/types";
 
 type NavItem = {
   to: string;
@@ -180,10 +181,36 @@ const quickActions: NavItem[] = [
   { to: "/informes", label: "Abrir informes", icon: ChartLineUp },
 ];
 
-function isGroupActive(pathname: string, paths: string[]) {
-  if (pathname === "/" && paths.includes("/")) return true;
-  if (pathname !== "/" && paths.includes("/")) return false;
-  return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+type MenuCounts = Partial<Record<string, number>>;
+
+function countMenuActions(user: SystemUser, requests: WorkRequest[], orders: WorkOrder[]): MenuCounts {
+  const withBadge = (path: string, count: number): MenuCounts => count > 0 ? { [path]: count } : {};
+
+  if (user.role === "ADMINISTRADOR") {
+    const pendingRequests = requests.filter((request) => request.status === "PENDIENTE").length;
+    const adminOrders = orders.filter((order) =>
+      ["PENDIENTE_REPROGRAMACION", "PENDIENTE_DE_VALIDACION"].includes(order.status),
+    ).length;
+    return { ...withBadge("/incidencias", pendingRequests), ...withBadge("/ordenes-trabajo", adminOrders) };
+  }
+
+  if (user.role === "SUPERVISOR") {
+    const reviewQueue = orders.filter(
+      (order) => order.supervisorId === user.id && order.status === "PENDIENTE_DE_SUPERVISION",
+    ).length;
+    return withBadge("/ordenes-trabajo", reviewQueue);
+  }
+
+  if (user.role === "TECNICO") {
+    const activeWork = orders.filter(
+      (order) =>
+        order.operatorId === user.id &&
+        ["PROGRAMADA", "ASIGNADA", "EN_PROCESO", "DEVUELTA", "REPROCESO"].includes(order.status),
+    ).length;
+    return withBadge("/ordenes-trabajo", activeWork);
+  }
+
+  return {};
 }
 
 function getRouteContext(pathname: string) {
@@ -223,22 +250,15 @@ export function AppShell() {
   const navigate = useNavigate();
 
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
-  const [liveCounts, setLiveCounts] = useState<Record<string, number>>({});
+  const [liveCounts, setLiveCounts] = useState<MenuCounts>({});
 
   useEffect(() => {
     let active = true;
     const refreshCounts = async () => {
-      const [requests, orders] = await Promise.all([listWorkRequests().catch(() => []), listWorkOrders().catch(() => [])]);
+      const [requestsResult, ordersResult] = await Promise.allSettled([listWorkRequests(), listWorkOrders()]);
       if (!active) return;
-      const visibleOrders = orders.filter((order) => {
-        if (user?.role === "TECNICO") return order.operatorId === user.id;
-        if (user?.role === "SUPERVISOR") return order.supervisorId === user.id;
-        return true;
-      });
-      setLiveCounts({
-        "/incidencias": requests.filter((request) => !["CERRADA", "CANCELADA", "RESUELTA"].includes(request.status)).length,
-        "/ordenes-trabajo": visibleOrders.filter((order) => !["CERRADA", "CANCELADA"].includes(order.status)).length,
-      });
+      if (!user || requestsResult.status !== "fulfilled" || ordersResult.status !== "fulfilled") return;
+      setLiveCounts(countMenuActions(user, requestsResult.value, ordersResult.value));
     };
     void refreshCounts();
     window.addEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshCounts);
@@ -255,17 +275,6 @@ export function AppShell() {
     .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user).map((item) => ({ ...item, count: liveCounts[item.to] })) }))
     .filter((mod) => mod.items.length > 0);
   const roleQuickActions = user?.role === "ADMINISTRADOR" ? quickActions : [];
-  const railModules = roleModules.filter((mod) => mod.id !== "administration");
-  const configModule = roleModules.find((m) => m.id === "administration");
-
-  const matchedModuleId =
-    roleModules.find((mod) => isGroupActive(location.pathname, mod.paths))?.id ?? (user?.role === "TECNICO" ? "operations" : "assets");
-
-  // Flyout Panel State: CLOSED BY DEFAULT
-  const [flyoutOpen, setFlyoutOpen] = useState<boolean>(false);
-  const [activeFlyoutModuleId, setActiveFlyoutModuleId] = useState<string>(matchedModuleId);
-
-  const sidebarRef = useRef<HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDialogElement>(null);
@@ -291,50 +300,6 @@ export function AppShell() {
       .join("")
       .toUpperCase() || "SG";
 
-  useEffect(() => {
-    const matched = roleModules.find((mod) => isGroupActive(location.pathname, mod.paths));
-    if (matched && matched.id !== activeFlyoutModuleId && !flyoutOpen) {
-      setActiveFlyoutModuleId(matched.id);
-    }
-  }, [location.pathname]);
-
-  // Click Outside Listener (Case 5) & Escape Key Listener (Case 6)
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        flyoutOpen &&
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target as Node)
-      ) {
-        setFlyoutOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && flyoutOpen) {
-        setFlyoutOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [flyoutOpen]);
-
-  function handleRailClick(mod: ModuleGroup) {
-    if (flyoutOpen && activeFlyoutModuleId === mod.id) {
-      setFlyoutOpen(false);
-    } else {
-      setActiveFlyoutModuleId(mod.id);
-      setFlyoutOpen(true);
-    }
-  }
-
-  const activeFlyoutModule =
-    roleModules.find((mod) => mod.id === activeFlyoutModuleId) ?? roleModules[0] ?? modules[1];
   const technicianNavigation = roleModules.find((mod) => mod.id === "dashboard")?.items ?? [];
 
   function openMobileMenu() {
@@ -376,137 +341,30 @@ export function AppShell() {
           <button className="technician-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
         </aside>
       ) : (
-      <>
-      {/* 2-LEVEL SIDEBAR: FIXED NARROW RAIL + OVERLAY FLYOUT PANEL */}
-      <aside ref={sidebarRef} className="two-level-sidebar-overlay" aria-label="Navegación principal">
-        {/* LEVEL 1: NARROW RAIL (Fixed 92px, White background) */}
-        <div className="sidebar-rail-narrow">
-          <div className="rail-logo-wrap">
-            <BrandLogo size={36} variant="light" />
-          </div>
-
-          <nav className="rail-vertical-nav">
-            {railModules.map((mod) => {
-              const activeModuleId = flyoutOpen ? activeFlyoutModuleId : matchedModuleId;
-              const isSelected = activeModuleId === mod.id;
-              const Icon = mod.icon;
-
-              return (
-                <button
-                  key={mod.id}
-                  type="button"
-                  aria-label={mod.label}
-                  className={`rail-circle-option ${isSelected ? "is-active" : ""}`}
-                  onClick={() => handleRailClick(mod)}
-                  title={mod.label}
-                >
-                  <div className="circle-btn">
-                    <Icon size={21} weight={isSelected ? "bold" : "duotone"} />
-                  </div>
-                  <span className="circle-label">{mod.shortLabel}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="rail-bottom-actions">
-            {configModule && (
-              <button
-                type="button"
-                aria-label="Configuración"
-                className={`rail-circle-option ${(flyoutOpen ? activeFlyoutModuleId : matchedModuleId) === "administration" ? "is-active" : ""}`}
-                onClick={() => handleRailClick(configModule)}
-                title="Configuración"
-              >
-                <div className="circle-btn">
-                  <GearSix size={21} weight={matchedModuleId === "administration" ? "bold" : "duotone"} />
-                </div>
-                <span className="circle-label">Configuración</span>
-              </button>
-            )}
-            <button
-              type="button"
-              aria-label="Cerrar sesión"
-              className="rail-circle-option logout-circle-option"
-              onClick={logout}
-              title="Cerrar sesión"
-            >
-              <div className="circle-btn">
-                <SignOut size={19} />
-              </div>
-              <span className="circle-label">Salir</span>
-            </button>
-          </div>
+      <aside className="persistent-sidebar" aria-label="Navegación principal">
+        <div className="persistent-sidebar-brand">
+          <BrandLogo size={36} variant="light" />
+          <span><strong>FM Incalpaca</strong><small>{roleLabel}</small></span>
         </div>
-
-        {/* LEVEL 2: OVERLAY FLYOUT PANEL (Fixed 275px Floating Panel over Content) */}
-        {flyoutOpen && (
-          <div className="sidebar-flyout-panel" role="region" aria-label={`Submenú ${activeFlyoutModule.label}`}>
-            <header className="flyout-header">
-              <div>
-                <span className="flyout-context-label">Módulo</span>
-                <h2 className="flyout-title">{activeFlyoutModule.label}</h2>
-              </div>
-              <button
-                type="button"
-                className="flyout-close-btn"
-                onClick={() => setFlyoutOpen(false)}
-                title="Cerrar menú"
-                aria-label="Cerrar menú"
-              >
-                <CaretLeft size={18} />
-              </button>
-            </header>
-
-            <nav className="flyout-nav-list">
-              {activeFlyoutModule.items.map(({ to, label, icon: ItemIcon, end, count }, idx) => {
-                const isSubActive =
-                  location.pathname === to ||
-                  (!end && to !== "/" && location.pathname.startsWith(`${to}/`));
-                const hasAnyActive = activeFlyoutModule.items.some(
-                  (it) =>
-                    location.pathname === it.to ||
-                    (!it.end && it.to !== "/" && location.pathname.startsWith(`${it.to}/`)),
-                );
-                const isHighlighted = isSubActive || (!hasAnyActive && idx === 0);
-
-                return (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    end={end}
-                    onClick={() => setFlyoutOpen(false)}
-                    className={`flyout-item ${isHighlighted ? "is-active" : ""}`}
-                  >
-                    <ItemIcon size={19} weight="duotone" />
-                    <span>{label}</span>
-                    {count !== undefined && <span className="flyout-badge">{count}</span>}
-                  </NavLink>
-                );
-              })}
-            </nav>
-
-            <div className="flyout-footer">
-              <div className="flyout-user-card">
-                <div className="user-avatar-circle">{initials}</div>
-                <div className="user-meta">
-                  <strong>{user?.fullName}</strong>
-                  <small>{roleLabel}</small>
-                </div>
-                <button
-                  type="button"
-                  className="user-logout-btn"
-                  onClick={logout}
-                  title="Cerrar sesión"
-                >
-                  <SignOut size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <nav className="persistent-sidebar-nav">
+          {roleModules.map((module) => (
+            <section key={module.id} className="persistent-nav-group" aria-label={module.label}>
+              <h2>{module.label}</h2>
+              {module.items.map(({ to, label, icon: Icon, end, count }) => (
+                <NavLink key={to} to={to} end={end} className={({ isActive }) => `persistent-nav-link ${isActive ? "is-active" : ""}`}>
+                  <Icon size={19} weight="duotone" />
+                  <span>{label}</span>
+                  {count !== undefined && <small>{count}</small>}
+                </NavLink>
+              ))}
+            </section>
+          ))}
+        </nav>
+        <NavLink to="/perfil" className="persistent-sidebar-profile">
+          <span>{initials}</span><div><strong>{user?.fullName}</strong><small>{roleLabel}</small></div>
+        </NavLink>
+        <button className="persistent-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
       </aside>
-      </>
       )}
 
       {/* MOBILE NAVIGATION */}
@@ -608,7 +466,7 @@ export function AppShell() {
       </dialog>
 
       {/* MAIN CONTENT FRAME: Starts immediately after rail (margin-left: 92px) */}
-      <div className={`content-frame-overlay ${user?.role === "TECNICO" ? "is-technician" : ""}`}>
+      <div className={`content-frame-overlay ${user?.role === "TECNICO" ? "is-technician" : "is-persistent-sidebar"}`}>
         <header className="topbar">
           <div className="topbar-context">
             <SquaresFour size={22} weight="duotone" />

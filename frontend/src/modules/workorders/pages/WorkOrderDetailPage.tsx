@@ -42,6 +42,7 @@ import {
   registerWorkOrderProgress,
   scheduleWorkOrderCorrection,
   startWorkOrder,
+  superviseWorkOrder,
   updateServiceOrderStatus,
   updateWorkOrderPlanning,
   updateWorkOrderPhoto,
@@ -234,6 +235,9 @@ export function WorkOrderDetailPage() {
   const [adminComment, setAdminComment] = useState("");
   const [adminError, setAdminError] = useState("");
   const [savingAdminReview, setSavingAdminReview] = useState(false);
+  const [supervisorReviewComment, setSupervisorReviewComment] = useState("");
+  const [supervisorReviewError, setSupervisorReviewError] = useState("");
+  const [savingSupervisorReview, setSavingSupervisorReview] = useState(false);
   const [correctionDate, setCorrectionDate] = useState(todayKey());
   const [correctionTime, setCorrectionTime] = useState("08:00");
   const [correctionHours, setCorrectionHours] = useState(2);
@@ -493,8 +497,10 @@ export function WorkOrderDetailPage() {
   };
 
   const isAdmin = user?.role === "ADMINISTRADOR";
+  const isAssignedSupervisor = user?.role === "SUPERVISOR" && user.id === workOrder.supervisorId;
   const canEditPlanning = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
   const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
+  const needsSupervisorReview = workOrder.status === "PENDIENTE_DE_SUPERVISION";
   const isAssignedTechnician = user?.id === workOrder.operatorId;
   const canRegisterProgress = isAssignedTechnician && !isServiceOrder && !workOrder.correctionWorkOrderId && ![
     "CERRADA",
@@ -532,6 +538,25 @@ export function WorkOrderDetailPage() {
     setEditingPlanning(true);
     if (!planningPeople.length) {
       try { setPlanningPeople((await listTechnicians()).filter((person) => person.active)); } catch { setPlanningError("No se pudo cargar el equipo para editar responsables."); }
+    }
+  }
+
+  async function handleSupervisorReview(approved: boolean) {
+    if (!workOrder) return;
+    if (!approved && supervisorReviewComment.trim().length < 8) {
+      setSupervisorReviewError("Escribe un motivo de devolución de al menos 8 caracteres.");
+      return;
+    }
+    setSavingSupervisorReview(true);
+    setSupervisorReviewError("");
+    try {
+      const updated = await superviseWorkOrder(workOrder.id, approved, supervisorReviewComment.trim());
+      setWorkOrder(updated);
+      setSupervisorReviewComment("");
+    } catch (error: any) {
+      setSupervisorReviewError(error?.response?.data?.detail || error?.response?.data?.action || "No se pudo registrar la revisión del supervisor.");
+    } finally {
+      setSavingSupervisorReview(false);
     }
   }
 
@@ -878,6 +903,36 @@ export function WorkOrderDetailPage() {
                 <button className="button button-primary" type="button" disabled={savingCorrection} onClick={() => void handleScheduleCorrection()}>
                   <CalendarBlank size={16} weight="bold" />
                   Guardar programación
+                </button>
+              </div>
+            </form>
+          )}
+
+          {isAssignedSupervisor && needsSupervisorReview && (
+            <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleSupervisorReview(true); }}>
+              <label className="field field-wide">
+                <span>Comentario de supervisión</span>
+                <textarea
+                  rows={2}
+                  value={supervisorReviewComment}
+                  onChange={(event) => setSupervisorReviewComment(event.target.value)}
+                  placeholder="Describe la conformidad del trabajo o las correcciones requeridas."
+                />
+              </label>
+              {supervisorReviewError && <div className="form-error">{supervisorReviewError}</div>}
+              <div className="admin-evaluation-actions">
+                <button
+                  className="button button-danger"
+                  type="button"
+                  disabled={savingSupervisorReview}
+                  onClick={() => void handleSupervisorReview(false)}
+                >
+                  <XCircle size={16} weight="bold" />
+                  Devolver a corrección
+                </button>
+                <button className="button button-primary" disabled={savingSupervisorReview}>
+                  <CheckCircle size={16} weight="bold" />
+                  Aprobar ejecución
                 </button>
               </div>
             </form>

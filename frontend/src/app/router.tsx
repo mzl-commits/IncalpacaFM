@@ -179,8 +179,8 @@ export const router = createBrowserRouter([
       {
         path: "incidencias/nueva",
         lazy: lazyRoute(
-          () => import("@/modules/incidents/pages/IncidentCreatePage"),
-          "IncidentCreatePage",
+          () => import("@/modules/incidents/pages/PublicWorkRequestPage"),
+          "PublicWorkRequestPage",
         ),
       },
       {

@@ -6,6 +6,7 @@ export const STOCK_MINIMO = 5;
 // ─── Enums / literales ────────────────────────────────────────────────────────
 
 export type TipoControl = "retornable" | "no_retornable";
+export type ClasificacionOperativa = "CONSUMIBLE" | "HERRAMIENTA" | "EPP";
 export type UnidadManejo =
   | "unidad"
   | "caja" | "bolsa" | "paquete" | "fardo" | "saco"
@@ -71,6 +72,12 @@ export const valorRespuestaLabels: Record<ValorRespuesta, string> = {
 export const tipoControlLabels: Record<TipoControl, string> = {
   retornable: "Retornable",
   no_retornable: "No retornable",
+};
+
+export const clasificacionOperativaLabels: Record<ClasificacionOperativa, string> = {
+  CONSUMIBLE: "Consumible (genera costo)",
+  HERRAMIENTA: "Herramienta reutilizable (solo uso)",
+  EPP: "EPP reutilizable (solo uso)",
 };
 
 export const unidadManejoLabels: Record<UnidadManejo, string> = {
@@ -165,6 +172,7 @@ export interface Material {
   unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio: string | number | null;
+  clasificacion_operativa: ClasificacionOperativa;
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
@@ -201,6 +209,7 @@ export interface MaterialCreatePayload {
   unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio?: string | number | null;
+  clasificacion_operativa: ClasificacionOperativa;
   tipo_control: TipoControl;
   control_individual: boolean;
   periodicidad_valor: number;

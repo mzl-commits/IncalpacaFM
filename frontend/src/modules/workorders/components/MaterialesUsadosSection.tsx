@@ -161,6 +161,23 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
     }
   }
 
+  async function handleTipoChange(id: string, tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE") {
+    const item = materiales.find((material) => material.id === id);
+    if (!item) return;
+    try {
+      const updated = await updateWorkOrderMaterial(workOrderId, id, {
+        material: item.material,
+        cantidad: item.cantidad,
+        tipo,
+        porcentajeRequerido: tipo === "NECESARIO_NO_BLOQUEANTE" ? item.porcentajeRequerido : null,
+        precioUnitario: item.precioUnitario,
+      });
+      setMateriales((prev) => prev.map((material) => material.id === id ? updated : material));
+    } catch {
+      setError("No se pudo actualizar el uso del material.");
+    }
+  }
+
   const selectedMaterial = catalogo.find((c) => c.id === Number(form.material));
 
   return (
@@ -212,7 +229,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
                 <strong>{m.materialNombre}</strong>
                 <code style={{ fontSize: 11, marginLeft: 6, color: "var(--muted)" }}>{m.materialCodigo}</code>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                  {m.tipoLabel}
+                  {m.clasificacionOperativaLabel} Â· {m.tipoLabel}
                   {m.tipo === "NECESARIO_NO_BLOQUEANTE" && m.porcentajeRequerido !== null && (
                     <span style={{ fontWeight: 600, color: "var(--brand-primary, #0056b3)", marginLeft: 6 }}>
                       (Requerido al {m.porcentajeRequerido}% de avance)
@@ -228,6 +245,17 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
               </div>
 
               {/* Cantidad editable */}
+              {!isOtClosed && (
+                <select
+                  value={m.tipo}
+                  onChange={(event) => void handleTipoChange(m.id, event.target.value as "USADO" | "NECESARIO_NO_BLOQUEANTE")}
+                  aria-label={`Uso de ${m.materialNombre}`}
+                  style={{ fontSize: 12, maxWidth: 155 }}
+                >
+                  <option value="USADO">Usado</option>
+                  <option value="NECESARIO_NO_BLOQUEANTE">Necesario</option>
+                </select>
+              )}
               {!isOtClosed && (
                 <input
                   type="number"

@@ -9,9 +9,9 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth import get_user_model
 
 from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginSerializer, UserListSerializer, TechnicianSerializer
-from .models import AccountProfile
+from .models import AccountProfile, AccountWorkerCode
 from .permissions import IsAdministrator, IsAuthenticatedReadAdministratorWrite
-from apps.notifications.services import queue_notification
+from apps.notifications.services import queue_for_administrators, queue_notification
 from config.schema import DetailResponseSerializer, ImportResultSerializer
 
 
@@ -146,11 +146,24 @@ class TechnicianImportView(views.APIView):
                 if not full_name or not worker_code or len(dni) != 8:
                     raise ValueError("nombre, codigo_trabajador y DNI de 8 dígitos son obligatorios")
                 with transaction.atomic():
-                    existing = AccountProfile.objects.filter(worker_code__iexact=worker_code).select_related("user").first()
+                    by_dni = AccountProfile.objects.filter(dni=dni).select_related("user").first()
+                    by_primary_code = AccountProfile.objects.filter(worker_code__iexact=worker_code).select_related("user").first()
+                    by_alias = AccountWorkerCode.objects.filter(code__iexact=worker_code).select_related("profile__user").first()
+                    by_code = (by_alias.profile if by_alias else None) or by_primary_code
+                    existing = by_dni or by_code
                     if existing:
-                        if existing.dni and existing.dni != dni:
-                            raise ValueError("el código ya existe con otro DNI")
-                        existing.dni = dni
+                        if existing is by_dni:
+                            if by_code and by_code.pk != existing.pk:
+                                queue_for_administrators(
+                                    event="DUPLICATE_WORKER_IDENTITY",
+                                    subject="Conflicto de identidad al importar usuarios",
+                                    body=f"Fila {number}: DNI {dni} y código {worker_code} pertenecen a perfiles distintos.",
+                                )
+                            else:
+                                existing.register_worker_code(worker_code)
+                        elif not existing.dni:
+                            existing.dni = dni
+                            existing.register_worker_code(worker_code)
                         existing.specialty = str(values.get("especialidad") or "").strip()
                         existing.position = str(values.get("cargo") or values.get("posicion") or "").strip()
                         existing.hourly_rate = values.get("tarifa_hora") or values.get("cuota_hora") or 0
