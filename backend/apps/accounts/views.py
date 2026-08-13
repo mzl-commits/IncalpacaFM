@@ -202,4 +202,19 @@ class TechnicianManualNotificationView(views.APIView):
         return response.Response({'detail': detail}, status=status.HTTP_201_CREATED)
 
 
-__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView", "UserListView", "TechnicianListCreateView", "TechnicianDetailView", "TechnicianManualNotificationView"]
+class AccountManagementListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = TechnicianSerializer
+    queryset = get_user_model().objects.select_related('account_profile').all().order_by('first_name', 'last_name', 'username')
+
+
+class AccountManagementDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = TechnicianSerializer
+    queryset = get_user_model().objects.select_related('account_profile').all()
+
+    def get_object(self):
+        return get_object_or_404(self.get_queryset(), account_profile__id=self.kwargs['pk'])
+
+
+__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView", "UserListView", "TechnicianListCreateView", "TechnicianDetailView", "TechnicianManualNotificationView", "AccountManagementListCreateView", "AccountManagementDetailView"]
