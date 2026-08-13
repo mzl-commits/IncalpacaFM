@@ -52,6 +52,12 @@ export default defineConfig({
           if (id.includes("react") || id.includes("react-dom")) {
             return "vendor-react";
           }
+          if (id.includes("xlsx")) {
+            return "vendor-xlsx";
+          }
+          if (id.includes("react") || id.includes("react-dom")) {
+            return "vendor-react";
+          }
         },
       },
     },

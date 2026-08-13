@@ -17,8 +17,10 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
 
 from apps.accounts.permissions import IsAdministrator
+from .schema import CeleryHealthResponseSerializer, HealthReadyResponseSerializer, HealthResponseSerializer
 
 from .schema import (
     CeleryHealthResponseSerializer,

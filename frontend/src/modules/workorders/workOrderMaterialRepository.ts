@@ -8,10 +8,7 @@ export interface WorkOrderMaterial {
   materialCodigo: string;
   materialPrecio: string | null;
   materialStock: number;
-  clasificacionOperativa: "CONSUMIBLE" | "HERRAMIENTA" | "EPP";
-  clasificacionOperativaLabel: string;
   cantidad: number;
-  precioUnitario: string | null;
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
   tipoLabel: string;
   esBloqueante: boolean;
@@ -28,7 +25,7 @@ export interface WorkOrderMaterialPayload {
   cantidad: number;
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
   porcentajeRequerido?: number | null;
-  precioUnitario?: number | string | null;
+  almacen?: number | null; 
 }
 
 export async function listWorkOrderMateriales(workOrderId: string): Promise<WorkOrderMaterial[]> {
@@ -81,13 +78,7 @@ export async function marcarMaterialAdquirido(
 }
 
 export async function autocompletarCostosMateriales(workOrderId: string) {
-  const { data } = await api.post<{
-    costs: Array<{ id: string; category: string; categoryLabel: string; description: string; amount: string | null; createdAt: string }>;
-    created: number;
-    updated: number;
-    materials: number;
-    withoutPrice: number;
-  }>(`/work-orders/${workOrderId}/costs/autocompletar-materiales/`);
+  const { data } = await api.post(`/work-orders/${workOrderId}/costs/autocompletar-materiales/`);
   return data;
 }
 
@@ -99,3 +90,4 @@ export async function updateWorkOrderCostAmount(
   const { data } = await api.patch(`/work-orders/${workOrderId}/costs/${costId}/`, { amount });
   return data;
 }
+

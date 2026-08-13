@@ -2853,7 +2853,7 @@ td { padding: 13px 14px; }
 .routine-preview span { margin-top: 3px; color: var(--muted); font-size: 13px; }
 
 /* ============================================================
-   (Estricto monocromatico #000000 / #FFFFFF, Inter Font, High Density)
+   (Estricto monocromático #000000 / #FFFFFF, Inter Font, High Density)
 
 .almacen-catalogo-view {
   width: 100%;
@@ -3047,10 +3047,10 @@ td { padding: 13px 14px; }
 
 /* WORKSPACE DATA PANEL */
 .almacen-catalogo-view .catalog-data-panel {
-  background: #FFFFFF;
-  border: 1px solid #000000;
-  border-radius: 10px;
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
   box-shadow: none !important;
 }
 

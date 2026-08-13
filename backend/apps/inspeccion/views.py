@@ -1,38 +1,42 @@
-from datetime import date, timedelta
+from rest_framework import viewsets, status
 
-from django.db.models import ProtectedError, Q
-from django.http import HttpResponse
+from datetime import timedelta, date
+
+from datetime import timedelta, date
 from django.utils import timezone
-from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-
-from apps.accounts.permissions import IsInspectorOrAdministratorWrite
+from django.db import transaction
 from apps.catalogo.models import Material
+from apps.catalogo.views import AlmacenScopedMixin
+from django.db.models import Q
+
+from django.http import HttpResponse
 from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion
+
 from apps.inspeccion.models import (
-    Criterio,
-    Inspeccion,
-    PlanInspeccionAnual,
-    PlantillaCriterio,
-    ProgramacionInspeccion,
-    RespuestaCriterio,
-)
-from apps.inspeccion.planificacion import construir_materiales_config, generar_plan_anual
-from apps.inspeccion.serializers import (
-    CriterioSerializer,
-    InspeccionCrearSerializer,
-    InspeccionSerializer,
-    PlanInspeccionAnualSerializer,
-    PlantillaCriterioSerializer,
-    ProgramacionInspeccionSerializer,
-    RespuestaCriterioSerializer,
+    PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
+    PlanInspeccionAnual, ProgramacionInspeccion,
 )
 
+from apps.inspeccion.planificacion import generar_plan_anual, construir_materiales_config
+from apps.inspeccion.serializers import (
+    PlantillaCriterioSerializer,
+    CriterioSerializer,
+    InspeccionSerializer,
+    InspeccionCrearSerializer,
+    RespuestaCriterioSerializer,
+    ProgramacionInspeccionSerializer,
+    PlanInspeccionAnualSerializer,
+)
+
+from django.db.models import ProtectedError
+from apps.accounts.permissions import IsInspectorOrAdministratorWrite
 
 class PlantillaCriterioViewSet(viewsets.ModelViewSet):
     queryset = PlantillaCriterio.objects.prefetch_related("criterios").all()
     serializer_class = PlantillaCriterioSerializer
+
     permission_classes = [IsInspectorOrAdministratorWrite]
 
     def destroy(self, request, *args, **kwargs):
@@ -47,9 +51,11 @@ class PlantillaCriterioViewSet(viewsets.ModelViewSet):
             )
 
 
+
 class CriterioViewSet(viewsets.ModelViewSet):
     queryset = Criterio.objects.select_related("plantilla").all()
     serializer_class = CriterioSerializer
+
     permission_classes = [IsInspectorOrAdministratorWrite]
 
     def get_queryset(self):
@@ -87,24 +93,58 @@ class CriterioViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "ok", "actualizados": len(updated)})
 
-class InspeccionViewSet(viewsets.ModelViewSet):
+# Antes este viewset no forzaba nada: un Inspector podía ver/editar/exportar 
+# inspecciones de cualquier almacén, incluso sin mandar el query param ?almacen=.
+
+class InspeccionViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     queryset = Inspeccion.objects.select_related(
         "material", "pieza", "plantilla", "inspector"
     ).prefetch_related("respuestas__criterio", "piezas_lote").all()
     permission_classes = [IsInspectorOrAdministratorWrite]
+    almacen_lookup = "almacen"
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return InspeccionCrearSerializer
         return InspeccionSerializer
+    # El almacén forzado va en el context, igual que en
+    # MovimientoViewSet, y la validación ocurre en validate() ANTES de
+    # guardar nada — is_valid(raise_exception=True) corta el request sin
+    # llegar a tocar la base de datos.
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["almacen_forzado"] = self._almacen_forzado()
+        return context
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            inspeccion = serializer.save()
+        return Response(InspeccionSerializer(inspeccion).data, status=status.HTTP_201_CREATED)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            inspeccion = serializer.save()
+            self.check_almacen_objeto(inspeccion.almacen_id)
+        return Response(InspeccionSerializer(inspeccion).data, status=status.HTTP_201_CREATED)
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset()  # AlmacenScopedMixin ya fuerza por almacen_forzado acá
         material_id = self.request.query_params.get("material")
         pieza_id = self.request.query_params.get("pieza")
         tipo = self.request.query_params.get("tipo")
         resultado = self.request.query_params.get("resultado")
         q = self.request.query_params.get("q")
+        almacen_id = self.request.query_params.get("almacen")
+
+        # el query param solo se respeta si NO hay almacén forzado
+        # (si lo hay, el mixin ya filtró arriba y no debe poder pisarse
+        # mandando otro ?almacen= en la URL).
+        if almacen_id and self._almacen_forzado() is None:
+            qs = qs.filter(almacen_id=almacen_id)
 
         if material_id:
             qs = qs.filter(material_id=material_id)
@@ -119,10 +159,7 @@ class InspeccionViewSet(viewsets.ModelViewSet):
                 Q(material__nombre__icontains=q)
                 | Q(material__codigo__icontains=q)
                 | Q(pieza__codigo__icontains=q)
-                | Q(inspector__first_name__icontains=q)
-                | Q(inspector__last_name__icontains=q)
-                | Q(inspector__username__icontains=q)
-                | Q(inspector__account_profile__worker_code__icontains=q)
+                | Q(inspector__full_name__icontains=q)
             ).distinct()
         return qs
     
@@ -130,6 +167,18 @@ class InspeccionViewSet(viewsets.ModelViewSet):
     def vencidas(self, request):
 
         materiales_inspeccionables = Material.objects.inspeccionables()
+
+        # FIX: antes recorría TODOS los materiales inspeccionables del
+        # sistema sin importar almacén. Ahora se acota igual que en
+        # get_queryset — es el endpoint que consume InspectorDashboardPage.
+        almacen_forzado = self._almacen_forzado()
+        if almacen_forzado is not None:
+            materiales_inspeccionables = materiales_inspeccionables.filter(almacen_id=almacen_forzado)
+        else:
+            almacen_id = request.query_params.get("almacen")
+            if almacen_id:
+                materiales_inspeccionables = materiales_inspeccionables.filter(almacen_id=almacen_id)
+
         resultado = []
 
         for material in materiales_inspeccionables.filter(control_individual=True):
@@ -175,6 +224,9 @@ class InspeccionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="exportar-excel")
     def exportar_excel(self, request, pk=None):
+        # get_object() ya usa get_queryset() de arriba -> protegido por el
+        # mismo scoping. Un Inspector no puede exportar una inspección de
+        # otro almacén ni sabiendo el pk (devuelve 404 en vez de 200).
         inspeccion = self.get_object()
         buffer = generar_excel_inspeccion(inspeccion)
         response = HttpResponse(
@@ -204,20 +256,24 @@ class RespuestaCriterioViewSet(viewsets.ModelViewSet):
             qs = qs.filter(inspeccion_id=inspeccion_id)
         return qs
 
-class ProgramacionInspeccionViewSet(viewsets.ReadOnlyModelViewSet):
+class ProgramacionInspeccionViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = ProgramacionInspeccion.objects.select_related(
         "material__subcategoria", "pieza__material__subcategoria", "plan"
     ).all()
     serializer_class = ProgramacionInspeccionSerializer
     permission_classes = [IsInspectorOrAdministratorWrite]
+    almacen_lookup = "almacen"
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset()  # AlmacenScopedMixin ya fuerza por almacen_forzado 
         subcategoria_id = self.request.query_params.get("subcategoria")
         categoria_id = self.request.query_params.get("categoria")
         desde = self.request.query_params.get("desde")
         hasta = self.request.query_params.get("hasta")
+        almacen_id = self.request.query_params.get("almacen")
 
+        if almacen_id and self._almacen_forzado() is None:
+            qs = qs.filter(almacen_id=almacen_id)
         if subcategoria_id:
             qs = qs.filter(Q(material__subcategoria_id=subcategoria_id) | Q(pieza__material__subcategoria_id=subcategoria_id))
         if categoria_id:
@@ -228,46 +284,61 @@ class ProgramacionInspeccionViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(fecha_programada__lte=hasta)
         return qs
 
-class PlanInspeccionAnualViewSet(viewsets.ReadOnlyModelViewSet):
+class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = PlanInspeccionAnual.objects.all()
     serializer_class = PlanInspeccionAnualSerializer
     permission_classes = [IsInspectorOrAdministratorWrite]
+    almacen_lookup = "almacen"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        almacen_id = self.request.query_params.get("almacen")
+        if almacen_id and self._almacen_forzado() is None:
+            qs = qs.filter(almacen_id=almacen_id)
+        return qs
 
     @action(detail=False, methods=["post"], url_path="generar")
     def generar(self, request):
         """
-        Genera el plan de inspección anual (mismo cálculo que el comando de
-        terminal plan_anual.py — ambos usan construir_materiales_config()).
-        Bloquea la regeneración accidental de un año que ya tiene
-        programaciones, salvo que se envíe { "forzar": true }.
-        POST /plan-anual/generar/  Body: { "anio": 2026, "forzar": false }
+        Genera el plan de inspección anual PARA UN ALMACÉN. Si el usuario tiene almacén forzado (Almacenero/Inspector),
+        se usa ese sin importar qué mande el body — no se puede "generar
+        para otro almacén" cambiando el payload a mano. Administrador debe
+        mandar "almacen" explícito.
+        POST /plan-anual/generar/  Body: { "anio": 2026, "almacen": 3, "forzar": false }
         """
         anio = request.data.get("anio", date.today().year)
         forzar = bool(request.data.get("forzar", False))
 
-        if not forzar and ProgramacionInspeccion.objects.filter(plan__anio=anio).exists():
+        almacen_forzado = self._almacen_forzado()
+        if almacen_forzado is not None:
+            almacen_id = almacen_forzado
+        else:
+            almacen_id = request.data.get("almacen")
+            if not almacen_id:
+                return Response(
+                    {"detail": "Debes indicar el almacén para el que se genera el plan."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if not forzar and ProgramacionInspeccion.objects.filter(plan__anio=anio, almacen_id=almacen_id).exists():
             return Response(
                 {
-                    "detail": f"Ya existen programaciones para el año {anio}. "
+                    "detail": f"Ya existen programaciones para el año {anio} en este almacén. "
                               "Envía { \"forzar\": true } para regenerar de todos modos.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if forzar:
-            # Limpia las programaciones aún no cumplidas antes de crear las nuevas,
-            # para no acumular duplicados (bug detectado: regenerar con forzar=True
-            # varias veces dejaba N copias "pendiente" del mismo material/pieza,
-            # de las cuales solo una se cerraba al registrar una inspección real).
-            # Las ya "realizada" NUNCA se tocan — es historial real, no se borra.
+            # Limpia solo las "pendiente" de ESTE almacén — las "realizada" nunca se tocan.
             ProgramacionInspeccion.objects.filter(
-                plan__anio=anio, estado="pendiente",
+                plan__anio=anio, almacen_id=almacen_id, estado="pendiente",
             ).delete()
 
         fecha_inicio = date(anio, 1, 1)
-        materiales_config = construir_materiales_config()
+        materiales_config = construir_materiales_config(almacen_id)
 
-        plan, creadas = generar_plan_anual(anio, fecha_inicio, materiales_config)
+        plan, creadas = generar_plan_anual(anio, fecha_inicio, materiales_config, almacen_id)
         return Response(
             {
                 "plan": PlanInspeccionAnualSerializer(plan).data,

@@ -6,15 +6,17 @@ export const STOCK_MINIMO = 5;
 // ─── Enums / literales ────────────────────────────────────────────────────────
 
 export type TipoControl = "retornable" | "no_retornable";
-export type ClasificacionOperativa = "CONSUMIBLE" | "HERRAMIENTA" | "EPP";
 export type UnidadManejo =
-  | "unidad"
+  | "unidad" | "pieza" | "par"
   | "caja" | "bolsa" | "paquete" | "fardo" | "saco"
   | "balde" | "cunete" | "tambor" | "bidon" | "frasco" | "blister"
   | "rollo" | "bobina" | "carrete"
   | "millar" | "ciento" | "docena"
   | "juego"
-  | "plancha" | "barra" | "hoja";
+  | "plancha" | "barra" | "hoja"
+  | "kilogramo" | "gramo" | "libra"
+  | "litro" | "mililitro" | "galon"
+  | "metro" | "centimetro" | "milimetro" | "metro2" | "metro3";
 
 export type EstadoPieza = "Disponible" | "Prestado" | "Mantenimiento" | "Baja";
 export type TipoMovimiento = "salida" | "entrada" | "baja";
@@ -74,35 +76,42 @@ export const tipoControlLabels: Record<TipoControl, string> = {
   no_retornable: "No retornable",
 };
 
-export const clasificacionOperativaLabels: Record<ClasificacionOperativa, string> = {
-  CONSUMIBLE: "Consumible (genera costo)",
-  HERRAMIENTA: "Herramienta reutilizable (solo uso)",
-  EPP: "EPP reutilizable (solo uso)",
-};
-
 export const unidadManejoLabels: Record<UnidadManejo, string> = {
-  unidad:  "Por unidad suelta",
-  caja:    "Por caja",
-  bolsa:   "Por bolsa",
-  paquete: "Por paquete",
-  fardo:   "Por fardo",
-  saco:    "Por saco",
-  balde:   "Por balde",
-  cunete:  "Por cu\u00f1ete",
-  tambor:  "Por tambor / cilindro",
-  bidon:   "Por bid\u00f3n",
-  frasco:  "Por frasco",
-  blister: "Por bl\u00edster",
-  rollo:   "Por rollo",
-  bobina:  "Por bobina",
-  carrete: "Por carrete",
-  millar:  "Por millar",
-  ciento:  "Por ciento",
-  docena:  "Por docena",
-  juego:   "Por juego / kit",
-  plancha: "Por plancha / l\u00e1mina",
-  barra:   "Por barra",
-  hoja:    "Por hoja",
+  unidad:     "Por unidad suelta",
+  pieza:      "Por pieza",
+  par:        "Por par",
+  caja:       "Por caja",
+  bolsa:      "Por bolsa",
+  paquete:    "Por paquete",
+  fardo:      "Por fardo",
+  saco:       "Por saco",
+  balde:      "Por balde",
+  cunete:     "Por cuñete",
+  tambor:     "Por tambor / cilindro",
+  bidon:      "Por bidón",
+  frasco:     "Por frasco",
+  blister:    "Por blíster",
+  rollo:      "Por rollo",
+  bobina:     "Por bobina",
+  carrete:    "Por carrete",
+  millar:     "Por millar",
+  ciento:     "Por ciento",
+  docena:     "Por docena",
+  juego:      "Por juego / kit",
+  plancha:    "Por plancha / lámina",
+  barra:      "Por barra",
+  hoja:       "Por hoja",
+  kilogramo:  "Por kilogramo (kg)",
+  gramo:      "Por gramo (g)",
+  libra:      "Por libra (lb)",
+  litro:      "Por litro (L)",
+  mililitro:  "Por mililitro (ml)",
+  galon:      "Por galón",
+  metro:      "Por metro (m)",
+  centimetro: "Por centímetro (cm)",
+  milimetro:  "Por milímetro (mm)",
+  metro2:     "Por metro cuadrado (m²)",
+  metro3:     "Por metro cúbico (m³)",
 };
 
 
@@ -110,11 +119,20 @@ export const unidadManejoLabels: Record<UnidadManejo, string> = {
 
 export interface Categoria {
   id: number;
+  almacen: number;
   nombre: string;
   prefijo: string;
   descripcion: string;
   activo: boolean;
   requiere_inspeccion: boolean;
+}
+
+export interface Almacen {
+  id: number;
+  nombre: string;
+  codigo: string;
+  ubicacion: string;
+  activo: boolean;
 }
 
 export interface Subcategoria {
@@ -154,6 +172,8 @@ export interface PiezaAnidada {
   detalle?:string;
 }
 
+export type Moneda = "PEN" | "USD";
+
 export interface Material {
   id: number;
   subcategoria: number;
@@ -161,6 +181,7 @@ export interface Material {
   subcategoria_plantilla_inspeccion: number | null; 
   subcategoria_plantilla_inspeccion_nombre: string | null;
   categoria_nombre: string;
+  codigo_quipu: string;
   codigo: string;
   nombre: string;
   marca: string;
@@ -172,24 +193,21 @@ export interface Material {
   unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio: string | number | null;
-  clasificacion_operativa: ClasificacionOperativa;
+  moneda: Moneda;
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
-  /** Periodicidad de inspección en días, calculada por el backend. */
   periodicidad_inspeccion_dias: number;
-  /**
-   * Fuente única de verdad (calculada en el backend) de si el material es
-   * inspeccionable: subcategoría con plantilla_inspeccion asignada Y
-   * categoría con requiere_inspeccion=True.
-   */
   es_inspeccionable: boolean;
   unidad_manejo: UnidadManejo;
   unidades_por_caja: number | null;
   activo: boolean;
   creado_en: string;
+
+  almacen: number;
+  almacen_nombre: string;
 }
 
 export interface MaterialDetalle extends Material {
@@ -209,7 +227,7 @@ export interface MaterialCreatePayload {
   unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio?: string | number | null;
-  clasificacion_operativa: ClasificacionOperativa;
+  moneda?: Moneda;
   tipo_control: TipoControl;
   control_individual: boolean;
   periodicidad_valor: number;
@@ -217,6 +235,7 @@ export interface MaterialCreatePayload {
   unidad_manejo?: UnidadManejo;
   unidades_por_caja?: number | string | null;
   cantidad_total?: number;
+  almacen?: number;
   // foto se envía aparte como FormData si existe
 }
 

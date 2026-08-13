@@ -4,6 +4,7 @@ import {
   Buildings,
   CalendarBlank,
   CalendarPlus,
+  CaretDown,
   CaretLeft,
   ChartBar,
   ChartLineUp,

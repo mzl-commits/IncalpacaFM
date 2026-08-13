@@ -58,6 +58,10 @@ class WorkOrderReportResponseSerializer(serializers.Serializer):
     downloadPath = serializers.CharField()
 
 
+class WorkOrderReportListResponseSerializer(WorkOrderReportResponseSerializer):
+    pass
+
+
 class ImportResultSerializer(serializers.Serializer):
     created = serializers.IntegerField()
     updated = serializers.IntegerField()
@@ -67,3 +71,8 @@ class ImportResultSerializer(serializers.Serializer):
 class UserDashboardResponseSerializer(serializers.Serializer):
     profile = serializers.DictField()
     assigned_assets = serializers.ListField(child=serializers.DictField())
+
+
+class TaxonomyModelsResponseSerializer(serializers.ListSerializer):
+    child = serializers.CharField()
+

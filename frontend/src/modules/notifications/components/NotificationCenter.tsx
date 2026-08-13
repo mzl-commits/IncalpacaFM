@@ -1,4 +1,4 @@
-import { Bell, BellRinging, CheckCircle, GearSix, WarningCircle } from "@phosphor-icons/react";
+import { Bell, BellRinging, CheckCircle, GearSix, Package, WarningCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -21,6 +21,7 @@ function relativeDate(value: string) {
 
 function typeLabel(item: EmailNotification) {
   if (item.status === "ERROR") return "Requiere seguimiento";
+  if (item.entityType === "GrupoSolicitud" || item.event.includes("SOLICITUD_GRUPO")) return "Solicitud de almacén";
   if (item.event.includes("WORK_ORDER")) return "Orden de trabajo";
   if (item.event.includes("INCIDENT")) return "Reporte";
   if (item.event.includes("ASSIGNMENT")) return "Asignación";
@@ -134,18 +135,71 @@ export function NotificationCenter() {
           <div className="notification-popover-list">
             {!items.length ? (
               <div className="notification-popover-empty"><CheckCircle size={24} weight="duotone" /><span>No tienes avisos registrados.</span></div>
-            ) : items.slice(0, 5).map((item) => (
-              <button className={`notification-popover-item ${item.readAt ? "is-read" : ""}`} type="button" key={item.id} onClick={() => void openItem(item)}>
-                <span className={item.status === "ERROR" ? "notification-item-icon is-error" : "notification-item-icon"}>
-                  {item.status === "ERROR" ? <WarningCircle size={18} /> : <Bell size={18} weight="duotone" />}
-                </span>
-                <span>
-                  <small>{typeLabel(item)} · {relativeDate(item.createdAt)}</small>
-                  <strong>{item.subject}</strong>
-                  <em>{item.body}</em>
-                </span>
-              </button>
-            ))}
+            ) : items.slice(0, 5).map((item) => {
+              const esGrupo = item.entityType === "GrupoSolicitud" || item.event.includes("SOLICITUD_GRUPO");
+              return (
+                <div
+                  key={item.id}
+                  className={`notification-popover-item ${item.readAt ? "is-read" : ""} ${esGrupo ? "is-grupo-solicitud" : ""}`}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    borderLeft: esGrupo ? "3px solid var(--accent-600, #2563eb)" : undefined,
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      textAlign: "left",
+                      cursor: "pointer",
+                      display: "flex",
+                      gap: 10,
+                      width: "100%",
+                    }}
+                    onClick={() => void openItem(item)}
+                  >
+                    <span className={item.status === "ERROR" ? "notification-item-icon is-error" : "notification-item-icon"}>
+                      {item.status === "ERROR" ? (
+                        <WarningCircle size={18} />
+                      ) : esGrupo ? (
+                        <Package size={18} weight="duotone" style={{ color: "var(--accent-600, #2563eb)" }} />
+                      ) : (
+                        <Bell size={18} weight="duotone" />
+                      )}
+                    </span>
+                    <span>
+                      <small>{typeLabel(item)} · {relativeDate(item.createdAt)}</small>
+                      <strong>{item.subject}</strong>
+                      <em>{item.body}</em>
+                    </span>
+                  </button>
+
+                  {esGrupo && item.event === "SOLICITUD_GRUPO_PENDIENTE" && (
+                    <button
+                      type="button"
+                      className="button button-primary button-sm"
+                      style={{
+                        alignSelf: "flex-start",
+                        marginLeft: 28,
+                        marginTop: 4,
+                        padding: "4px 10px",
+                        fontSize: 12,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void openItem(item);
+                      }}
+                    >
+                      Conceder permiso
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <footer>

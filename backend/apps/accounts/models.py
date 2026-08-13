@@ -24,6 +24,14 @@ class AccountProfile(models.Model):
     specialty = models.CharField(max_length=100, blank=True)
     position = models.CharField(max_length=100, blank=True, default="")
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    almacen = models.ForeignKey(
+        "catalogo.Almacen",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="perfiles",
+        help_text="Almacén asignado. Requerido si el rol es Almacenero o Inspector.",
+    )
     must_change_password = models.BooleanField(default=True)
     failed_attempts = models.PositiveSmallIntegerField(default=0)
     blocked_until = models.DateTimeField(null=True, blank=True)

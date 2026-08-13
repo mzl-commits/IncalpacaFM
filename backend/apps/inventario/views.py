@@ -1,30 +1,40 @@
+from django.db import transaction
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAlmaceneroOrAdministratorWrite
+from apps.catalogo.views import AlmacenScopedMixin
+from apps.inventario.models import Movimiento, SolicitudMovimiento, GrupoSolicitud
+from apps.catalogo.models import Pieza, Material
+from apps.workorders.models import WorkOrder
+from apps.catalogo.views import AlmacenScopedMixin
+from apps.inventario.models import Movimiento
 from apps.catalogo.models import Pieza
-from apps.inventario.models import Movimiento, SolicitudMovimiento
+
 from apps.inventario.serializers import (
-    BajaMaterialSerializer,
-    BajaPiezaSerializer,
-    EntradaMaterialSerializer,
-    EntradaPiezaSerializer,
     MovimientoSerializer,
-    PiezaPrestadaSerializer,
-    RechazarSolicitudSerializer,  # AprobarSolicitudSerializer no se usa: la aprobación no necesita payload
     SalidaMaterialSerializer,
     SalidaPiezaSerializer,
-    SolicitudMovimientoCreateSerializer,
+    EntradaMaterialSerializer,
+    EntradaPiezaSerializer,
+    BajaMaterialSerializer,
+    BajaPiezaSerializer,
+    PiezaPrestadaSerializer,
     SolicitudMovimientoSerializer,
+    SolicitudMovimientoCreateSerializer,
+    RechazarSolicitudSerializer,
+    GrupoSolicitudCreateSerializer,
+    GrupoSolicitudDetailSerializer,
+    ResolverParcialGrupoSerializer,
 )
 from apps.inventario.services import (
-    registrar_baja_material,
-    registrar_baja_pieza,
     registrar_salida_material,
     registrar_salida_pieza,
+    registrar_baja_material,
+    registrar_baja_pieza,
 )
 
 
@@ -34,10 +44,11 @@ def _es_almacenero(request):
     return profile is not None and profile.role == AccountProfile.Role.ALMACENERO
 
 
-class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
+class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Movimiento.objects.select_related("material", "pieza", "responsable").all()
     serializer_class = MovimientoSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
+    almacen_lookup = "almacen"
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -46,6 +57,7 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
         tipo = self.request.query_params.get("tipo")
         lote_id = self.request.query_params.get("lote_id")
         responsable_id = self.request.query_params.get("responsable")
+        almacen_id = self.request.query_params.get("almacen")
 
         if material_id:
             qs = qs.filter(material_id=material_id)
@@ -57,46 +69,64 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(lote_id=lote_id)
         if responsable_id:
             qs = qs.filter(responsable_id=responsable_id)
+        if almacen_id and self._almacen_forzado() is None:
+            qs = qs.filter(almacen_id=almacen_id)
         return qs
 
     # ── Acciones con flujo de aprobación para ALMACENERO ──────────────────────
+    # Si el material/pieza es de otro almacén, la request ni siquiera llega
+    # a crear el Movimiento: falla en is_valid(raise_exception=True).
 
     @action(detail=False, methods=["post"], url_path="salida-material")
+    @transaction.atomic
     def salida_material(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.SALIDA_MATERIAL)
-        serializer = SalidaMaterialSerializer(data=request.data)
+        serializer = SalidaMaterialSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="salida-pieza")
+    @transaction.atomic
     def salida_pieza(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.SALIDA_PIEZA)
-        serializer = SalidaPiezaSerializer(data=request.data)
+        serializer = SalidaPiezaSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         movimientos, hijas_excluidas = serializer.save()
-        respuesta = {"movimientos": MovimientoSerializer(movimientos, many=True).data}
+        respuesta = {
+            "movimientos": MovimientoSerializer(movimientos, many=True).data,
+        }
         if hijas_excluidas:
             respuesta["aviso"] = f"{len(hijas_excluidas)} pieza(s) no salieron por no estar disponibles."
             respuesta["hijas_excluidas"] = hijas_excluidas
         return Response(respuesta, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="baja-material")
+    @transaction.atomic
     def baja_material(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.BAJA_MATERIAL)
-        serializer = BajaMaterialSerializer(data=request.data)
+        serializer = BajaMaterialSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="baja-pieza")
+    @transaction.atomic
     def baja_pieza(self, request):
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.BAJA_PIEZA)
-        serializer = BajaPiezaSerializer(data=request.data)
+        serializer = BajaPiezaSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
@@ -104,15 +134,21 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     # ── Entradas: sin flujo de aprobación ─────────────────────────────────────
 
     @action(detail=False, methods=["post"], url_path="entrada-material")
+    @transaction.atomic
     def entrada_material(self, request):
-        serializer = EntradaMaterialSerializer(data=request.data)
+        serializer = EntradaMaterialSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="entrada-pieza")
+    @transaction.atomic
     def entrada_pieza(self, request):
-        serializer = EntradaPiezaSerializer(data=request.data)
+        serializer = EntradaPiezaSerializer(
+            data=request.data, context={"almacen_forzado": self._almacen_forzado()}
+        )
         serializer.is_valid(raise_exception=True)
         mov = serializer.save()
         return Response(MovimientoSerializer(mov).data, status=status.HTTP_201_CREATED)
@@ -125,6 +161,14 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
         qs = Pieza.objects.filter(estado="Prestado").select_related(
             "material", "padre"
         ).prefetch_related("movimientos")
+
+        almacen_forzado = self._almacen_forzado()
+        if almacen_forzado is not None:
+            almacen_id = almacen_forzado
+        else:
+            almacen_id = request.data.get("almacen")
+            if not almacen_id:
+                return Response({"detail": "Debes indicar el almacén..."}, status=400)
 
         salio_hoy = request.query_params.get("salio_hoy")
         if salio_hoy is not None and salio_hoy.lower() == "true":
@@ -140,9 +184,8 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     # ── Exportar Excel ────────────────────────────────────────────────────────
     @action(detail=False, methods=["get"], url_path="exportar-excel")
     def exportar_excel(self, request):
-        from django.http import HttpResponse
-
         from apps.inventario.exporters import generar_excel_movimientos
+        from django.http import HttpResponse
         material_id = request.query_params.get("material")
         buffer, filename = generar_excel_movimientos(material_id=material_id)
         response = HttpResponse(
@@ -177,14 +220,13 @@ def _crear_solicitud(request, tipo: str):
     if cantidad_cajas_raw and not data.get("cantidad"):
         material_id = data.get("material")
         if material_id:
-            from rest_framework.exceptions import ValidationError as _ValidationError
-
             from apps.catalogo.models import Material as _Material
+            from rest_framework.exceptions import ValidationError as _ValidationError
             try:
                 mat = _Material.objects.get(pk=material_id)
-            except _Material.DoesNotExist as exc:
+            except _Material.DoesNotExist:
                 from rest_framework.exceptions import ValidationError as _VE
-                raise _VE({"material": "Material no encontrado."}) from exc
+                raise _VE({"material": "Material no encontrado."})
             if mat.unidad_manejo == "unidad":
                 raise _ValidationError({
                     "cantidad_cajas": (
@@ -353,6 +395,16 @@ class SolicitudMovimientoViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
 
+def _format_exc_msg(exc):
+    detail = getattr(exc, "detail", None)
+    if detail is not None:
+        if isinstance(detail, list):
+            return " ".join(str(d) for d in detail)
+        if isinstance(detail, dict):
+            return " ".join(f"{k}: {v}" for k, v in detail.items())
+        return str(detail)
+    return str(exc)
+
 def _ejecutar_solicitud(solicitud: SolicitudMovimiento, resuelto_por):
     """Ejecuta el movimiento real al aprobar una solicitud."""
     # El responsable del movimiento real es el admin que aprueba
@@ -360,12 +412,19 @@ def _ejecutar_solicitud(solicitud: SolicitudMovimiento, resuelto_por):
     tipo = solicitud.tipo
     mov = None
 
+    ref_ext = solicitud.referencia_externa
+    if not ref_ext:
+        if solicitud.work_order:
+            ref_ext = solicitud.work_order.code
+        elif solicitud.grupo and solicitud.grupo.work_order:
+            ref_ext = solicitud.grupo.work_order.code
+
     if tipo == SolicitudMovimiento.Tipo.SALIDA_MATERIAL:
         mov = registrar_salida_material(
             material=solicitud.material,
             cantidad=solicitud.cantidad,
             responsable=responsable,
-            referencia_externa=solicitud.referencia_externa,
+            referencia_externa=ref_ext,
             observaciones=solicitud.observaciones,
             cantidad_cajas=solicitud.cantidad_cajas,
         )
@@ -374,7 +433,7 @@ def _ejecutar_solicitud(solicitud: SolicitudMovimiento, resuelto_por):
         movs, _ = registrar_salida_pieza(
             pieza=solicitud.pieza,
             responsable=responsable,
-            referencia_externa=solicitud.referencia_externa,
+            referencia_externa=ref_ext,
             observaciones=solicitud.observaciones,
             piezas_hijas_ids=solicitud.piezas_hijas_ids or None,
         )
@@ -442,3 +501,421 @@ def _notificar_resolucion(solicitud: SolicitudMovimiento, *, aprobada: bool, req
         )
     except Exception:
         pass
+
+# ─── Endpoints de GrupoSolicitud y OTs activas (Objetivo 1) ─────────────────
+
+from rest_framework.views import APIView  # noqa: E402
+from rest_framework.permissions import IsAuthenticated  # noqa: E402
+
+class WorkOrderActivasView(APIView):
+    """
+    Endpoint liviano de OTs activas (excluyendo CERRADA y CANCELADA).
+    Permite al ALMACENERO poblar el desplegable de OTs en el formulario de salidas.
+    Devuelve id, code, status y el nombre del técnico principal.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = (
+            WorkOrder.objects.exclude(
+                status__in=[WorkOrder.Status.CLOSED, WorkOrder.Status.CANCELLED]
+            )
+            .select_related("technician")
+            .only("id", "code", "status", "technician")
+            .order_by("-created_at")[:100]
+        )
+
+        data = [
+            {
+                "id": str(ot.id),
+                "code": ot.code,
+                "status": ot.status,
+                "status_display": ot.get_status_display(),
+                "technician_name": (
+                    ot.technician.get_full_name() or ot.technician.username
+                    if ot.technician else "N/A"
+                ),
+            }
+            for ot in qs
+        ]
+        return Response(data)
+
+class GrupoSolicitudViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para gestionar Grupos de Solicitud (envíos multi-material).
+    - ALMACENERO: ve sus propios grupos y crea nuevos con POST /grupos-solicitud/.
+    - ADMINISTRADOR: ve todos los grupos.
+    """
+    permission_classes = [IsAlmaceneroOrAdministratorWrite]
+    serializer_class = GrupoSolicitudDetailSerializer
+
+    def get_queryset(self):
+        qs = (
+            GrupoSolicitud.objects.select_related("solicitado_por", "work_order")
+            .prefetch_related(
+                "items",
+                "items__material",
+                "items__pieza",
+                "items__solicitado_por",
+                "items__resuelto_por",
+                "items__movimiento",
+            )
+            .all()
+        )
+        estado = self.request.query_params.get("estado")
+        if estado == "pendiente":
+            qs = qs.filter(items__estado="pendiente").distinct()
+        elif estado in ("aprobada", "rechazada", "resuelta"):
+            qs = qs.exclude(items__estado="pendiente").distinct()
+
+        profile = getattr(self.request.user, "account_profile", None)
+        if profile and profile.role == AccountProfile.Role.ALMACENERO:
+            qs = qs.filter(solicitado_por=self.request.user)
+        return qs
+
+    def retrieve(self, request, pk=None, *args, **kwargs):
+        """
+        Retorna el detalle del grupo.
+        Si la PK no pertenece a un GrupoSolicitud, intenta buscar si es el ID de una
+        SolicitudMovimiento unitaria y la devuelve envuelta como grupo virtual.
+        """
+        from django.http import Http404
+        grupo = GrupoSolicitud.objects.filter(pk=pk).first()
+        if grupo:
+            serializer = GrupoSolicitudDetailSerializer(grupo)
+            return Response(serializer.data)
+
+        # Fallback a SolicitudMovimiento unitaria
+        sol = SolicitudMovimiento.objects.filter(pk=pk).first()
+        if sol:
+            sol_data = SolicitudMovimientoSerializer(sol).data
+            wo_detail = None
+            if sol.work_order:
+                wo = sol.work_order
+                wo_detail = {
+                    "id": str(wo.id),
+                    "code": wo.code,
+                    "status": wo.status,
+                    "status_display": wo.get_status_display(),
+                    "technician_name": wo.technician.get_full_name() if wo.technician else "No asignado",
+                    "supporting_technicians": [t.get_full_name() for t in wo.supporting_technicians.all()],
+                }
+            virtual_grupo = {
+                "id": sol.id,
+                "solicitado_por": sol.solicitado_por_id,
+                "solicitado_por_nombre": sol.solicitado_por.get_full_name() if sol.solicitado_por else "",
+                "work_order": str(sol.work_order_id) if sol.work_order_id else None,
+                "work_order_code": sol.work_order.code if sol.work_order else None,
+                "work_order_detail": wo_detail,
+                "observaciones": sol.observaciones or "",
+                "creado_en": sol.creado_en.isoformat(),
+                "estado": "pendiente" if sol.estado == "pendiente" else "resuelta",
+                "items": [sol_data],
+            }
+            return Response(virtual_grupo)
+
+        raise Http404("No se encontró el grupo ni la solicitud especificada.")
+
+
+    def create(self, request, *args, **kwargs):
+        """
+        Crea un GrupoSolicitud con N SolicitudMovimiento vinculadas.
+        Notifica a los administradores 1 sola vez por el grupo completo.
+        """
+        profile = getattr(request.user, "account_profile", None)
+        if not profile or profile.role not in (
+            AccountProfile.Role.ALMACENERO, AccountProfile.Role.ADMIN
+        ):
+            return Response(
+                {"detail": "No tienes permisos para crear solicitudes de grupo."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = GrupoSolicitudCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v_data = serializer.validated_data
+
+        work_order = v_data.get("work_order")
+        observaciones_grupo = v_data.get("observaciones", "")
+        items_data = v_data["items"]
+
+        from django.db import transaction
+        with transaction.atomic():
+            grupo = GrupoSolicitud.objects.create(
+                solicitado_por=request.user,
+                work_order=work_order,
+                observaciones=observaciones_grupo,
+            )
+
+            solicitudes_creadas = []
+            for item in items_data:
+                mat_obj = Material.objects.get(pk=item["material"])
+                cant_cajas = item.get("cantidad_cajas")
+                cant = item.get("cantidad") or 1
+
+                # Resolución de empaque
+                if cant_cajas and not item.get("cantidad"):
+                    if mat_obj.unidad_manejo == "unidad":
+                        raise status.ValidationError({
+                            "cantidad_cajas": f"'{mat_obj.nombre}' se maneja por unidad suelta."
+                        })
+                    if not mat_obj.unidades_por_caja:
+                        raise status.ValidationError({
+                            "cantidad_cajas": f"'{mat_obj.nombre}' no tiene unidades por empaque configuradas."
+                        })
+                    cant = cant_cajas * mat_obj.unidades_por_caja
+
+                sol = SolicitudMovimiento.objects.create(
+                    grupo=grupo,
+                    work_order=work_order,
+                    tipo=item["tipo"],
+                    material=mat_obj,
+                    cantidad=cant,
+                    cantidad_cajas=cant_cajas,
+                    referencia_externa=work_order.code if work_order else "",
+                    observaciones=item.get("observaciones", ""),
+                    solicitado_por=request.user,
+                )
+                solicitudes_creadas.append(sol)
+
+        # ── Notificación UNIFICADA a administradores (1 sola notificación por grupo) ──
+        try:
+            from apps.notifications.services import queue_for_administrators
+            n_items = len(solicitudes_creadas)
+            ot_info = f" en OT {work_order.code}" if work_order else ""
+            resumen_items = ", ".join(
+                f"{s.material.nombre} (x{s.cantidad})" for s in solicitudes_creadas[:3]
+            )
+            if n_items > 3:
+                resumen_items += f" y {n_items - 3} más"
+
+            almacenero_nombre = request.user.get_full_name() or request.user.username
+
+            queue_for_administrators(
+                event="SOLICITUD_GRUPO_PENDIENTE",
+                subject=f"Solicitud de {n_items} material(es){ot_info} — {almacenero_nombre}",
+                body=(
+                    f"{almacenero_nombre} solicita salida de {n_items} material(es){ot_info}: "
+                    f"{resumen_items}. Revisa y aprueba el grupo."
+                ),
+                entity=grupo,
+                context={
+                    "grupoId": grupo.id,
+                    "totalItems": n_items,
+                    "workOrderCode": work_order.code if work_order else None,
+                    "solicitadoPor": almacenero_nombre,
+                },
+                discriminator=f"grupo-solicitud-{grupo.id}",
+            )
+        except Exception:
+            pass
+
+        detail_ser = GrupoSolicitudDetailSerializer(grupo)
+        return Response(detail_ser.data, status=status.HTTP_201_CREATED)
+
+    def _resolve_grupo_items(self, pk):
+        """
+        Intenta resolver la pk como GrupoSolicitud.
+        Si no existe, busca si es la pk de una SolicitudMovimiento unitaria y
+        usa sus items directamente (devuelve (None, [solicitud]) para acciones de aprobación).
+        Lanza Http404 si no existe ninguna de las dos.
+        """
+        from django.http import Http404
+
+        grupo = GrupoSolicitud.objects.filter(pk=pk).first()
+        if grupo:
+            items_pendientes = list(grupo.items.filter(estado=SolicitudMovimiento.Estado.PENDIENTE))
+            return grupo, items_pendientes
+
+        # Fallback: SolicitudMovimiento individual
+        sol = SolicitudMovimiento.objects.filter(pk=pk).first()
+        if sol:
+            items_pendientes = [sol] if sol.estado == SolicitudMovimiento.Estado.PENDIENTE else []
+            return None, items_pendientes
+
+        raise Http404("No se encontró el grupo ni la solicitud especificada.")
+
+    @action(detail=True, methods=["post"], url_path="aprobar-todos")
+    def aprobar_todos(self, request, pk=None):
+        """Aprueba todos los items pendientes. Acepta pk de GrupoSolicitud o de SolicitudMovimiento unitaria."""
+        profile = getattr(request.user, "account_profile", None)
+        if not profile or profile.role != AccountProfile.Role.ADMIN:
+            return Response(
+                {"detail": "Solo administradores pueden aprobar grupos de solicitudes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        grupo, items_pendientes = self._resolve_grupo_items(pk)
+
+        if not items_pendientes:
+            return Response(
+                {"detail": "El grupo no tiene items pendientes por aprobar."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        aprobados = []
+        errores = []
+
+        from django.db import transaction
+        for item in items_pendientes:
+            try:
+                with transaction.atomic():
+                    _ejecutar_solicitud(item, request.user)
+                    aprobados.append(item)
+            except Exception as exc:
+                item_label = item.material.nombre if item.material else (item.pieza.codigo if item.pieza else "Item")
+                errores.append(f"{item_label}: {_format_exc_msg(exc)}")
+
+        # Notificar al almacenero (con protección si grupo es None)
+        if aprobados:
+            try:
+                from apps.notifications.services import queue_for_roles
+                entity_id = grupo.id if grupo else aprobados[0].id
+                subject = f"Solicitud #{entity_id} aprobada"
+                body = (
+                    f"{len(aprobados)} material(es)/pieza(s) aprobado(s) por "
+                    f"{request.user.get_full_name() or request.user.username}."
+                )
+                entity = grupo if grupo else aprobados[0]
+                queue_for_roles(
+                    event="SOLICITUD_GRUPO_RESUELTA",
+                    roles=[AccountProfile.Role.ALMACENERO],
+                    subject=subject,
+                    body=body,
+                    entity=entity,
+                    context={"grupoId": entity_id, "aprobadosCount": len(aprobados)},
+                    discriminator=f"grupo-aprobado-todos-{entity_id}",
+                )
+            except Exception:
+                pass
+
+        if errores and not aprobados:
+            return Response(
+                {"detail": "No se pudo aprobar ningún item.", "errores": errores},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Serializar respuesta según si es grupo real o solicitud individual
+        if grupo:
+            detail = GrupoSolicitudDetailSerializer(grupo).data
+        else:
+            items_resueltos = SolicitudMovimiento.objects.filter(
+                pk__in=[a.pk for a in aprobados]
+            )
+            sol_data = SolicitudMovimientoSerializer(items_resueltos, many=True).data
+            detail = {
+                "id": int(pk),
+                "solicitado_por_nombre": aprobados[0].solicitado_por.get_full_name() if aprobados else "",
+                "estado": "resuelta",
+                "items": sol_data,
+            }
+        return Response(
+            {
+                "mensaje": f"Se aprobaron {len(aprobados)} item(s).",
+                "errores": errores,
+                "grupo": detail,
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="resolver-parcial")
+    def resolver_parcial(self, request, pk=None):
+        """
+        Resuelve individualmente cada item (aprobar o rechazar con motivo_no_entrega).
+        Solo ADMINISTRADOR. Acepta pk de GrupoSolicitud o de SolicitudMovimiento unitaria.
+        """
+        profile = getattr(request.user, "account_profile", None)
+        if not profile or profile.role != AccountProfile.Role.ADMIN:
+            return Response(
+                {"detail": "Solo administradores pueden resolver solicitudes de grupo."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        grupo, _ = self._resolve_grupo_items(pk)
+        serializer = ResolverParcialGrupoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        decisiones_map = {
+            item["solicitud_id"]: item
+            for item in serializer.validated_data["items"]
+        }
+
+        # Obtener items: desde grupo real o desde solicitudes individuales
+        if grupo:
+            items_grupo = {item.id: item for item in grupo.items.all()}
+        else:
+            items_grupo = {
+                sol.id: sol
+                for sol in SolicitudMovimiento.objects.filter(pk__in=decisiones_map.keys())
+            }
+
+        aprobados_count = 0
+        rechazados_count = 0
+        errores = []
+
+        from django.db import transaction
+        for sol_id, dec in decisiones_map.items():
+            sol = items_grupo.get(sol_id)
+            if not sol:
+                continue
+
+            if sol.estado != SolicitudMovimiento.Estado.PENDIENTE:
+                continue
+
+            if dec["aprobado"]:
+                try:
+                    with transaction.atomic():
+                        _ejecutar_solicitud(sol, request.user)
+                        aprobados_count += 1
+                except Exception as exc:
+                    item_label = sol.material.nombre if sol.material else (sol.pieza.codigo if sol.pieza else "Item")
+                    errores.append(f"{item_label}: {_format_exc_msg(exc)}")
+            else:
+                sol.estado = SolicitudMovimiento.Estado.RECHAZADA
+                sol.motivo_no_entrega = dec.get("motivo_no_entrega", "")
+                sol.motivo_rechazo = dec.get("motivo_no_entrega", "")
+                sol.resuelto_por = request.user
+                sol.resuelto_en = timezone.now()
+                sol.save(update_fields=["estado", "motivo_no_entrega", "motivo_rechazo", "resuelto_por", "resuelto_en"])
+                rechazados_count += 1
+
+        # Notificación (con protección si grupo es None)
+        try:
+            from apps.notifications.services import queue_for_roles
+            entity_id = grupo.id if grupo else pk
+            entity = grupo if grupo else list(items_grupo.values())[0] if items_grupo else None
+            subject = f"Solicitud #{entity_id} resuelta"
+            body = (
+                f"Tu solicitud fue procesada por {request.user.get_full_name() or request.user.username}: "
+                f"{aprobados_count} aprobado(s), {rechazados_count} rechazado(s)."
+            )
+            if entity:
+                queue_for_roles(
+                    event="SOLICITUD_GRUPO_RESUELTA",
+                    roles=[AccountProfile.Role.ALMACENERO],
+                    subject=subject,
+                    body=body,
+                    entity=entity,
+                    context={"grupoId": entity_id, "aprobados": aprobados_count, "rechazados": rechazados_count},
+                    discriminator=f"grupo-resuelto-parcial-{entity_id}",
+                )
+        except Exception:
+            pass
+
+        # Serializar respuesta
+        if grupo:
+            detail = GrupoSolicitudDetailSerializer(grupo).data
+        else:
+            all_items = list(items_grupo.values())
+            sol_data = SolicitudMovimientoSerializer(all_items, many=True).data
+            detail = {
+                "id": int(pk),
+                "estado": "resuelta",
+                "items": sol_data,
+            }
+        return Response(
+            {
+                "mensaje": f"Se procesó la solicitud: {aprobados_count} aprobado(s), {rechazados_count} rechazado(s).",
+                "errores": errores,
+                "grupo": detail,
+            }
+        )

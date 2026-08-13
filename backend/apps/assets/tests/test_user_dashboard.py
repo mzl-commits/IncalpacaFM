@@ -75,3 +75,4 @@ class UserDashboardApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200, response.json())
         self.assertEqual(response.data['assigned_assets'][0]['code'], 'REQ-TEST-001')
+

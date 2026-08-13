@@ -7,6 +7,7 @@ import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { exportarExcel, exportarPdf, getInspeccion } from "@/modules/almacen/inspeccionRepository";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
   accionInspeccionLabels,
   resultadoInspeccionLabels,
@@ -16,6 +17,7 @@ import {
 export function InspeccionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const inspeccionId = Number(id);
+  const { almacenId } = useAlmacenActivo();
 
   const { data: inspeccion, isLoading, error } = useQuery({
     queryKey: ["inspeccion", inspeccionId],
@@ -28,7 +30,7 @@ export function InspeccionDetailPage() {
     return (
       <div className="loading-panel">
         No se pudo cargar la inspección.{" "}
-        <Link to="/almacen/inspecciones" className="button button-secondary">Volver</Link>
+        <Link to={`/almacen/${almacenId}/inspecciones`} className="button button-secondary">Volver</Link>
       </div>
     );
 
@@ -36,7 +38,7 @@ export function InspeccionDetailPage() {
     <section>
       {/* Cabecera */}
       <div className="wizard-heading">
-        <Link to="/almacen/inspecciones" className="back-link">
+        <Link to={`/almacen/${almacenId}/inspecciones`} className="back-link">
           <ArrowLeft size={16} /> Inspecciones
         </Link>
         <div>
@@ -78,7 +80,7 @@ export function InspeccionDetailPage() {
               <div>
                 <dt className="dt-label">Material</dt>
                 <dd className="dd-value">
-                  <Link to={`/almacen/catalogo/${inspeccion.material}`} style={{ color: "var(--accent)", fontWeight: 600 }}>
+                  <Link to={`/almacen/${almacenId}/catalogo/${inspeccion.material}`} style={{ color: "var(--accent)", fontWeight: 600 }}>
                     {inspeccion.material_codigo} — {inspeccion.material_nombre}
                   </Link>
                 </dd>
@@ -220,14 +222,14 @@ export function InspeccionDetailPage() {
 
           <h2>Acciones</h2>
           <Link
-            to={`/almacen/inspecciones/nueva?material=${inspeccion.material}`}
+            to={`/almacen/${almacenId}/inspecciones/nueva?material=${inspeccion.material}`}
             className="button button-primary"
             style={{ display: "flex", width: "100%", justifyContent: "center", marginTop: 8 }}
           >
             Nueva inspección
           </Link>
           <Link
-            to={`/almacen/catalogo/${inspeccion.material}`}
+            to={`/almacen/${almacenId}/catalogo/${inspeccion.material}`}
             className="button button-secondary"
             style={{ display: "flex", width: "100%", justifyContent: "center", marginTop: 8 }}
           >

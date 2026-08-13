@@ -22,6 +22,7 @@ from .location_map_serializers import (
     LocationAreaUpdateSerializer,
     LocationMapSummarySerializer,
     LocationMapUploadSerializer,
+    LocationAreaUpdateSerializer,
     LocationSerializer,
 )
 from .models import BuildingArea, Location, LocationMap
@@ -128,6 +129,26 @@ class BuildingAreaUpdateView(APIView):
             after={"square_meters": str(updated.square_meters) if updated.square_meters is not None else None},
         )
         return Response({"square_meters": updated.square_meters})
+
+
+class LocationAreaUpdateView(generics.UpdateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = LocationAreaUpdateSerializer
+    queryset = Location.objects.filter(active=True)
+    http_method_names = ["patch", "options"]
+
+    def perform_update(self, serializer):
+        location = self.get_object()
+        previous_area = location.square_meters
+        updated = serializer.save()
+        record_audit(
+            request=self.request,
+            action="LOCATION_AREA_UPDATED",
+            entity="Location",
+            entity_id=updated.id,
+            before={"square_meters": str(previous_area) if previous_area is not None else None},
+            after={"square_meters": str(updated.square_meters) if updated.square_meters is not None else None},
+        )
 
 
 class LocationMapListCreateView(generics.ListCreateAPIView):

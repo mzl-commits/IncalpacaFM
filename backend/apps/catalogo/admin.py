@@ -1,9 +1,15 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from apps.catalogo.models import Categoria, Material, Pieza, Subcategoria
+from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza, Almacen
 
 
+@admin.register(Almacen)
+class AlmacenAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "nombre", "ubicacion", "activo")
+    list_filter = ("activo",)
+    search_fields = ("codigo", "nombre")
+    
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
     list_display = ("nombre", "prefijo", "activo", "requiere_inspeccion")

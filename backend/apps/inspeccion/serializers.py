@@ -1,15 +1,12 @@
-from django.contrib.auth import get_user_model
-from django.db import transaction
 from rest_framework import serializers
+from django.db import transaction
 
 from apps.inspeccion.models import (
-    Criterio,
-    Inspeccion,
-    PlanInspeccionAnual,
-    PlantillaCriterio,
-    ProgramacionInspeccion,
-    RespuestaCriterio,
+    PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
+    PlanInspeccionAnual, ProgramacionInspeccion,
 )
+
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -49,11 +46,11 @@ class InspeccionSerializer(serializers.ModelSerializer):
     inspector_nombre = serializers.SerializerMethodField()
     plantilla_nombre = serializers.CharField(source="plantilla.nombre", read_only=True)
     respuestas = RespuestaCriterioSerializer(many=True, read_only=True)
-    # NUEVO: la periodicidad real del material dueño (o del material del
-    # contenedor, si esta inspección es de una pieza). TrimestreBadge la
-    # necesita para calcular vigencia (vencida/próxima/al día); antes solo
+    # la periodicidad real del material dueño (o del material del contenedor, si esta inspección es de una pieza). 
+    # TrimestreBadge la necesita para calcular vigencia (vencida/próxima/al día); antes solo
     # vivía en el Material, no llegaba junto con la Inspeccion.
     material_periodicidad_inspeccion_dias = serializers.SerializerMethodField()
+    almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
 
     class Meta:
         model = Inspeccion
@@ -63,7 +60,7 @@ class InspeccionSerializer(serializers.ModelSerializer):
             "fecha", "proxima_inspeccion", "inspector", "inspector_nombre",
             "cantidad_inspeccionada", "cantidad_apta", "cantidad_no_apta",
             "resultado_general", "accion_tomada", "observaciones", "respuestas",
-            "material_periodicidad_inspeccion_dias",
+            "material_periodicidad_inspeccion_dias", "almacen", "almacen_nombre",
         ]
 
     def get_inspector_nombre(self, obj) -> str:
@@ -91,28 +88,36 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
-        # Inspección individual siempre debe apuntar a una pieza específica
+    # Inspección individual siempre debe apuntar a una pieza específica
         if data.get("tipo") == "individual" and not data.get("pieza"):
             raise serializers.ValidationError({
                 "pieza": "Una inspección individual debe especificar una pieza."
             })
 
+        # Si el usuario logueado es Inspector/Almacenero con almacén asignado,
+        # el material debe pertenecer a ese almacén. Se valida ANTES de guardar,
+        # mismo patrón que _validar_almacen_forzado en inventario/serializers.py.
+
+        almacen_forzado = self.context.get("almacen_forzado")
+        if almacen_forzado is not None:
+            material = data.get("material")
+            if material and material.almacen_id != almacen_forzado:
+                raise serializers.ValidationError({
+                    "material": "No puedes registrar inspecciones fuera de tu almacén asignado."
+                })
+
         # Las cantidades de la inspección grupal deben cuadrar entre sí
         apta = data.get("cantidad_apta")
         no_apta = data.get("cantidad_no_apta")
         inspeccionada = data.get("cantidad_inspeccionada")
-        if (
-            apta is not None
-            and no_apta is not None
-            and inspeccionada is not None
-            and apta + no_apta != inspeccionada
-        ):
-            raise serializers.ValidationError({
-                "cantidad_inspeccionada": (
-                    f"No cuadra: {apta} aptas + {no_apta} no aptas "
-                    f"debería ser igual a {inspeccionada}."
-                )
-            })
+        if apta is not None and no_apta is not None and inspeccionada is not None:
+            if apta + no_apta != inspeccionada:
+                raise serializers.ValidationError({
+                    "cantidad_inspeccionada": (
+                        f"No cuadra: {apta} aptas + {no_apta} no aptas "
+                        f"debería ser igual a {inspeccionada}."
+                    )
+                })
 
         # La inspeccionabilidad la decide la categoría/subcategoría (requiere_inspeccion +
         # plantilla_inspeccion), no tipo_control: un material no_retornable pero instalado
@@ -185,6 +190,10 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
             )
 
         with transaction.atomic():
+            # siempre viene informado y ya está validado arriba contra la pieza (directa o vía padre), 
+            # así que el almacén se deriva siempre de ahí — nunca de pieza.material, que puede ser un
+            # material-componente con almacén propio distinto del contenedor.
+            validated_data["almacen"] = validated_data["material"].almacen
             inspeccion = Inspeccion.objects.create(**validated_data)
             if piezas_lote_data:
                 inspeccion.piezas_lote.set(piezas_lote_data)
@@ -268,6 +277,8 @@ class ProgramacionInspeccionSerializer(serializers.ModelSerializer):
         return material.nombre if material else None
 
 class PlanInspeccionAnualSerializer(serializers.ModelSerializer):
+    almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True, default=None)
+
     class Meta:
         model = PlanInspeccionAnual
-        fields = ["id", "anio", "fecha_inicio", "fecha_fin", "estado"]
+        fields = ["id", "anio", "almacen", "almacen_nombre", "fecha_inicio", "fecha_fin", "estado"]
