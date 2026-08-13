@@ -62,6 +62,11 @@ class MaterialQuerySet(models.QuerySet):
         )
     
 class Material(models.Model):
+    class ClasificacionOperativa(models.TextChoices):
+        CONSUMIBLE = "CONSUMIBLE", "Consumible (genera costo)"
+        HERRAMIENTA = "HERRAMIENTA", "Herramienta reutilizable (solo uso)"
+        EPP = "EPP", "Equipo de protecciÃ³n personal (solo uso)"
+
     TIPO_CONTROL_CHOICES = [
         ("retornable", "Retornable"),
         ("no_retornable", "No retornable"),
@@ -145,6 +150,15 @@ class Material(models.Model):
     precio = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Precio de referencia de este material. Para estuches, es el precio del conjunto completo (no de piezas hijas individuales)."
+    )
+    clasificacion_operativa = models.CharField(
+        max_length=16,
+        choices=ClasificacionOperativa.choices,
+        default=ClasificacionOperativa.CONSUMIBLE,
+        help_text=(
+            "Define el tratamiento en una OT. Solo los consumibles generan costos; "
+            "herramientas y EPP quedan registrados como uso operativo."
+        ),
     )
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
     control_individual = models.BooleanField(default=False)

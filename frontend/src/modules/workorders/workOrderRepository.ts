@@ -190,7 +190,7 @@ export async function pauseWorkOrder(id: string): Promise<WorkOrder> {
   return data;
 }
 
-export type WorkOrderCost = { id: string; category: string; categoryLabel: string; description: string; amount: string; createdAt: string };
+export type WorkOrderCost = { id: string; category: string; categoryLabel: string; description: string; amount: string | null; sourceMaterial?: number | null; createdAt: string };
 export async function listWorkOrderCosts(id: string): Promise<WorkOrderCost[]> {
   const { data } = await api.get<WorkOrderCost[]>(`/work-orders/${id}/costs/`);
   return data;

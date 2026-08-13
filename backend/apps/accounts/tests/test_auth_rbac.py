@@ -44,6 +44,7 @@ class AuthenticationAndRbacTests(TestCase):
             {
                 "full_name": "Marco Flores",
                 "worker_code": "TEC-MF-01",
+                "dni": "70808080",
                 "email": "marco.flores@example.com",
                 "specialty": "Soldador",
                 "active": True,
@@ -53,6 +54,40 @@ class AuthenticationAndRbacTests(TestCase):
         )
         self.assertEqual(created.status_code, 201, created.json())
         self.assertEqual(created.json()["specialty"], "Soldador")
+
+        duplicate_dni = self.client.post(
+            "/api/v1/technicians/",
+            {
+                "full_name": "Marco Flores",
+                "worker_code": "TEC-MF-02",
+                "dni": "70808080",
+                "specialty": "Soldador",
+                "temporary_password": "TemporalSegura3",
+            },
+            format="json",
+        )
+        self.assertEqual(duplicate_dni.status_code, 201, duplicate_dni.json())
+        self.assertEqual(duplicate_dni.json()["id"], created.json()["id"])
+        self.assertIn("TEC-MF-02", duplicate_dni.json()["worker_codes"])
+
+        alternate_login = self.client.post(
+            "/api/v1/auth/login/",
+            {"worker_code": "TEC-MF-02", "password": "TemporalSegura3"},
+            format="json",
+        )
+        self.assertEqual(alternate_login.status_code, 200, alternate_login.json())
+
+        missing_dni = self.client.post(
+            "/api/v1/technicians/",
+            {
+                "full_name": "Sin Documento",
+                "worker_code": "TEC-SD-01",
+                "temporary_password": "TemporalSegura3",
+            },
+            format="json",
+        )
+        self.assertEqual(missing_dni.status_code, 400)
+        self.assertIn("dni", missing_dni.json())
 
         updated = self.client.patch(
             f"/api/v1/technicians/{created.json()['id']}/",

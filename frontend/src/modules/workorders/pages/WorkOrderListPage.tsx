@@ -1027,7 +1027,7 @@ export function WorkOrderListPage() {
                   <Wrench size={22} weight="bold" />
                 </div>
                 <div>
-                  <h2 id="work-order-modal-title">Agregar orden operativa</h2>
+                  <h2 id="work-order-modal-title">Nueva orden</h2>
                   <p>Asigna trabajos directos de mantenimiento, rutinas o inspecciones.</p>
                 </div>
                 <button

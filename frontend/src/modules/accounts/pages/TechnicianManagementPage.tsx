@@ -441,8 +441,8 @@ export function TechnicianManagementPage() {
               <input required value={form.worker_code} onChange={(event) => setForm({ ...form, worker_code: event.target.value })} />
             </label>
             <label className="field">
-              <span>DNI</span>
-              <input maxLength={8} value={form.dni} onChange={(event) => setForm({ ...form, dni: event.target.value })} />
+              <span>DNI *</span>
+              <input required inputMode="numeric" pattern="[0-9]{8}" minLength={8} maxLength={8} value={form.dni} onChange={(event) => setForm({ ...form, dni: event.target.value.replace(/\D/g, "").slice(0, 8) })} />
             </label>
             <label className="field">
               <span>Correo</span>
@@ -501,7 +501,7 @@ export function TechnicianManagementPage() {
                   <Wrench size={22} weight="bold" />
                 </div>
                 <div>
-                  <h2 id="work-order-modal-title">Agregar orden operativa</h2>
+                  <h2 id="work-order-modal-title">Nueva orden</h2>
                   <p>Asigna trabajos directos de mantenimiento, rutinas o inspecciones.</p>
                 </div>
                 <button

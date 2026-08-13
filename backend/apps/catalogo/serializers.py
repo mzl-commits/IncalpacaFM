@@ -76,7 +76,7 @@ class MaterialSerializer(serializers.ModelSerializer):
             "subcategoria_plantilla_inspeccion", "subcategoria_plantilla_inspeccion_nombre",
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
             "unidad_medida", "grosor", "largo", "ubicacion_fisica", "precio",
-            "tipo_control", "control_individual", "cantidad_total",
+            "clasificacion_operativa", "tipo_control", "control_individual", "cantidad_total",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",
             "unidad_manejo", "unidades_por_caja",
