@@ -188,20 +188,38 @@ export function TaxonomyFormPage() {
           subcategory: "subcategory",
           specialty: "specialty",
           sequence_digits: "sequenceDigits",
+          useful_life_years: "usefulLifeYears",
+          preventive_frequency_months: "preventiveFrequencyMonths",
+          requires_maintenance: "requiresMaintenance",
+          requires_certification: "requiresCertification",
+          issuance_enabled: "issuanceEnabled",
+          review_status: "reviewStatus",
+          default_criticality: "defaultCriticality",
+          aliases: "aliases",
+          notes: "notes",
         };
         Object.entries(fields).forEach(([apiField, formField]) => {
           const value = response[apiField];
-          if (value) mapped[formField] = Array.isArray(value) ? value[0] : value;
+          if (value) mapped[formField] = Array.isArray(value) ? value[0] : String(value);
         });
-        if (Object.keys(mapped).length) setErrors((current) => ({ ...current, ...mapped }));
-        else
+        if (Object.keys(mapped).length) {
+          setErrors((current) => ({ ...current, ...mapped }));
+        }
+        const generalMsg = response.non_field_errors
+          ? (Array.isArray(response.non_field_errors) ? response.non_field_errors[0] : response.non_field_errors)
+          : response.detail;
+        if (generalMsg) {
+          setSubmitError(String(generalMsg));
+        } else if (!Object.keys(mapped).length) {
           setSubmitError(
             "No se pudo guardar la taxonomía. Revisa los datos e inténtalo nuevamente.",
           );
-      } else
+        }
+      } else {
         setSubmitError(
           "No se pudo guardar la taxonomía. Verifica la conexión e inténtalo nuevamente.",
         );
+      }
     }
   }
 
@@ -348,9 +366,14 @@ export function TaxonomyFormPage() {
               <Field label="Estado de validación">
                 <select
                   value={input.reviewStatus}
-                  onChange={(event) =>
-                    setField("reviewStatus", event.target.value as TaxonomyInput["reviewStatus"])
-                  }
+                  onChange={(event) => {
+                    const nextStatus = event.target.value as TaxonomyInput["reviewStatus"];
+                    setInput((current) => ({
+                      ...current,
+                      reviewStatus: nextStatus,
+                      issuanceEnabled: nextStatus === "REVIEW" ? false : current.issuanceEnabled,
+                    }));
+                  }}
                 >
                   <option value="VALIDATED">Validada</option>
                   <option value="REVIEW">Requiere revisión</option>
@@ -399,7 +422,14 @@ export function TaxonomyFormPage() {
                 <input
                   type="checkbox"
                   checked={input.requiresMaintenance}
-                  onChange={(event) => setField("requiresMaintenance", event.target.checked)}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setInput((current) => ({
+                      ...current,
+                      requiresMaintenance: checked,
+                      preventiveFrequencyMonths: checked ? current.preventiveFrequencyMonths : null,
+                    }));
+                  }}
                 />
                 <span>
                   <strong>Requiere mantenimiento</strong>
@@ -440,13 +470,15 @@ export function TaxonomyFormPage() {
                 <input
                   type="checkbox"
                   checked={input.issuanceEnabled}
+                  disabled={input.reviewStatus === "REVIEW"}
                   onChange={(event) => setField("issuanceEnabled", event.target.checked)}
                 />
                 <span>
                   <strong>Permitir nuevos códigos</strong>
                   <small>
-                    Si se desactiva, la taxonomía sigue visible pero no puede usarse en nuevas
-                    entradas.
+                    {input.reviewStatus === "REVIEW"
+                      ? "Deshabilitado mientras la taxonomía esté en revisión."
+                      : "Si se desactiva, la taxonomía sigue visible pero no puede usarse en nuevas entradas."}
                   </small>
                 </span>
               </label>
