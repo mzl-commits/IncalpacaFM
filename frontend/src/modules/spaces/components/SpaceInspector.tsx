@@ -1,0 +1,157 @@
+import {
+  Archive,
+  ArrowCounterClockwise,
+  ArrowSquareOut,
+  Buildings,
+  CaretRight,
+  CheckCircle,
+  MapPin,
+  PencilSimple,
+  Plus,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { getApiErrorMessage } from "@/utils/httpError";
+import { useSetSiteActive, useSetSpaceNodeActive, useSpaceImpact, useSpaceOptions } from "../spacesQueries";
+import type { SpaceNode, SpaceSite, SpaceTreeNode } from "../types";
+import { spaceKindLabels } from "../types";
+import { SpaceMapCompatibilityPanel } from "./SpaceMapCompatibilityPanel";
+import { SpaceMetricsPanel } from "./SpaceMetricsPanel";
+
+type SpaceInspectorProps = {
+  node?: SpaceNode | null;
+  site?: SpaceSite | null;
+  treeNode?: SpaceTreeNode | null;
+  compact?: boolean;
+  onChanged?: () => void;
+};
+
+function addressLabel(site: SpaceSite) {
+  return [site.address.addressLine, site.address.district, site.address.province, site.address.department, site.address.country]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function EntityStateAction({
+  entity,
+  id,
+  active,
+  disabled,
+  onChanged,
+}: {
+  entity: "site" | "node";
+  id: string;
+  active: boolean;
+  disabled?: boolean;
+  onChanged?: () => void;
+}) {
+  const nodeState = useSetSpaceNodeActive();
+  const siteState = useSetSiteActive();
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState("");
+  const mutation = entity === "site" ? siteState : nodeState;
+  const noun = entity === "site" ? "sede" : "espacio";
+
+  async function changeState() {
+    setError("");
+    try {
+      await mutation.mutateAsync({ id, active: !active });
+      setConfirming(false);
+      onChanged?.();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, `No se pudo actualizar la ${noun}.`));
+    }
+  }
+
+  if (confirming) {
+    return (
+      <div className="space-state-confirm" role="alert">
+        <p>{active ? `¿Archivar esta ${noun}? Se conservará su historial y el sistema validará dependencias.` : `¿Restaurar esta ${noun}? Volverá a estar disponible para nuevos registros.`}</p>
+        {error && <small><WarningCircle weight="fill" />{error}</small>}
+        <div><button type="button" className="button button-secondary" onClick={() => setConfirming(false)}>Cancelar</button><button type="button" className="button button-primary" onClick={() => void changeState()} disabled={mutation.isPending}>{mutation.isPending ? "Procesando…" : active ? "Confirmar archivo" : "Confirmar restauración"}</button></div>
+      </div>
+    );
+  }
+
+  return (
+    <button className="button button-secondary" type="button" onClick={() => setConfirming(true)} disabled={disabled || mutation.isPending}>
+      {active ? <Archive /> : <ArrowCounterClockwise />}{active ? "Archivar" : "Restaurar"}
+    </button>
+  );
+}
+
+export function SpaceInspector({ node, site, treeNode, compact = false, onChanged }: SpaceInspectorProps) {
+  const impactQuery = useSpaceImpact(node?.id);
+  const childOptionsQuery = useSpaceOptions(node?.siteId, node?.id, Boolean(node));
+  const impact = impactQuery.data;
+
+  if (!node && !site) {
+    return (
+      <section className="space-inspector-empty">
+        <Buildings weight="duotone" />
+        <strong>Selecciona una sede o espacio</strong>
+        <span>Podrás revisar su estructura, medidas y compatibilidad con mapas.</span>
+      </section>
+    );
+  }
+
+  if (site) {
+    const siteTree = treeNode?.children ?? [];
+    const siteEditUrl = `/administracion/espacios/${site.id}/editar?tipo=sede`;
+    return (
+      <section className={`space-inspector ${compact ? "is-compact" : ""}`} aria-labelledby="space-inspector-title">
+        <header className="space-inspector-header">
+          <div><span className="space-inspector-icon"><Buildings weight="duotone" /></span><div><p>Sede</p><h2 id="space-inspector-title">{site.name}</h2><code>{site.code}</code></div></div>
+          <span className={`status ${site.active ? "status-success" : "status-neutral"}`}>{site.active ? "Activa" : "Archivada"}</span>
+        </header>
+        <dl className="space-inspector-facts">
+          <div><dt>Dirección</dt><dd>{addressLabel(site) || "Pendiente de registrar"}</dd></div>
+          <div><dt>Estructura activa</dt><dd>{siteTree.length} nodo{siteTree.length === 1 ? "" : "s"} raíz</dd></div>
+        </dl>
+        <div className="space-inspector-actions">
+          <Link className="button button-secondary" to={siteEditUrl}><PencilSimple />Editar sede</Link>
+          {site.active && <Link className="button button-primary" to={`/administracion/espacios/nuevo?sede=${site.id}`}><Plus />Crear primer nivel</Link>}
+          <EntityStateAction entity="site" id={site.id} active={site.active} disabled={siteTree.length > 0} onChanged={onChanged} />
+        </div>
+        {siteTree.length > 0 && <p className="space-inspector-note"><InfoCircle />Archiva los nodos activos antes de archivar la sede.</p>}
+      </section>
+    );
+  }
+
+  const canAddChild = Boolean(node?.active && childOptionsQuery.data?.allowedNodeTypes.length);
+  const detailUrl = `/administracion/espacios/${node!.id}`;
+  const impactMessage = impact?.reason || (!impactQuery.isPending && impact && !impact.canArchive ? "Este espacio tiene dependencias activas." : "");
+
+  return (
+    <section className={`space-inspector ${compact ? "is-compact" : ""}`} aria-labelledby="space-inspector-title">
+      <header className="space-inspector-header">
+        <div>
+          <span className="space-inspector-icon"><MapPin weight="duotone" /></span>
+          <div><p>{spaceKindLabels[node!.kind]}</p><h2 id="space-inspector-title">{node!.name}</h2><code>{node!.pathCode}</code></div>
+        </div>
+        <span className={`status ${node!.active ? "status-success" : "status-neutral"}`}>{node!.active ? "Activo" : "Archivado"}</span>
+      </header>
+      <dl className="space-inspector-facts">
+        <div><dt>Tipo</dt><dd>{spaceKindLabels[node!.kind]}</dd></div>
+        <div><dt>Segmento</dt><dd>{node!.codeSegment}</dd></div>
+        <div><dt>Ubicación heredada</dt><dd>{node!.legacyLocation ? `${node!.legacyLocation.code} · ${node!.legacyLocation.displayName}` : "Sin vincular"}</dd></div>
+      </dl>
+      {!compact && <SpaceMetricsPanel node={node!} />}
+      {!compact && <SpaceMapCompatibilityPanel node={node!} />}
+      {!compact && impact && <dl className="space-impact-summary"><div><dt>Subespacios activos</dt><dd>{impact.childCount}</dd></div><div><dt>Bienes vinculados</dt><dd>{impact.assetCount}</dd></div><div><dt>Asignaciones</dt><dd>{impact.assignmentCount}</dd></div><div><dt>Mapas activos</dt><dd>{impact.mapCount}</dd></div></dl>}
+      {impactMessage && <p className="space-inspector-note"><WarningCircle weight="fill" />{impactMessage}</p>}
+      <div className="space-inspector-actions">
+        <Link className="button button-secondary" to={`${detailUrl}/editar`}><PencilSimple />Editar</Link>
+        {node!.active && canAddChild && <Link className="button button-primary" to={`/administracion/espacios/nuevo?sede=${node!.siteId}&padre=${node!.id}`}><Plus />Crear hijo</Link>}
+        <EntityStateAction entity="node" id={node!.id} active={node!.active} disabled={Boolean(impact && !impact.canArchive)} onChanged={onChanged} />
+        {compact && <Link className="button button-link" to={detailUrl}>Ver detalle <CaretRight /></Link>}
+      </div>
+      {node!.active && !compact && <Link className="space-inspector-detail-link" to={detailUrl}>Abrir ficha completa <ArrowSquareOut /></Link>}
+    </section>
+  );
+}
+
+function InfoCircle() {
+  return <CheckCircle weight="duotone" />;
+}
