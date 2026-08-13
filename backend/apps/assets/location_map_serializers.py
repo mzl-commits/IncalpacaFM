@@ -12,7 +12,7 @@ from apps.accounts.models import AccountProfile
 
 from apps.audit.services import record_audit
 
-from .models import Location, LocationMap
+from .models import BuildingArea, Location, LocationMap
 
 ALLOWED_IMAGE_FORMATS = {
     "JPEG": "jpg",
@@ -56,6 +56,7 @@ class LocationSerializer(serializers.ModelSerializer):
     display_name = serializers.CharField(source="__str__", read_only=True)
     active_map = serializers.SerializerMethodField()
     assigned_users = serializers.SerializerMethodField()
+    building_square_meters = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
@@ -75,6 +76,7 @@ class LocationSerializer(serializers.ModelSerializer):
             "specific_location",
             "headcount",
             "square_meters",
+            "building_square_meters",
             "common_space",
             "active",
             "display_name",
@@ -111,6 +113,10 @@ class LocationSerializer(serializers.ModelSerializer):
                 })
         return users
 
+    def get_building_square_meters(self, obj: Location):
+        areas_by_identity = self.context.get("building_areas_by_identity", {})
+        return areas_by_identity.get((obj.site, obj.zone, obj.building))
+
 
 class LocationAreaUpdateSerializer(serializers.ModelSerializer):
     square_meters = serializers.DecimalField(
@@ -123,6 +129,20 @@ class LocationAreaUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Location
+        fields = ("square_meters",)
+
+
+class BuildingAreaUpdateSerializer(serializers.ModelSerializer):
+    square_meters = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = BuildingArea
         fields = ("square_meters",)
 
 
