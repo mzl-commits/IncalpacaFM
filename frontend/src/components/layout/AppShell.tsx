@@ -73,7 +73,7 @@ const modules: ModuleGroup[] = [
       { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true },
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
       { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
-      { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
+      { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO", "SUPERVISOR", "ADMINISTRADOR"] },
     ],
   },
   {
@@ -272,6 +272,7 @@ export function AppShell() {
 
   const roleModules = modules
     .filter((mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)))
+    .filter((mod) => mod.id !== "team")
     .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user).map((item) => ({ ...item, count: liveCounts[item.to] })) }))
     .filter((mod) => mod.items.length > 0);
   const roleQuickActions = user?.role === "ADMINISTRADOR" ? quickActions : [];
