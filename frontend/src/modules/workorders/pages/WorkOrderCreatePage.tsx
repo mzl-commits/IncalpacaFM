@@ -181,7 +181,7 @@ export function WorkOrderCreatePage() {
     });
 
     navigate(
-      `/órdenes-trabajo/${workOrder.id}`,
+      `/ordenes-trabajo/${workOrder.id}`,
     );
   }
 
