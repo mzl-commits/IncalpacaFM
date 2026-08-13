@@ -12,6 +12,7 @@ import "@/styles/filters.css";
 import "@/styles/taxonomy.css";
 import "@/styles/facility-map.css";
 import "@/styles/location-maps.css";
+import "@/styles/spaces.css";
 import "@/styles/asset-map-overview.css";
 import "@/styles/incident-create.css";
 import "@/styles/registries.css";
