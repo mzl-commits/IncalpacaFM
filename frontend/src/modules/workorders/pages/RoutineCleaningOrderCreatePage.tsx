@@ -1,7 +1,9 @@
 ﻿import { ArrowLeft, CalendarBlank, FloppyDisk } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import { getWorkRequestById, updateWorkRequest } from "@/modules/incidents/incidentRepository";
+import type { WorkRequest } from "@/modules/incidents/types";
 import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { useLocations } from "@/modules/assets/locationMapQueries";
 import {
@@ -99,10 +101,14 @@ function hasCleaningSpecialty(person: Technician) {
 
 export function RoutineCleaningOrderCreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const linkedRequestId = new URLSearchParams(location.search).get("request");
+  const backPath = linkedRequestId ? `/incidencias/${linkedRequestId}` : "/ordenes-trabajo";
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
+  const [linkedRequest, setLinkedRequest] = useState<WorkRequest | null>(null);
   const [form, setForm] = useState<RoutineCleaningFormState>(initialForm);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -111,6 +117,35 @@ export function RoutineCleaningOrderCreatePage() {
     void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
     void listWorkOrders().then(setOrders);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!linkedRequestId) {
+      setLinkedRequest(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    void getWorkRequestById(linkedRequestId)
+      .then((request) => {
+        if (!isMounted) return;
+        setLinkedRequest(request);
+        setForm((current) => ({
+          ...current,
+          description: current.description || request.description,
+          locationId: current.locationId || request.locationId,
+          adminPriority: request.requesterPriority === "NORMAL" ? current.adminPriority : "ALTA",
+        }));
+      })
+      .catch(() => {
+        if (isMounted) setError("No se pudo cargar la solicitud vinculada.");
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [linkedRequestId]);
 
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
   const cleaningTechnicians = useMemo(() => technicians.filter(hasCleaningSpecialty), [technicians]);
@@ -182,11 +217,14 @@ export function RoutineCleaningOrderCreatePage() {
     setSaving(true);
     setError("");
     try {
+      let firstCreatedOrderId = "";
       for (const scheduledDate of routineDates) {
-        await createWorkOrder({
+        const workOrder = await createWorkOrder({
+          requestId: linkedRequest?.id,
+          requestCode: linkedRequest?.code,
           orderType: "OL",
           directRequestDescription: form.description.trim(),
-          directRequestType: "OL rutinaria",
+          directRequestType: linkedRequest ? "OL rutinaria desde solicitud" : "OL rutinaria",
           directAssetId: null,
           directLocationId: form.locationId,
           operatorId: form.operatorId,
@@ -207,8 +245,16 @@ export function RoutineCleaningOrderCreatePage() {
           ].filter(Boolean).join("\n"),
           progressPercentage: 0,
         });
+        firstCreatedOrderId ||= workOrder.id;
       }
-      navigate("/órdenes-trabajo?orderType=OL");
+
+      if (linkedRequest && firstCreatedOrderId) {
+        await updateWorkRequest(linkedRequest.id, {
+          status: "CONVERTIDA_EN_OT",
+          workOrderId: firstCreatedOrderId,
+        });
+      }
+      navigate("/ordenes-trabajo?orderType=OL");
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
       setError(detail || "No se pudo generar la rutina de limpieza.");
@@ -225,7 +271,7 @@ export function RoutineCleaningOrderCreatePage() {
           <h1>Crear OL rutinaria</h1>
           <p>Programa varias limpiezas para un ambiente según días y rango de fechas.</p>
         </div>
-        <Link className="button button-secondary" to="/órdenes-trabajo/nueva">
+        <Link className="button button-secondary" to={backPath}>
           <ArrowLeft size={18} />
           Volver
         </Link>
@@ -411,7 +457,7 @@ export function RoutineCleaningOrderCreatePage() {
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-actions">
-          <Link className="button button-secondary" to="/órdenes-trabajo/nueva">Cancelar</Link>
+          <Link className="button button-secondary" to={backPath}>Cancelar</Link>
           <button className="button button-primary" type="submit" disabled={saving}>
             <FloppyDisk size={18} weight="bold" />
             {saving ? "Generando..." : "Generar rutina"}

@@ -1,4 +1,4 @@
-﻿import { CalendarBlank, CaretRight, CheckCircle, FloppyDisk, Plus, Wrench, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, CheckCircle, FloppyDisk, Package, Plus, Wrench, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
@@ -34,6 +34,7 @@ import {
   type WorkOrderType,
 } from "@/modules/workorders/workOrderModel";
 import {
+  addWorkOrderCost,
   createWorkOrder,
   getWorkOrderAssetDisplayCode,
   listWorkOrders,
@@ -127,6 +128,10 @@ interface WorkOrderFormState {
   locationZone: string;
   locationBuilding: string;
   locationArea: string;
+  serviceProvider: string;
+  serviceDocumentCode: string;
+  serviceAmount: string;
+  serviceNotes: string;
 }
 
 const emptyOrderForm: WorkOrderFormState = {
@@ -149,6 +154,10 @@ const emptyOrderForm: WorkOrderFormState = {
   locationZone: "",
   locationBuilding: "",
   locationArea: "",
+  serviceProvider: "",
+  serviceDocumentCode: "",
+  serviceAmount: "",
+  serviceNotes: "",
 };
 
 const FILTER_KEYS = [
@@ -223,6 +232,11 @@ const typeDescriptions: Record<WorkOrderType, string> = {
 
 function getOrderType(workOrder: Awaited<ReturnType<typeof listWorkOrders>>[number]): WorkOrderType {
   return workOrder.orderType ?? "OT";
+}
+
+function moneyValue(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function parseLocalDate(value: string) {
@@ -351,6 +365,12 @@ export function WorkOrderListPage() {
       setOrderError("Ingresa la descripción o motivo de la orden operativa.");
       return;
     }
+    const isServiceOrder = orderForm.orderType === "OS";
+    const serviceAmount = moneyValue(orderForm.serviceAmount);
+    if (isServiceOrder && (!orderForm.serviceProvider.trim() || !orderForm.serviceDocumentCode.trim() || serviceAmount <= 0 || !orderForm.locationId || !orderForm.scheduledDate)) {
+      setOrderError("Completa proveedor, documento, monto, fecha, ubicación y descripción del servicio.");
+      return;
+    }
     const isRoutineCleaning = orderForm.orderType === "OL" && orderForm.cleaningMode === "RUTINARIA";
     if (isRoutineCleaning && (!orderForm.routineStartDate || !orderForm.routineEndDate || !orderForm.routineWeekdays.length)) {
       setOrderError("Completa el rango de fechas y los días de limpieza para generar la rutina.");
@@ -387,6 +407,49 @@ export function WorkOrderListPage() {
       const selectedSupervisor = supervisors.find((s) => s.id === orderForm.supervisorId) || technicians[0];
       const defaultLocationId = locations[0]?.id || "";
       const locationId = orderForm.locationId || selectedAsset?.locationDetail?.id || defaultLocationId;
+      if (isServiceOrder) {
+        const details = [
+          `Proveedor: ${orderForm.serviceProvider.trim()}`,
+          `Orden de compra o servicio: ${orderForm.serviceDocumentCode.trim()}`,
+          `Monto: S/ ${serviceAmount.toFixed(2)}`,
+          orderForm.serviceNotes.trim() ? `Observaciones: ${orderForm.serviceNotes.trim()}` : "",
+        ].filter(Boolean).join("\n");
+
+        const workOrder = await createWorkOrder({
+          orderType: "OS",
+          description: orderForm.description.trim(),
+          directRequestDescription: orderForm.description.trim(),
+          directRequestType: "OS directa",
+          title: orderForm.title.trim() || orderForm.description.trim().substring(0, 40),
+          directLocationId: locationId || null,
+          operatorId: "",
+          operatorName: "",
+          supervisorId: "",
+          supervisorName: "",
+          specialty: "SERVICIO_EXTERNO" as Specialty,
+          priority: orderForm.priority,
+          adminPriority: orderForm.priority,
+          administratorNotes: details,
+          scheduledDate: orderForm.scheduledDate || new Date().toISOString().split("T")[0],
+          scheduledStartTime: "08:00",
+          plannedHours: 1,
+          status: "PROGRAMADA",
+          progressPercentage: 0,
+        });
+
+        await addWorkOrderCost(workOrder.id, {
+          category: "SERVICIO",
+          description: `${orderForm.serviceProvider.trim()} - ${orderForm.serviceDocumentCode.trim()}`,
+          amount: serviceAmount,
+        });
+
+        const updatedOrders = await listWorkOrders();
+        setAllWorkOrders(updatedOrders);
+        setWorkOrderModalOpen(false);
+        setOrderSuccess("OS registrada exitosamente.");
+        setTimeout(() => setOrderSuccess(""), 4000);
+        return;
+      }
       const datesToCreate = isRoutineCleaning ? routineDates : [orderForm.scheduledDate || new Date().toISOString().split("T")[0]];
 
       for (const scheduledDate of datesToCreate) {
@@ -1029,8 +1092,8 @@ export function WorkOrderListPage() {
                   <Wrench size={22} weight="bold" />
                 </div>
                 <div>
-                  <h2 id="work-order-modal-title">Nueva orden</h2>
-                  <p>Asigna trabajos directos de mantenimiento, rutinas o inspecciones.</p>
+                  <h2 id="work-order-modal-title">Agregar orden operativa</h2>
+                  <p>Elige si registrarás una OT, OL u OS y completa solo los campos necesarios.</p>
                 </div>
                 <button
                   className="icon-button modal-close-btn"
@@ -1053,30 +1116,34 @@ export function WorkOrderListPage() {
                 <div className="work-order-form-grid">
                   {/* Columna izquierda: tipo, clasificación, activo y ubicación */}
                   <div className="work-order-form-col">
-                    <div className="form-group-row">
-                      <label className="field">
-                        <span>Tipo de orden *</span>
-                        <select
-                          value={orderForm.orderType}
-                          onChange={(e) => {
-                            const orderType = e.target.value as WorkOrderType;
+                    <fieldset className="order-kind-picker">
+                      <legend>Tipo de orden *</legend>
+                      {(["OT", "OL", "OS"] as WorkOrderType[]).map((orderType) => (
+                        <button
+                          key={orderType}
+                          type="button"
+                          className={orderForm.orderType === orderType ? "is-selected" : ""}
+                          onClick={() => {
                             setOrderForm({
                               ...orderForm,
                               orderType,
                               cleaningMode: orderType === "OL" ? orderForm.cleaningMode : "ESPECIFICA",
-                              specialty: orderType === "OL" ? "LIMPIEZA" : orderForm.specialty,
-                              plannedHours: orderType === "OL" ? 1 : orderForm.plannedHours,
+                              specialty: orderType === "OL" ? "LIMPIEZA" : orderType === "OS" ? "SERVICIO_EXTERNO" as Specialty : orderForm.specialty,
+                              plannedHours: orderType === "OL" ? 1 : orderType === "OS" ? 1 : orderForm.plannedHours,
                             });
+                            setAvailabilityOpen(false);
                           }}
                         >
-                          {Object.entries(workOrderTypeLabels).map(([code, name]) => (
-                            <option key={code} value={code}>
-                              {code} - {name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                          {orderType === "OT" ? <Wrench size={18} /> : orderType === "OL" ? <CalendarBlank size={18} /> : <Package size={18} />}
+                          <span>
+                            <strong>{orderType}</strong>
+                            <small>{typeDescriptions[orderType]}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </fieldset>
 
+                    <div className="form-group-row">
                       <label className="field">
                         <span>Prioridad *</span>
                         <select
@@ -1091,6 +1158,48 @@ export function WorkOrderListPage() {
                         </select>
                       </label>
                     </div>
+
+                    {orderForm.orderType === "OS" && (
+                      <div className="service-modal-panel">
+                        <div className="routine-modal-heading">
+                          <strong>Datos del servicio externo</strong>
+                          <span>No requiere operario ni supervisor.</span>
+                        </div>
+
+                        <label className="field">
+                          <span>Proveedor *</span>
+                          <input
+                            value={orderForm.serviceProvider}
+                            onChange={(event) => setOrderForm({ ...orderForm, serviceProvider: event.target.value })}
+                            placeholder="Ej. Servicios Generales Andina"
+                            maxLength={160}
+                          />
+                        </label>
+
+                        <div className="form-group-row">
+                          <label className="field">
+                            <span>Orden de compra o servicio *</span>
+                            <input
+                              value={orderForm.serviceDocumentCode}
+                              onChange={(event) => setOrderForm({ ...orderForm, serviceDocumentCode: event.target.value })}
+                              placeholder="Ej. OC-2026-0158"
+                              maxLength={80}
+                            />
+                          </label>
+
+                          <label className="field">
+                            <span>Monto *</span>
+                            <input
+                              value={orderForm.serviceAmount}
+                              onChange={(event) => setOrderForm({ ...orderForm, serviceAmount: event.target.value })}
+                              inputMode="decimal"
+                              placeholder="Ej. 250.00"
+                            />
+                            <small>Se guardará como costo de servicio.</small>
+                          </label>
+                        </div>
+                      </div>
+                    )}
 
                     {orderForm.orderType === "OL" && (
                       <fieldset className="cleaning-mode-picker">
@@ -1172,34 +1281,38 @@ export function WorkOrderListPage() {
                       </div>
                     )}
 
-                    <label className="field">
-                      <span>Especialidad *</span>
-                      <select
-                        value={orderForm.specialty}
-                        onChange={(e) => setOrderForm({ ...orderForm, specialty: e.target.value as Specialty })}
-                      >
-                        {SPECIALTIES.map((spec) => (
-                          <option key={spec} value={spec}>
-                            {specialtyLabels[spec]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {orderForm.orderType !== "OS" && (
+                      <>
+                        <label className="field">
+                          <span>Especialidad *</span>
+                          <select
+                            value={orderForm.specialty}
+                            onChange={(e) => setOrderForm({ ...orderForm, specialty: e.target.value as Specialty })}
+                          >
+                            {SPECIALTIES.map((spec) => (
+                              <option key={spec} value={spec}>
+                                {specialtyLabels[spec]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
 
-                    <label className="field">
-                      <span>Bien / Activo (Opcional)</span>
-                      <select
-                        value={orderForm.assetId}
-                        onChange={(e) => handleSelectAsset(e.target.value)}
-                      >
-                        <option value="">Sin bien asociado</option>
-                        {assets.map((asset) => (
-                          <option key={asset.id} value={asset.id}>
-                            {asset.fmCode || asset.code} - {asset.draft.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        <label className="field">
+                          <span>Bien / Activo (Opcional)</span>
+                          <select
+                            value={orderForm.assetId}
+                            onChange={(e) => handleSelectAsset(e.target.value)}
+                          >
+                            <option value="">Sin bien asociado</option>
+                            {assets.map((asset) => (
+                              <option key={asset.id} value={asset.id}>
+                                {asset.fmCode || asset.code} - {asset.draft.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </>
+                    )}
 
                     <div className="location-filter-stack">
                       <div className="work-order-modal-section-title is-compact">
@@ -1269,11 +1382,12 @@ export function WorkOrderListPage() {
                     <div className="work-order-modal-section-title is-compact">
                       <span>2</span>
                       <div>
-                        <h3>Responsables y horario</h3>
-                        <p>Revisa la agenda del operario antes de crear la orden.</p>
+                        <h3>{orderForm.orderType === "OS" ? "Detalle administrativo" : "Responsables y horario"}</h3>
+                        <p>{orderForm.orderType === "OS" ? "Registra la fecha y el alcance del servicio externo." : "Revisa la agenda del operario antes de crear la orden."}</p>
                       </div>
                     </div>
 
+                    {orderForm.orderType !== "OS" && (
                     <div className="form-group-row">
                       <label className="field">
                         <span>Técnico asignado *</span>
@@ -1341,17 +1455,30 @@ export function WorkOrderListPage() {
                         </select>
                       </label>
                     </div>
+                    )}
 
                     <label className="field">
-                      <span>Descripción de la tarea *</span>
+                      <span>{orderForm.orderType === "OS" ? "Servicio solicitado *" : "Descripción de la tarea *"}</span>
                       <textarea
                         required
                         rows={3}
-                        placeholder="Describe la tarea operativa o trabajo de mantenimiento a realizar..."
+                        placeholder={orderForm.orderType === "OS" ? "Describe el servicio externo que realizará el proveedor..." : "Describe la tarea operativa o trabajo de mantenimiento a realizar..."}
                         value={orderForm.description}
                         onChange={(e) => setOrderForm({ ...orderForm, description: e.target.value })}
                       />
                     </label>
+
+                    {orderForm.orderType === "OS" && (
+                      <label className="field">
+                        <span>Observaciones administrativas</span>
+                        <textarea
+                          rows={3}
+                          placeholder="Detalle opcional para administración."
+                          value={orderForm.serviceNotes}
+                          onChange={(event) => setOrderForm({ ...orderForm, serviceNotes: event.target.value })}
+                        />
+                      </label>
+                    )}
 
                   <div className="form-group-row">
                     {!(orderForm.orderType === "OL" && orderForm.cleaningMode === "RUTINARIA") && (
@@ -1366,6 +1493,7 @@ export function WorkOrderListPage() {
                       </label>
                     )}
 
+                    {orderForm.orderType !== "OS" && (
                     <label className="field">
                       <span>Hora de inicio *</span>
                       <select
@@ -1379,8 +1507,10 @@ export function WorkOrderListPage() {
                         ))}
                       </select>
                     </label>
+                    )}
                   </div>
 
+                  {orderForm.orderType !== "OS" && (
                   <div className="field">
                     <span>Duración estimada *</span>
                     {manualHoursMode ? (
@@ -1425,6 +1555,7 @@ export function WorkOrderListPage() {
                       </select>
                     )}
                   </div>
+                  )}
 
                   </div>
                 </div>
@@ -1441,7 +1572,7 @@ export function WorkOrderListPage() {
                   </button>
                   <button className="button button-primary" type="submit" disabled={orderSaving}>
                     <FloppyDisk size={18} weight="bold" />
-                    <span>{orderSaving ? "Guardando..." : "Crear orden operativa"}</span>
+                    <span>{orderSaving ? "Guardando..." : orderForm.orderType === "OS" ? "Crear OS" : "Crear orden operativa"}</span>
                   </button>
                 </div>
               </form>
