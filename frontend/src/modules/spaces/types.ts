@@ -14,6 +14,7 @@ export const SPACE_NODE_TYPES = [
   "AREA",
   "MODULE",
   "ENVIRONMENT",
+  "SUB_ENVIRONMENT",
   "POINT",
 ] as const;
 
@@ -143,16 +144,30 @@ export type SpaceOptions = {
   nodes: SpaceOption[];
 };
 
+export const spaceKindLevels: Record<SpaceKind, number> = {
+  SITE: 1,
+  MACRO_AREA: 2,
+  BUILDING: 2,
+  SECTOR: 3,
+  LEVEL: 4,
+  AREA: 5,
+  MODULE: 6,
+  ENVIRONMENT: 7,
+  SUB_ENVIRONMENT: 8,
+  POINT: 9,
+};
+
 export const spaceKindLabels: Record<SpaceKind, string> = {
-  SITE: "Sede",
-  MACRO_AREA: "Área macro",
-  SECTOR: "Sector",
-  BUILDING: "Edificio",
-  LEVEL: "Nivel",
-  AREA: "Área",
-  MODULE: "Módulo",
-  ENVIRONMENT: "Ambiente",
-  POINT: "Punto específico",
+  SITE: "Sede (Nivel 1)",
+  MACRO_AREA: "Área macro (Nivel 2)",
+  BUILDING: "Edificio (Nivel 2)",
+  SECTOR: "Sector (Nivel 3)",
+  LEVEL: "Nivel / Piso (Nivel 4)",
+  AREA: "Área (Nivel 5)",
+  MODULE: "Módulo (Nivel 6)",
+  ENVIRONMENT: "Ambiente / Espacio (Nivel 7)",
+  SUB_ENVIRONMENT: "Sub-ambiente / Zona (Nivel 8)",
+  POINT: "Punto específico (Nivel 9)",
 };
 
 export const spaceKindCodeHints: Record<SpaceKind, string> = {
@@ -164,19 +179,21 @@ export const spaceKindCodeHints: Record<SpaceKind, string> = {
   AREA: "Ej. FM",
   MODULE: "Ej. M04",
   ENVIRONMENT: "Ej. OF204",
+  SUB_ENVIRONMENT: "Ej. ZON1",
   POINT: "Ej. ESTB",
 };
 
 export const spaceKindDescriptions: Record<SpaceKind, string> = {
-  SITE: "Sede o complejo principal con su ubicación geográfica oficial.",
-  MACRO_AREA: "Bloque operativo, administrativo, comercial, retail o de almacenamiento.",
-  SECTOR: "Unidad organizativa dentro de una macroárea.",
-  BUILDING: "Edificio físico perteneciente a una sede.",
-  LEVEL: "Piso, nivel o planta dentro de un edificio.",
-  AREA: "Área funcional dentro de un nivel, sector o macroárea.",
-  MODULE: "Módulo, estación o unidad funcional identificable.",
-  ENVIRONMENT: "Oficina, almacén, taller o ambiente al que se asignan bienes.",
-  POINT: "Ubicación puntual como un estante, bahía o posición operativa.",
+  SITE: "Sede o complejo principal (Nivel 1 raíz de la infraestructura).",
+  MACRO_AREA: "Área macro (Nivel 2) dentro de una sede.",
+  BUILDING: "Edificio físico (Nivel 2) perteneciente a una sede.",
+  SECTOR: "Sector u organización (Nivel 3) dentro de un área macro o edificio.",
+  LEVEL: "Piso o nivel de planta (Nivel 4) dentro de un edificio o sector.",
+  AREA: "Área funcional (Nivel 5) dentro de un nivel o piso.",
+  MODULE: "Módulo o estación de trabajo (Nivel 6) dentro de un área.",
+  ENVIRONMENT: "Ambiente u oficina específica (Nivel 7) para asignación de bienes.",
+  SUB_ENVIRONMENT: "Sub-ambiente o zona delimitada (Nivel 8) dentro de un ambiente.",
+  POINT: "Punto puntual (Nivel 9) como estante, bahía o posición de trabajo.",
 };
 
 export function isSpaceNodeType(value: string): value is SpaceNodeType {

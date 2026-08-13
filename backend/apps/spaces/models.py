@@ -91,6 +91,7 @@ class SpaceNode(models.Model):
         AREA = "AREA", "Área"
         MODULE = "MODULE", "Módulo"
         ENVIRONMENT = "ENVIRONMENT", "Ambiente"
+        SUB_ENVIRONMENT = "SUB_ENVIRONMENT", "Sub-ambiente o Zona"
         POINT = "POINT", "Punto o ubicación específica"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

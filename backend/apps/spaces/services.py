@@ -29,6 +29,7 @@ ALLOWED_CHILD_TYPES = {
         SpaceNode.Type.AREA,
         SpaceNode.Type.MODULE,
         SpaceNode.Type.ENVIRONMENT,
+        SpaceNode.Type.SUB_ENVIRONMENT,
     },
     SpaceNode.Type.SECTOR: {
         SpaceNode.Type.BUILDING,
@@ -36,28 +37,39 @@ ALLOWED_CHILD_TYPES = {
         SpaceNode.Type.AREA,
         SpaceNode.Type.MODULE,
         SpaceNode.Type.ENVIRONMENT,
+        SpaceNode.Type.SUB_ENVIRONMENT,
     },
     SpaceNode.Type.BUILDING: {
         SpaceNode.Type.LEVEL,
         SpaceNode.Type.AREA,
         SpaceNode.Type.MODULE,
         SpaceNode.Type.ENVIRONMENT,
+        SpaceNode.Type.SUB_ENVIRONMENT,
     },
     SpaceNode.Type.LEVEL: {
         SpaceNode.Type.AREA,
         SpaceNode.Type.MODULE,
         SpaceNode.Type.ENVIRONMENT,
+        SpaceNode.Type.SUB_ENVIRONMENT,
     },
     SpaceNode.Type.AREA: {
         SpaceNode.Type.MODULE,
         SpaceNode.Type.ENVIRONMENT,
+        SpaceNode.Type.SUB_ENVIRONMENT,
         SpaceNode.Type.POINT,
     },
     SpaceNode.Type.MODULE: {
         SpaceNode.Type.ENVIRONMENT,
+        SpaceNode.Type.SUB_ENVIRONMENT,
         SpaceNode.Type.POINT,
     },
-    SpaceNode.Type.ENVIRONMENT: {SpaceNode.Type.POINT},
+    SpaceNode.Type.ENVIRONMENT: {
+        SpaceNode.Type.SUB_ENVIRONMENT,
+        SpaceNode.Type.POINT,
+    },
+    SpaceNode.Type.SUB_ENVIRONMENT: {
+        SpaceNode.Type.POINT,
+    },
     SpaceNode.Type.POINT: set(),
 }
 
@@ -480,13 +492,20 @@ def create_space_node(*, data: dict) -> SpaceNode:
     path_code = _candidate_path(site=site, parent=parent, code_segment=code_segment)
     if SpaceNode.objects.filter(path_code=path_code).exists():
         raise SpatialValidationError({"code_segment": "Ya existe un espacio con esta ruta."})
+    clean_name = normalize_space_text(data["name"])
+    if parent is not None:
+        if SpaceNode.objects.filter(parent=parent, normalized_name=clean_name.casefold()).exists():
+            raise SpatialValidationError({"name": f"Ya existe un espacio con el nombre '{clean_name}' en este nivel."})
+    else:
+        if SpaceNode.objects.filter(site=site, parent__isnull=True, normalized_name=clean_name.casefold()).exists():
+            raise SpatialValidationError({"name": f"Ya existe un espacio raíz con el nombre '{clean_name}' en esta sede."})
     node = SpaceNode(
         site=site,
         parent=parent,
         node_type=node_type,
         code_segment=code_segment,
         path_code=path_code,
-        name=normalize_space_text(data["name"]),
+        name=clean_name,
         square_meters=data.get("square_meters"),
         headcount=data.get("headcount"),
         common_space=data.get("common_space", False),
@@ -542,6 +561,14 @@ def update_space_node(*, instance: SpaceNode, data: dict) -> SpaceNode:
             raise SpatialValidationError(
                 {"node_type": "El nuevo tipo no es compatible con sus espacios hijos."}
             )
+
+    requested_name = normalize_space_text(data.get("name", node.name))
+    if requested_parent is not None:
+        if SpaceNode.objects.filter(parent=requested_parent, normalized_name=requested_name.casefold()).exclude(pk=node.id).exists():
+            raise SpatialValidationError({"name": f"Ya existe otro espacio con el nombre '{requested_name}' en este nivel."})
+    else:
+        if SpaceNode.objects.filter(site=requested_site, parent__isnull=True, normalized_name=requested_name.casefold()).exclude(pk=node.id).exists():
+            raise SpatialValidationError({"name": f"Ya existe otro espacio raíz con el nombre '{requested_name}' en esta sede."})
 
     structural_change = (
         node.site_id != requested_site.id
