@@ -105,7 +105,7 @@ class MaterialSerializer(serializers.ModelSerializer):
             "unidad_medida", "unidad_medida_nombre", "unidad_medida_abreviatura",
             "grosor", "largo", "ubicacion_fisica", "precio", "moneda",
             "codigo_quipu",
-            "tipo_control", "control_individual", "cantidad_total",
+            "tipo_control", "control_individual", "cantidad_total", "stock_minimo",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",
             "unidad_manejo", "unidad_manejo_nombre",

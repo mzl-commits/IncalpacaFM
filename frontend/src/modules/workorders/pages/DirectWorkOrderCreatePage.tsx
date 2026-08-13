@@ -201,7 +201,7 @@ export function DirectWorkOrderCreatePage() {
         administratorNotes: form.administratorNotes.trim(),
         progressPercentage: 0,
       });
-      navigate(`/órdenes-trabajo/${workOrder.id}`);
+      navigate(`/ordenes-trabajo/${workOrder.id}`);
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
       setError(detail || `No se pudo generar la ${orderName} directa.`);

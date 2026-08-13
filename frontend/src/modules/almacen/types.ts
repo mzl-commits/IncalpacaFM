@@ -155,6 +155,7 @@ export interface Material {
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
+  stock_minimo: number;
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
   periodicidad_inspeccion_dias: number;

@@ -1,6 +1,6 @@
 import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { labelPieza } from "@/utils/pieza";
 
@@ -26,6 +26,9 @@ import {
 import type { RenglonSalida, WorkOrderActiva } from "@/modules/almacen/inventarioRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
+import { ResumenCarrito } from "../components/ResumenCarrito";
+import type { ItemCarrito } from "../components/ResumenCarrito";
+import { useAuth } from "@/modules/accounts/AuthContext";
 
 function Field({
   label,
@@ -354,6 +357,56 @@ export function MovimientoFormPage() {
 
   const piezasSueltasDisponibles = piezas.filter((p) => !p.tiene_hijas);
   const estuchesDisponibles = piezas.filter((p) => p.tiene_hijas);
+
+  // ── Carrito unificado (Tareas 1+2) ──────────────────────────────────────
+  // Computa una lista plana de todos los ítems seleccionados (consumibles +
+  // piezas sueltas + estuches) para mostrar el ResumenCarrito. No duplica
+  // estado — deriva de los arrays existentes.
+  const carritoUnificado = useMemo<ItemCarrito[]>(() => {
+    if (tipo !== "salida") return [];
+    const items: ItemCarrito[] = [];
+
+    if (modoSalida === "consumibles") {
+      for (const r of renglones) {
+        if (r.materialId <= 0) continue;
+        const mat = materiales.find((m) => m.id === r.materialId);
+        items.push({
+          tipo: "consumible",
+          id: r.id,
+          materialId: r.materialId,
+          materialLabel: mat ? `${mat.codigo} \u2014 ${mat.nombre}` : `Material #${r.materialId}`,
+          cantidad: r.cantidad,
+          cantidadCajas: r.cantidadCajas,
+          esEmpaque: !!mat?.unidad_manejo_requiere_multiplicador,
+          unidadNombre: mat?.unidad_manejo_nombre ?? null,
+          unidadesPorCaja: mat?.unidades_por_caja ?? null,
+        });
+      }
+    } else {
+      // Piezas sueltas seleccionadas
+      for (const pid of piezasSalidaSeleccionadas) {
+        const p = piezasSueltasDisponibles.find((x) => x.id === pid);
+        items.push({
+          tipo: "pieza_suelta",
+          id: String(pid),
+          piezaId: pid,
+          piezaLabel: p ? p.codigo : `Pieza #${pid}`,
+        });
+      }
+      // Estuches
+      for (const e of estuchesSeleccionados) {
+        items.push({
+          tipo: "pieza",
+          id: e.id,
+          piezaId: e.piezaId,
+          piezaLabel: e.piezaId > 0 ? `Estuche #${e.piezaId}` : "",
+          todasHijas: e.todasHijas,
+          hijasCount: e.todasHijas ? 0 : e.hijasSeleccionadas.size,
+        });
+      }
+    }
+    return items;
+  }, [tipo, modoSalida, renglones, materiales, piezasSalidaSeleccionadas, piezasSueltasDisponibles, estuchesSeleccionados]);
 
   function togglePrestada(id: number) {
     setPrestadasSeleccionadas((prev) => {
@@ -842,6 +895,20 @@ export function MovimientoFormPage() {
                     + Agregar otro material
                   </button>
                 </div>
+
+                {/* Resumen del carrito — consumibles (Tarea 1) */}
+                <ResumenCarrito
+                  items={carritoUnificado}
+                  onQuitarConsumible={quitarRenglon}
+                  onQuitarEstuche={quitarEstuche}
+                  onQuitarPiezaSuelta={(pid) => {
+                    setPiezasSalidaSeleccionadas((prev) => {
+                      const next = new Set(prev);
+                      next.delete(pid);
+                      return next;
+                    });
+                  }}
+                />
               </div>
             ) : (
               /* SI ES ENTRADA / BAJA O SALIDA DE PIEZA INDIVIDUAL */
@@ -1041,6 +1108,22 @@ export function MovimientoFormPage() {
                     )}
                   </>
                 )}
+
+                {/* Resumen del carrito — piezas y estuches (Tarea 1+2) */}
+                {(piezasSalidaSeleccionadas.size > 0 || estuchesSeleccionados.some((e) => e.piezaId > 0)) && (
+                  <ResumenCarrito
+                    items={carritoUnificado}
+                    onQuitarConsumible={quitarRenglon}
+                    onQuitarEstuche={quitarEstuche}
+                    onQuitarPiezaSuelta={(pid) => {
+                      setPiezasSalidaSeleccionadas((prev) => {
+                        const next = new Set(prev);
+                        next.delete(pid);
+                        return next;
+                      });
+                    }}
+                  />
+                )}
               </div>
             )}
 
@@ -1112,8 +1195,9 @@ export function MovimientoFormPage() {
               {tipo === "salida" && (
                 <>
                   <Field label="Vínculo con Orden de Trabajo" wide>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400, fontSize: 13 }}>
+                    <div className="ot-checkbox-row">
                       <input
+                        id="sinOT-check"
                         type="checkbox"
                         checked={sinOT}
                         onChange={(e) => {
@@ -1125,8 +1209,10 @@ export function MovimientoFormPage() {
                           }
                         }}
                       />
-                      Este movimiento no está vinculado a ninguna Orden de Trabajo
-                    </label>
+                      <label htmlFor="sinOT-check">
+                        Este movimiento no está vinculado a ninguna Orden de Trabajo
+                      </label>
+                    </div>
                   </Field>
 
                   {!sinOT && (

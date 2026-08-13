@@ -208,7 +208,7 @@ export function RoutineCleaningOrderCreatePage() {
           progressPercentage: 0,
         });
       }
-      navigate("/órdenes-trabajo?orderType=OL");
+      navigate("/ordenes-trabajo?orderType=OL");
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
       setError(detail || "No se pudo generar la rutina de limpieza.");

@@ -56,6 +56,8 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
         Material.objects.filter(pk=material.pk).update(
             cantidad_total=material.cantidad_total - cantidad
         )
+    nuevo_total = material.cantidad_total - cantidad
+    _check_and_notify_stock_bajo(material, nuevo_total)
     return mov
 
 
@@ -105,6 +107,7 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
     # Notificar si stock queda en 0
     if nuevo_total == 0:
         _notify_zero_stock(material)
+    _check_and_notify_stock_bajo(material, nuevo_total)
     return mov
 
 def registrar_salida_pieza(pieza: Pieza, responsable, referencia_externa="", observaciones="", piezas_hijas_ids=None):
@@ -219,6 +222,40 @@ def registrar_baja_pieza(pieza: Pieza, responsable, observaciones=""):
     # Notificar baja definitiva de pieza a Inspectores + Admin
     _notify_pieza_retirada(pieza, mov)
     return mov
+
+
+def _check_and_notify_stock_bajo(material: "Material", nuevo_total: int) -> None:
+    """Dispara notificación de stock bajo si el nuevo total cae al umbral configurado.
+    Usa deduplicación diaria para no inundar a los administradores."""
+    if material.stock_minimo > 0 and nuevo_total <= material.stock_minimo:
+        _notify_stock_bajo(material, nuevo_total)
+
+
+def _notify_stock_bajo(material: "Material", stock_actual: int) -> None:
+    """Notifica a Administradores cuando el stock de un material cae al umbral mínimo configurado."""
+    try:
+        from apps.notifications.services import queue_for_administrators, daily_discriminator
+        queue_for_administrators(
+            event="STOCK_BAJO",
+            subject=f"Stock bajo: {material.nombre} ({material.codigo})",
+            body=(
+                f"El stock de «{material.nombre}» (código: {material.codigo}) "
+                f"ha bajado a {stock_actual} unidades "
+                f"(umbral configurado: {material.stock_minimo}). "
+                f"Se recomienda revisar la reposición."
+            ),
+            entity=material,
+            context={
+                "materialId": material.id,
+                "materialNombre": material.nombre,
+                "materialCodigo": material.codigo,
+                "stockActual": stock_actual,
+                "stockMinimo": material.stock_minimo,
+            },
+            discriminator=daily_discriminator(f"stock-bajo-{material.id}"),
+        )
+    except Exception:
+        pass  # No bloquear la operación por un fallo de notificación
 
 
 def _notify_pieza_retirada(pieza: "Pieza", movimiento: "Movimiento"):

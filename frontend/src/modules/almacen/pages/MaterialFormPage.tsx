@@ -403,9 +403,23 @@ export function MaterialFormPage() {
                   value={form.unidad_medida || ""}
                   onChange={(e) => set("unidad_medida", Number(e.target.value))}
                 >
-                  {unidadesLongitud.map((u) => (
-                    <option key={u.id} value={u.id}>{u.nombre} ({u.abreviatura})</option>
-                  ))}
+                  {(["longitud", "peso", "volumen", "otro"] as const).map((fam) => {
+                    const grupo = unidadesMedida.filter((u) => u.familia === fam && u.activo);
+                    if (grupo.length === 0) return null;
+                    const labels: Record<string, string> = {
+                      longitud: "Longitud",
+                      peso: "Peso",
+                      volumen: "Volumen",
+                      otro: "Superficie / Otro",
+                    };
+                    return (
+                      <optgroup key={fam} label={labels[fam]}>
+                        {grupo.map((u) => (
+                          <option key={u.id} value={u.id}>{u.nombre} ({u.abreviatura})</option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               </Field>
               <Field label="Grosor / Diámetro" error={errors.grosor}>
@@ -626,6 +640,27 @@ export function MaterialFormPage() {
                         value={form.cantidad_total ?? 0}
                         onChange={(e) =>
                           setForm((prev) => ({ ...prev, cantidad_total: Number(e.target.value) }))
+                        }
+                        placeholder="0"
+                        style={{ maxWidth: 140 }}
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {/* Stock mínimo para alerta — solo para consumibles (no_retornable) */}
+                {form.tipo_control === "no_retornable" && (
+                  <div style={{ marginTop: 12 }}>
+                    <Field
+                      label="Stock mínimo para alerta"
+                      hint="Si el stock baja a esta cantidad o menos, los administradores recibirán una notificación. Usa 0 para desactivar."
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        value={(form as unknown as Record<string, unknown>).stock_minimo as number ?? 0}
+                        onChange={(e) =>
+                          setForm((prev) => ({ ...prev, stock_minimo: Number(e.target.value) }))
                         }
                         placeholder="0"
                         style={{ maxWidth: 140 }}

@@ -44,6 +44,9 @@ export function notificationActionPath(item: EmailNotification): string | null {
   if (item.entityType === "GrupoSolicitud") return `/almacen/movimientos/solicitudes/${item.entityId}`;
   if (item.entityType === "SolicitudMovimiento") return `/almacen/movimientos/solicitudes/${item.entityId}`;
   if (item.entityType === "RetirementRequest") return `/bienes/ciclo-vida/bajas/${item.entityId}`;
+  if (item.entityType === "Material" || item.event === "STOCK_BAJO" || item.event === "STOCK_AGOTADO") {
+    return `/almacen/catalogo/${item.entityId}`;
+  }
   return null;
 }
 

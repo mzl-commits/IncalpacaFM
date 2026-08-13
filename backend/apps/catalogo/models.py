@@ -235,6 +235,10 @@ class Material(models.Model):
 
     # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).
     cantidad_total = models.PositiveIntegerField(default=0)
+    stock_minimo = models.PositiveIntegerField(
+        default=0,
+        help_text="Si el stock cae a este nivel o por debajo se genera una notificación. 0 = desactivado.",
+    )
 
     # Solo aplica a consumibles (control_individual=False). Indica si el stock
     # de este material se maneja contando unidades sueltas o cajas cerradas.
