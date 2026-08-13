@@ -749,7 +749,7 @@ export function MovimientosFormPage() {
                   <option value="">Seleccionar responsable…</option>
                   {usuarios.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {(u as any).nombre || (u as any).full_name || [ (u as any).first_name, (u as any).last_name ].filter(Boolean).join(" ") || u.username}
+                      {(u as any).nombre || (u as any).full_name || [ (u as any).first_name, (u as any).last_name ].filter(Boolean).join(" ") || (u as any).username}
                     </option>
                   ))}
                 </select>
