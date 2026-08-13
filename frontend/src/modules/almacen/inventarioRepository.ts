@@ -11,17 +11,22 @@ export interface MovimientosParams {
   responsable?: number;
 }
 
-export async function listMovimientos(params: MovimientosParams = {}): Promise<Movimiento[]> {
-  const { data } = await api.get<Movimiento[]>("/movimientos/", { params });
+export async function listMovimientos(
+  almacenId: number,
+  params: MovimientosParams = {},
+): Promise<Movimiento[]> {
+  const { data } = await api.get<Movimiento[]>("/movimientos/", {
+    params: { ...params, almacen: almacenId },
+  });
   return data;
 }
 
-export async function listChecklistPrestados(opts: {
-  salio_hoy?: boolean;
-  fecha?: string;
-} = {}): Promise<PiezaPrestada[]> {
+export async function listChecklistPrestados(
+  almacenId: number,
+  opts: { salio_hoy?: boolean; fecha?: string } = {},
+): Promise<PiezaPrestada[]> {
   const { data } = await api.get<PiezaPrestada[]>("/movimientos/checklist-prestados/", {
-    params: opts,
+    params: { ...opts, almacen: almacenId },
   });
   return data;
 }
@@ -138,9 +143,7 @@ export interface SolicitudMovimiento {
   material_codigo: string | null;
   pieza: number | null;
   pieza_codigo: string | null;
-  /** Nombre del tipo de material al que pertenece la pieza (ej. "Martillo") */
   pieza_nombre: string | null;
-  /** Detalle libre de la pieza individual (ej. "Martillo de Juan", código de serie) */
   pieza_detalle: string | null;
   piezas_hijas_ids: number[];
   cantidad: number;
@@ -157,7 +160,6 @@ export interface SolicitudMovimiento {
   motivo_no_entrega: string;
   movimiento: number | null;
 }
-
 
 export interface RespuestaSolicitudPendiente {
   solicitud_id: number;
@@ -228,9 +230,7 @@ export async function descargarExcelMovimientos(materialId?: number): Promise<vo
 
 // ─── Grupos de Solicitudes y OTs Activas (Objetivo 1) ───────────────────────
 
-/** Un renglón de material en el formulario multi-material de salida. */
 export interface RenglonSalida {
-  /** UUID local del renglón (no va al backend) */
   id: string;
   materialId: number;
   cantidad: number;
@@ -324,5 +324,3 @@ export async function resolverParcialGrupoSolicitud(
   );
   return data;
 }
-
-

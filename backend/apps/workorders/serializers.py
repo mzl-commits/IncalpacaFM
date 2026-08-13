@@ -977,8 +977,6 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
 
 class WorkOrderMaterialWriteSerializer(serializers.Serializer):
     """Serializer de escritura para registrar/editar un WorkOrderMaterial."""
-    from apps.catalogo.models import Material as _Material
-
     material = serializers.PrimaryKeyRelatedField(
         queryset=Material.objects.none(),
     )
@@ -991,17 +989,27 @@ class WorkOrderMaterialWriteSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    # NUEVO Fase 7: opcional — si el frontend manda el almacén que el técnico
+    # eligió en el selector, se valida contra el almacén real del material.
+    # Defensa en profundidad, mismo criterio que en Movimiento/Inspeccion:
+    # nunca confiar solo en que el picker del frontend ya filtró bien.
+    almacen = serializers.IntegerField(required=False, allow_null=True, write_only=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from apps.catalogo.models import Material
-        # Sin filtro: se permiten tanto materiales "padre" (estuches completos)
-        # como materiales "hijos" (es_componente=True, piezas específicas de un
-        # estuche). La validación real de stock disponible ocurre en validate().
+        # Sin filtro de almacén en el queryset: se permiten tanto materiales
+        # "padre" (estuches completos) como "hijos" (es_componente=True).
         self.fields["material"].queryset = Material.objects.all()
 
     def validate(self, attrs):
         material = attrs["material"]
+        almacen_id = attrs.pop("almacen", None)
+        if almacen_id is not None and material.almacen_id != almacen_id:
+            raise serializers.ValidationError({
+                "material": "Este material no pertenece al almacén seleccionado."
+            })
+
         cantidad = attrs["cantidad"]
         if material.control_individual:
             from apps.catalogo.models import Pieza

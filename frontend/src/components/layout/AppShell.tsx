@@ -2,7 +2,6 @@ import {
   ArrowRight,
   Barcode,
   CalendarBlank,
-  CalendarPlus,
   CaretDown,
   CaretLeft,
   ChartBar,
@@ -95,16 +94,10 @@ const modules: ModuleGroup[] = [
     paths: ["/almacen"],
     roles: ["ADMINISTRADOR", "ALMACENERO", "INSPECTOR"],
     items: [
-      // Catálogo: visible para todos los roles del grupo
-      { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true, count: "10" },
-      // Almacenero + Admin: gestión de stock
-      { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
-      { to: "/almacen/checklist", label: "Devolución", icon: ListChecks, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
-      // Inspector + Admin: inspección
-      { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
-      { to: "/almacen/plantillas", label: "Plantillas SST", icon: Files, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
-      { to: "/almacen/calendario", label: "Calendario", icon: CalendarBlank, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
-      { to: "/almacen/plan-anual", label: "Plan anual", icon: CalendarPlus, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
+      // Único punto de entrada: pantalla de cards para elegir almacén.
+      // La navegación entre Catálogo/Movimientos/Inspecciones/etc. dentro
+      // de un almacén activo vive ahora en el submenú de AlmacenLayout.
+      { to: "/almacen", label: "Almacenes", icon: ListDashes, end: true },
     ],
   },
   {

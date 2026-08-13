@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { createTechnician, listTechnicians, updateTechnician, type Technician, type TechnicianInput } from "@/modules/accounts/technicianRepository";
 import { listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { listWorkRequests } from "@/modules/incidents/incidentRepository";
+import { listAlmacenes } from "@/modules/almacen/catalogoRepository";
+import type { Almacen } from "@/modules/almacen/types";
 
 const SPECIALTIES = ["Electricista", "Gasfitero", "Carpintero", "Soldador", "Mecanico", "Pintor", "Climatizacion", "Limpieza", "Jardineria", "Multitecnico"];
 const ROLE_OPTIONS: Array<{ value: "TECNICO" | "ALMACENERO" | "INSPECTOR"; label: string }> = [
@@ -11,9 +13,10 @@ const ROLE_OPTIONS: Array<{ value: "TECNICO" | "ALMACENERO" | "INSPECTOR"; label
   { value: "ALMACENERO", label: "Almacenero" },
   { value: "INSPECTOR", label: "Inspector" },
 ];
+const ROLES_CON_ALMACEN: Array<"ALMACENERO" | "INSPECTOR"> = ["ALMACENERO", "INSPECTOR"];
 const emptyForm: TechnicianInput = {
   full_name: "", email: "", worker_code: "", dni: "", specialty: "", position: "",
-  hourly_rate: 0, active: true, temporary_password: "", role: "TECNICO",
+  hourly_rate: 0, active: true, temporary_password: "", role: "TECNICO", almacen: null,
 };
 
 function mondayOf(date: Date) { const value = new Date(date.getFullYear(), date.getMonth(), date.getDate()); value.setDate(value.getDate() - ((value.getDay() + 6) % 7)); return value; }
@@ -34,6 +37,7 @@ function registeredMinutes(order: Awaited<ReturnType<typeof listWorkOrders>>[num
 
 export function TechnicianManagementPage() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [requests, setRequests] = useState<Awaited<ReturnType<typeof listWorkRequests>>>([]);
   const [editing, setEditing] = useState<Technician | null | undefined>();
@@ -43,10 +47,13 @@ export function TechnicianManagementPage() {
   const [error, setError] = useState("");
 
   async function refresh() {
-    const [people, workOrders, workRequests] = await Promise.all([listTechnicians(), listWorkOrders(), listWorkRequests()]);
+    const [people, workOrders, workRequests, warehouses] = await Promise.all([
+      listTechnicians(), listWorkOrders(), listWorkRequests(), listAlmacenes(),
+    ]);
     setTechnicians(people);
     setOrders(workOrders);
     setRequests(workRequests);
+    setAlmacenes(warehouses);
   }
   useEffect(() => { void refresh().catch(() => setError("No se pudo cargar el equipo.")); }, []);
 
@@ -75,6 +82,7 @@ export function TechnicianManagementPage() {
           active: person.active,
           temporary_password: "",
           role: person.role ?? "TECNICO",
+          almacen: person.almacen ?? null,
         }
       : emptyForm);
     setError("");
@@ -82,8 +90,12 @@ export function TechnicianManagementPage() {
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    setSaving(true);
     setError("");
+    if (ROLES_CON_ALMACEN.includes(form.role as "ALMACENERO" | "INSPECTOR") && !form.almacen) {
+      setError("Selecciona un almacén para este rol.");
+      return;
+    }
+    setSaving(true);
     try {
       const input = { ...form, temporary_password: form.temporary_password || undefined };
       if (editing) await updateTechnician(editing.id, input);
@@ -177,6 +189,7 @@ export function TechnicianManagementPage() {
                     <td>
                       {person.position || "Sin cargo"}
                       <small>{person.specialty || "Sin especialidad"}</small>
+                      {person.almacen_nombre && <small>📦 {person.almacen_nombre}</small>}
                     </td>
                     <td>
                       <strong>{assigned.length} OT · {formatHours(planned)}</strong>
@@ -239,6 +252,21 @@ export function TechnicianManagementPage() {
                 {ROLE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
             </label>
+            {ROLES_CON_ALMACEN.includes(form.role as "ALMACENERO" | "INSPECTOR") && (
+              <label className="field">
+                <span>Almacén asignado *</span>
+                <select
+                  value={form.almacen ?? ""}
+                  onChange={(event) => setForm({ ...form, almacen: event.target.value ? Number(event.target.value) : null })}
+                >
+                  <option value="">Selecciona un almacén…</option>
+                  {almacenes.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                  ))}
+                </select>
+                <small>Solo podrá operar sobre este almacén.</small>
+              </label>
+            )}
             <label className="field">
               <span>Cargo / posición</span>
               <input placeholder="Jefe, ayudante, especialista..." value={form.position} onChange={(event) => setForm({ ...form, position: event.target.value })} />

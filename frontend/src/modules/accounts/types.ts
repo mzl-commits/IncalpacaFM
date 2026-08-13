@@ -22,4 +22,6 @@ export interface SystemUser {
   hourlyRate?: number | string;
   mustChangePassword?: boolean;
   active: boolean;
+  almacenId?: number | null;
+  almacenNombre?: string | null;
 }

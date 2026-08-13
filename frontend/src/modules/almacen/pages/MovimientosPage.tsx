@@ -8,6 +8,7 @@ import type { Material, PiezaBase } from "@/modules/almacen/types";
 import { FilterSelect, FilterDate, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+
 import {
   listMovimientos,
   listChecklistPrestados,
@@ -18,6 +19,7 @@ import {
   descargarExcelMovimientos,
 } from "@/modules/almacen/inventarioRepository";
 import { useAuth } from "@/modules/accounts/AuthContext";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 const FILTER_KEYS = ["material", "pieza", "tipo", "desde", "hasta"] as const;
 
@@ -26,6 +28,7 @@ export function MovimientosPage() {
   const qc = useQueryClient();
   const esAdmin = user?.role === "ADMINISTRADOR";
   const esAlmacenero = user?.role === "ALMACENERO";
+  const { almacenId } = useAlmacenActivo();
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
 
   // El campo "Buscar" (values.material) es texto libre (código/nombre de
@@ -36,9 +39,9 @@ export function MovimientosPage() {
   // / `pieza_codigo`, que ya vienen en cada Movimiento (ver `filtrados` más
   // abajo). Esto también evita disparar una consulta por cada tecla escrita.
   const { data: movimientos = [], isLoading } = useQuery({
-    queryKey: ["movimientos", values.pieza, values.tipo],
+    queryKey: ["movimientos", almacenId, values.pieza, values.tipo],
     queryFn: () =>
-      listMovimientos({
+      listMovimientos(almacenId, {
         pieza: values.pieza ? Number(values.pieza) : undefined,
         tipo: values.tipo || undefined,
       }),
@@ -60,10 +63,11 @@ export function MovimientosPage() {
   // devoluciones agrupadas. PiezaBase no trae material_codigo (solo
   // material_nombre), así que se busca acá por el id de material de la pieza.
   const { data: materialesIndex = [] } = useQuery({
-    queryKey: ["materiales"],
-    queryFn: () => listMateriales(),
+    queryKey: ["materiales", almacenId],
+    queryFn: () => listMateriales(almacenId),
     staleTime: 60_000,
   });
+
   const materialesById = useMemo(() => {
     const map = new Map<number, Material>();
     materialesIndex.forEach((m) => map.set(m.id, m));
@@ -72,8 +76,8 @@ export function MovimientosPage() {
 
   // Checklist: piezas prestadas sin devolver (todos los días, no solo hoy)
   const { data: prestadas = [] } = useQuery({
-    queryKey: ["checklist-prestados"],
-    queryFn: () => listChecklistPrestados(),
+    queryKey: ["checklist-prestados", almacenId],
+    queryFn: () => listChecklistPrestados(almacenId),
   });
 
   const hoy = new Date().toISOString().slice(0, 10);

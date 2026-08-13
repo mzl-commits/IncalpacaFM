@@ -16,14 +16,14 @@ def calcular_periodicidad_efectiva(objetivo, periodicidad_base, desde, es_pieza=
     factor = 0.5 if salidas >= UMBRAL_ALTO else 0.75 if salidas >= UMBRAL_MEDIO else 1.0
     return max(round(periodicidad_base * factor), 1)
 
-def construir_materiales_config():
-    """Arma materiales_config desde el catálogo activo: sin control individual
-    va por material; con control individual va por pieza suelta/estuche
-    (las hijas se inspeccionan dentro del checklist del padre).
+def construir_materiales_config(almacen):
+    """Arma materiales_config para UN almacén específico. Fase 6: antes
+    recorría todo el catálogo sin distinguir almacén; ahora 'almacen' es
+    obligatorio (id o instancia de Almacen).
     Usada por el comando plan_anual y por PlanInspeccionAnualViewSet.generar()."""
     from apps.catalogo.models import Material, Pieza
 
-    base = Material.objects.inspeccionables()
+    base = Material.objects.inspeccionables().filter(almacen=almacen)
 
     materiales_config = []
     for material in base.filter(control_individual=False):
@@ -44,10 +44,11 @@ def construir_materiales_config():
     return materiales_config
 
 @transaction.atomic
-def generar_plan_anual(anio, fecha_inicio, materiales_config):
-    """materiales_config: lista de dicts con {"material" o "pieza", "periodicidad_dias"}."""
+def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
+    """materiales_config: lista de dicts con {"material" o "pieza", "periodicidad_dias"}.
+    Fase 6: el plan queda scoped por (anio, almacen); 'almacen' es obligatorio."""
     plan, _ = PlanInspeccionAnual.objects.get_or_create(
-        anio=anio,
+        anio=anio, almacen=almacen,
         defaults={"fecha_inicio": fecha_inicio, "fecha_fin": date(anio, 12, 31)},
     )
 
@@ -65,7 +66,7 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config):
         for item in items:
             ancla = _fecha_ancla(item["material"], item["periodicidad_dias"], False, fecha_inicio)
             creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, material=item["material"],
+                plan=plan, material=item["material"], almacen=almacen,
                 periodicidad_dias=item["periodicidad_dias"],
                 fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
             ))
@@ -74,7 +75,7 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config):
         for item in items:
             ancla = _fecha_ancla(item["pieza"], item["periodicidad_dias"], True, fecha_inicio)
             creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, pieza=item["pieza"],
+                plan=plan, pieza=item["pieza"], almacen=almacen,
                 periodicidad_dias=item["periodicidad_dias"],
                 fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
             ))
@@ -99,6 +100,7 @@ def registrar_inspeccion_completada(programacion, inspeccion, generar_siguiente=
     )
     ProgramacionInspeccion.objects.create(
         plan=programacion.plan, material=programacion.material, pieza=programacion.pieza,
+        almacen=programacion.almacen,  # NUEVO Fase 6: se hereda de la programación que se cierra
         periodicidad_dias=nueva_periodicidad,
         fecha_programada=inspeccion.fecha + timedelta(days=nueva_periodicidad),
     )
@@ -117,13 +119,18 @@ def asegurar_programacion_inicial(material=None, pieza=None):
     filtro = {"pieza": pieza} if pieza else {"material": material}
     if ProgramacionInspeccion.objects.filter(estado="pendiente", **filtro).exists():
         return None
+
+    # El almacén se deriva del material (o del material dueño si es pieza) — nunca se pide como parámetro aparte, para que no se
+    # pueda desalinear del almacén real del objeto.
+    almacen = pieza.material.almacen if pieza else material.almacen
+
     plan_actual, _ = PlanInspeccionAnual.objects.get_or_create(
-        anio=date.today().year,
+        anio=date.today().year, almacen=almacen,
         defaults={"fecha_inicio": date(date.today().year, 1, 1), "fecha_fin": date(date.today().year, 12, 31)},
     )
     periodicidad = (pieza.material if pieza else material).periodicidad_inspeccion_dias
     return ProgramacionInspeccion.objects.create(
-        plan=plan_actual, material=material, pieza=pieza,
+        plan=plan_actual, material=material, pieza=pieza, almacen=almacen,
         periodicidad_dias=periodicidad,
         fecha_programada=date.today() + timedelta(days=periodicidad),
     )

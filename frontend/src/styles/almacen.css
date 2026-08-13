@@ -589,3 +589,89 @@
   .header-actions .btn-secondary,
   .header-actions .btn-primary { width: 100%; }
 }
+
+/* ─── Submenú de navegación dentro de un almacén activo ──────────────────────── */
+.almacen-subnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px 12px; /* padding lateral consistente para primer/último tab */
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e8e8e8;
+  background: #ffffff;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.almacen-subnav::-webkit-scrollbar { display: none; }
+
+/* Botón volver — touch target mínimo 40×40px (WCAG 2.5.5) */
+.almacen-subnav-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.almacen-subnav-back:hover { background: #f3f3f3; color: var(--text); }
+
+.almacen-subnav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--muted);
+  flex-shrink: 0;
+  min-height: 40px; /* touch target vertical */
+}
+.almacen-subnav-item:hover { background: #f6f6f6; color: var(--text); }
+.almacen-subnav-item.is-active {
+  background: var(--primary);
+  color: #ffffff;
+}
+.almacen-subnav-item.is-active svg { color: #ffffff; }
+
+/* Tablet mediano 768-900px: reducir padding horizontal gradualmente */
+@media (max-width: 900px) and (min-width: 769px) {
+  .almacen-subnav { gap: 2px; padding: 8px 10px; }
+  .almacen-subnav-item { padding: 7px 9px; font-size: 12px; gap: 4px; }
+}
+
+/* Tablet angosto 640-768px: padding mínimo antes de colapsar */
+@media (max-width: 768px) and (min-width: 641px) {
+  .almacen-subnav { gap: 1px; padding: 8px 8px; }
+  .almacen-subnav-item { padding: 7px 6px; font-size: 11px; gap: 3px; }
+}
+
+/* Mobile <640px: solo ícono, touch target 40×40px */
+@media (max-width: 640px) {
+  .almacen-subnav { padding: 6px 8px; gap: 2px; }
+  .almacen-subnav-item {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+  .almacen-subnav-item span { display: none; }
+}
+
+/* ─── Imágenes responsivas en ficha de material ───────────────────────────────── */
+/* .foto-preview base: max-width 240px, aspect-ratio 4/3, object-fit cover        */
+/* En mobile se expande al ancho disponible del card sin recortarse.               */
+@media (max-width: 640px) {
+  .foto-preview {
+    max-width: 100%;
+    width: 100%;
+  }
+}

@@ -6,6 +6,7 @@ import {
   Check,
   Spinner,
 } from "@phosphor-icons/react";
+
 import { useEffect, useState } from "react";
 import { getMaterialesHijas, listMateriales } from "@/modules/almacen/catalogoRepository";
 import { Combobox } from "@/modules/almacen/components/shared/Combobox";
@@ -53,7 +54,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
       setMateriales(data);
       setLoading(false);
     });
-    void listMateriales({}).then(setCatalogo);
+    void listMateriales().then(setCatalogo);
   }, [workOrderId]);
 
   // Cada vez que cambia el material elegido, revisa si tiene piezas hijas
@@ -320,7 +321,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
               placeholder="Buscar por nombre, código o marca…"
               onChange={(id) => setForm({ ...form, material: id })}
               fetchOptions={async (q) => {
-                const res = await listMateriales({ q });
+                const res = await listMateriales(undefined, { q });
                 return res.map((c) => ({
                   id: c.id,
                   label: `${c.nombre}${c.marca ? ` · ${c.marca}` : ""}`,

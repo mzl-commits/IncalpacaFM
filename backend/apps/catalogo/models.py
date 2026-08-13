@@ -1,10 +1,27 @@
 from django.db import models
 
+class Almacen(models.Model):
+    nombre = models.CharField(max_length=150)
+    codigo = models.CharField(max_length=20, unique=True)
+    ubicacion = models.CharField(max_length=200, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name_plural = "Almacenes"
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+    
 class Categoria(models.Model):
-    nombre = models.CharField(max_length=100, unique=True)
+    almacen = models.ForeignKey(
+        Almacen,
+        on_delete=models.PROTECT,
+        related_name="categorias",
+    )
+    nombre = models.CharField(max_length=100)
     prefijo = models.CharField(
         max_length=3,
-        unique=True,
         help_text="Prefijo de letras usado en el código de catálogo (ej. H, G, C)."
     )
     descripcion = models.TextField(blank=True)
@@ -12,7 +29,6 @@ class Categoria(models.Model):
         default=True,
         help_text="Si se desactiva, los materiales de esta categoría dejarán de aparecer en préstamos, inspecciones y demás procesos operativos.",
     )
-
     requiere_inspeccion = models.BooleanField(
         default=False,
         help_text="Si está activo, los materiales de esta categoría pueden ser "
@@ -23,6 +39,7 @@ class Categoria(models.Model):
     class Meta:
         verbose_name_plural = "Categorías"
         ordering = ["nombre"]
+        unique_together = [("almacen", "nombre"), ("almacen", "prefijo")]
 
     def __str__(self):
         return f"{self.nombre} ({self.prefijo})"
@@ -100,7 +117,12 @@ class Material(models.Model):
     subcategoria = models.ForeignKey(
         Subcategoria, on_delete=models.PROTECT, related_name="materiales"
     )
-    codigo = models.CharField(max_length=20, unique=True, blank=True)
+    almacen = models.ForeignKey(
+        Almacen,
+        on_delete=models.PROTECT,
+        related_name="materiales",
+    )
+    codigo = models.CharField(max_length=20, blank=True)
     nombre = models.CharField(max_length=150)
     marca = models.CharField(max_length=100, blank=True)
     modelo = models.CharField(
@@ -137,7 +159,16 @@ class Material(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Precio de referencia de este material. Para estuches, es el precio del conjunto completo (no de piezas hijas individuales)."
     )
-    tipo_control = models.CharField(max_length=13, choices=TIPO_CONTROL_CHOICES)
+    MONEDA_CHOICES = [
+        ("PEN", "Soles (PEN)"),
+        ("USD", "Dólares (USD)"),
+    ]
+
+    moneda = models.CharField(
+        max_length=3, choices=MONEDA_CHOICES, blank=True, default="PEN",
+        help_text="Moneda en la que está expresado el precio."
+    )
+    tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
     control_individual = models.BooleanField(default=False)
 
     # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).
@@ -191,6 +222,7 @@ class Material(models.Model):
 
     class Meta:
         ordering = ["codigo"]
+        unique_together = ("almacen", "codigo")
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"

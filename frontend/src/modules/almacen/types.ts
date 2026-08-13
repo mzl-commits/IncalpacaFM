@@ -119,11 +119,20 @@ export const unidadManejoLabels: Record<UnidadManejo, string> = {
 
 export interface Categoria {
   id: number;
+  almacen: number;
   nombre: string;
   prefijo: string;
   descripcion: string;
   activo: boolean;
   requiere_inspeccion: boolean;
+}
+
+export interface Almacen {
+  id: number;
+  nombre: string;
+  codigo: string;
+  ubicacion: string;
+  activo: boolean;
 }
 
 export interface Subcategoria {
@@ -163,6 +172,8 @@ export interface PiezaAnidada {
   detalle?:string;
 }
 
+export type Moneda = "PEN" | "USD";
+
 export interface Material {
   id: number;
   subcategoria: number;
@@ -181,6 +192,7 @@ export interface Material {
   unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio: string | number | null;
+  moneda: Moneda;
   tipo_control: TipoControl;
   control_individual: boolean;
   cantidad_total: number;
@@ -198,6 +210,9 @@ export interface Material {
   unidades_por_caja: number | null;
   activo: boolean;
   creado_en: string;
+
+  almacen: number;
+  almacen_nombre: string;
 }
 
 export interface MaterialDetalle extends Material {
@@ -217,6 +232,7 @@ export interface MaterialCreatePayload {
   unidad_medida: UnidadMedida;
   ubicacion_fisica: string;
   precio?: string | number | null;
+  moneda?: Moneda;
   tipo_control: TipoControl;
   control_individual: boolean;
   periodicidad_valor: number;
@@ -224,6 +240,7 @@ export interface MaterialCreatePayload {
   unidad_manejo?: UnidadManejo;
   unidades_por_caja?: number | string | null;
   cantidad_total?: number;
+  almacen?: number;
   // foto se envía aparte como FormData si existe
 }
 
