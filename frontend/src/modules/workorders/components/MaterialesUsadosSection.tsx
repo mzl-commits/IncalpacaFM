@@ -188,7 +188,6 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
         cantidad: item.cantidad,
         tipo,
         porcentajeRequerido: tipo === "NECESARIO_NO_BLOQUEANTE" ? item.porcentajeRequerido : null,
-        precioUnitario: item.precioUnitario,
       });
       setMateriales((prev) => prev.map((material) => material.id === id ? updated : material));
     } catch {
@@ -263,7 +262,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
                 <strong>{m.materialNombre}</strong>
                 <code style={{ fontSize: 11, marginLeft: 6, color: "var(--muted)" }}>{m.materialCodigo}</code>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                  {m.clasificacionOperativaLabel} Â· {m.tipoLabel}
+                  {m.clasificacionOperativaLabel || "Material"} · {m.tipoLabel}
                   {m.tipo === "NECESARIO_NO_BLOQUEANTE" && m.porcentajeRequerido !== null && (
                     <span style={{ fontWeight: 600, color: "var(--brand-primary, #0056b3)", marginLeft: 6 }}>
                       (Requerido al {m.porcentajeRequerido}% de avance)

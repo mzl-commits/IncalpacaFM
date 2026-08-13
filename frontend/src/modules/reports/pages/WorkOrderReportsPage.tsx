@@ -64,12 +64,11 @@ export function WorkOrderReportsPage() {
         material: item.material,
         cantidad: item.cantidad,
         tipo: item.tipo,
-        porcentajeRequerido: item.porcentajeRequerido,
         precioUnitario: rawPrice === "" ? null : Number(rawPrice),
       });
       setMaterials((current) => current.map((entry) => entry.id === item.id ? updated : entry));
       refreshOrderData();
-      setMessage("Precio unitario actualizado y costo recalculado automÃ¡ticamente.");
+      setMessage("Precio unitario actualizado y costo recalculado automáticamente.");
     } catch {
       setMessage("No se pudo actualizar el precio unitario del material.");
     }
@@ -79,7 +78,7 @@ export function WorkOrderReportsPage() {
     if (!selectedId || editingAmounts[costId] === undefined) return;
     try {
       const updated = await updateWorkOrderCostAmount(selectedId, costId, editingAmounts[costId] === "" ? null : Number(editingAmounts[costId]));
-      setCosts((current) => current.map((item) => item.id === costId ? updated : item));
+      setCosts((current) => current.map((item) => item.id === costId ? (updated as unknown as WorkOrderCost) : item));
     } catch { setMessage("No se pudo actualizar el importe del costo."); }
   }
 
@@ -142,7 +141,7 @@ function CostTable({ costs, editingAmounts, onEdit, onSave }: { costs: WorkOrder
 
 function MaterialUsageTable({ items, costs, editingPrices, onEditPrice, onSavePrice, showPrice = false }: { items: WorkOrderMaterial[]; costs: WorkOrderCost[]; editingPrices: Record<string, string>; onEditPrice: (value: Record<string, string>) => void; onSavePrice: (item: WorkOrderMaterial) => void; showPrice?: boolean }) {
   return <div className="table-scroll"><table><thead><tr><th>Elemento</th><th>Uso</th><th>Cantidad</th>{showPrice && <><th>Precio unitario</th><th>Costo calculado</th></>}</tr></thead><tbody>{items.length ? items.map((item) => {
-    const cost = costs.find((entry) => entry.sourceMaterial === item.material);
-    return <tr key={item.id}><td><strong>{item.materialNombre}</strong><small>{item.clasificacionOperativaLabel}</small></td><td>{item.tipoLabel}</td><td>{item.cantidad}</td>{showPrice && <><td><span>S/ </span><input type="number" min="0" step="0.01" value={editingPrices[item.id] ?? item.precioUnitario ?? ""} onChange={(event) => onEditPrice({ ...editingPrices, [item.id]: event.target.value })} onBlur={() => void onSavePrice(item)} aria-label={`Precio unitario de ${item.materialNombre}`}/></td><td>{cost?.amount === null ? "Sin precio" : `S/ ${Number(cost?.amount || 0).toFixed(2)}`}</td></>}</tr>;
-  }) : <tr><td colSpan={showPrice ? 5 : 3} className="empty-row">No hay registros en esta categorÃ­a.</td></tr>}</tbody></table></div>;
+    const cost = costs.find((entry) => entry.description.includes(item.materialNombre));
+    return <tr key={item.id}><td><strong>{item.materialNombre}</strong><small>{item.clasificacionOperativaLabel || "Material"}</small></td><td>{item.tipoLabel}</td><td>{item.cantidad}</td>{showPrice && <><td><span>S/ </span><input type="number" min="0" step="0.01" value={editingPrices[item.id] ?? (item.precioUnitario as string) ?? ""} onChange={(event) => onEditPrice({ ...editingPrices, [item.id]: event.target.value })} onBlur={() => void onSavePrice(item)} aria-label={`Precio unitario de ${item.materialNombre}`}/></td><td>{cost?.amount === null ? "Sin precio" : `S/ ${Number(cost?.amount || 0).toFixed(2)}`}</td></>}</tr>;
+  }) : <tr><td colSpan={showPrice ? 5 : 3} className="empty-row">No hay registros en esta categoría.</td></tr>}</tbody></table></div>;
 }

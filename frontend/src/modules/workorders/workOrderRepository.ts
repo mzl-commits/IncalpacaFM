@@ -18,8 +18,14 @@ export async function listWorkOrders(): Promise<WorkOrder[]> {
 }
 
 export type WorkOrderCreatePayload = Partial<Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">> & {
+  title?: string;
+  description?: string;
+  type?: string;
+  priority?: string;
+  assetName?: string;
   technicianWorkerCode?: string;
   technicianWorkerCodes?: string[];
+  supervisorWorkerCode?: string;
   directRequestDescription?: string;
   directRequestType?: string;
   directAssetId?: string | null;

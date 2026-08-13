@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import type { UserRole } from "./types";
 
 export type Technician = {
   id: string;
@@ -10,9 +11,9 @@ export type Technician = {
   position: string;
   hourly_rate: number;
   active: boolean;
-  role: "TECNICO" | "ALMACENERO" | "INSPECTOR";
-  almacen: number | null;
-  almacen_nombre: string | null;
+  role: UserRole;
+  almacen?: number | null;
+  almacen_nombre?: string | null;
 };
 
 export type TechnicianInput = Omit<Technician, "id" | "almacen_nombre"> & { temporary_password?: string };
@@ -31,6 +32,10 @@ export async function updateTechnician(id: string, input: Partial<TechnicianInpu
   const { data } = await api.patch<Technician>(`/technicians/${id}/`, input);
   return data;
 }
+
+export const listManagedUsers = listTechnicians;
+export const createManagedUser = createTechnician;
+export const updateManagedUser = updateTechnician;
 
 export async function notifyTechnician(id: string, input: { template: "REMINDER" | "TRACEABILITY" | "SCHEDULE" | "CUSTOM"; deliveryChannel: "SISTEMA" | "CORREO"; subject?: string; body?: string }) {
   const { data } = await api.post<{ detail: string }>(`/technicians/${id}/notifications/`, input);

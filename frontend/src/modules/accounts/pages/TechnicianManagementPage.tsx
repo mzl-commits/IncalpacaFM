@@ -183,7 +183,7 @@ export function TechnicianManagementPage() {
                     </td>
                     <td>
                       <span className={`status ${person.role === "ALMACENERO" ? "status-info" : person.role === "INSPECTOR" ? "status-warning" : "status-neutral"}`}>
-                        {roleLabel(person.role ?? "TECNICO")}
+                        {roleLabel((person.role as "TECNICO" | "ALMACENERO" | "INSPECTOR") ?? "TECNICO")}
                       </span>
                     </td>
                     <td>

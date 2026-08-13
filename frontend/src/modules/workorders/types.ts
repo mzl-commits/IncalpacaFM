@@ -89,3 +89,14 @@ export interface WorkOrder {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface WorkOrderMaterial {
+  id: string;
+  materialId?: string;
+  materialNombre?: string;
+  cantidad: number;
+  precioUnitario?: number | string | null;
+  clasificacionOperativa?: string;
+  clasificacionOperativaLabel?: string;
+  createdAt?: string;
+}

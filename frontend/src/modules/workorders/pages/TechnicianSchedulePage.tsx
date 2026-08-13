@@ -196,6 +196,8 @@ export function TechnicianSchedulePage() {
         hourly_rate: 0,
         active: true,
         role: "TECNICO",
+        almacen: null,
+        almacen_nombre: null,
       });
     });
     return [...catalog.values()].sort((left, right) => left.full_name.localeCompare(right.full_name));
