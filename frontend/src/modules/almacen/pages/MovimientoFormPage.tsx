@@ -749,7 +749,7 @@ export function MovimientosFormPage() {
                   <option value="">Seleccionar responsable…</option>
                   {usuarios.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}`.trim() : u.username}
+                      {(u as any).nombre || (u as any).full_name || [ (u as any).first_name, (u as any).last_name ].filter(Boolean).join(" ") || u.username}
                     </option>
                   ))}
                 </select>
@@ -761,7 +761,7 @@ export function MovimientosFormPage() {
                     <option value="">Sin orden de trabajo asociada</option>
                     {otsActivas.map((o) => (
                       <option key={o.id} value={o.id}>
-                        {o.code} — {o.description || "Sin descripción"}
+                        {o.code} — {(o as any).description || (o as any).descripcion || "Sin descripción"}
                       </option>
                     ))}
                   </select>

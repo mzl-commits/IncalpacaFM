@@ -1,6 +1,6 @@
 import { Plus, MagnifyingGlass, Funnel, ArrowClockwise } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
@@ -11,33 +11,47 @@ export function MovimientosPage() {
   const { almacenId } = useAlmacenActivo();
   const [q, setQ] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimiento | "todos">("todos");
-  const [pagina, setPagina] = useState(1);
 
   const {
-    data: movimientosData,
+    data: movimientos,
     isLoading,
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["movimientos", almacenId, tipoFiltro, q, pagina],
+    queryKey: ["movimientos", almacenId, tipoFiltro],
     queryFn: () =>
-      listMovimientos({
-        almacenId,
+      listMovimientos(almacenId, {
         tipo: tipoFiltro === "todos" ? undefined : tipoFiltro,
-        q,
-        page: pagina,
       }),
     enabled: !!almacenId,
   });
 
-  const lista = Array.isArray(movimientosData)
-    ? movimientosData
-    : movimientosData?.results ?? [];
+  // La API no soporta búsqueda por texto en el backend, así que filtramos en el cliente.
+  const lista = useMemo(() => {
+    const base = movimientos ?? [];
+    if (!q.trim()) return base;
+
+    const term = q.trim().toLowerCase();
+    return base.filter((mov: any) => {
+      const campos = [
+        mov.material_codigo,
+        mov.material_nombre,
+        mov.pieza_codigo,
+        mov.pieza_nombre,
+        mov.referencia_externa,
+        mov.work_order_code,
+      ];
+      return campos.some((campo) => campo?.toString().toLowerCase().includes(term));
+    });
+  }, [movimientos, q]);
 
   return (
     <section className="page-container">
       {/* Header */}
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div
+        className="page-header"
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}
+      >
         <div>
           <p className="breadcrumb">Almacén / Movimientos</p>
           <h1 style={{ margin: 0 }}>Historial de Movimientos</h1>
@@ -54,16 +68,16 @@ export function MovimientosPage() {
       {/* Controles y Filtros */}
       <div className="filter-bar" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         <div style={{ flex: 1, minWidth: 260, position: "relative" }}>
-          <MagnifyingGlass size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+          <MagnifyingGlass
+            size={16}
+            style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }}
+          />
           <input
             type="search"
             className="input-search"
             placeholder="Buscar por código, material o referencia..."
             value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPagina(1);
-            }}
+            onChange={(e) => setQ(e.target.value)}
             style={{ paddingLeft: 36, width: "100%" }}
           />
         </div>
@@ -72,10 +86,7 @@ export function MovimientosPage() {
           <Funnel size={16} style={{ color: "var(--muted)" }} />
           <select
             value={tipoFiltro}
-            onChange={(e) => {
-              setTipoFiltro(e.target.value as TipoMovimiento | "todos");
-              setPagina(1);
-            }}
+            onChange={(e) => setTipoFiltro(e.target.value as TipoMovimiento | "todos")}
             style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
           >
             <option value="todos">Todos los tipos</option>
@@ -96,9 +107,14 @@ export function MovimientosPage() {
       </div>
 
       {/* Tabla de Movimientos */}
-      <div className="table-container" style={{ background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
+      <div
+        className="table-container"
+        style={{ background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}
+      >
         {isLoading ? (
-          <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>Cargando historial de movimientos...</div>
+          <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>
+            Cargando historial de movimientos...
+          </div>
         ) : lista.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>
             No se encontraron movimientos registrados con los filtros aplicados.
@@ -144,12 +160,18 @@ export function MovimientosPage() {
                     </td>
                     <td style={{ padding: "12px 16px" }}>
                       <strong>{mov.material_codigo || mov.pieza_codigo || "—"}</strong>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{mov.material_nombre || mov.pieza_nombre || "—"}</div>
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                        {mov.material_nombre || mov.pieza_nombre || "—"}
+                      </div>
                     </td>
                     <td style={{ padding: "12px 16px", fontWeight: 600 }}>
-                      {mov.cantidad_cajas ? `${mov.cantidad_cajas} caja(s)` : `${mov.cantidad ?? 1} u.`}
+                      {mov.cantidad_cajas
+                        ? `${mov.cantidad_cajas} caja(s)`
+                        : `${mov.cantidad ?? 1} u.`}
                     </td>
-                    <td style={{ padding: "12px 16px" }}>{mov.responsable_nombre || mov.usuario_nombre || "—"}</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      {mov.responsable_nombre || mov.usuario_nombre || "—"}
+                    </td>
                     <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--muted)" }}>
                       {mov.referencia_externa || mov.work_order_code || "—"}
                     </td>
