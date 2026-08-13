@@ -6,6 +6,7 @@ import {
   spaceKindCodeHints,
   spaceKindDescriptions,
   spaceKindLabels,
+  spaceKindLevels,
   type SpaceNodeType,
 } from "../types";
 
@@ -64,7 +65,20 @@ export function SpaceSiteForm({ site, busy = false, submitLabel, onSubmit }: Spa
       return;
     }
     setError("");
-    await onSubmit({ code: normalizedCode, name: name.trim(), address });
+    try {
+      await onSubmit({ code: normalizedCode, name: name.trim(), address });
+    } catch (err: any) {
+      if (err?.response?.data) {
+        const data = err.response.data;
+        const msg = data.code ? (Array.isArray(data.code) ? data.code[0] : data.code)
+          : data.name ? (Array.isArray(data.name) ? data.name[0] : data.name)
+          : data.detail ? String(data.detail)
+          : "No se pudo guardar la sede. Revisa los datos e inténtalo nuevamente.";
+        setError(msg);
+      } else {
+        setError("No se pudo guardar la sede. Verifica la conexión.");
+      }
+    }
   }
 
   return (
@@ -173,6 +187,7 @@ export function SpaceNodeForm({
   }, [allowedNodeTypes, nodeType]);
 
   const chosenParent = useMemo(() => parentOptions.find((item) => item.id === parentId) ?? null, [parentId, parentOptions]);
+  const currentLevel = spaceKindLevels[selectedType] ?? 2;
 
   function changeSite(value: string) {
     setSiteId(value);
@@ -191,7 +206,11 @@ export function SpaceNodeForm({
     const capacity = decimalValue(headcount);
     const normalizedCode = codeSegment.trim().toUpperCase();
     if (!siteId) {
-      setError("Selecciona la sede a la que pertenece el espacio.");
+      setError("Selecciona la sede (Nivel 1) a la que pertenece el espacio.");
+      return;
+    }
+    if (currentLevel >= 3 && !parentId) {
+      setError(`Para crear un espacio de Nivel ${currentLevel} (${spaceKindLabels[selectedType]}) debes seleccionar un espacio padre de nivel superior.`);
       return;
     }
     if (!allowedNodeTypes.some((option) => option.value === nodeType)) {
@@ -215,31 +234,49 @@ export function SpaceNodeForm({
       return;
     }
     setError("");
-    await onSubmit({
-      siteId,
-      parentId,
-      nodeType,
-      codeSegment: normalizedCode,
-      name: name.trim(),
-      // These attributes are valid for every SpaceNode in the current API.
-      // Keep them editable so a type change never silently erases prior data.
-      squareMeters: area,
-      headcount: capacity,
-      commonSpace,
-    });
+    try {
+      await onSubmit({
+        siteId,
+        parentId,
+        nodeType,
+        codeSegment: normalizedCode,
+        name: name.trim(),
+        squareMeters: area,
+        headcount: capacity,
+        commonSpace,
+      });
+    } catch (err: any) {
+      if (err?.response?.data) {
+        const data = err.response.data;
+        const msg = data.name ? (Array.isArray(data.name) ? data.name[0] : data.name)
+          : data.code_segment ? (Array.isArray(data.code_segment) ? data.code_segment[0] : data.code_segment)
+          : data.parent_id ? (Array.isArray(data.parent_id) ? data.parent_id[0] : data.parent_id)
+          : data.detail ? String(data.detail)
+          : "No se pudo guardar el espacio. Revisa los datos e inténtalo nuevamente.";
+        setError(msg);
+      } else {
+        setError("No se pudo guardar el espacio. Verifica la conexión.");
+      }
+    }
   }
 
   return (
     <form className="space-form surface-card" onSubmit={(event) => void submit(event)}>
       <section>
         <header>
-          <span>Jerarquía espacial</span>
-          <h2>{node ? "Datos del espacio" : "Nuevo espacio"}</h2>
-          <p>El tipo permitido se consulta al servidor según la sede y el padre seleccionados.</p>
+          <span>Jerarquía espacial (9 Niveles)</span>
+          <h2>{node ? "Datos del espacio" : `Crear espacio · Nivel ${currentLevel}`}</h2>
+          <p>Los tipos y jerarquías van encadenados desde la Sede (Nivel 1) hasta el Punto específico (Nivel 9).</p>
         </header>
+        {sites.length === 0 && !sitesQuery.isPending && (
+          <div className="space-form-feedback is-error" style={{ marginBottom: "1rem" }}>
+            <WarningCircle weight="fill" />
+            <span>No hay sedes (Nivel 1) registradas. Para crear espacios de Nivel 2 a 9 debes registrar primero una Sede.</span>
+          </div>
+        )}
         <div className="space-form-grid">
           <label>
-            <span>Sede <b>*</b></span>
+            <span>Sede (Nivel 1) <b>*</b></span>
             <select value={siteId} onChange={(event) => changeSite(event.target.value)} required>
               <option value="">Selecciona una sede</option>
               {sites.map((site) => <option key={site.id} value={site.id}>{site.code} · {site.name}</option>)}
@@ -249,13 +286,13 @@ export function SpaceNodeForm({
           <label>
             <span>Padre dentro de la sede</span>
             <select value={parentId ?? ""} onChange={(event) => changeParent(event.target.value)} disabled={!siteId}>
-              <option value="">Raíz de la sede</option>
+              <option value="">Raíz de la sede (Nivel 1)</option>
               {parentOptions.filter((item) => item.id !== node?.id).map((parent) => <option key={parent.id} value={parent.id}>{parent.pathCode} · {parent.name}</option>)}
             </select>
-            {chosenParent && <small>Se creará dentro de: {chosenParent.pathCode}</small>}
+            {chosenParent ? <small>Se creará bajo: {chosenParent.pathCode}</small> : <small>Espacio de Nivel 2 directo en la Sede.</small>}
           </label>
           <label>
-            <span>Tipo de espacio <b>*</b></span>
+            <span>Tipo de espacio (Nivel {currentLevel}) <b>*</b></span>
             <select value={nodeType} onChange={(event) => setNodeType(event.target.value as SpaceNodeType)} disabled={!siteId || optionsQuery.isPending} required>
               {allowedNodeTypes.length ? allowedNodeTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>) : <option value="">{siteId ? "Sin tipos disponibles" : "Selecciona la sede"}</option>}
             </select>

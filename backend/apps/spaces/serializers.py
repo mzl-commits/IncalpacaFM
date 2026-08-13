@@ -36,7 +36,13 @@ class FacilitySiteSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "active", "created_at", "updated_at")
 
     def validate_code(self, value):
-        return value.strip().upper()
+        normalized = value.strip().upper()
+        qs = FacilitySite.objects.filter(code__iexact=normalized)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("Ya existe otra sede registrada con este código.")
+        return normalized
 
     def to_internal_value(self, data):
         normalized = data.copy()
@@ -48,6 +54,11 @@ class FacilitySiteSerializer(serializers.ModelSerializer):
         value = " ".join(value.split())
         if not value:
             raise serializers.ValidationError("Ingresa el nombre de la sede.")
+        qs = FacilitySite.objects.filter(normalized_name=value.casefold())
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("Ya existe otra sede registrada con este nombre.")
         return value
 
     @extend_schema_field(OpenApiTypes.STR)

@@ -414,3 +414,46 @@ class SpatialApiTests(TestCase):
         )
         self.assertEqual(cycle.status_code, 400)
         self.assertIn("parent_id", cycle.json())
+
+    def test_site_and_node_uniqueness_and_sub_environment_support(self):
+        self.authenticate_admin()
+        site1 = self.create_site(code="INC1", name="Sede Principal")
+
+        # Intentar crear sede con código o nombre duplicado debe fallar
+        dup_code = self.client.post(
+            "/api/v1/spaces/sites/",
+            {"code": "inc1", "name": "Sede Alterna"},
+            format="json",
+        )
+        self.assertEqual(dup_code.status_code, 400)
+        self.assertIn("code", dup_code.json())
+
+        dup_name = self.client.post(
+            "/api/v1/spaces/sites/",
+            {"code": "INC2", "name": "Sede principal"},
+            format="json",
+        )
+        self.assertEqual(dup_name.status_code, 400)
+        self.assertIn("name", dup_name.json())
+
+        # Crear macroárea (N2)
+        macro = self.create_node(site1["id"], node_type=SpaceNode.Type.MACRO_AREA, code="AD", name="Administración")
+        self.assertEqual(macro.status_code, 201)
+
+        # Nombre duplicado en el mismo nivel debe fallar
+        dup_macro = self.create_node(site1["id"], node_type=SpaceNode.Type.MACRO_AREA, code="AD2", name="administración")
+        self.assertEqual(dup_macro.status_code, 400)
+        self.assertIn("name", dup_macro.json())
+
+        # Crear jerarquía hasta Sub-ambiente (N8) y Punto (N9)
+        env = self.create_node(site1["id"], parent_id=macro.json()["id"], node_type=SpaceNode.Type.ENVIRONMENT, code="OF1", name="Oficina Principal")
+        self.assertEqual(env.status_code, 201)
+
+        sub_env = self.create_node(site1["id"], parent_id=env.json()["id"], node_type=SpaceNode.Type.SUB_ENVIRONMENT, code="ZON1", name="Zona de Impresión")
+        self.assertEqual(sub_env.status_code, 201, sub_env.json())
+        self.assertEqual(sub_env.json()["node_type"], "SUB_ENVIRONMENT")
+
+        point = self.create_node(site1["id"], parent_id=sub_env.json()["id"], node_type=SpaceNode.Type.POINT, code="EST1", name="Estante A")
+        self.assertEqual(point.status_code, 201, point.json())
+        self.assertEqual(point.json()["node_type"], "POINT")
+
