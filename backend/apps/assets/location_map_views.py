@@ -19,9 +19,9 @@ from apps.audit.services import record_audit
 
 from .location_map_serializers import (
     BuildingAreaUpdateSerializer,
+    LocationAreaUpdateSerializer,
     LocationMapSummarySerializer,
     LocationMapUploadSerializer,
-    LocationAreaUpdateSerializer,
     LocationSerializer,
 )
 from .models import BuildingArea, Location, LocationMap
@@ -75,15 +75,22 @@ class LocationAreaUpdateView(generics.UpdateAPIView):
     def perform_update(self, serializer):
         location = self.get_object()
         previous_area = location.square_meters
-        updated = serializer.save()
-        record_audit(
-            request=self.request,
-            action="LOCATION_AREA_UPDATED",
-            entity="Location",
-            entity_id=updated.id,
-            before={"square_meters": str(previous_area) if previous_area is not None else None},
-            after={"square_meters": str(updated.square_meters) if updated.square_meters is not None else None},
-        )
+        with transaction.atomic():
+            updated = serializer.save()
+            # Si la ubicación procede del árbol nuevo, el endpoint legado sigue
+            # siendo compatible pero no deja los m² fuera de sincronía.
+            if updated.space_node_id:
+                from apps.spaces.services import sync_node_capacity_from_legacy_location
+
+                sync_node_capacity_from_legacy_location(updated)
+            record_audit(
+                request=self.request,
+                action="LOCATION_AREA_UPDATED",
+                entity="Location",
+                entity_id=updated.id,
+                before={"square_meters": str(previous_area) if previous_area is not None else None},
+                after={"square_meters": str(updated.square_meters) if updated.square_meters is not None else None},
+            )
 
 
 class BuildingAreaUpdateView(APIView):
@@ -103,6 +110,10 @@ class BuildingAreaUpdateView(APIView):
         serializer = BuildingAreaUpdateSerializer(building_area, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         updated = serializer.save()
+        if location.space_node_id:
+            from apps.spaces.services import sync_building_node_capacity_from_legacy_location
+
+            sync_building_node_capacity_from_legacy_location(location)
         record_audit(
             request=request,
             action="BUILDING_AREA_UPDATED",

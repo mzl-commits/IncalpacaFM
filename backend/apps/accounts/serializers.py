@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import AccountProfile, AccountWorkerCode
 
+
 def normalize_employee_dni(value):
     digits = "".join(char for char in str(value or "") if char.isdigit())
     if len(digits) != 8:

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
+from apps.catalogo.models import Categoria, Material, Pieza, Subcategoria
 
 
 @admin.register(Categoria)

@@ -1,7 +1,9 @@
 from django.contrib import admin
-from apps.inspeccion.models import PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio
-from django.contrib import admin
+
+from apps.inspeccion.models import Criterio, Inspeccion, PlantillaCriterio, RespuestaCriterio
+
 from .models import PlanInspeccionAnual, ProgramacionInspeccion
+
 
 class CriterioInline(admin.TabularInline):
     model = Criterio

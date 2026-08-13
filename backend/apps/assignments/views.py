@@ -1,9 +1,8 @@
 
-from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import generics, response, serializers, status, views
-
 from django.db import transaction
 from django.db.models import Count, Q
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, response, serializers, status, views
 
 from apps.accounts.permissions import (
     IsAdministrator,

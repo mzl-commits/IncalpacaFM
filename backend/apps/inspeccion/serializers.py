@@ -1,12 +1,15 @@
-from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from rest_framework import serializers
 
 from apps.inspeccion.models import (
-    PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
-    PlanInspeccionAnual, ProgramacionInspeccion,
+    Criterio,
+    Inspeccion,
+    PlanInspeccionAnual,
+    PlantillaCriterio,
+    ProgramacionInspeccion,
+    RespuestaCriterio,
 )
-
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -98,14 +101,18 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
         apta = data.get("cantidad_apta")
         no_apta = data.get("cantidad_no_apta")
         inspeccionada = data.get("cantidad_inspeccionada")
-        if apta is not None and no_apta is not None and inspeccionada is not None:
-            if apta + no_apta != inspeccionada:
-                raise serializers.ValidationError({
-                    "cantidad_inspeccionada": (
-                        f"No cuadra: {apta} aptas + {no_apta} no aptas "
-                        f"debería ser igual a {inspeccionada}."
-                    )
-                })
+        if (
+            apta is not None
+            and no_apta is not None
+            and inspeccionada is not None
+            and apta + no_apta != inspeccionada
+        ):
+            raise serializers.ValidationError({
+                "cantidad_inspeccionada": (
+                    f"No cuadra: {apta} aptas + {no_apta} no aptas "
+                    f"debería ser igual a {inspeccionada}."
+                )
+            })
 
         # La inspeccionabilidad la decide la categoría/subcategoría (requiere_inspeccion +
         # plantilla_inspeccion), no tipo_control: un material no_retornable pero instalado

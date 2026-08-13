@@ -36,6 +36,16 @@ class AuthenticationAndRbacTests(TestCase):
         response = self.client.post("/api/v1/assets/", {}, format="json")
         self.assertEqual(response.status_code, 403)
 
+    def test_user_directory_requires_authentication(self):
+        anonymous = self.client.get("/api/v1/users/")
+        self.assertEqual(anonymous.status_code, 401)
+
+        technician = get_user_model().objects.get(username="tecnico")
+        self.client.force_authenticate(technician)
+        response = self.client.get("/api/v1/users/")
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertTrue(any(item["worker_code"] == "admin" for item in response.json()))
+
     def test_administrator_can_manage_technician_profiles(self):
         administrator = get_user_model().objects.get(username="admin")
         self.client.force_authenticate(administrator)

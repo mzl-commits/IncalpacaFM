@@ -2,9 +2,9 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import generics, permissions, response, serializers, status, views
 
 from apps.accounts.permissions import IsAdministrator
+from apps.assets.models import AssetAssignment
 
 from .models import ReporterProfile
-from apps.assets.models import AssetAssignment
 from .serializers import ReporterProfileSerializer
 
 

@@ -1,14 +1,15 @@
-from rest_framework import serializers
-from apps.inventario.models import Movimiento
-from apps.catalogo.models import Material, Pieza
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
+
+from apps.catalogo.models import Material, Pieza
+from apps.inventario.models import Movimiento
 from apps.inventario.services import (
-    registrar_salida_material,
-    registrar_salida_pieza,
-    registrar_entrada_material,
-    registrar_entrada_pieza,
     registrar_baja_material,
     registrar_baja_pieza,
+    registrar_entrada_material,
+    registrar_entrada_pieza,
+    registrar_salida_material,
+    registrar_salida_pieza,
 )
 
 User = get_user_model()
@@ -273,9 +274,11 @@ class SolicitudMovimientoCreateSerializer(serializers.ModelSerializer):
         if tipo in (SolicitudMovimiento.Tipo.SALIDA_MATERIAL, SolicitudMovimiento.Tipo.BAJA_MATERIAL):
             if not material:
                 raise serializers.ValidationError({"material": "Requerido para este tipo de solicitud."})
-        elif tipo in (SolicitudMovimiento.Tipo.SALIDA_PIEZA, SolicitudMovimiento.Tipo.BAJA_PIEZA):
-            if not pieza:
-                raise serializers.ValidationError({"pieza": "Requerido para este tipo de solicitud."})
+        elif (
+            tipo in (SolicitudMovimiento.Tipo.SALIDA_PIEZA, SolicitudMovimiento.Tipo.BAJA_PIEZA)
+            and not pieza
+        ):
+            raise serializers.ValidationError({"pieza": "Requerido para este tipo de solicitud."})
         return attrs
 
 

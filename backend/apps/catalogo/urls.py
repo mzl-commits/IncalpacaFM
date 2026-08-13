@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 
-from apps.catalogo.views import CategoriaViewSet, SubcategoriaViewSet, MaterialViewSet, PiezaViewSet
+from apps.catalogo.views import CategoriaViewSet, MaterialViewSet, PiezaViewSet, SubcategoriaViewSet
 
 router = DefaultRouter()
 router.register("categorias", CategoriaViewSet)

@@ -1,9 +1,11 @@
+import uuid
+
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.catalogo.models import Material, Pieza
 from apps.inventario.models import Movimiento
-import uuid
+
 
 def _sincronizar_estado_contenedor(contenedor: Pieza):
     """Recalcula el estado del contenedor según sus hijas activas (no-Baja):

@@ -8,8 +8,8 @@ from .facility_plan_views import (
 )
 from .location_map_views import (
     BuildingAreaUpdateView,
-    LocationListView,
     LocationAreaUpdateView,
+    LocationListView,
     LocationMapDeactivateView,
     LocationMapImageView,
     LocationMapListCreateView,

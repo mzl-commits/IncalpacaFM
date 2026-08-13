@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Modal } from "@/components/shared/Modal";
 import { CategoriaSubcategoriaManager } from "@/components/shared/CategoriaSubcategoriaManager";
 import { Field } from "@/modules/almacen/components/shared/Field";
-import { GruiaCroquisFormulario } from "@/modules/almacen/components/GuiaCroquisFormulario";
+import { GuiaCroquisFormulario } from "@/modules/almacen/components/GuiaCroquisFormulario";
 
 import {
   createMaterial,
@@ -22,7 +22,6 @@ import type {
 } from "@/modules/almacen/types";
 import { unidadManejoLabels } from "@/modules/almacen/types";
 
-
 // ─── Tipos y constantes del formulario ───────────────────────────────────────
 type Fase = "form" | "exito";
 
@@ -36,7 +35,11 @@ export function MaterialFormPage() {
 
   const [fase, setFase] = useState<Fase>("form");
   const [formInicializado, setFormInicializado] = useState(false);
-  const [materialCreado, setMaterialCreado] = useState<{ id: number; codigo: string; nombre: string } | null>(null);
+  const [materialCreado, setMaterialCreado] = useState<{
+    id: number;
+    codigo: string;
+    nombre: string;
+  } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
@@ -121,9 +124,7 @@ export function MaterialFormPage() {
   // Mutations
   const guardarMut = useMutation({
     mutationFn: () =>
-      isEditMode
-        ? updateMaterial(materialId, form, fotoFile)
-        : createMaterial(form, fotoFile),
+      isEditMode ? updateMaterial(materialId, form, fotoFile) : createMaterial(form, fotoFile),
     onSuccess: (mat) => {
       qc.invalidateQueries({ queryKey: ["materiales"] });
       if (isEditMode) {
@@ -142,14 +143,20 @@ export function MaterialFormPage() {
     onError: (e: { response?: { data?: Record<string, string[]> } }) => {
       const data = e?.response?.data ?? {};
       const mapped: Record<string, string> = {};
-      Object.entries(data).forEach(([k, v]) => { mapped[k] = Array.isArray(v) ? v[0] : String(v); });
+      Object.entries(data).forEach(([k, v]) => {
+        mapped[k] = Array.isArray(v) ? v[0] : String(v);
+      });
       setErrors(mapped);
     },
   });
 
   function set<K extends keyof MaterialCreatePayload>(key: K, value: MaterialCreatePayload[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   function validate(): boolean {
@@ -168,16 +175,6 @@ export function MaterialFormPage() {
     return Object.keys(errs).length === 0;
   }
 
-  function buildPayload(): MaterialCreatePayload {
-    const usaEmpaque =
-      form.tipo_control === "no_retornable" &&
-      !form.control_individual &&
-      form.unidad_manejo !== "unidad";
-    return {
-      ...form,
-      unidades_por_caja: usaEmpaque ? Number(form.unidades_por_caja) : null,
-    };
-  }
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
@@ -207,8 +204,7 @@ export function MaterialFormPage() {
       <section className="success-panel">
         <h2>Material registrado</h2>
         <p>
-          <code className="pieza-code">{materialCreado?.codigo}</code> —{" "}
-          {materialCreado?.nombre}
+          <code className="pieza-code">{materialCreado?.codigo}</code> — {materialCreado?.nombre}
         </p>
         <div className="success-actions">
           <Link className="button button-primary" to={`/almacen/catalogo/${materialCreado?.id}`}>
@@ -278,7 +274,9 @@ export function MaterialFormPage() {
                 >
                   <option value="">Seleccionar categoría…</option>
                   {categorias.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -290,7 +288,9 @@ export function MaterialFormPage() {
                 >
                   <option value="">Seleccionar subcategoría…</option>
                   {subcategorias.map((s) => (
-                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.nombre}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -299,8 +299,12 @@ export function MaterialFormPage() {
             {categorias.length === 0 && (
               <div
                 style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "12px 14px", borderRadius: 8, marginTop: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "12px 14px",
+                  borderRadius: 8,
+                  marginTop: 12,
                   background: "var(--warning-surface, #fffbeb)",
                   border: "1px solid var(--warning, #f59e0b)",
                   color: "var(--warning-text, #92400e)",
@@ -309,9 +313,8 @@ export function MaterialFormPage() {
               >
                 <WarningCircle size={18} style={{ flexShrink: 0 }} />
                 <span>
-                  No hay categorías creadas. Haz clic en{" "}
-                  <strong>+ Gestionar categorías</strong> para agregar una antes de
-                  continuar.
+                  No hay categorías creadas. Haz clic en <strong>+ Gestionar categorías</strong>{" "}
+                  para agregar una antes de continuar.
                 </span>
               </div>
             )}
@@ -348,7 +351,7 @@ export function MaterialFormPage() {
                   placeholder="Ej. GSB 550"
                 />
               </Field>
-              <Field label="Medida" hint="Solo si aplica (ej. 5/16&quot; o M8)" error={errors.medida}>
+              <Field label="Medida" hint='Solo si aplica (ej. 5/16" o M8)' error={errors.medida}>
                 <input
                   type="text"
                   value={form.medida}
@@ -382,7 +385,11 @@ export function MaterialFormPage() {
                   onChange={(e) => set("largo", e.target.value)}
                 />
               </Field>
-              <Field label="Precio (S/)" hint="Precio de referencia (opcional)" error={errors.precio}>
+              <Field
+                label="Precio (S/)"
+                hint="Precio de referencia (opcional)"
+                error={errors.precio}
+              >
                 <input
                   type="number"
                   step="0.01"
@@ -399,14 +406,24 @@ export function MaterialFormPage() {
               >
                 <select
                   value={form.clasificacion_operativa}
-                  onChange={(e) => set("clasificacion_operativa", e.target.value as typeof form.clasificacion_operativa)}
+                  onChange={(e) =>
+                    set(
+                      "clasificacion_operativa",
+                      e.target.value as typeof form.clasificacion_operativa,
+                    )
+                  }
                 >
                   <option value="CONSUMIBLE">Consumible â€” genera costo</option>
                   <option value="HERRAMIENTA">Herramienta reutilizable â€” solo uso</option>
                   <option value="EPP">EPP reutilizable â€” solo uso</option>
                 </select>
               </Field>
-              <Field label="Ubicación física" hint="Ej. A1, Estante 3, Caja de brocas" error={errors.ubicacion_fisica} wide>
+              <Field
+                label="Ubicación física"
+                hint="Ej. A1, Estante 3, Caja de brocas"
+                error={errors.ubicacion_fisica}
+                wide
+              >
                 <input
                   type="text"
                   value={form.ubicacion_fisica}
@@ -416,7 +433,11 @@ export function MaterialFormPage() {
               </Field>
 
               {categorias.find((c) => c.id === categoriaId)?.requiere_inspeccion && (
-                <Field label="Frecuencia de inspección" hint="Cada cuánto debe inspeccionarse este material" wide>
+                <Field
+                  label="Frecuencia de inspección"
+                  hint="Cada cuánto debe inspeccionarse este material"
+                  wide
+                >
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       type="number"
@@ -427,7 +448,9 @@ export function MaterialFormPage() {
                     />
                     <select
                       value={form.periodicidad_unidad}
-                      onChange={(e) => set("periodicidad_unidad", e.target.value as "dias" | "meses")}
+                      onChange={(e) =>
+                        set("periodicidad_unidad", e.target.value as "dias" | "meses")
+                      }
                     >
                       <option value="dias">Días</option>
                       <option value="meses">Meses</option>
@@ -438,7 +461,7 @@ export function MaterialFormPage() {
 
               {/* Guía visual del croquis */}
               <div style={{ gridColumn: "1 / -1" }}>
-                <GruiaCroquisFormulario />
+                <GuiaCroquisFormulario />
               </div>
             </div>
           </div>
@@ -469,8 +492,8 @@ export function MaterialFormPage() {
               <label htmlFor="control_individual" style={{ cursor: "pointer" }}>
                 <strong>Control por pieza individual</strong>
                 <small>
-                  Activa si cada unidad tiene código propio (herramientas, equipos).
-                  Desactiva para consumibles (tornillos, tuercas).
+                  Activa si cada unidad tiene código propio (herramientas, equipos). Desactiva para
+                  consumibles (tornillos, tuercas).
                 </small>
               </label>
             </div>
@@ -490,10 +513,14 @@ export function MaterialFormPage() {
                   Stock inicial
                 </strong>
                 <small style={{ color: "var(--muted)", display: "block", marginBottom: 12 }}>
-                  Los materiales no retornables se consumen. Indica cómo se maneja
-                  el stock y cuánto hay disponible actualmente.
+                  Los materiales no retornables se consumen. Indica cómo se maneja el stock y cuánto
+                  hay disponible actualmente.
                 </small>
-                <Field label="Manejo de stock" required hint="Elige cómo se cuenta este consumible en el almacén.">
+                <Field
+                  label="Manejo de stock"
+                  required
+                  hint="Elige cómo se cuenta este consumible en el almacén."
+                >
                   <select
                     value={form.unidad_manejo ?? "unidad"}
                     onChange={(e) => {
@@ -557,7 +584,10 @@ export function MaterialFormPage() {
                           const porCaja = e.target.value;
                           set("unidades_por_caja", porCaja);
                           const cajas = Number(cajasIniciales) || 0;
-                          setForm((prev) => ({ ...prev, cantidad_total: cajas * (Number(porCaja) || 0) }));
+                          setForm((prev) => ({
+                            ...prev,
+                            cantidad_total: cajas * (Number(porCaja) || 0),
+                          }));
                         }}
                         placeholder="Ej. 50"
                         style={{ maxWidth: 140 }}
@@ -575,7 +605,10 @@ export function MaterialFormPage() {
                           const cajas = e.target.value;
                           setCajasIniciales(cajas);
                           const porCaja = Number(form.unidades_por_caja) || 0;
-                          setForm((prev) => ({ ...prev, cantidad_total: (Number(cajas) || 0) * porCaja }));
+                          setForm((prev) => ({
+                            ...prev,
+                            cantidad_total: (Number(cajas) || 0) * porCaja,
+                          }));
                         }}
                         placeholder="0"
                         style={{ maxWidth: 140 }}
@@ -586,7 +619,11 @@ export function MaterialFormPage() {
                         type="number"
                         value={form.cantidad_total ?? 0}
                         readOnly
-                        style={{ maxWidth: 160, background: "var(--surface, #fff)", color: "var(--muted)" }}
+                        style={{
+                          maxWidth: 160,
+                          background: "var(--surface, #fff)",
+                          color: "var(--muted)",
+                        }}
                       />
                     </Field>
                   </div>
@@ -621,7 +658,11 @@ export function MaterialFormPage() {
                 <strong>Imagen del material</strong>
                 <small>JPG, PNG o WEBP. Foto genérica del tipo de material.</small>
               </div>
-              <label htmlFor={fotoInputId} className="button button-secondary" style={{ width: "fit-content" }}>
+              <label
+                htmlFor={fotoInputId}
+                className="button button-secondary"
+                style={{ width: "fit-content" }}
+              >
                 Seleccionar imagen
                 <input
                   id={fotoInputId}
@@ -639,7 +680,11 @@ export function MaterialFormPage() {
                     type="button"
                     className="button button-secondary"
                     style={{ fontSize: 12 }}
-                    onClick={() => { setFotoFile(null); setFotoPreview(null); if (fotoRef.current) fotoRef.current.value = ""; }}
+                    onClick={() => {
+                      setFotoFile(null);
+                      setFotoPreview(null);
+                      if (fotoRef.current) fotoRef.current.value = "";
+                    }}
                   >
                     <Trash size={14} /> Quitar foto
                   </button>
@@ -650,7 +695,10 @@ export function MaterialFormPage() {
 
           {/* Errores generales */}
           {errors.non_field_errors && (
-            <div className="aviso-estuche" style={{ borderColor: "var(--error)", background: "#fff5f5", color: "var(--error)" }}>
+            <div
+              className="aviso-estuche"
+              style={{ borderColor: "var(--error)", background: "#fff5f5", color: "var(--error)" }}
+            >
               {errors.non_field_errors}
             </div>
           )}
@@ -659,11 +707,7 @@ export function MaterialFormPage() {
             <Link to="/almacen/catalogo" className="button button-secondary">
               <ArrowLeft size={15} /> Cancelar
             </Link>
-            <button
-              type="submit"
-              className="button button-primary"
-              disabled={guardarMut.isPending}
-            >
+            <button type="submit" className="button button-primary" disabled={guardarMut.isPending}>
               {guardarMut.isPending
                 ? "Guardando…"
                 : isEditMode
@@ -683,8 +727,8 @@ export function MaterialFormPage() {
           <hr style={{ margin: "16px 0", borderColor: "#dfe6ef" }} />
           <h2>Control individual</h2>
           <p>
-            Si activas el control por pieza, después de guardar podrás dar de alta las
-            piezas físicas (sueltas o en estuche).
+            Si activas el control por pieza, después de guardar podrás dar de alta las piezas
+            físicas (sueltas o en estuche).
           </p>
         </div>
       </form>

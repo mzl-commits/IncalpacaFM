@@ -204,7 +204,6 @@ export function TechnicianSchedulePage() {
     if (!isTeamSchedule || selectedTechnicianId || !technicianOptions.length) return;
     setSelectedTechnicianId(technicianOptions[0].id);
   }, [isTeamSchedule, selectedTechnicianId, technicianOptions]);
-  const selectedTechnician = technicianOptions.find((person) => person.id === selectedTechnicianId);
   const technicianOrders = isTeamSchedule
     ? allTechnicianOrders.filter((order) => order.operatorId === selectedTechnicianId)
     : allTechnicianOrders;

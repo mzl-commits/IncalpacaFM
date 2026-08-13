@@ -1,9 +1,10 @@
-from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework.test import APIClient
+
 from apps.accounts.models import AccountProfile
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
-from apps.inspeccion.models import PlantillaCriterio, Inspeccion
+from apps.catalogo.models import Categoria, Material, Pieza, Subcategoria
+from apps.inspeccion.models import Inspeccion, PlantillaCriterio
 
 User = get_user_model()
 
@@ -14,7 +15,7 @@ class ActiveChecksTests(TestCase):
         AccountProfile.objects.create(
             user=self.user,
             worker_code="INSPECTOR-TEST",
-            role=AccountProfile.Role.ALMACENERO,
+            role=AccountProfile.Role.INSPECTOR,
             must_change_password=False,
         )
         self.client.force_authenticate(self.user)
@@ -114,6 +115,22 @@ class ActiveChecksTests(TestCase):
             results = results["results"]
         material_ids = [m["id"] for m in results]
         self.assertNotIn(self.material.id, material_ids)
+
+    def test_inspection_search_supports_inspector_identity_fields(self):
+        inspection = Inspeccion.objects.create(
+            inspector=self.user,
+            tipo="individual",
+            material=self.material,
+            pieza=self.pieza,
+            plantilla=self.plantilla,
+            resultado_general="apta",
+            accion_tomada="continua_servicio",
+        )
+
+        response = self.client.get("/api/v1/inspecciones/?q=INSPECTOR-TEST")
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertIn(inspection.id, [item["id"] for item in response.json()])
 
     def test_api_inspeccion_creation_fails_for_inactive(self):
         """La creación de una inspección por API debe fallar si algún elemento está inactivo."""

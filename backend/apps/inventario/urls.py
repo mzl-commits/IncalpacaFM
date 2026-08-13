@@ -1,4 +1,5 @@
 from rest_framework.routers import DefaultRouter
+
 from apps.inventario.views import MovimientoViewSet, SolicitudMovimientoViewSet
 
 router = DefaultRouter()

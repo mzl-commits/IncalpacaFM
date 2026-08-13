@@ -19,7 +19,6 @@ import {
 import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
-import { useAuth } from "@/modules/accounts/AuthContext";
 
 function Field({ label, required, error, hint, children, wide }: {
   label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
@@ -36,8 +35,6 @@ function Field({ label, required, error, hint, children, wide }: {
 
 export function MovimientoFormPage() {
   const qc = useQueryClient();
-  const { user } = useAuth();
-  const esAlmacenero = user?.role === "ALMACENERO";
   const [params] = useSearchParams();
   const preselMaterial = params.get("material") ? Number(params.get("material")) : 0;
 
@@ -133,7 +130,8 @@ export function MovimientoFormPage() {
   function togglePrestada(id: number) {
     setPrestadasSeleccionadas((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -143,7 +141,8 @@ export function MovimientoFormPage() {
   function togglePiezaSalida(id: number) {
     setPiezasSalidaSeleccionadas((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
     setPiezaId(0);
