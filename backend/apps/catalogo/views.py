@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import ProtectedError
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -12,7 +13,9 @@ from apps.accounts.permissions import (
     IsAlmaceneroOrAdministratorWrite,
     IsAlmaceneroAdminOrInspectorWrite,
 )
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza, Almacen
+from apps.catalogo.models import (
+    Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
+)
 from apps.catalogo.serializers import (
     CategoriaSerializer,
     SubcategoriaSerializer,
@@ -27,6 +30,8 @@ from apps.catalogo.serializers import (
     ReemplazarHijaSerializer,
     AgregarHijaInlineSerializer,
     AlmacenSerializer,
+    UnidadMedidaSerializer,
+    TipoManejoStockSerializer,
 )
 
 
@@ -68,6 +73,34 @@ class AlmacenViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     serializer_class = AlmacenSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
     almacen_lookup = "pk"  # Almacen.pk ES el almacén
+
+
+class _CatalogoEditableViewSet(viewsets.ModelViewSet):
+    """Base para catálogos editables (unidades de medida, tipos de manejo de
+    stock): permite crear/editar/eliminar, pero si un material ya usa el
+    registro (on_delete=PROTECT), devuelve un error claro en vez de un 500."""
+    permission_classes = [IsAlmaceneroOrAdministratorWrite]
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "No se puede eliminar: hay materiales que usan este registro. "
+                           "Desactívalo en su lugar si ya no debe ofrecerse para nuevos materiales."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class UnidadMedidaViewSet(_CatalogoEditableViewSet):
+    queryset = UnidadMedida.objects.all()
+    serializer_class = UnidadMedidaSerializer
+
+
+class TipoManejoStockViewSet(_CatalogoEditableViewSet):
+    queryset = TipoManejoStock.objects.all()
+    serializer_class = TipoManejoStockSerializer
+
 
 class CategoriaViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     queryset = Categoria.objects.all()

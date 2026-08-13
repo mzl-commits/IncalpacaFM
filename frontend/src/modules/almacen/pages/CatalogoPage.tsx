@@ -13,6 +13,7 @@ import {
   Minus,
   Package,
   Plus,
+  Ruler,
   ShoppingCart,
   Stack,
   Trash,
@@ -30,6 +31,7 @@ import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
+import { GestionUnidadesPanel } from "@/modules/almacen/components/GestionUnidadesPanel";
 import { CroquisCarrusel } from "@/modules/almacen/components/CroquisCarrusel";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
@@ -45,6 +47,7 @@ export function CatalogoPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
+  const [mostrarGestionUnidades, setMostrarGestionUnidades] = useState(false);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [basket, setBasket] = useState<Record<number, number>>({});
   const [copiedBasket, setCopiedBasket] = useState(false);
@@ -178,6 +181,15 @@ export function CatalogoPage() {
             <FolderPlus size={18} />
             <span>Categorías</span>
           </button>}
+          {!isTechnician && <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setMostrarGestionUnidades((v) => !v)}
+            title="Administrar unidades de medida y tipos de manejo de stock"
+          >
+            <Ruler size={18} />
+            <span>Unidades</span>
+          </button>}
           <button
             type="button"
             className="btn-secondary"
@@ -199,6 +211,11 @@ export function CatalogoPage() {
       {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE CATEGORÍAS */}
       {mostrarGestionCat && (
         <GestionCategoriasPanel onClose={() => setMostrarGestionCat(false)} />
+      )}
+
+      {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE UNIDADES DE MEDIDA / MANEJO DE STOCK */}
+      {mostrarGestionUnidades && (
+        <GestionUnidadesPanel onClose={() => setMostrarGestionUnidades(false)} />
       )}
 
       {/* Croquis del almacén — imagen fija */}

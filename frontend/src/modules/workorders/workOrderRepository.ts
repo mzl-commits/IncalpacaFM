@@ -173,3 +173,42 @@ export async function scheduleWorkOrderCorrection(
   notifyChanges();
   return data;
 }
+
+// ─── Almaceneros autorizados (visibilidad de la OT en Almacén) ────────────────
+// Nota: este endpoint vive en el módulo de inventario (backend/apps/inventario)
+// porque es quien lo consume para poblar el selector de OTs en movimientos,
+// pero su gestión (solo ADMINISTRADOR) se expone aquí junto al resto de
+// acciones administrativas sobre la OT.
+
+export interface AlmaceneroAutorizadoUsuario {
+  id: number;
+  worker_code: string;
+  full_name: string;
+  role: string;
+  role_display: string;
+}
+
+export interface AlmacenerosAutorizadosResponse {
+  work_order_id: string;
+  work_order_code: string;
+  autorizados: AlmaceneroAutorizadoUsuario[];
+  disponibles: AlmaceneroAutorizadoUsuario[];
+}
+
+export async function getAlmacenerosAutorizados(workOrderId: string): Promise<AlmacenerosAutorizadosResponse> {
+  const { data } = await api.get<AlmacenerosAutorizadosResponse>(
+    `/ots/${workOrderId}/almaceneros-autorizados/`,
+  );
+  return data;
+}
+
+export async function setAlmacenerosAutorizados(
+  workOrderId: string,
+  almaceneroIds: number[],
+): Promise<Pick<AlmacenerosAutorizadosResponse, "work_order_id" | "work_order_code" | "autorizados">> {
+  const { data } = await api.put<Pick<AlmacenerosAutorizadosResponse, "work_order_id" | "work_order_code" | "autorizados">>(
+    `/ots/${workOrderId}/almaceneros-autorizados/`,
+    { almacenero_ids: almaceneroIds },
+  );
+  return data;
+}

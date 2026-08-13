@@ -8,8 +8,71 @@ import type {
   PiezaBase,
   AltaPiezasSueltasPayload,
   Almacen,
+  UnidadMedidaCatalogo,
+  TipoManejoStockCatalogo,
 } from "./types";
- 
+
+// Unidades de medida
+
+export async function listUnidadesMedida(): Promise<UnidadMedidaCatalogo[]> {
+  const { data } = await api.get<UnidadMedidaCatalogo[]>("/unidades-medida/");
+  return data;
+}
+
+export async function createUnidadMedida(
+  payload: Omit<UnidadMedidaCatalogo, "id">,
+): Promise<UnidadMedidaCatalogo> {
+  const { data } = await api.post<UnidadMedidaCatalogo>("/unidades-medida/", payload);
+  return data;
+}
+
+export async function updateUnidadMedida(
+  id: number,
+  payload: Partial<Omit<UnidadMedidaCatalogo, "id">>,
+): Promise<UnidadMedidaCatalogo> {
+  const { data } = await api.patch<UnidadMedidaCatalogo>(
+    `/unidades-medida/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteUnidadMedida(id: number): Promise<void> {
+  await api.delete(`/unidades-medida/${id}/`);
+}
+
+// Tipos de manejo de stock
+
+export async function listTiposManejoStock(): Promise<TipoManejoStockCatalogo[]> {
+  const { data } = await api.get<TipoManejoStockCatalogo[]>("/tipos-manejo-stock/");
+  return data;
+}
+
+export async function createTipoManejoStock(
+  payload: Omit<TipoManejoStockCatalogo, "id">,
+): Promise<TipoManejoStockCatalogo> {
+  const { data } = await api.post<TipoManejoStockCatalogo>(
+    "/tipos-manejo-stock/",
+    payload,
+  );
+  return data;
+}
+
+export async function updateTipoManejoStock(
+  id: number,
+  payload: Partial<Omit<TipoManejoStockCatalogo, "id">>,
+): Promise<TipoManejoStockCatalogo> {
+  const { data } = await api.patch<TipoManejoStockCatalogo>(
+    `/tipos-manejo-stock/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteTipoManejoStock(id: number): Promise<void> {
+  await api.delete(`/tipos-manejo-stock/${id}/`);
+}
+
 // ─── Categorías ───────────────────────────────────────────────────────────────
  
 export async function listCategorias(almacenId: number): Promise<Categoria[]> {

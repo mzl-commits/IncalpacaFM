@@ -26,7 +26,7 @@ from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
+from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza, UnidadMedida, TipoManejoStock
 from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_piezas, ajustar_stock
 
 COLS = {
@@ -97,6 +97,25 @@ PERIODICIDAD_UNIDAD_OPCIONES = {
     "dias": "dias",
     "meses": "meses",
 }
+
+
+def _match_catalogo(value, queryset, field_label, default_codigo=None):
+    """Resuelve una fila de UnidadMedida/TipoManejoStock por código, nombre o
+    abreviatura, tolerando tildes/mayúsculas/espacios. Si 'value' viene vacío
+    y hay default_codigo, usa ese registro. Lanza error claro si no matchea."""
+    v = _slug(value)
+    if not v:
+        if default_codigo:
+            obj = queryset.filter(codigo=default_codigo).first()
+            if obj:
+                return obj
+        raise ValueError(f"'{field_label}' es obligatorio y no tiene valor por defecto configurado.")
+    for obj in queryset:
+        candidatos = {_slug(obj.codigo), _slug(obj.nombre), _slug(getattr(obj, "abreviatura", ""))}
+        if v in candidatos:
+            return obj
+    validos = ", ".join(sorted({o.nombre for o in queryset}))
+    raise ValueError(f"'{field_label}' inválido: {value!r}. Valores válidos: {validos}.")
 
 
 def _to_number(value, field_label, cast=float, required=False):
@@ -219,13 +238,18 @@ class Command(BaseCommand):
                     largo = _to_number(row[col_idx["largo"]], COLS["largo"])
                     precio = _to_number(row[col_idx["precio"]], COLS["precio"])
 
+                    unidad_medida_obj = _match_catalogo(
+                        row[col_idx["unidad_medida"]], UnidadMedida.objects.all(),
+                        COLS["unidad_medida"], default_codigo="mm",
+                    )
+
                     material_kwargs = dict(
                         subcategoria=subcategoria,
                         nombre=nombre,
                         marca=_norm(row[col_idx["marca"]]),
                         modelo=_norm(row[col_idx["modelo"]]),
                         medida=_norm(row[col_idx["medida"]]),
-                        unidad_medida=_norm(row[col_idx["unidad_medida"]]) or "mm",
+                        unidad_medida=unidad_medida_obj,
                         grosor=grosor,
                         largo=largo,
                         precio=precio,
@@ -236,9 +260,12 @@ class Command(BaseCommand):
                         periodicidad_unidad=periodicidad_unidad,
                     )
                     if not control_individual:
-                        unidad_manejo = _norm(row[col_idx["unidad_manejo"]]).lower() or "unidad"
-                        material_kwargs["unidad_manejo"] = unidad_manejo
-                        if unidad_manejo != "unidad":
+                        unidad_manejo_obj = _match_catalogo(
+                            row[col_idx["unidad_manejo"]], TipoManejoStock.objects.all(),
+                            COLS["unidad_manejo"], default_codigo="unidad",
+                        )
+                        material_kwargs["unidad_manejo"] = unidad_manejo_obj
+                        if unidad_manejo_obj.requiere_multiplicador:
                             upc = _to_number(
                                 row[col_idx["unidades_por_caja"]], COLS["unidades_por_caja"],
                                 cast=int, required=False,

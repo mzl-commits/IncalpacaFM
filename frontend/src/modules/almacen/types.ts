@@ -6,17 +6,6 @@ export const STOCK_MINIMO = 5;
 // ─── Enums / literales ────────────────────────────────────────────────────────
 
 export type TipoControl = "retornable" | "no_retornable";
-export type UnidadManejo =
-  | "unidad" | "pieza" | "par"
-  | "caja" | "bolsa" | "paquete" | "fardo" | "saco"
-  | "balde" | "cunete" | "tambor" | "bidon" | "frasco" | "blister"
-  | "rollo" | "bobina" | "carrete"
-  | "millar" | "ciento" | "docena"
-  | "juego"
-  | "plancha" | "barra" | "hoja"
-  | "kilogramo" | "gramo" | "libra"
-  | "litro" | "mililitro" | "galon"
-  | "metro" | "centimetro" | "milimetro" | "metro2" | "metro3";
 
 export type EstadoPieza = "Disponible" | "Prestado" | "Mantenimiento" | "Baja";
 export type TipoMovimiento = "salida" | "entrada" | "baja";
@@ -76,43 +65,10 @@ export const tipoControlLabels: Record<TipoControl, string> = {
   no_retornable: "No retornable",
 };
 
-export const unidadManejoLabels: Record<UnidadManejo, string> = {
-  unidad:     "Por unidad suelta",
-  pieza:      "Por pieza",
-  par:        "Por par",
-  caja:       "Por caja",
-  bolsa:      "Por bolsa",
-  paquete:    "Por paquete",
-  fardo:      "Por fardo",
-  saco:       "Por saco",
-  balde:      "Por balde",
-  cunete:     "Por cuñete",
-  tambor:     "Por tambor / cilindro",
-  bidon:      "Por bidón",
-  frasco:     "Por frasco",
-  blister:    "Por blíster",
-  rollo:      "Por rollo",
-  bobina:     "Por bobina",
-  carrete:    "Por carrete",
-  millar:     "Por millar",
-  ciento:     "Por ciento",
-  docena:     "Por docena",
-  juego:      "Por juego / kit",
-  plancha:    "Por plancha / lámina",
-  barra:      "Por barra",
-  hoja:       "Por hoja",
-  kilogramo:  "Por kilogramo (kg)",
-  gramo:      "Por gramo (g)",
-  libra:      "Por libra (lb)",
-  litro:      "Por litro (L)",
-  mililitro:  "Por mililitro (ml)",
-  galon:      "Por galón",
-  metro:      "Por metro (m)",
-  centimetro: "Por centímetro (cm)",
-  milimetro:  "Por milímetro (mm)",
-  metro2:     "Por metro cuadrado (m²)",
-  metro3:     "Por metro cúbico (m³)",
-};
+// unidad_medida y unidad_manejo ahora son catálogos editables (ver
+// UnidadMedidaCatalogo / TipoManejoStockCatalogo más abajo) en vez de listas
+// fijas: sus labels vienen del backend (nombre/abreviatura), no de un mapa
+// hardcodeado aquí.
 
 
 // ─── Catálogo ─────────────────────────────────────────────────────────────────
@@ -190,7 +146,9 @@ export interface Material {
   foto: string | null;
   grosor: string | null;
   largo: string | null;
-  unidad_medida: UnidadMedida;
+  unidad_medida: number;
+  unidad_medida_nombre: string | null;
+  unidad_medida_abreviatura: string | null;
   ubicacion_fisica: string;
   precio: string | number | null;
   moneda: Moneda;
@@ -201,8 +159,16 @@ export interface Material {
   periodicidad_unidad: "dias" | "meses";
   periodicidad_inspeccion_dias: number;
   es_inspeccionable: boolean;
-  unidad_manejo: UnidadManejo;
+  unidad_manejo: number;
+  unidad_manejo_nombre: string | null;
+  /** Si es true, el material se maneja por empaque (caja/bolsa/kit/etc.) y requiere unidades_por_caja. */
+  unidad_manejo_requiere_multiplicador: boolean;
+  /** Si es true (ej. Rollo), en cada movimiento se puede elegir otra unidad (cm/m) y se convierte a unidad_movimiento_base. */
+  unidad_manejo_permite_conversion_unidad: boolean;
   unidades_por_caja: number | null;
+  unidad_movimiento_base: number | null;
+  unidad_movimiento_base_nombre: string | null;
+  unidad_movimiento_base_abreviatura: string | null;
   activo: boolean;
   creado_en: string;
 
@@ -224,7 +190,7 @@ export interface MaterialCreatePayload {
   medida: string;
   grosor: string;
   largo: string;
-  unidad_medida: UnidadMedida;
+  unidad_medida: number;
   ubicacion_fisica: string;
   precio?: string | number | null;
   moneda?: Moneda;
@@ -232,8 +198,9 @@ export interface MaterialCreatePayload {
   control_individual: boolean;
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
-  unidad_manejo?: UnidadManejo;
+  unidad_manejo?: number;
   unidades_por_caja?: number | string | null;
+  unidad_movimiento_base?: number | null;
   cantidad_total?: number;
   almacen?: number;
   // foto se envía aparte como FormData si existe
@@ -268,12 +235,28 @@ export interface Movimiento {
   tipo_display: string;
   cantidad: number;
   cantidad_cajas: number | null;
+  unidad_movimiento: number | null;
+  unidad_movimiento_nombre: string | null;
+  unidad_movimiento_abreviatura: string | null;
+  cantidad_en_unidad_movimiento: string | number | null;
   fecha: string;
   responsable: number;
   responsable_nombre: string;
   referencia_externa: string;
   lote_id: string;
   observaciones: string;
+}
+
+/** Campos comunes a los tres payloads de movimiento (salida/entrada/baja). Se
+ * puede indicar la cantidad de 3 formas mutuamente excluyentes: directa
+ * (cantidad), por empaque (cantidad_cajas, si el material lo requiere) o por
+ * unidad elegida (unidad_movimiento_id + cantidad_en_unidad_movimiento, solo
+ * para materiales tipo Rollo que permiten conversión). */
+export interface MovimientoConversionFields {
+  cantidad?: number;
+  cantidad_cajas?: number | null;
+  unidad_movimiento_id?: number | null;
+  cantidad_en_unidad_movimiento?: number | string | null;
 }
 
 export interface PiezaPrestada {
@@ -410,11 +393,27 @@ export interface UsuarioLista {
   role_display: string;
 }
 
-export type UnidadMedida = "mm" | "cm" | "in" | "ft";
+// unidad_medida (grosor/largo) también viene ahora del catálogo editable
+// UnidadMedidaCatalogo — su label es unidad_medida_nombre/abreviatura desde
+// el backend, no un mapa fijo aquí.
 
-export const unidadMedidaAbrev: Record<UnidadMedida, string> = {
-  mm: "mm",
-  cm: "cm",
-  in: "in",
-  ft: "ft",
-};
+export interface UnidadMedidaCatalogo {
+  id: number;
+  codigo: string;
+  nombre: string;
+  abreviatura: string;
+  familia: "longitud" | "peso" | "volumen" | "otro";
+  factor_a_base: string | number;
+  activo: boolean;
+  orden: number;
+}
+
+export interface TipoManejoStockCatalogo {
+  id: number;
+  codigo: string;
+  nombre: string;
+  requiere_multiplicador: boolean;
+  permite_conversion_unidad: boolean;
+  activo: boolean;
+  orden: number;
+}

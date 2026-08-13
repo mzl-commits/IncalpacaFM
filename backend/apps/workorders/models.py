@@ -43,6 +43,17 @@ class WorkOrder(models.Model):
     supporting_technicians = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="supporting_technical_orders", blank=True
     )
+    almaceneros_autorizados = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="ordenes_almacen_autorizadas",
+        blank=True,
+        help_text=(
+            "Almaceneros que pueden ver y usar esta OT en el módulo de "
+            "movimientos de inventario. Gestionado por el ADMINISTRADOR, "
+            "ya que una OT solo debe ser visible para el/los almacenero(s) "
+            "del almacén al que corresponde."
+        ),
+    )
     supervisor = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="supervised_orders", on_delete=models.PROTECT
     )

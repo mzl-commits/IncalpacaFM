@@ -1,7 +1,28 @@
 from rest_framework import serializers
 
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza, Almacen
+from apps.catalogo.models import (
+    Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
+)
 from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_piezas, ajustar_stock
+
+
+class UnidadMedidaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UnidadMedida
+        fields = [
+            "id", "codigo", "nombre", "abreviatura", "familia",
+            "factor_a_base", "activo", "orden",
+        ]
+
+
+class TipoManejoStockSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoManejoStock
+        fields = [
+            "id", "codigo", "nombre", "requiere_multiplicador",
+            "permite_conversion_unidad", "activo", "orden",
+        ]
+
 
 class CategoriaSerializer(serializers.ModelSerializer):
     almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
@@ -67,18 +88,30 @@ class MaterialSerializer(serializers.ModelSerializer):
     es_inspeccionable = serializers.SerializerMethodField()
     almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
 
+    unidad_medida_nombre = serializers.CharField(source="unidad_medida.nombre", read_only=True, default=None)
+    unidad_medida_abreviatura = serializers.CharField(source="unidad_medida.abreviatura", read_only=True, default=None)
+    unidad_manejo_nombre = serializers.CharField(source="unidad_manejo.nombre", read_only=True, default=None)
+    unidad_manejo_requiere_multiplicador = serializers.BooleanField(source="unidad_manejo.requiere_multiplicador", read_only=True, default=False)
+    unidad_manejo_permite_conversion_unidad = serializers.BooleanField(source="unidad_manejo.permite_conversion_unidad", read_only=True, default=False)
+    unidad_movimiento_base_nombre = serializers.CharField(source="unidad_movimiento_base.nombre", read_only=True, default=None)
+    unidad_movimiento_base_abreviatura = serializers.CharField(source="unidad_movimiento_base.abreviatura", read_only=True, default=None)
+
     class Meta:
         model = Material
         fields = [
             "id", "subcategoria", "subcategoria_nombre", "categoria_nombre",
             "subcategoria_plantilla_inspeccion", "subcategoria_plantilla_inspeccion_nombre",
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
-            "unidad_medida", "grosor", "largo", "ubicacion_fisica", "precio", "moneda",
+            "unidad_medida", "unidad_medida_nombre", "unidad_medida_abreviatura",
+            "grosor", "largo", "ubicacion_fisica", "precio", "moneda",
             "codigo_quipu",
             "tipo_control", "control_individual", "cantidad_total",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",
-            "unidad_manejo", "unidades_por_caja",
+            "unidad_manejo", "unidad_manejo_nombre",
+            "unidad_manejo_requiere_multiplicador", "unidad_manejo_permite_conversion_unidad",
+            "unidades_por_caja",
+            "unidad_movimiento_base", "unidad_movimiento_base_nombre", "unidad_movimiento_base_abreviatura",
             "almacen", "almacen_nombre",
             "activo", "creado_en",
         ]
@@ -97,28 +130,49 @@ class MaterialSerializer(serializers.ModelSerializer):
         )
         # Si el material tiene control individual, ignoramos cualquier
         # cantidad_total enviada: siempre se calcula solo desde las piezas.
-        # Tampoco aplica el manejo por caja (es exclusivo de consumibles).
+        # Tampoco aplica el manejo por empaque/rollo (es exclusivo de consumibles).
         if control_individual:
             attrs.pop("cantidad_total", None)
-            attrs["unidad_manejo"] = "unidad"
+            attrs["unidad_manejo"] = TipoManejoStock.objects.filter(codigo="unidad").first()
             attrs["unidades_por_caja"] = None
+            attrs["unidad_movimiento_base"] = None
             return attrs
 
         unidad_manejo = attrs.get(
             "unidad_manejo",
-            getattr(self.instance, "unidad_manejo", "unidad"),
+            getattr(self.instance, "unidad_manejo", None),
         )
         unidades_por_caja = attrs.get(
             "unidades_por_caja",
             getattr(self.instance, "unidades_por_caja", None),
         )
-        if unidad_manejo == "caja":
+        unidad_movimiento_base = attrs.get(
+            "unidad_movimiento_base",
+            getattr(self.instance, "unidad_movimiento_base", None),
+        )
+
+        if unidad_manejo and unidad_manejo.requiere_multiplicador:
             if not unidades_por_caja or unidades_por_caja < 1:
                 raise serializers.ValidationError({
-                    "unidades_por_caja": "Indica cuántas unidades trae cada caja para este consumible."
+                    "unidades_por_caja": (
+                        f"Indica cuántas unidades trae cada "
+                        f"{unidad_manejo.nombre.replace('Por ', '').lower()} para este consumible."
+                    )
                 })
         else:
             attrs["unidades_por_caja"] = None
+
+        if unidad_manejo and unidad_manejo.permite_conversion_unidad:
+            if not unidad_movimiento_base:
+                raise serializers.ValidationError({
+                    "unidad_movimiento_base": (
+                        f"Indica en qué unidad se guarda el stock de este material "
+                        f"({unidad_manejo.nombre}), ej. centímetros."
+                    )
+                })
+        else:
+            attrs["unidad_movimiento_base"] = None
+
         return attrs
 
 class MaterialDetalleSerializer(MaterialSerializer):

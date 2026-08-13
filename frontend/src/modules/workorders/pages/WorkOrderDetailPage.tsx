@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Stethoscope,
   User,
+  Warehouse,
   Wrench,
   XCircle,
 } from "@phosphor-icons/react";
@@ -19,6 +20,7 @@ import { api } from "@/services/api";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
+import { AlmacenerosAutorizadosSection } from "@/modules/workorders/components/AlmacenerosAutorizadosSection";
 import { MaterialesOTAdminSection } from "@/modules/workorders/components/MaterialesOTAdminSection";
 import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
 import {
@@ -893,6 +895,16 @@ export function WorkOrderDetailPage() {
         </div>
         <p>{workOrder.administratorNotes || "No se registraron indicaciones adicionales."}</p>
       </article>
+
+      {isAdmin && (
+        <article className="data-panel detail-card">
+          <div className="detail-card-heading">
+            <Warehouse size={22} />
+            <h2>Almaceneros autorizados</h2>
+          </div>
+          <AlmacenerosAutorizadosSection workOrderId={workOrder.id} />
+        </article>
+      )}
 
       {!isServiceOrder && <article className="data-panel detail-card work-order-actions-card technician-next-action-card">
         <div className="detail-card-heading">

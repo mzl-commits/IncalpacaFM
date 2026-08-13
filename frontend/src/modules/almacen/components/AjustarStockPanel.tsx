@@ -24,11 +24,11 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
   // (unidades dañadas, vencidas, perdidas), con su observación, se usa el
   // flujo formal de Movimientos → Nuevo movimiento → Baja.
   //
-  // Cuando el material se maneja por caja (unidad_manejo === "caja"), el
-  // usuario ingresa cantidad de CAJAS; acá se convierte a unidades antes de
-  // llamar a ajustarStock, porque el endpoint de ajuste rápido siempre
-  // trabaja en unidades (no tiene noción de "cajas").
-  const esPorCaja = material.unidad_manejo === "caja" && !!material.unidades_por_caja;
+  // Cuando el material se maneja por empaque (unidad_manejo_requiere_multiplicador,
+  // ej. caja, bolsa, kit), el usuario ingresa cantidad de EMPAQUES; acá se
+  // convierte a unidades antes de llamar a ajustarStock, porque el endpoint
+  // de ajuste rápido siempre trabaja en unidades (no tiene noción de "cajas").
+  const esPorCaja = material.unidad_manejo_requiere_multiplicador && !!material.unidades_por_caja;
 
   const mutation = useMutation({
     mutationFn: async () => {

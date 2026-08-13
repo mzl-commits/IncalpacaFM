@@ -11,7 +11,7 @@ import { useAuth } from "@/modules/accounts/AuthContext";
 import { deleteMaterial, deleteMaterialForzado, getMaterialDetalle } from "@/modules/almacen/catalogoRepository";
 import { listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
-import { STOCK_MINIMO, tipoControlLabels, unidadMedidaAbrev } from "@/modules/almacen/types";
+import { STOCK_MINIMO, tipoControlLabels } from "@/modules/almacen/types";
 import { AjustarStockPanel } from "@/modules/almacen/components/AjustarStockPanel";
 import { PiezaTreeRow } from "@/modules/almacen/components/PiezaTreeRow";
 
@@ -358,9 +358,9 @@ export function MaterialDetailPage() {
                 <dt className="dt-label">Cantidad / Piezas</dt>
                 <dd className="dd-value">
                   {material.cantidad_total}{" "}
-                  {!material.control_individual && material.unidad_manejo === "caja" && material.unidades_por_caja && (
+                  {!material.control_individual && material.unidad_manejo_requiere_multiplicador && material.unidades_por_caja && (
                     <span style={{ color: "var(--muted)" }}>
-                      ({Math.floor(material.cantidad_total / material.unidades_por_caja)} cajas de {material.unidades_por_caja} u.
+                      ({Math.floor(material.cantidad_total / material.unidades_por_caja)} {material.unidad_manejo_nombre?.replace(/^Por /, "").toLowerCase() ?? "empaques"} de {material.unidades_por_caja} u.
                       {material.cantidad_total % material.unidades_por_caja !== 0
                         ? ` + ${material.cantidad_total % material.unidades_por_caja} sueltas`
                         : ""}
@@ -377,13 +377,13 @@ export function MaterialDetailPage() {
               {material.grosor && (
                 <div>
                   <dt className="dt-label">Grosor / Diámetro</dt>
-                  <dd className="dd-value">{material.grosor} {unidadMedidaAbrev[material.unidad_medida]}</dd>
+                  <dd className="dd-value">{material.grosor} {material.unidad_medida_abreviatura}</dd>
                 </div>
               )}
               {material.largo && (
                 <div>
                   <dt className="dt-label">Largo</dt>
-                  <dd className="dd-value">{material.largo} {unidadMedidaAbrev[material.unidad_medida]}</dd>
+                  <dd className="dd-value">{material.largo} {material.unidad_medida_abreviatura}</dd>
                 </div>
               )}
             </dl>

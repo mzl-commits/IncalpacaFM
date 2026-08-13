@@ -1,7 +1,23 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza, Almacen
+from apps.catalogo.models import (
+    Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
+)
+
+
+@admin.register(UnidadMedida)
+class UnidadMedidaAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "abreviatura", "familia", "factor_a_base", "activo", "orden")
+    list_filter = ("familia", "activo")
+    search_fields = ("nombre", "codigo", "abreviatura")
+
+
+@admin.register(TipoManejoStock)
+class TipoManejoStockAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "requiere_multiplicador", "permite_conversion_unidad", "activo", "orden")
+    list_filter = ("requiere_multiplicador", "permite_conversion_unidad", "activo")
+    search_fields = ("nombre", "codigo")
 
 
 @admin.register(Almacen)

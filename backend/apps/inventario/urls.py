@@ -5,6 +5,7 @@ from apps.inventario.views import (
     SolicitudMovimientoViewSet,
     GrupoSolicitudViewSet,
     WorkOrderActivasView,
+    WorkOrderAlmacenerosAutorizadosView,
 )
 
 router = DefaultRouter()
@@ -14,5 +15,9 @@ router.register("grupos-solicitud", GrupoSolicitudViewSet, basename="gruposolici
 
 urlpatterns = router.urls + [
     path("ots-activas/", WorkOrderActivasView.as_view(), name="ots-activas"),
+    path(
+        "ots/<uuid:pk>/almaceneros-autorizados/",
+        WorkOrderAlmacenerosAutorizadosView.as_view(),
+        name="ot-almaceneros-autorizados",
+    ),
 ]
-

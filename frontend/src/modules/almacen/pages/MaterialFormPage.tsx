@@ -12,6 +12,8 @@ import {
   getMaterialDetalle,
   listCategorias,
   listSubcategorias,
+  listUnidadesMedida,
+  listTiposManejoStock,
   updateMaterial,
 } from "@/modules/almacen/catalogoRepository";
 
@@ -19,10 +21,7 @@ import type {
   MaterialCreatePayload,
   Moneda,
   TipoControl,
-  UnidadMedida,
-  UnidadManejo,
 } from "@/modules/almacen/types";
-import { unidadManejoLabels } from "@/modules/almacen/types";
 
 
 type Fase = "form" | "exito";
@@ -51,7 +50,7 @@ export function MaterialFormPage() {
     marca: "",
     modelo: "",
     medida: "",
-    unidad_medida: "mm",
+    unidad_medida: 0,
     grosor: "",
     largo: "",
     ubicacion_fisica: "",
@@ -60,9 +59,13 @@ export function MaterialFormPage() {
     control_individual: false,
     periodicidad_valor: 3,
     periodicidad_unidad: "meses",
-    unidad_manejo: "unidad",
+    unidad_manejo: 0,
     unidades_por_caja: "",
+<<<<<<< HEAD
     moneda: "PEN",
+=======
+    unidad_movimiento_base: null,
+>>>>>>> a0e492d (Refactor catalogos (UnidadMedida/TipoManejoStock) + almaceneros autorizados por OT)
   });
 
   useEffect(() => {
@@ -73,6 +76,7 @@ export function MaterialFormPage() {
   const [categoriaId, setCategoriaId] = useState<number>(0);
   const [catalogoModalOpen, setCatalogoModalOpen] = useState(false);
 
+<<<<<<< HEAD
   // Queries parametrizados por almacén activo
   const { data: categorias = [] } = useQuery({
     queryKey: ["categorias", almacenId],
@@ -84,6 +88,35 @@ export function MaterialFormPage() {
     queryKey: ["subcategorias", almacenId, categoriaId],
     queryFn: () => listSubcategorias(almacenId, categoriaId),
     enabled: !!almacenId && !!categoriaId,
+=======
+  // Queries
+  const { data: categorias = [] } = useQuery({ queryKey: ["categorias"], queryFn: listCategorias });
+  const { data: unidadesMedida = [] } = useQuery({ queryKey: ["unidades-medida"], queryFn: listUnidadesMedida });
+  const { data: tiposManejo = [] } = useQuery({ queryKey: ["tipos-manejo-stock"], queryFn: listTiposManejoStock });
+  const unidadesLongitud = unidadesMedida.filter((u) => u.familia === "longitud" && u.activo);
+  const tipoManejoSeleccionado = tiposManejo.find((t) => t.id === form.unidad_manejo);
+
+  // Valores por defecto de los catálogos (unidad "mm" y manejo "unidad") una
+  // vez que cargan, solo para material nuevo (en edición se usan los del material).
+  useEffect(() => {
+    if (isEditMode) return;
+    if (!form.unidad_medida && unidadesMedida.length > 0) {
+      const mm = unidadesMedida.find((u) => u.codigo === "mm") ?? unidadesMedida[0];
+      if (mm) set("unidad_medida", mm.id);
+    }
+    if (!form.unidad_manejo && tiposManejo.length > 0) {
+      const unidad = tiposManejo.find((t) => t.codigo === "unidad") ?? tiposManejo[0];
+      if (unidad) set("unidad_manejo", unidad.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, unidadesMedida, tiposManejo, form.unidad_medida, form.unidad_manejo]);
+
+  // Subcategorías filtradas por la categoría seleccionada (Paso 1 del formulario)
+  const { data: subcategorias = [] } = useQuery({
+    queryKey: ["subcategorias", categoriaId],
+    queryFn: () => listSubcategorias(categoriaId),
+    enabled: !!categoriaId,
+>>>>>>> a0e492d (Refactor catalogos (UnidadMedida/TipoManejoStock) + almaceneros autorizados por OT)
   });
 
   const { data: materialExistente, isLoading: isLoadingMaterial } = useQuery({
@@ -109,7 +142,7 @@ export function MaterialFormPage() {
         marca: materialExistente.marca,
         modelo: materialExistente.modelo,
         medida: materialExistente.medida,
-        unidad_medida: materialExistente.unidad_medida ?? "mm",
+        unidad_medida: materialExistente.unidad_medida ?? 0,
         grosor: materialExistente.grosor ?? "",
         largo: materialExistente.largo ?? "",
         ubicacion_fisica: materialExistente.ubicacion_fisica,
@@ -119,8 +152,9 @@ export function MaterialFormPage() {
         control_individual: materialExistente.control_individual,
         periodicidad_valor: materialExistente.periodicidad_valor ?? 3,
         periodicidad_unidad: materialExistente.periodicidad_unidad ?? "meses",
-        unidad_manejo: materialExistente.unidad_manejo ?? "unidad",
+        unidad_manejo: materialExistente.unidad_manejo ?? 0,
         unidades_por_caja: materialExistente.unidades_por_caja ?? "",
+        unidad_movimiento_base: materialExistente.unidad_movimiento_base ?? null,
         cantidad_total: materialExistente.cantidad_total,
       });
       if (materialExistente.foto) setFotoPreview(materialExistente.foto);
@@ -168,9 +202,16 @@ export function MaterialFormPage() {
     const usaEmpaque =
       form.tipo_control === "no_retornable" &&
       !form.control_individual &&
-      form.unidad_manejo !== "unidad";
+      !!tipoManejoSeleccionado?.requiere_multiplicador;
     if (usaEmpaque && !(Number(form.unidades_por_caja) > 0)) {
       errs.unidades_por_caja = "Indica cuántas unidades trae cada empaque.";
+    }
+    const usaConversion =
+      form.tipo_control === "no_retornable" &&
+      !form.control_individual &&
+      !!tipoManejoSeleccionado?.permite_conversion_unidad;
+    if (usaConversion && !form.unidad_movimiento_base) {
+      errs.unidad_movimiento_base = "Indica en qué unidad se guarda el stock (ej. centímetros).";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -180,11 +221,16 @@ export function MaterialFormPage() {
     const usaEmpaque =
       form.tipo_control === "no_retornable" &&
       !form.control_individual &&
-      form.unidad_manejo !== "unidad";
+      !!tipoManejoSeleccionado?.requiere_multiplicador;
+    const usaConversion =
+      form.tipo_control === "no_retornable" &&
+      !form.control_individual &&
+      !!tipoManejoSeleccionado?.permite_conversion_unidad;
     return {
       ...form,
       almacen: almacenId,
       unidades_por_caja: usaEmpaque ? Number(form.unidades_por_caja) : null,
+      unidad_movimiento_base: usaConversion ? form.unidad_movimiento_base : null,
     };
   }
 
@@ -355,13 +401,12 @@ export function MaterialFormPage() {
               </Field>
               <Field label="Unidad de medida" error={errors.unidad_medida}>
                 <select
-                  value={form.unidad_medida}
-                  onChange={(e) => set("unidad_medida", e.target.value as UnidadMedida)}
+                  value={form.unidad_medida || ""}
+                  onChange={(e) => set("unidad_medida", Number(e.target.value))}
                 >
-                  <option value="mm">Milímetros (mm)</option>
-                  <option value="cm">Centímetros (cm)</option>
-                  <option value="in">Pulgadas (in)</option>
-                  <option value="ft">Pies (ft)</option>
+                  {unidadesLongitud.map((u) => (
+                    <option key={u.id} value={u.id}>{u.nombre} ({u.abreviatura})</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Grosor / Diámetro" error={errors.grosor}>
@@ -481,43 +526,53 @@ export function MaterialFormPage() {
                 </small>
                 <Field label="Manejo de stock" required hint="Elige cómo se cuenta este consumible en el almacén.">
                   <select
-                    value={form.unidad_manejo ?? "unidad"}
+                    value={form.unidad_manejo || ""}
                     onChange={(e) => {
-                      const manejo = e.target.value as UnidadManejo;
-                      set("unidad_manejo", manejo);
-                      if (manejo === "unidad") {
+                      const manejoId = Number(e.target.value);
+                      set("unidad_manejo", manejoId);
+                      const tipo = tiposManejo.find((t) => t.id === manejoId);
+                      if (!tipo?.requiere_multiplicador) {
                         set("unidades_por_caja", "");
                         setCajasIniciales("");
+                      }
+                      if (!tipo?.permite_conversion_unidad) {
+                        set("unidad_movimiento_base", null);
                       }
                     }}
                     style={{ maxWidth: 220 }}
                   >
-                    <option value="unidad">Por unidad suelta</option>
-                    <option value="Paquete">Por Paquete</option>
-                    <option value="Bolsa">Por Bolsa</option>
-                    <option value="Blister">Por Blister</option>
-                    <option value="Rollo">Por Rollo</option>
-                    <option value="Docena">Por Docena</option>
-                    <option value="Millar">Por Millar</option>
-                    <option value="Litro">Por Litro</option>
-                    <option value="Mililitro">Por Mililitro</option>
-                    <option value="Galon">Por Galon</option>
-                    <option value="Bidon">Por Bidon</option>
-                    <option value="Kilogramo">Por Kilogramo</option>
-                    <option value="Gramo">Por Gramo</option>
-                    <option value="Libra">Por Libra</option>
-                    <option value="Metro">Por Metro</option>
-                    <option value="Centimetro">Por Centimetro</option>
-                    <option value="Milimetro">Por Milimetro</option>
-                    <option value="MetroCuadrado">Por MetroCuadrado</option>
-
+                    {tiposManejo.filter((t) => t.activo).map((t) => (
+                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
                   </select>
                 </Field>
 
-                {form.unidad_manejo !== "unidad" ? (
+                {tipoManejoSeleccionado?.permite_conversion_unidad && (
+                  <div style={{ marginTop: 12 }}>
+                    <Field
+                      label="Unidad base de stock"
+                      required
+                      error={errors.unidad_movimiento_base}
+                      hint="En qué unidad se guarda internamente el stock de este rollo (ej. centímetros). En cada movimiento se podrá elegir esa unidad u otra compatible (ej. metros)."
+                    >
+                      <select
+                        value={form.unidad_movimiento_base ?? ""}
+                        onChange={(e) => set("unidad_movimiento_base", e.target.value ? Number(e.target.value) : null)}
+                        style={{ maxWidth: 220 }}
+                      >
+                        <option value="">Selecciona…</option>
+                        {unidadesMedida.filter((u) => u.activo).map((u) => (
+                          <option key={u.id} value={u.id}>{u.nombre} ({u.abreviatura})</option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                )}
+
+                {tipoManejoSeleccionado?.requiere_multiplicador ? (
                   <div className="form-grid" style={{ marginTop: 12 }}>
                     <Field
-                      label={`Unidades por ${unidadManejoLabels[form.unidad_manejo as UnidadManejo] ?? "empaque"}`}
+                      label={`Unidades por ${tipoManejoSeleccionado?.nombre?.replace(/^Por /, "") ?? "empaque"}`}
                       required
                       error={errors.unidades_por_caja}
                       hint="¿Cuántas unidades trae cada unidad de manejo?"
@@ -537,7 +592,7 @@ export function MaterialFormPage() {
                       />
                     </Field>
                     <Field
-                      label={`Cantidad de ${unidadManejoLabels[form.unidad_manejo as UnidadManejo] ?? "empaques"} iniciales`}
+                      label={`Cantidad de ${tipoManejoSeleccionado?.nombre?.replace(/^Por /, "") ?? "empaques"} iniciales`}
                       hint="Se usa solo para calcular el stock total en unidades."
                     >
                       <input

@@ -20,12 +20,15 @@ def _sincronizar_estado_contenedor(contenedor: Pieza):
 
     Pieza.objects.filter(pk=contenedor.pk).update(estado=nuevo_estado)
 
-def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones="", cantidad_cajas=None, lote_id=""):
+def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones="", cantidad_cajas=None, lote_id="", unidad_movimiento=None, cantidad_en_unidad_movimiento=None):
     """
     Para materiales NO retornables (o retornables sin control individual, ej. brocas sueltas):
     descuenta cantidad_total de inmediato y deja el registro histórico.
-    'cantidad' siempre está en unidades; 'cantidad_cajas' es solo trazabilidad opcional
-    cuando el material se maneja por caja.
+    'cantidad' siempre está en la unidad base del material (unidades sueltas, o
+    unidad_movimiento_base para materiales tipo Rollo). 'cantidad_cajas' y
+    'unidad_movimiento'/'cantidad_en_unidad_movimiento' son solo trazabilidad
+    opcional de cómo se originó esa cantidad (por empaque, o convertida desde
+    otra unidad de la misma familia).
     """
     if material.control_individual:
         raise ValidationError(
@@ -42,6 +45,8 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
             tipo="salida",
             cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
+            unidad_movimiento=unidad_movimiento,
+            cantidad_en_unidad_movimiento=cantidad_en_unidad_movimiento,
             responsable=responsable,
             referencia_externa=referencia_externa,
             lote_id=lote_id,
@@ -54,7 +59,7 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
     return mov
 
 
-def registrar_entrada_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None):
+def registrar_entrada_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None, unidad_movimiento=None, cantidad_en_unidad_movimiento=None):
     """Reingreso de stock (ej. compra nueva, o una pieza que finalmente aparece)."""
     if material.control_individual:
         raise ValidationError(
@@ -64,6 +69,8 @@ def registrar_entrada_material(material: Material, cantidad: int, responsable, o
         mov = Movimiento.objects.create(
             material=material, tipo="entrada", cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
+            unidad_movimiento=unidad_movimiento,
+            cantidad_en_unidad_movimiento=cantidad_en_unidad_movimiento,
             responsable=responsable, observaciones=observaciones,
             almacen=material.almacen,
         )
@@ -73,7 +80,7 @@ def registrar_entrada_material(material: Material, cantidad: int, responsable, o
     return mov
 
 
-def registrar_baja_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None):
+def registrar_baja_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None, unidad_movimiento=None, cantidad_en_unidad_movimiento=None):
     """Confirma pérdida/rotura de cantidad no reconciliada (ej. brocas)."""
     if material.control_individual:
         raise ValidationError(
@@ -87,6 +94,8 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
         mov = Movimiento.objects.create(
             material=material, tipo="baja", cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
+            unidad_movimiento=unidad_movimiento,
+            cantidad_en_unidad_movimiento=cantidad_en_unidad_movimiento,
             responsable=responsable, observaciones=observaciones,
             almacen=material.almacen,
         )
