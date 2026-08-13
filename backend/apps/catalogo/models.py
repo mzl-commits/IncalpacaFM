@@ -124,6 +124,12 @@ class Material(models.Model):
     )
     codigo = models.CharField(max_length=20, blank=True)
     nombre = models.CharField(max_length=150)
+    codigo_quipu = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Código QUIPU",
+        help_text="Código de referencia manual del sistema QUIPU (opcional).",
+    )
     marca = models.CharField(max_length=100, blank=True)
     modelo = models.CharField(
         max_length=100, blank=True,
