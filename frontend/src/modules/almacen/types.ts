@@ -181,6 +181,7 @@ export interface Material {
   subcategoria_plantilla_inspeccion: number | null; 
   subcategoria_plantilla_inspeccion_nombre: string | null;
   categoria_nombre: string;
+  codigo_quipu: string;
   codigo: string;
   nombre: string;
   marca: string;
@@ -198,13 +199,7 @@ export interface Material {
   cantidad_total: number;
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
-  /** Periodicidad de inspección en días, calculada por el backend. */
   periodicidad_inspeccion_dias: number;
-  /**
-   * Fuente única de verdad (calculada en el backend) de si el material es
-   * inspeccionable: subcategoría con plantilla_inspeccion asignada Y
-   * categoría con requiere_inspeccion=True.
-   */
   es_inspeccionable: boolean;
   unidad_manejo: UnidadManejo;
   unidades_por_caja: number | null;

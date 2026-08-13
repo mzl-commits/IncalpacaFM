@@ -162,7 +162,7 @@
 .respuesta-observacion { color: var(--muted); font-size: 12px; }
 
 /* ─── Upload de foto ─────────────────────────────────────────────────────────── */
-.foto-preview { display: block; width: 100%; max-width: 240px; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; border: 1px solid #e0e0e0; margin: 0 auto 16px; }
+.foto-preview { display: block; width: 100%; max-width: 200px; height: auto; object-fit: contain; border-radius: 6px; border: 1px solid #e0e0e0; margin: 0 auto 16px; }
 
 
 /* ─── Segmented control 2 cols ───────────────────────────────────────────────── */
@@ -560,6 +560,80 @@
     margin-left: auto;
   }
 }
+/* ─── Header de estas tablas: blanco con borde inferior, sin fondo negro global ── */
+.tabla-detalle-mobile thead,
+.tabla-detalle-mobile thead tr {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+.tabla-detalle-mobile thead th,
+.tabla-detalle-mobile th {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-top: 0 !important;
+  border-bottom: 2px solid #000000 !important;
+}
+.tabla-detalle-mobile thead th *,
+.tabla-detalle-mobile th * {
+  color: #000000 !important;
+}
+
+/* ─── Página de Movimientos: mismo espaciado y estilo que Catálogo ──────────── */
+.almacen-movimientos-view .page-heading {
+  margin-bottom: 24px;
+}
+
+.almacen-movimientos-view .alert-banner {
+  margin-bottom: 20px;
+}
+
+/* Tarjetas individuales con espacio entre sí, en vez de una sola caja
+   continua dividida por líneas finas (eso es lo que se sentía apretado). */
+.almacen-movimientos-view .stock-movements-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  background: transparent;
+  border: none;
+  overflow: visible;
+  box-shadow: none;
+  margin-bottom: 28px;
+}
+
+.almacen-movimientos-view .stock-indicator-item {
+  border: 1px solid #000000;
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.almacen-movimientos-view .stock-indicator-item:first-child {
+  border-left: 1px solid #000000;
+}
+
+@media (max-width: 960px) {
+  .almacen-movimientos-view .stock-movements-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .almacen-movimientos-view .stock-indicator-item:nth-child(3),
+  .almacen-movimientos-view .stock-indicator-item:nth-child(4) {
+    border: 1px solid #000000;
+  }
+}
+
+@media (max-width: 600px) {
+  .almacen-movimientos-view .stock-movements-strip {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .almacen-movimientos-view .stock-indicator-item {
+    border: 1px solid #000000;
+    padding: 16px 18px;
+    min-height: 96px;
+  }
+}
+
 /* ─── Header de página responsivo (Catálogo, etc.) ───────────────────────── */
 .page-header-row {
   display: flex;
@@ -666,8 +740,24 @@
   .almacen-subnav-item span { display: none; }
 }
 
+/* ─── Espaciado de la página de Catálogo: header → KPIs → panel de datos ────── */
+.page-header-row {
+  margin-bottom: 28px;
+}
+.kpi-grid {
+  margin-bottom: 28px;
+}
+
+/* ─── Quitar marco/tarjeta del panel donde viven los materiales (Catálogo) ──── */
+.catalog-data-panel {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
 /* ─── Imágenes responsivas en ficha de material ───────────────────────────────── */
-/* .foto-preview base: max-width 240px, aspect-ratio 4/3, object-fit cover        */
+/* .foto-preview base: max-width 320px, se adapta a la proporción real de la imagen */
 /* En mobile se expande al ancho disponible del card sin recortarse.               */
 @media (max-width: 640px) {
   .foto-preview {

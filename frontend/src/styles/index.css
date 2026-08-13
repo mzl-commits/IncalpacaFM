@@ -2895,10 +2895,10 @@ td { padding: 13px 14px; }
 
 /* WORKSPACE DATA PANEL */
 .almacen-catalogo-view .catalog-data-panel {
-  background: #FFFFFF;
-  border: 1px solid #000000;
-  border-radius: 10px;
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
   box-shadow: none !important;
 }
 
