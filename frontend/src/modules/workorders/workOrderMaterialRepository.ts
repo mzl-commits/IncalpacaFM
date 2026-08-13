@@ -25,6 +25,7 @@ export interface WorkOrderMaterialPayload {
   cantidad: number;
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
   porcentajeRequerido?: number | null;
+  almacen?: number | null; 
 }
 
 export async function listWorkOrderMateriales(workOrderId: string): Promise<WorkOrderMaterial[]> {
@@ -89,3 +90,4 @@ export async function updateWorkOrderCostAmount(
   const { data } = await api.patch(`/work-orders/${workOrderId}/costs/${costId}/`, { amount });
   return data;
 }
+

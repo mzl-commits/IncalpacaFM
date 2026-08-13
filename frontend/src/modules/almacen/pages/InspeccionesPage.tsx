@@ -109,7 +109,7 @@ export function InspeccionesPage() {
         </ListFilterPanel>
 
         <div className="table-scroll">
-          <table>
+          <table className="tabla-detalle-mobile">
             <thead>
               <tr>
                 <th>Fecha</th>

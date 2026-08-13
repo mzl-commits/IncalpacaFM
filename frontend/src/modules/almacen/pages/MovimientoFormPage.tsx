@@ -3,36 +3,53 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { useAuth } from "@/modules/accounts/AuthContext";
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
+import { listMateriales, listPiezas } from "@/modules/almacen/catalogoRepository";
+import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 import {
-  listMateriales,
-  listPiezas,
-} from "@/modules/almacen/catalogoRepository";
-import {
+  crearGrupoSolicitud,
+  listOrdenesTrabajoActivas,
   registrarBajaMaterial,
   registrarBajaPieza,
   registrarEntradaMaterial,
   registrarEntradaPieza,
   registrarSalidaMaterial,
   registrarSalidaPieza,
-  listOrdenesTrabajoActivas,
-  crearGrupoSolicitud,
 } from "@/modules/almacen/inventarioRepository";
-import type { WorkOrderActiva, RenglonSalida } from "@/modules/almacen/inventarioRepository";
-import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
+import type { RenglonSalida, WorkOrderActiva } from "@/modules/almacen/inventarioRepository";
 import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
-import { useAuth } from "@/modules/accounts/AuthContext";
 
-function Field({ label, required, error, hint, children, wide }: {
-  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode; wide?: boolean;
+function Field({
+  label,
+  required,
+  error,
+  hint,
+  children,
+  wide,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  hint?: string;
+  children: React.ReactNode;
+  wide?: boolean;
 }) {
   return (
     <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
-      <span>{label}{required && <b aria-hidden="true"> *</b>}</span>
+      <span>
+        {label}
+        {required && <b aria-hidden="true"> *</b>}
+      </span>
       {children}
       {hint && !error && <small style={{ color: "var(--muted)", fontSize: 12 }}>{hint}</small>}
-      {error && <small className="field-error"><WarningCircle size={14} />{error}</small>}
+      {error && (
+        <small className="field-error">
+          <WarningCircle size={14} />
+          {error}
+        </small>
+      )}
     </label>
   );
 }
@@ -48,7 +65,7 @@ function renglonVacio(): RenglonSalida {
 
 type ResultadoLoteAdmin = { materialNombre: string; ok: boolean; error?: string };
 
-export function MovimientoFormPage() {
+export function MovimientosFormPage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const esAlmacenero = user?.role === "ALMACENERO";
@@ -69,7 +86,6 @@ export function MovimientoFormPage() {
   const [exito, setExito] = useState(false);
   const [exitoPendiente, setExitoPendiente] = useState<string | null>(null);
 
-  // Sub-modo para Salida: "consumibles" (agrupado) o "pieza" (código individual / estuche)
   const [modoSalida, setModoSalida] = useState<"consumibles" | "pieza">("consumibles");
   const [renglones, setRenglones] = useState<RenglonSalida[]>([renglonVacio()]);
   const [workOrderSelected, setWorkOrderSelected] = useState<string>("");
@@ -84,9 +100,7 @@ export function MovimientoFormPage() {
   }
 
   function actualizarRenglon(id: string, campo: "materialId" | "cantidad" | "cantidadCajas", valor: number) {
-    setRenglones((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [campo]: valor } : r))
-    );
+    setRenglones((prev) => prev.map((r) => (r.id === id ? { ...r, [campo]: valor } : r)));
   }
 
   const [todasHijas, setTodasHijas] = useState(true);
@@ -136,35 +150,6 @@ export function MovimientoFormPage() {
   const esContenedor = pieza && pieza.tiene_hijas;
 
   const piezasSueltasDisponibles = piezas.filter((p) => !p.tiene_hijas);
-  const estuchesDisponibles = piezas.filter((p) => p.tiene_hijas);
-
-  const { data: hijasDisponibles = [] } = useQuery({
-    queryKey: ["piezas-hijas", piezaId],
-    queryFn: () => listPiezas({ padre: piezaId, estado: "Disponible" }),
-    enabled: !!piezaId && !!esContenedor && tipo === "salida",
-  });
-
-  function toggleHija(id: number) {
-    setHijasSeleccionadas((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleTodas(checked: boolean) {
-    setTodasHijas(checked);
-    if (checked) setHijasSeleccionadas(new Set());
-  }
-
-  function togglePrestada(id: number) {
-    setPrestadasSeleccionadas((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
 
   function togglePiezaSalida(id: number) {
     setPiezasSalidaSeleccionadas((prev) => {
@@ -283,9 +268,7 @@ export function MovimientoFormPage() {
             return resultados;
           }
           if (!piezaId) throw new Error("Selecciona al menos una pieza o un estuche.");
-          const piezas_hijas_ids = (esContenedor && !todasHijas)
-            ? Array.from(hijasSeleccionadas)
-            : undefined;
+          const piezas_hijas_ids = esContenedor && !todasHijas ? Array.from(hijasSeleccionadas) : undefined;
           return registrarSalidaPieza({
             pieza_id: piezaId,
             responsable_id: responsableId,
@@ -349,12 +332,14 @@ export function MovimientoFormPage() {
     return (
       <section className="success-panel">
         <h2 style={{ color: "var(--accent-600, #2563eb)" }}>⏳ Solicitud enviada — pendiente de aprobación</h2>
-        <p style={{ maxWidth: 440, textAlign: "center", color: "var(--neutral-600)" }}>
-          {exitoPendiente}
-        </p>
+        <p style={{ maxWidth: 440, textAlign: "center", color: "var(--neutral-600)" }}>{exitoPendiente}</p>
         <div className="success-actions">
-          <Link className="button button-primary" to="/almacen/movimientos">Ver historial</Link>
-          <Link className="button button-secondary" to="/almacen/movimientos/nuevo">Nueva solicitud</Link>
+          <Link className="button button-primary" to={`/almacen/${almacenId}/movimientos`}>
+            Ver historial
+          </Link>
+          <Link className="button button-secondary" to={`/almacen/${almacenId}/movimientos/nuevo`}>
+            Nueva solicitud
+          </Link>
         </div>
       </section>
     );
@@ -374,7 +359,14 @@ export function MovimientoFormPage() {
           </div>
         )}
         <div className="success-actions">
-          <Link className="button button-primary" to="/almacen/movimientos">Ver historial</Link>
+          <Link className="button button-primary" to={`/almacen/${almacenId}/movimientos`}>
+            Ver historial
+          </Link>
+          {materialId > 0 && (
+            <Link className="button button-secondary" to={`/almacen/${almacenId}/catalogo/${materialId}`}>
+              Ver material
+            </Link>
+          )}
           <button
             className="button button-secondary"
             onClick={() => {
@@ -398,7 +390,7 @@ export function MovimientoFormPage() {
   return (
     <section>
       <div className="wizard-heading">
-        <Link to="/almacen/movimientos" className="back-link">
+        <Link to={`/almacen/${almacenId}/movimientos`} className="back-link">
           <ArrowLeft size={16} /> Movimientos
         </Link>
         <div>
@@ -409,7 +401,12 @@ export function MovimientoFormPage() {
 
       <form
         className="wizard-layout"
-        onSubmit={(e) => { e.preventDefault(); setError(""); setResultadosAdmin(null); mut.mutate(); }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          setError("");
+          setResultadosAdmin(null);
+          mut.mutate();
+        }}
         noValidate
       >
         <div style={{ display: "grid", gap: 20 }}>
@@ -419,7 +416,7 @@ export function MovimientoFormPage() {
               <span>Tipo</span>
               <h2>¿Qué deseas registrar?</h2>
             </div>
-            <div className={`segmented-control segmented-3`} role="group" aria-labelledby={tipoId}>
+            <div className="segmented-control segmented-3" role="group" aria-labelledby={tipoId}>
               {(["salida", "entrada", "baja"] as TipoMovimiento[]).map((t) => (
                 <button
                   key={t}
@@ -451,11 +448,26 @@ export function MovimientoFormPage() {
 
             {/* Selector de modo para Salida */}
             {tipo === "salida" && (
-              <div style={{ marginBottom: 16, display: "flex", gap: 8, background: "var(--surface-subtle, #f3f4f6)", padding: 4, borderRadius: 8, width: "fit-content" }}>
+              <div
+                style={{
+                  marginBottom: 16,
+                  display: "flex",
+                  gap: 8,
+                  background: "var(--surface-subtle, #f3f4f6)",
+                  padding: 4,
+                  borderRadius: 8,
+                  width: "fit-content",
+                }}
+              >
                 <button
                   type="button"
                   className={modoSalida === "consumibles" ? "button button-secondary button-sm is-active" : "button button-ghost button-sm"}
-                  style={{ fontSize: 12, padding: "4px 12px", background: modoSalida === "consumibles" ? "var(--surface, #fff)" : "transparent", boxShadow: modoSalida === "consumibles" ? "0 1px 2px rgba(0,0,0,0.05)" : "none" }}
+                  style={{
+                    fontSize: 12,
+                    padding: "4px 12px",
+                    background: modoSalida === "consumibles" ? "var(--surface, #fff)" : "transparent",
+                    boxShadow: modoSalida === "consumibles" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
                   onClick={() => {
                     setModoSalida("consumibles");
                     setMaterialId(0);
@@ -467,7 +479,12 @@ export function MovimientoFormPage() {
                 <button
                   type="button"
                   className={modoSalida === "pieza" ? "button button-secondary button-sm is-active" : "button button-ghost button-sm"}
-                  style={{ fontSize: 12, padding: "4px 12px", background: modoSalida === "pieza" ? "var(--surface, #fff)" : "transparent", boxShadow: modoSalida === "pieza" ? "0 1px 2px rgba(0,0,0,0.05)" : "none" }}
+                  style={{
+                    fontSize: 12,
+                    padding: "4px 12px",
+                    background: modoSalida === "pieza" ? "var(--surface, #fff)" : "transparent",
+                    boxShadow: modoSalida === "pieza" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
                   onClick={() => {
                     setModoSalida("pieza");
                     setMaterialId(0);
@@ -621,16 +638,24 @@ export function MovimientoFormPage() {
                         value={piezaId}
                         selectedLabel={
                           pieza
-                            ? `${pieza.codigo} — ${pieza.material_nombre}${pieza.material_medida ? ` (${pieza.material_medida})` : ""} · ${pieza.estado}${pieza.tiene_hijas ? " [estuche]" : ""}`
+                            ? `${pieza.codigo} — ${pieza.material_nombre}${
+                                pieza.material_medida ? ` (${pieza.material_medida})` : ""
+                              } · ${pieza.estado}${pieza.tiene_hijas ? " [estuche]" : ""}`
                             : ""
                         }
                         placeholder="Buscar por código…"
-                        onChange={(id) => { setPiezaId(id); setTodasHijas(true); setHijasSeleccionadas(new Set()); }}
+                        onChange={(id) => {
+                          setPiezaId(id);
+                          setTodasHijas(true);
+                          setHijasSeleccionadas(new Set());
+                        }}
                         fetchOptions={async (q) => {
                           const res = await listPiezas({ material: materialId, q });
                           return res.map((p) => ({
                             id: p.id,
-                            label: `${p.codigo} — ${p.material_nombre}${p.material_medida ? ` (${p.material_medida})` : ""} · ${p.estado}${p.tiene_hijas ? " [estuche]" : ""}`,
+                            label: `${p.codigo} — ${p.material_nombre}${
+                              p.material_medida ? ` (${p.material_medida})` : ""
+                            } · ${p.estado}${p.tiene_hijas ? " [estuche]" : ""}`,
                           }));
                         }}
                       />
@@ -641,9 +666,9 @@ export function MovimientoFormPage() {
                     <Field
                       label={`Cantidad de ${material.unidad_manejo ?? "empaque"}`}
                       required
-                      hint={`Cada ${material.unidad_manejo ?? "empaque"} trae ${material.unidades_por_caja ?? "?"} unidades · Total: ${
-                        cantidadCajas * (material.unidades_por_caja ?? 0)
-                      } unidades`}
+                      hint={`Cada ${material.unidad_manejo ?? "empaque"} trae ${
+                        material.unidades_por_caja ?? "?"
+                      } unidades · Total: ${cantidadCajas * (material.unidades_por_caja ?? 0)} unidades`}
                     >
                       <input
                         type="number"
@@ -678,39 +703,35 @@ export function MovimientoFormPage() {
                   Piezas a sacar <span style={{ color: "var(--error, #dc2626)" }}>*</span>
                 </strong>
 
-                {piezasSueltasDisponibles.length === 0 && estuchesDisponibles.length === 0 ? (
-                  <p style={{ fontSize: 13, color: "var(--muted)" }}>
-                    No hay piezas disponibles de este material.
-                  </p>
+                {piezasSueltasDisponibles.length === 0 ? (
+                  <p style={{ fontSize: 13, color: "var(--muted)" }}>No hay piezas disponibles de este material.</p>
                 ) : (
-                  <>
-                    {piezasSueltasDisponibles.length > 0 && (
-                      <div className="pieza-multiselect">
-                        <label className="pieza-checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={piezasSalidaSeleccionadas.size === piezasSueltasDisponibles.length}
-                            onChange={(e) =>
-                              setPiezasSalidaSeleccionadas(
-                                e.target.checked ? new Set(piezasSueltasDisponibles.map((p) => p.id)) : new Set()
-                              )
-                            }
-                          />
-                          <strong style={{ fontSize: 13 }}>Todas las piezas sueltas ({piezasSueltasDisponibles.length})</strong>
-                        </label>
-                        {piezasSueltasDisponibles.map((p) => (
-                          <label key={p.id} className="pieza-checkbox-row">
-                            <input
-                              type="checkbox"
-                              checked={piezasSalidaSeleccionadas.has(p.id)}
-                              onChange={() => togglePiezaSalida(p.id)}
-                            />
-                            <span className="pieza-code">{p.codigo}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </>
+                  <div className="pieza-multiselect">
+                    <label className="pieza-checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={piezasSalidaSeleccionadas.size === piezasSueltasDisponibles.length}
+                        onChange={(e) =>
+                          setPiezasSalidaSeleccionadas(
+                            e.target.checked ? new Set(piezasSueltasDisponibles.map((p) => p.id)) : new Set()
+                          )
+                        }
+                      />
+                      <strong style={{ fontSize: 13 }}>
+                        Todas las piezas sueltas ({piezasSueltasDisponibles.length})
+                      </strong>
+                    </label>
+                    {piezasSueltasDisponibles.map((p) => (
+                      <label key={p.id} className="pieza-checkbox-row">
+                        <input
+                          type="checkbox"
+                          checked={piezasSalidaSeleccionadas.has(p.id)}
+                          onChange={() => togglePiezaSalida(p.id)}
+                        />
+                        <span className="pieza-code">{p.codigo}</span>
+                      </label>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
@@ -723,103 +744,71 @@ export function MovimientoFormPage() {
               <h2>Responsable y referencia</h2>
             </div>
             <div className="form-grid">
-              <Field label="Responsable" required>
+              <Field label="Responsable" required error={error ? error : undefined}>
                 <select value={responsableId || ""} onChange={(e) => setResponsableId(Number(e.target.value))}>
                   <option value="">Seleccionar responsable…</option>
                   {usuarios.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.full_name} ({u.role_display})
+                      {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}`.trim() : u.username}
                     </option>
                   ))}
                 </select>
               </Field>
-              {tipo === "salida" && (
-                <>
-                  <Field label="Orden de Trabajo" hint="Vincular a una OT activa (opcional)">
-                    <select
-                      value={workOrderSelected}
-                      onChange={(e) => {
-                        setWorkOrderSelected(e.target.value);
-                        if (e.target.value) setReferencia("");
-                      }}
-                    >
-                      <option value="">Seleccionar Orden de Trabajo…</option>
-                      {otsActivas.map((ot) => (
-                        <option key={ot.id} value={ot.id}>
-                          {ot.code} — {ot.status_display} ({ot.technician_name})
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
 
-                  {!workOrderSelected && (
-                    <Field label="Referencia manual" hint="Ej. OT-2026-045 (opcional si no eliges de la lista)">
-                      <input
-                        type="text"
-                        value={referencia}
-                        onChange={(e) => setReferencia(e.target.value)}
-                        placeholder="Código manual u observaciones de referencia"
-                      />
-                    </Field>
-                  )}
-                </>
+              {tipo === "salida" && (
+                <Field label="Orden de Trabajo (opcional)">
+                  <select value={workOrderSelected} onChange={(e) => setWorkOrderSelected(e.target.value)}>
+                    <option value="">Sin orden de trabajo asociada</option>
+                    {otsActivas.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.code} — {o.description || "Sin descripción"}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               )}
-              <Field label="Observaciones">
+
+              <Field label="Referencia externa / Folio">
+                <input
+                  type="text"
+                  value={referencia}
+                  onChange={(e) => setReferencia(e.target.value)}
+                  placeholder="Ej. Vale de almacén, Remisión..."
+                />
+              </Field>
+
+              <Field label="Observaciones" wide>
                 <textarea
+                  rows={3}
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
-                  rows={3}
-                  placeholder="Detalles adicionales (opcional)"
-                  style={{ width: "100%" }}
+                  placeholder="Comentarios adicionales sobre el movimiento..."
                 />
               </Field>
             </div>
           </div>
 
+          {/* Resultados de envío por lote (solo Admin) */}
           {resultadosAdmin && (
-            <div
-              style={{
-                marginBottom: 20,
-                padding: 16,
-                borderRadius: 8,
-                background: "var(--surface-subtle, #f9fafb)",
-                border: "1px solid var(--border, #e5e7eb)",
-              }}
-            >
-              <h3 style={{ fontSize: 14, margin: "0 0 10px", color: "var(--text-heading)" }}>
-                Resultado del procesamiento por lote
-              </h3>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                {resultadosAdmin.map((r, idx) => (
+            <div className="form-panel" style={{ borderLeft: "4px solid var(--accent, #2563eb)" }}>
+              <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>Resultado de la operación</h3>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13 }}>
+                {resultadosAdmin.map((r, i) => (
                   <li
-                    key={idx}
-                    style={{
-                      fontSize: 13,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      color: r.ok ? "var(--success, #16a34a)" : "var(--error, #dc2626)",
-                    }}
+                    key={i}
+                    style={{ color: r.ok ? "var(--success, #16a34a)" : "var(--error, #dc2626)", marginBottom: 4 }}
                   >
-                    <strong>{r.ok ? "✓" : "✗"}</strong>
-                    <span>{r.materialNombre}</span>
-                    {!r.ok && <span style={{ fontSize: 12, opacity: 0.9 }}>— {r.error}</span>}
+                    <strong>{r.materialNombre}:</strong> {r.ok ? "Registrado con éxito" : `Error: ${r.error}`}
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {error && (
-            <div className="alert-banner alert-banner-error">
-              <WarningCircle size={18} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="form-actions">
-            <Link to="/almacen/movimientos" className="button button-secondary">
-              <ArrowLeft size={15} /> Cancelar
+          {/* Botones de acción */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 }}>
+            <Link to={`/almacen/${almacenId}/movimientos`} className="button button-ghost">
+              Cancelar
             </Link>
             <button type="submit" className="button button-primary" disabled={mut.isPending}>
               {mut.isPending ? "Guardando…" : "Registrar movimiento"}

@@ -11,6 +11,8 @@ export interface ProgramacionesParams {
   categoria?: number;
   desde?: string; // "YYYY-MM-DD"
   hasta?: string; // "YYYY-MM-DD"
+  almacen?: number; // requerido en la práctica para Administrador; el backend
+                     // lo ignora si el usuario tiene almacén forzado (Almacenero/Inspector)
 }
 
 export async function listProgramaciones(
@@ -27,8 +29,14 @@ export async function getProgramacion(id: number): Promise<ProgramacionInspeccio
 
 // ─── Plan anual ────────────────────────────────────────────────────────────────
 
-export async function listPlanesAnuales(): Promise<PlanInspeccionAnual[]> {
-  const { data } = await api.get<PlanInspeccionAnual[]>("/plan-anual/");
+export interface PlanesAnualesParams {
+  almacen?: number;
+}
+
+export async function listPlanesAnuales(
+  params: PlanesAnualesParams = {},
+): Promise<PlanInspeccionAnual[]> {
+  const { data } = await api.get<PlanInspeccionAnual[]>("/plan-anual/", { params });
   return data;
 }
 
@@ -40,6 +48,8 @@ export async function getPlanAnual(id: number): Promise<PlanInspeccionAnual> {
 export interface GenerarPlanPayload {
   anio: number;
   forzar?: boolean;
+  almacen?: number; // obligatorio si el usuario logueado es Administrador (sin almacén forzado);
+                     // el backend lo ignora y usa el propio si el usuario tiene almacén asignado
 }
 
 export interface GenerarPlanRespuesta {

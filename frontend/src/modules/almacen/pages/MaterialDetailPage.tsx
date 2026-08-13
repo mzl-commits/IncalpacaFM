@@ -315,6 +315,9 @@ export function MaterialDetailPage() {
             <div className="form-section-heading" style={{ marginBottom: 16 }}>
               <span>Datos del material</span>
               <h2>{material.codigo}</h2>
+              <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
+                {material.nombre}
+              </p>
             </div>
 
             {material.foto && (
@@ -325,18 +328,19 @@ export function MaterialDetailPage() {
               />
             )}
 
-            <dl className="review-card dl" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0 }}>
+            <dl className="review-card dl" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0, padding: "16px" }}>
               <div><dt className="dt-label">Marca / Modelo</dt><dd className="dd-value">{[material.marca, material.modelo].filter(Boolean).join(" / ") || "—"}</dd></div>
               <div><dt className="dt-label">Medida</dt><dd className="dd-value">{material.medida || "—"}</dd></div>
               <div><dt className="dt-label">Tipo de control</dt><dd className="dd-value">{tipoControlLabels[material.tipo_control]}</dd></div>
               <div><dt className="dt-label">Control individual</dt><dd className="dd-value">{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt className="dt-label">Ubicación física</dt><dd className="dd-value">{material.ubicacion_fisica || "—"}</dd></div>
+              <div><dt className="dt-label">Código QUIPU</dt><dd className="dd-value">{material.codigo_quipu || "—"}</dd></div>
               {material.es_inspeccionable && (
                 <div>
                   <dt className="dt-label">Frecuencia de inspección</dt>
                   <dd className="dd-value">
                     {formatearFrecuencia(material.periodicidad_valor, material.periodicidad_unidad)}
-                  </dd>WQA
+                  </dd>
                 </div>
               )}
               <div>
