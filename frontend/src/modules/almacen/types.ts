@@ -65,10 +65,31 @@ export const tipoControlLabels: Record<TipoControl, string> = {
   no_retornable: "No retornable",
 };
 
-// unidad_medida y unidad_manejo ahora son catálogos editables (ver
-// UnidadMedidaCatalogo / TipoManejoStockCatalogo más abajo) en vez de listas
-// fijas: sus labels vienen del backend (nombre/abreviatura), no de un mapa
-// hardcodeado aquí.
+export type UnidadMedida = string;
+export type UnidadManejo = string;
+
+export const unidadManejoLabels: Record<string, string> = {
+  unidad: "Por unidad suelta",
+  Paquete: "Por Paquete",
+  Bolsa: "Por Bolsa",
+  Blister: "Por Blíster",
+  Kit: "Por Kit / Juego",
+  Rollo: "Por Rollo",
+  Docena: "Por Docena",
+  Millar: "Por Millar",
+  Litro: "Por Litro",
+  Mililitro: "Por Mililitro",
+  Galon: "Por Galón",
+  Bidon: "Por Bidón",
+  Kilogramo: "Por Kilogramo",
+  Gramo: "Por Gramo",
+  Libra: "Por Libra",
+  Metro: "Por Metro",
+  Centimetro: "Por Centímetro",
+  Milimetro: "Por Milímetro",
+  MetroCuadrado: "Por Metro Cuadrado",
+  MetroCubico: "Por Metro Cúbico",
+};
 
 
 // ─── Catálogo ─────────────────────────────────────────────────────────────────
@@ -146,9 +167,9 @@ export interface Material {
   foto: string | null;
   grosor: string | null;
   largo: string | null;
-  unidad_medida: number;
-  unidad_medida_nombre: string | null;
-  unidad_medida_abreviatura: string | null;
+  unidad_medida: number | string;
+  unidad_medida_nombre?: string | null;
+  unidad_medida_abreviatura?: string | null;
   ubicacion_fisica: string;
   precio: string | number | null;
   moneda: Moneda;
@@ -160,16 +181,16 @@ export interface Material {
   periodicidad_unidad: "dias" | "meses";
   periodicidad_inspeccion_dias: number;
   es_inspeccionable: boolean;
-  unidad_manejo: number;
-  unidad_manejo_nombre: string | null;
+  unidad_manejo: number | string;
+  unidad_manejo_nombre?: string | null;
   /** Si es true, el material se maneja por empaque (caja/bolsa/kit/etc.) y requiere unidades_por_caja. */
-  unidad_manejo_requiere_multiplicador: boolean;
+  unidad_manejo_requiere_multiplicador?: boolean;
   /** Si es true (ej. Rollo), en cada movimiento se puede elegir otra unidad (cm/m) y se convierte a unidad_movimiento_base. */
-  unidad_manejo_permite_conversion_unidad: boolean;
+  unidad_manejo_permite_conversion_unidad?: boolean;
   unidades_por_caja: number | null;
-  unidad_movimiento_base: number | null;
-  unidad_movimiento_base_nombre: string | null;
-  unidad_movimiento_base_abreviatura: string | null;
+  unidad_movimiento_base?: number | string | null;
+  unidad_movimiento_base_nombre?: string | null;
+  unidad_movimiento_base_abreviatura?: string | null;
   activo: boolean;
   creado_en: string;
 
@@ -191,7 +212,7 @@ export interface MaterialCreatePayload {
   medida: string;
   grosor: string;
   largo: string;
-  unidad_medida: number;
+  unidad_medida: number | string;
   ubicacion_fisica: string;
   precio?: string | number | null;
   moneda?: Moneda;
@@ -199,11 +220,12 @@ export interface MaterialCreatePayload {
   control_individual: boolean;
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
-  unidad_manejo?: number;
+  unidad_manejo?: number | string;
   unidades_por_caja?: number | string | null;
-  unidad_movimiento_base?: number | null;
+  unidad_movimiento_base?: number | string | null;
   cantidad_total?: number;
   almacen?: number;
+  stock_minimo?: number;
   // foto se envía aparte como FormData si existe
 }
 
