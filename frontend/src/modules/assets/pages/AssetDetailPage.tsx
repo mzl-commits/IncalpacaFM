@@ -20,6 +20,7 @@ import { useAuth } from "@/modules/accounts/AuthContext";
 import {
   getAssetDetail,
   classifyAsset,
+  printAssetPdf,
   updateAssetDetail,
   type AssetDetailRecord,
   type AssetDetailUpdate,
@@ -374,7 +375,7 @@ export function AssetDetailPage() {
             <UserPlus />
             Asignar nuevo responsable
           </button>
-          <button className="button button-secondary" onClick={() => window.print()}>
+          <button className="button button-secondary" onClick={() => void printAssetPdf(asset.id)}>
             <Printer />
             Imprimir ficha
           </button>
@@ -522,7 +523,7 @@ export function AssetDetailPage() {
           </div>
           {qr && <img src={qr} alt={`Código QR de ${displayCode(asset)}`} />}
           <div className="qr-record-actions">
-            <button className="button button-primary" onClick={() => window.print()}>
+            <button className="button button-primary" onClick={() => void printAssetPdf(asset.id)}>
               <Printer />
               Imprimir etiqueta
             </button>

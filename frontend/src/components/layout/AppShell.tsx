@@ -39,6 +39,8 @@ import type { UserRole } from "@/modules/accounts/types";
 import { RouteBreadcrumbs } from "@/components/navigation/RouteBreadcrumbs";
 import { NotificationCenter } from "@/modules/notifications/components/NotificationCenter";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { listWorkRequests, WORK_REQUESTS_UPDATED_EVENT } from "@/modules/incidents/incidentRepository";
+import { listWorkOrders, WORK_ORDERS_UPDATED_EVENT } from "@/modules/workorders/workOrderRepository";
 
 type NavItem = {
   to: string;
@@ -62,12 +64,15 @@ type ModuleGroup = {
 const modules: ModuleGroup[] = [
   {
     id: "dashboard",
-    label: "Dashboard",
-    shortLabel: "Dashboard",
-    icon: SquaresFour,
-    paths: ["/"],
+    label: "Mantenimiento",
+    shortLabel: "Mantenimiento",
+    icon: Wrench,
+    paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada"],
     items: [
-      { to: "/", label: "Dashboard general", icon: SquaresFour, end: true },
+      { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
+      { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
     ],
   },
   {
@@ -83,7 +88,7 @@ const modules: ModuleGroup[] = [
       { to: "/bienes/qr", label: "Códigos QR", icon: Barcode },
       { to: "/mapa", label: "Mapa de activos", icon: MapTrifold },
       { to: "/bienes/ciclo-vida/bajas", label: "Ciclo de vida", icon: ShieldCheck },
-      { to: "/bienes", label: "Inventario general", icon: ListDashes, end: true, count: "31" },
+      { to: "/bienes", label: "Inventario general", icon: ListDashes, end: true },
     ],
   },
   {
@@ -94,7 +99,7 @@ const modules: ModuleGroup[] = [
     paths: ["/almacen"],
     roles: ["ADMINISTRADOR", "ALMACENERO", "INSPECTOR"],
     items: [
-      { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true, count: "10" },
+      { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true },
       { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
       { to: "/almacen/checklist", label: "Devolución", icon: ListChecks },
       { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText },
@@ -104,16 +109,14 @@ const modules: ModuleGroup[] = [
     ],
   },
   {
-    id: "operations",
-    label: "Atención y mantenimiento",
-    shortLabel: "Mantenimiento",
-    icon: Wrench,
-    paths: ["/incidencias", "/ordenes-trabajo", "/supervision", "/mi-jornada"],
-    roles: ["ADMINISTRADOR", "TECNICO", "SUPERVISOR"],
+    id: "team",
+    label: "Equipo",
+    shortLabel: "Equipo",
+    icon: UsersThree,
+    paths: ["/ordenes-trabajo", "/mi-jornada"],
+    roles: ["ADMINISTRADOR", "SUPERVISOR"],
     items: [
-      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, count: "6" },
-      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, count: "4" },
-      { to: "/supervision", label: "Revisión de OT", icon: ShieldCheck },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
       { to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank },
     ],
   },
@@ -154,8 +157,8 @@ const modules: ModuleGroup[] = [
       { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Barcode },
       { to: "/administracion/modelos", label: "Modelos de bienes", icon: Tag },
       { to: "/administracion/mapas-ambientes", label: "Mapas de ambientes", icon: MapTrifold },
-      { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree, count: "2" },
-      { to: "/administracion/reportantes", label: "Usuarios que reportaron", icon: UserCircle },
+      { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree },
+      { to: "/administracion/usuarios", label: "Usuarios", icon: UserCircle },
       { to: "/administracion/formularios", label: "Formularios de inspección", icon: ListChecks },
       { to: "/documentos", label: "Documentos", icon: Files },
       { to: "/auditoria", label: "Auditoría", icon: ShieldCheck },
@@ -184,20 +187,21 @@ function isGroupActive(pathname: string, paths: string[]) {
 }
 
 function getRouteContext(pathname: string) {
-  if (pathname === "/") return ["Panel ejecutivo", "Inicio"];
+  if (pathname === "/") return ["Mantenimiento", "Panel operativo"];
   if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
   if (pathname.startsWith("/mapa")) return ["Activos y espacios", "Mapa de activos"];
   if (pathname.startsWith("/bienes/entradas")) return ["Activos y espacios", "Entradas"];
   if (pathname.startsWith("/bienes")) return ["Activos y espacios", "Inventario"];
   if (pathname.startsWith("/asignaciones")) return ["Activos y espacios", "Asignaciones"];
-  if (pathname.startsWith("/incidencias")) return ["Atención y mantenimiento", "Reportes"];
-  if (pathname.startsWith("/supervision")) return ["Supervisión", "Revisión de OT"];
-  if (pathname.startsWith("/ordenes-trabajo")) return ["Atención y mantenimiento", "Órdenes operativas"];
+  if (pathname.startsWith("/incidencias")) return ["Mantenimiento", "Reportes"];
+  if (pathname.startsWith("/supervision")) return ["Mantenimiento", "Órdenes de trabajo"];
+  if (pathname.startsWith("/ordenes-trabajo")) return ["Mantenimiento", "Órdenes de trabajo"];
   if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
   if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
   if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
   if (pathname.startsWith("/administracion/tecnicos")) return ["Administración", "Técnicos"];
+  if (pathname.startsWith("/administracion/usuarios")) return ["Administración", "Usuarios"];
   if (pathname.startsWith("/administracion/reportantes")) return ["Administración", "Reportantes"];
   if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
   if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
@@ -219,10 +223,36 @@ export function AppShell() {
   const navigate = useNavigate();
 
   const [routeSection, routeTitle] = getRouteContext(location.pathname);
+  const [liveCounts, setLiveCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let active = true;
+    const refreshCounts = async () => {
+      const [requests, orders] = await Promise.all([listWorkRequests().catch(() => []), listWorkOrders().catch(() => [])]);
+      if (!active) return;
+      const visibleOrders = orders.filter((order) => {
+        if (user?.role === "TECNICO") return order.operatorId === user.id;
+        if (user?.role === "SUPERVISOR") return order.supervisorId === user.id;
+        return true;
+      });
+      setLiveCounts({
+        "/incidencias": requests.filter((request) => !["CERRADA", "CANCELADA", "RESUELTA"].includes(request.status)).length,
+        "/ordenes-trabajo": visibleOrders.filter((order) => !["CERRADA", "CANCELADA"].includes(order.status)).length,
+      });
+    };
+    void refreshCounts();
+    window.addEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshCounts);
+    window.addEventListener(WORK_ORDERS_UPDATED_EVENT, refreshCounts);
+    return () => {
+      active = false;
+      window.removeEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshCounts);
+      window.removeEventListener(WORK_ORDERS_UPDATED_EVENT, refreshCounts);
+    };
+  }, [user?.id, user?.role, user?.workerCode]);
 
   const roleModules = modules
     .filter((mod) => !mod.roles || Boolean(user && mod.roles.includes(user.role)))
-    .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user) }))
+    .map((mod) => ({ ...mod, items: itemsForRole(mod.items, user).map((item) => ({ ...item, count: liveCounts[item.to] })) }))
     .filter((mod) => mod.items.length > 0);
   const roleQuickActions = user?.role === "ADMINISTRADOR" ? quickActions : [];
   const railModules = roleModules.filter((mod) => mod.id !== "administration");
@@ -295,12 +325,6 @@ export function AppShell() {
   }, [flyoutOpen]);
 
   function handleRailClick(mod: ModuleGroup) {
-    if (mod.id === "dashboard" || mod.id === "home") {
-      setFlyoutOpen(false);
-      navigate("/");
-      return;
-    }
-
     if (flyoutOpen && activeFlyoutModuleId === mod.id) {
       setFlyoutOpen(false);
     } else {
@@ -311,6 +335,7 @@ export function AppShell() {
 
   const activeFlyoutModule =
     roleModules.find((mod) => mod.id === activeFlyoutModuleId) ?? roleModules[0] ?? modules[1];
+  const technicianNavigation = roleModules.find((mod) => mod.id === "dashboard")?.items ?? [];
 
   function openMobileMenu() {
     setMobileMenuOpen(true);
@@ -332,6 +357,26 @@ export function AppShell() {
 
   return (
     <div className="app-frame-overlay">
+      {user?.role === "TECNICO" ? (
+        <aside className="technician-sidebar" aria-label="Navegación del técnico">
+          <div className="technician-sidebar-brand">
+            <BrandLogo size={36} variant="light" />
+            <span><strong>FM Incalpaca</strong><small>Mi trabajo</small></span>
+          </div>
+          <nav className="technician-sidebar-nav" aria-label="Mi trabajo">
+            {technicianNavigation.map(({ to, label, icon: Icon, end, count }) => (
+              <NavLink key={to} to={to} end={end} className={({ isActive }) => `technician-sidebar-link ${isActive ? "is-active" : ""}`}>
+                <Icon size={20} weight="duotone" /><span>{label}</span>{count !== undefined && <small>{count}</small>}
+              </NavLink>
+            ))}
+          </nav>
+          <NavLink to="/perfil" className="technician-sidebar-profile">
+            <span>{initials}</span><div><strong>{user.fullName}</strong><small>Técnico</small></div>
+          </NavLink>
+          <button className="technician-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
+        </aside>
+      ) : (
+      <>
       {/* 2-LEVEL SIDEBAR: FIXED NARROW RAIL + OVERLAY FLYOUT PANEL */}
       <aside ref={sidebarRef} className="two-level-sidebar-overlay" aria-label="Navegación principal">
         {/* LEVEL 1: NARROW RAIL (Fixed 92px, White background) */}
@@ -461,6 +506,8 @@ export function AppShell() {
           </div>
         )}
       </aside>
+      </>
+      )}
 
       {/* MOBILE NAVIGATION */}
       <nav className="mobile-navigation" aria-label="Accesos rápidos">
@@ -561,7 +608,7 @@ export function AppShell() {
       </dialog>
 
       {/* MAIN CONTENT FRAME: Starts immediately after rail (margin-left: 92px) */}
-      <div className="content-frame-overlay">
+      <div className={`content-frame-overlay ${user?.role === "TECNICO" ? "is-technician" : ""}`}>
         <header className="topbar">
           <div className="topbar-context">
             <SquaresFour size={22} weight="duotone" />
@@ -611,7 +658,7 @@ function itemsForRole(items: NavItem[], user: ReturnType<typeof useAuth>["user"]
     return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
   }
   if (user?.role === "SUPERVISOR") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/supervision" || item.to === "/mi-jornada");
+    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
   }
   return items;
 }

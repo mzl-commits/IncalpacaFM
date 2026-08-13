@@ -51,6 +51,15 @@ export async function getWorkOrderById(id: string): Promise<WorkOrder> {
   return data;
 }
 
+export async function updateWorkOrderPlanning(
+  id: string,
+  payload: Partial<Pick<WorkOrder, "specialty" | "adminPriority" | "status" | "scheduledDate" | "scheduledStartTime" | "plannedHours" | "administratorNotes" | "operatorId" | "supervisorId">>,
+): Promise<WorkOrder> {
+  const { data } = await api.patch<WorkOrder>(`/work-orders/${id}/planning/`, payload);
+  notifyChanges();
+  return data;
+}
+
 export async function quickAssignWorkOrder(id: string, technicianId: string): Promise<WorkOrder> {
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/quick-assign/`, { technicianId });
   notifyChanges();

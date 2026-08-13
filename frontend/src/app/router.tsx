@@ -12,8 +12,7 @@ import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPag
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
-import { UserImportPage } from "@/modules/accounts/pages/UserImportPage";
-import { ReporterRegistryPage } from "@/modules/accounts/pages/ReporterRegistryPage";
+import { UserManagementPage } from "@/modules/accounts/pages/UserManagementPage";
 import { TechnicianDetailPage } from "@/modules/accounts/pages/TechnicianDetailPage";
 import { TechnicianSchedulePage } from "@/modules/workorders/pages/TechnicianSchedulePage";
 import { LegacyLifecycleRedirect } from "@/app/LegacyLifecycleRedirect";
@@ -105,7 +104,7 @@ export const router = createBrowserRouter([
       {
         path: "mi-jornada",
         element: (
-          <RoleRoute allowedRoles={["TECNICO", "ADMINISTRADOR"]}>
+          <RoleRoute allowedRoles={["TECNICO", "SUPERVISOR", "ADMINISTRADOR"]}>
             <TechnicianSchedulePage />
           </RoleRoute>
         ),
@@ -379,10 +378,18 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "administracion/usuarios",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <UserManagementPage />
+          </RoleRoute>
+        ),
+      },
+      {
         path: "administracion/usuarios/importar",
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
-            <UserImportPage />
+            <Navigate to="/administracion/usuarios" replace />
           </RoleRoute>
         ),
       },
@@ -390,7 +397,7 @@ export const router = createBrowserRouter([
         path: "administracion/reportantes",
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
-            <ReporterRegistryPage />
+            <Navigate to="/administracion/usuarios" replace />
           </RoleRoute>
         ),
       },

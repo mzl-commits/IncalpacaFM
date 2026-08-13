@@ -1,15 +1,10 @@
 import {
-  ArrowSquareOut,
   ArrowClockwise,
-  Camera,
-  CheckCircle,
-  NotePencil,
   SealCheck,
   WarningCircle,
-  XCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   adminPriorityLabels,
@@ -20,11 +15,8 @@ import {
 import {
   getWorkOrderAssetDisplayCode,
   listWorkOrders,
-  superviseWorkOrder,
   WORK_ORDERS_UPDATED_EVENT,
 } from "@/modules/workorders/workOrderRepository";
-import type { WorkOrder } from "@/modules/workorders/types";
-import { api } from "@/services/api";
 
 type ReviewTab = "pending" | "reviewed";
 
@@ -43,25 +35,9 @@ const statusClass: Record<WorkOrderStatus, string> = {
   CANCELADA: "status-error",
 };
 
-function formatDateTime(value?: string) {
-  if (!value) return "No registrado";
-  return new Intl.DateTimeFormat("es-PE", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatDuration(start?: string, end?: string) {
-  if (!start) return "Aún no inicia";
-  if (!end) return "En curso";
-
-  const diffMs = new Date(end).getTime() - new Date(start).getTime();
-  if (!Number.isFinite(diffMs) || diffMs < 0) return "No disponible";
-
-  const totalMinutes = Math.round(diffMs / 60000);
+function formatEffectiveDuration(totalMinutes?: number) {
+  if (totalMinutes === undefined || totalMinutes === null) return "Sin registro";
+  if (totalMinutes <= 0) return "0 min";
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
@@ -70,46 +46,12 @@ function formatDuration(start?: string, end?: string) {
   return `${hours} h ${minutes} min`;
 }
 
-function getReviewComment(order?: WorkOrder) {
-  const value = order?.supervisor_validation?.comment;
-  return typeof value === "string" && value.trim() ? value : "Sin comentario registrado";
-}
-
-function WorkOrderPhoto({ url, label }: { url?: string | null; label: string }) {
-  const [source, setSource] = useState<string>();
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let objectUrl = "";
-    if (!url) {
-      setSource(undefined);
-      return;
-    }
-    const path = url.startsWith("/api/v1") ? url.slice("/api/v1".length) : url;
-    void api.get<Blob>(path, { responseType: "blob" }).then(({ data }) => {
-      objectUrl = URL.createObjectURL(data);
-      setSource(objectUrl);
-    }).catch(() => setFailed(true));
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [url]);
-
-  return <figure className="supervisor-photo-card">
-    <figcaption>{label}</figcaption>
-    {source && !failed ? <img src={source} alt={`${label} de la orden`} /> : <div className="supervisor-photo-empty"><WarningCircle size={22} /><span>{url ? "No se pudo cargar la evidencia" : "No registrada"}</span></div>}
-  </figure>;
-}
-
 export function SupervisorWorkOrderReviewPage() {
-  const [searchParams] = useSearchParams();
-  const requestedOrderId = searchParams.get("workOrder");
-  const [orders, setOrders] = useState<WorkOrder[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [comment, setComment] = useState("");
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [activeTab, setActiveTab] = useState<ReviewTab>("pending");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -120,15 +62,6 @@ export function SupervisorWorkOrderReviewPage() {
         const nextOrders = await listWorkOrders();
         if (!active) return;
         setOrders(nextOrders);
-        const requestedOrder = requestedOrderId
-          ? nextOrders.find((order) => order.id === requestedOrderId)
-          : undefined;
-        if (requestedOrder) {
-          setSelectedId(requestedOrder.id);
-          setActiveTab(requestedOrder.status === "PENDIENTE_DE_SUPERVISION" ? "pending" : "reviewed");
-        } else {
-          setSelectedId((current) => current || nextOrders[0]?.id || "");
-        }
       } catch {
         if (active) setLoadError("No se pudo cargar la bandeja de supervisión. Comprueba tu conexión e inténtalo de nuevo.");
       } finally {
@@ -142,7 +75,7 @@ export function SupervisorWorkOrderReviewPage() {
       active = false;
       window.removeEventListener(WORK_ORDERS_UPDATED_EVENT, refresh);
     };
-  }, [requestedOrderId]);
+  }, []);
 
   const pendingOrders = useMemo(
     () => orders.filter((order) => order.status === "PENDIENTE_DE_SUPERVISION"),
@@ -156,43 +89,23 @@ export function SupervisorWorkOrderReviewPage() {
     [orders],
   );
   const visibleOrders = activeTab === "pending" ? pendingOrders : reviewedOrders;
-  const selectedOrder = visibleOrders.find((order) => order.id === selectedId) ?? visibleOrders[0];
-  const selectedCanReview = selectedOrder?.status === "PENDIENTE_DE_SUPERVISION";
   const returnedOrders = orders.filter((order) => order.status === "DEVUELTA").length;
   const approvedOrders = orders.filter(
     (order) => order.status === "PENDIENTE_DE_VALIDACION" || order.status === "CERRADA",
   ).length;
 
   function changeTab(tab: ReviewTab) {
-    const nextOrders = tab === "pending" ? pendingOrders : reviewedOrders;
     setActiveTab(tab);
-    setSelectedId(nextOrders[0]?.id || "");
-    setComment("");
-    setError("");
   }
 
-  async function handleReview(approved: boolean) {
-    if (!selectedOrder || !selectedCanReview) return;
+  function openWorkOrder(orderId: string) {
+    navigate(`/ordenes-trabajo/${orderId}`);
+  }
 
-    if (!approved && comment.trim().length < 10) {
-      setError("Escribe el motivo de devolución antes de devolver la orden.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-    try {
-      const updated = await superviseWorkOrder(selectedOrder.id, approved, comment.trim());
-      setOrders((current) => current.map((order) => (order.id === updated.id ? updated : order)));
-      const nextPending = pendingOrders.find((order) => order.id !== selectedOrder.id);
-      setSelectedId(nextPending?.id || updated.id);
-      setActiveTab(nextPending ? "pending" : "reviewed");
-      setComment("");
-    } catch {
-      setError("No se pudo registrar la revisión. Intenta nuevamente.");
-    } finally {
-      setSaving(false);
-    }
+  function handleRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>, orderId: string) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openWorkOrder(orderId);
   }
 
   return (
@@ -244,7 +157,7 @@ export function SupervisorWorkOrderReviewPage() {
               <SealCheck size={22} />
               <div>
                 <h2>Cola de supervisión</h2>
-                <p>Selecciona una OT para revisar evidencias y registrar tu decisión.</p>
+                <p>Selecciona una OT para abrir su ficha completa, revisar evidencias y registrar tu decisión.</p>
               </div>
             </div>
             <div className="supervisor-tabs" role="tablist" aria-label="Filtro de supervisión">
@@ -281,9 +194,15 @@ export function SupervisorWorkOrderReviewPage() {
             </thead>
             <tbody>
               {visibleOrders.map((order) => (
-                <tr className={selectedOrder?.id === order.id ? "is-selected" : ""} key={order.id}>
+                <tr
+                  aria-label={`Abrir detalle de ${order.code}`}
+                  key={order.id}
+                  onClick={() => openWorkOrder(order.id)}
+                  onKeyDown={(event) => handleRowKeyDown(event, order.id)}
+                  tabIndex={0}
+                >
                   <td>
-                    <Link to={`/ordenes-trabajo/${order.id}`}><strong>{order.code}</strong></Link>
+                    <strong>{order.code}</strong>
                   </td>
                   <td>
                     {order.requestCode}
@@ -294,7 +213,7 @@ export function SupervisorWorkOrderReviewPage() {
                   <td>{order.operatorName}</td>
                   <td>{specialtyLabels[order.specialty]}</td>
                   <td>{adminPriorityLabels[order.adminPriority]}</td>
-                  <td>{formatDuration(order.startedAt, order.finishedAt)}</td>
+                  <td>{formatEffectiveDuration(order.effectiveWorkMinutes)}</td>
                   <td>
                     <span className={`status ${statusClass[order.status]}`}>
                       {getWorkOrderStatusLabel(order)}
@@ -304,13 +223,12 @@ export function SupervisorWorkOrderReviewPage() {
                     <button
                       className="table-action"
                       type="button"
-                      onClick={() => {
-                        setSelectedId(order.id);
-                        setComment("");
-                        setError("");
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openWorkOrder(order.id);
                       }}
                     >
-                      Ver
+                      Abrir OT
                     </button>
                   </td>
                 </tr>
@@ -332,128 +250,20 @@ export function SupervisorWorkOrderReviewPage() {
           <div className="supervisor-order-cards" aria-label="Órdenes de supervisión">
             {visibleOrders.map((order) => (
               <button
-                className={selectedOrder?.id === order.id ? "is-selected" : ""}
                 key={order.id}
                 type="button"
-                onClick={() => {
-                  setSelectedId(order.id);
-                  setComment("");
-                  setError("");
-                }}
+                onClick={() => openWorkOrder(order.id)}
               >
                 <span className="supervisor-card-topline">
                   <strong>{order.code}</strong>
                   <span className={`status ${statusClass[order.status]}`}>{getWorkOrderStatusLabel(order)}</span>
                 </span>
                 <span>{getWorkOrderAssetDisplayCode(order) || order.requestCode}</span>
-                <small>{order.operatorName} · {formatDuration(order.startedAt, order.finishedAt)}</small>
+                <small>{order.operatorName} · {formatEffectiveDuration(order.effectiveWorkMinutes)}</small>
               </button>
             ))}
             {!visibleOrders.length && <div className="supervisor-empty-state"><SealCheck size={24} /><strong>{activeTab === "pending" ? "Bandeja despejada" : "Sin revisiones registradas"}</strong><span>{activeTab === "pending" ? "Cuando el técnico termine una OT u OL, aparecerá aquí para tu revisión." : "Tus aprobaciones y devoluciones quedarán disponibles aquí."}</span></div>}
           </div>
-        </article>
-
-        <article className="data-panel detail-card supervisor-review-detail">
-        <div className="detail-card-heading">
-          <NotePencil size={22} />
-          <h2>Detalle de la orden</h2>
-        </div>
-
-        {selectedOrder ? (
-          <>
-            <dl className="detail-list supervisor-detail-list">
-              <div>
-                <dt>Orden</dt>
-                <dd>{selectedOrder.code}</dd>
-              </div>
-              <div>
-                <dt>Solicitud</dt>
-                <dd>{selectedOrder.requestCode}</dd>
-              </div>
-              <div>
-                <dt>Bien asociado</dt>
-                <dd>{getWorkOrderAssetDisplayCode(selectedOrder) || "No asociado"}</dd>
-              </div>
-              <div>
-                <dt>Operario</dt>
-                <dd>{selectedOrder.operatorName}</dd>
-              </div>
-              <div>
-                <dt>Inicio</dt>
-                <dd>{formatDateTime(selectedOrder.startedAt)}</dd>
-              </div>
-              <div>
-                <dt>Fin</dt>
-                <dd>{formatDateTime(selectedOrder.finishedAt)}</dd>
-              </div>
-              <div>
-                <dt>Tiempo empleado</dt>
-                <dd>{formatDuration(selectedOrder.startedAt, selectedOrder.finishedAt)}</dd>
-              </div>
-              <div>
-                <dt>Comentario registrado</dt>
-                <dd>{getReviewComment(selectedOrder)}</dd>
-              </div>
-            </dl>
-
-            <section className="supervisor-photo-evidence" aria-labelledby="supervisor-photo-title">
-              <div className="detail-card-heading"><Camera size={22} /><div><h2 id="supervisor-photo-title">Evidencia fotográfica</h2><p>Compara el estado del bien antes y después de la atención.</p></div></div>
-              <div className="supervisor-photo-grid">
-                <WorkOrderPhoto url={selectedOrder.startPhoto} label="Antes de la atención" />
-                <WorkOrderPhoto url={selectedOrder.finishPhoto} label="Después de la atención" />
-              </div>
-            </section>
-
-            {selectedCanReview ? (
-              <form className="rejection-form" onSubmit={(event) => { event.preventDefault(); void handleReview(true); }}>
-                <label className="field field-wide">
-                  <span>Comentario de supervisión</span>
-                  <textarea
-                    rows={4}
-                    value={comment}
-                    onChange={(event) => setComment(event.target.value)}
-                    placeholder="Observaciones del supervisor, conformidad o motivo de devolución."
-                  />
-                </label>
-
-                {error && <div className="form-error">{error}</div>}
-
-                <div className="admin-evaluation-actions">
-                  <Link className="button button-secondary" to={`/ordenes-trabajo/${selectedOrder.id}`}>
-                    <ArrowSquareOut size={18} />
-                    Ver OT completa
-                  </Link>
-                  <button
-                    className="button button-danger"
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void handleReview(false)}
-                  >
-                    <XCircle size={18} />
-                    Devolver
-                  </button>
-                  <button className="button button-primary" disabled={saving}>
-                    <CheckCircle size={18} />
-                    Aprobar
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="admin-evaluation-actions supervisor-readonly-actions">
-                <Link className="button button-secondary" to={`/ordenes-trabajo/${selectedOrder.id}`}>
-                  <ArrowSquareOut size={18} />
-                  Ver OT completa
-                </Link>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="evidence-empty-note">
-            <WarningCircle size={22} />
-            <span>Sin orden seleccionada</span>
-            <p>Selecciona una orden de la lista para revisar tiempos, evidencias y comentarios.</p>
-          </div>
-        )}
         </article>
       </div>}
     </section>

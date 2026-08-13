@@ -9,7 +9,7 @@ from PIL import Image
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AccountProfile
-from apps.assets.models import Asset, Location, LocationMap
+from apps.assets.models import Asset, BuildingArea, Location, LocationMap
 
 
 def uploaded_image(name="ambiente.png", color=(37, 99, 163)):
@@ -99,6 +99,28 @@ class LocationMapApiTests(TestCase):
         self.client.force_authenticate(self.requester)
         self.assertEqual(self.client.get("/api/v1/locations/").status_code, 200)
         self.assertEqual(self.client.get("/api/v1/location-maps/").status_code, 403)
+
+    def test_administrator_can_update_building_square_meters_for_all_its_rooms(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/api/v1/locations/{self.location.id}/building-area/",
+            {"square_meters": "1250.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(str(BuildingArea.objects.get().square_meters), "1250.00")
+
+        catalog = self.client.get("/api/v1/locations/")
+        location = next(item for item in catalog.json() if item["id"] == str(self.location.id))
+        self.assertEqual(float(location["building_square_meters"]), 1250.0)
+
+        self.client.force_authenticate(self.technician)
+        forbidden = self.client.patch(
+            f"/api/v1/locations/{self.location.id}/building-area/",
+            {"square_meters": "900.00"},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, 403)
 
     def test_upload_versions_map_and_exposes_it_in_location_catalog(self):
         first_response = self.upload_map()

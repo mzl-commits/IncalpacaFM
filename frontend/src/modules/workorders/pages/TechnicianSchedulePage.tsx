@@ -1,8 +1,9 @@
-import { ArrowLeft, ArrowRight, CalendarBlank, Clock, ListChecks, WarningCircle } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CalendarBlank, Clock, ListChecks, Plus, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
+import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { getWorkOrderAssetDisplayCode, listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { getWorkOrderStatusLabel } from "@/modules/workorders/workOrderModel";
 
@@ -151,27 +152,64 @@ function getExecutionPath(order: TechnicianOrder) {
 
 export function TechnicianSchedulePage() {
   const { user } = useAuth();
-  const isAdministrator = user?.role === "ADMINISTRADOR";
+  const isTeamSchedule = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState("");
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
 
   useEffect(() => {
     let active = true;
-    void listWorkOrders().then((result) => {
-      if (active) setOrders(result);
+    void Promise.all([listWorkOrders(), listTechnicians().catch(() => [])]).then(([workOrders, people]) => {
+      if (!active) return;
+      setOrders(workOrders);
+      setTechnicians(people.filter((person) => person.active && person.role === "TECNICO"));
     }).finally(() => {
       if (active) setLoading(false);
     });
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (!isTeamSchedule || selectedTechnicianId || !technicians.length) return;
+    setSelectedTechnicianId(technicians[0].id);
+  }, [isTeamSchedule, selectedTechnicianId, technicians]);
+
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const startKey = toDateKey(days[0]);
   const endKey = toDateKey(days[6]);
   const todayKey = toDateKey(new Date());
-  const technicianOrders = orders.filter((order) => order.orderType !== "OS" && !order.code.startsWith("OS-"));
+  const allTechnicianOrders = orders.filter((order) => order.orderType !== "OS" && !order.code.startsWith("OS-"));
+  const technicianOptions = useMemo(() => {
+    const catalog = new Map(technicians.map((technician) => [technician.id, technician]));
+    allTechnicianOrders.forEach((order) => {
+      if (!order.operatorId || catalog.has(order.operatorId)) return;
+      catalog.set(order.operatorId, {
+        id: order.operatorId,
+        full_name: order.operatorName || "Técnico sin nombre",
+        email: "",
+        worker_code: "",
+        dni: "",
+        specialty: "",
+        position: "",
+        hourly_rate: 0,
+        active: true,
+        role: "TECNICO",
+      });
+    });
+    return [...catalog.values()].sort((left, right) => left.full_name.localeCompare(right.full_name));
+  }, [allTechnicianOrders, technicians]);
+  useEffect(() => {
+    if (!isTeamSchedule || selectedTechnicianId || !technicianOptions.length) return;
+    setSelectedTechnicianId(technicianOptions[0].id);
+  }, [isTeamSchedule, selectedTechnicianId, technicianOptions]);
+  const selectedTechnician = technicianOptions.find((person) => person.id === selectedTechnicianId);
+  const technicianOrders = isTeamSchedule
+    ? allTechnicianOrders.filter((order) => order.operatorId === selectedTechnicianId)
+    : allTechnicianOrders;
   const weekOrders = technicianOrders.filter((order) => order.scheduledDate >= startKey && order.scheduledDate <= endKey);
+  const teamWeekOrders = allTechnicianOrders.filter((order) => order.scheduledDate >= startKey && order.scheduledDate <= endKey);
   const todayOrders = weekOrders.filter((order) => order.scheduledDate === todayKey).sort(sortTechnicianTasks);
   const todaySummary = countByTone(todayOrders);
   const attentionNow = todayOrders.filter((order) => ["active", "pending", "returned"].includes(getTaskTone(order))).slice(0, 3);
@@ -188,7 +226,7 @@ export function TechnicianSchedulePage() {
   const completedMinutes = completedHistory.reduce((total, order) => total + totalWorkedMinutes(order), 0);
   const technicianSummary = useMemo(() => {
     const grouped = new Map<string, { name: string; total: number; pending: number; active: number; done: number; hours: number }>();
-    weekOrders.forEach((order) => {
+    teamWeekOrders.forEach((order) => {
       const current = grouped.get(order.operatorId) ?? { name: order.operatorName || "Técnico sin nombre", total: 0, pending: 0, active: 0, done: 0, hours: 0 };
       const tone = getTaskTone(order);
       current.total += 1;
@@ -199,18 +237,36 @@ export function TechnicianSchedulePage() {
       grouped.set(order.operatorId, current);
     });
     return [...grouped.values()].sort((left, right) => right.pending - left.pending || left.name.localeCompare(right.name));
-  }, [weekOrders]);
+  }, [teamWeekOrders]);
 
   return (
     <section className="technician-schedule-page">
       <header className="technician-schedule-heading">
         <div>
           <p className="breadcrumb">Mi trabajo / Agenda semanal</p>
-          <h1>{isAdministrator ? "Jornada del equipo técnico" : "Mi agenda de trabajo"}</h1>
+          <h1>{isTeamSchedule ? "Jornada del equipo técnico" : "Mi agenda de trabajo"}</h1>
           <p>Distingue rápido qué tienes pendiente, qué está en proceso y qué ya terminaste.</p>
         </div>
         <Link className="button button-secondary" to="/ordenes-trabajo"><ListChecks size={18} />Ver mis órdenes</Link>
       </header>
+
+      {isTeamSchedule && <section className="team-schedule-selector" aria-labelledby="team-schedule-selector-title">
+        <div>
+          <span>Planificación del equipo</span>
+          <h2 id="team-schedule-selector-title">Selecciona un técnico</h2>
+          <p>Consulta su jornada, revisa sus asignaciones y abre la OT para reprogramarla o ajustar su responsable.</p>
+        </div>
+        <label className="field">
+          <span>Técnico</span>
+          <select value={selectedTechnicianId} onChange={(event) => setSelectedTechnicianId(event.target.value)}>
+            {technicianOptions.length ? technicianOptions.map((technician) => <option key={technician.id} value={technician.id}>{technician.full_name} · {technician.specialty || "Sin especialidad"}</option>) : <option value="">No hay técnicos con órdenes asignadas</option>}
+          </select>
+        </label>
+        <div className="team-schedule-actions">
+          <Link className="button button-secondary" to="/ordenes-trabajo"><ListChecks size={17} />Gestionar asignaciones</Link>
+          {user?.role === "ADMINISTRADOR" && <Link className="button button-primary" to="/ordenes-trabajo/nueva"><Plus size={17} />Nueva OT</Link>}
+        </div>
+      </section>}
 
       <section className="technician-week-toolbar" aria-label="Semana mostrada">
         <button type="button" className="icon-button" aria-label="Semana anterior" onClick={() => setWeekStart((current) => new Date(current.getFullYear(), current.getMonth(), current.getDate() - 7))}><ArrowLeft size={20} /></button>
@@ -228,7 +284,7 @@ export function TechnicianSchedulePage() {
         </dl>
       </section>
 
-      {isAdministrator && <section className="team-schedule-summary" aria-labelledby="team-schedule-summary-title">
+      {isTeamSchedule && <section className="team-schedule-summary" aria-labelledby="team-schedule-summary-title">
         <header><div><span>Vista de supervisión</span><h2 id="team-schedule-summary-title">Carga por técnico</h2><p>Resumen de órdenes programadas en la semana seleccionada.</p></div><strong>{technicianSummary.length} técnicos</strong></header>
         {technicianSummary.length ? <div className="team-schedule-summary-grid">{technicianSummary.map((technician) => <article key={technician.name}><div className="team-schedule-avatar">{technician.name.slice(0, 2).toUpperCase()}</div><div className="team-schedule-person"><strong>{technician.name}</strong><span>{technician.total} OT · {technician.hours} h programadas</span></div><dl><div><dt>Por atender</dt><dd>{technician.pending}</dd></div><div><dt>En proceso</dt><dd>{technician.active}</dd></div><div><dt>Realizadas</dt><dd>{technician.done}</dd></div></dl></article>)}</div> : <div className="technician-empty-state"><CalendarBlank size={24} /><span>No hay órdenes asignadas al equipo en esta semana.</span></div>}
       </section>}
