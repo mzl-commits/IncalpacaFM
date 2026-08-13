@@ -53,3 +53,25 @@ class UserDashboardApiTests(APITestCase):
         self.assertEqual(response.data['profile']['worker_code'], 'REQ-100')
         self.assertEqual(response.data['assigned_assets'][0]['code'], 'REQ-TEST-001')
 
+    def test_assigned_assets_are_visible_when_assignment_uses_worker_code_alias(self):
+        self.profile.register_worker_code('REQ-100-ALT')
+        responsible = AssignableResponsible.objects.create(
+            type=AssignableResponsible.Type.PERSON,
+            external_reference='REQ-100-ALT',
+            display_name='Usuario Solicitante',
+            area_name='Operaciones',
+        )
+        AssetAssignment.objects.create(
+            asset=self.asset,
+            responsible=responsible,
+            start_date=timezone.now(),
+            status='ACTIVA',
+            change_reason='Asignación histórica con código alternativo.',
+            registered_by=self.user,
+        )
+
+        self.client.force_authenticate(self.user)
+        response = self.client.get('/api/v1/user-dashboard/')
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.data['assigned_assets'][0]['code'], 'REQ-TEST-001')

@@ -5,11 +5,11 @@ en apps/inspeccion/exporters.py.
 """
 import io
 from collections import defaultdict
-from datetime import date as date_type
+from contextlib import suppress
 
 from django.utils import timezone
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from apps.inventario.models import Movimiento
@@ -266,10 +266,8 @@ def generar_excel_movimientos(material_id=None):
         ).select_related("material", "responsable").order_by("-fecha")
 
         material = None
-        try:
+        with suppress(MaterialModel.DoesNotExist):
             material = MaterialModel.objects.get(pk=material_id)
-        except MaterialModel.DoesNotExist:
-            pass
 
         movimientos = list(qs)
         _hoja_historial_material(wb, movimientos, material)

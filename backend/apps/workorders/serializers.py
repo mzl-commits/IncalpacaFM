@@ -13,16 +13,16 @@ from apps.accounts.models import AccountProfile
 from apps.assets.file_validation import validate_uploaded_file
 from apps.assets.models import Asset, Location
 from apps.audit.services import record_audit
+from apps.catalogo.models import Material
 from apps.incidents.models import Incident
+from apps.notifications.monitoring import queue_work_order_alerts
 from apps.notifications.services import (
     queue_for_administrators,
     queue_incident_requester,
     queue_notification,
 )
-from apps.notifications.monitoring import queue_work_order_alerts
 from apps.privacy.services import record_privacy_event
 
-from apps.catalogo.models import Material
 from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto
 
 
@@ -84,10 +84,17 @@ def active_work_session(order):
 
 def effective_work_minutes(order):
     total_seconds = 0
-    now = timezone.now()
+    # Una sesión abierta solo continúa acumulando mientras la OT está en curso.
+    # Para órdenes terminadas heredadas que no cerraron la última sesión, usar la
+    # fecha de finalización evita que el contador crezca hasta el momento actual.
+    fallback_end = (
+        timezone.now()
+        if order.status == WorkOrder.Status.IN_PROGRESS
+        else order.finished_at or order.closed_at
+    )
     for session in order.work_sessions or []:
         start = parse_datetime(session.get("startAt") or "")
-        end = parse_datetime(session.get("endAt") or "") if session.get("endAt") else now
+        end = parse_datetime(session.get("endAt") or "") if session.get("endAt") else fallback_end
         if start and end and end >= start:
             total_seconds += (end - start).total_seconds()
     return round(total_seconds / 60)
@@ -745,26 +752,26 @@ class WorkOrderActionSerializer(serializers.Serializer):
 
             try:
                 parsed_date = datetime.fromisoformat(str(scheduled_date)).date()
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as exc:
                 raise serializers.ValidationError({
                     'scheduledDate': 'Selecciona una fecha válida para la corrección.'
-                })
+                }) from exc
             if parsed_date < timezone.localdate():
                 raise serializers.ValidationError({
                     'scheduledDate': 'La fecha de corrección no puede estar en el pasado.'
                 })
             try:
                 parsed_time = time.fromisoformat(str(scheduled_start_time))
-            except ValueError:
+            except ValueError as exc:
                 raise serializers.ValidationError({
                     'scheduledStartTime': 'Selecciona una hora válida para la corrección.'
-                })
+                }) from exc
             try:
                 parsed_hours = int(planned_hours)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as exc:
                 raise serializers.ValidationError({
                     'plannedHours': 'Ingresa las horas estimadas.'
-                })
+                }) from exc
             if parsed_hours < 1 or parsed_hours > 16:
                 raise serializers.ValidationError({
                     'plannedHours': 'Las horas estimadas deben estar entre 1 y 16.'

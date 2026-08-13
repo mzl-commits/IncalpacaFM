@@ -5,7 +5,8 @@ from django.utils import timezone
 
 from apps.accounts.models import AccountProfile
 from apps.inspeccion.models import ProgramacionInspeccion
-from .services import daily_discriminator, weekly_discriminator, queue_for_roles
+
+from .services import daily_discriminator, queue_for_roles, weekly_discriminator
 
 # Cada rol recibe el resumen con una cadencia distinta: los inspectores lo ven
 # a diario (siguen el detalle operativo día a día); los administradores solo

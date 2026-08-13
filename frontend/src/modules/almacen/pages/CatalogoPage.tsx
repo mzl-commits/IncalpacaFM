@@ -1,5 +1,4 @@
 import {
-  CaretRight,
   Check,
   Copy,
   Cube,
@@ -24,11 +23,9 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
-import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
-import { CroquisCarrusel } from "@/modules/almacen/components/CroquisCarrusel";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import type { Material } from "@/modules/almacen/types";

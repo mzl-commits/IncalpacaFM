@@ -1,6 +1,6 @@
 import hashlib
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
 
 from django.db import transaction
 from django.db.models import Max
@@ -9,7 +9,6 @@ from PIL import Image, UnidentifiedImageError
 from rest_framework import serializers
 
 from apps.accounts.models import AccountProfile
-
 from apps.audit.services import record_audit
 
 from .models import BuildingArea, Location, LocationMap

@@ -3,15 +3,20 @@ from io import BytesIO
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, HRFlowable, KeepTogether
+    HRFlowable,
+    Image,
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
-
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo_brand.png")
 
@@ -58,9 +63,14 @@ def _image(photo):
 
 def _effective_minutes(order):
     total = 0
+    fallback_end = (
+        timezone.now()
+        if order.status == order.Status.IN_PROGRESS
+        else order.finished_at or order.closed_at
+    )
     for session in order.work_sessions or []:
         start = parse_datetime(session.get("startAt") or "")
-        end = parse_datetime(session.get("endAt") or "") if session.get("endAt") else timezone.now()
+        end = parse_datetime(session.get("endAt") or "") if session.get("endAt") else fallback_end
         if start and end and end >= start:
             total += (end - start).total_seconds() / 60
     return round(total)
@@ -295,8 +305,7 @@ def build_work_order_pdf(order):
     total_amount = sum(c.amount for c in all_costs if c.amount)
 
     if all_costs:
-        for idx, item in enumerate(all_costs):
-            bg = colors.HexColor("#FFFFFF") if idx % 2 == 0 else colors.HexColor("#F9F9F9")
+        for item in all_costs:
             cost_rows.append([
                 Paragraph(item.get_category_display(), cell_normal),
                 Paragraph(item.description or "-", cell_normal),

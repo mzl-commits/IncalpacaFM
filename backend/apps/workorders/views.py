@@ -1,29 +1,46 @@
+import hashlib
 import mimetypes
 
-import hashlib
-from django.core.files.base import ContentFile
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, response, views
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
 from apps.accounts.models import AccountProfile
-from apps.accounts.permissions import IsAdministrator, IsAdministratorOrSupervisor, IsWorkOrderParticipant, user_role
-
-from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto, WorkOrderReport
-from .material_costs import sync_material_costs
-from .reporting import build_work_order_pdf
-from .serializers import (
-    ReportTemplateSerializer, WorkOrderActionSerializer, WorkOrderCostSerializer,
-    WorkOrderCostUpdateSerializer, WorkOrderMaterialSerializer,
-    WorkOrderMaterialWriteSerializer, WorkOrderSerializer, validate_technician_availability,
+from apps.accounts.permissions import (
+    IsAdministrator,
+    IsAdministratorOrSupervisor,
+    IsWorkOrderParticipant,
+    user_role,
 )
 from config.schema import WorkOrderReportResponseSerializer
+
+from .material_costs import sync_material_costs
+from .models import (
+    ReportTemplate,
+    WorkOrder,
+    WorkOrderCost,
+    WorkOrderMaterial,
+    WorkOrderPhoto,
+    WorkOrderReport,
+)
+from .reporting import build_work_order_pdf
+from .serializers import (
+    ReportTemplateSerializer,
+    WorkOrderActionSerializer,
+    WorkOrderCostSerializer,
+    WorkOrderCostUpdateSerializer,
+    WorkOrderMaterialSerializer,
+    WorkOrderMaterialWriteSerializer,
+    WorkOrderSerializer,
+    validate_technician_availability,
+)
 
 
 def participant_queryset(request):
@@ -343,6 +360,9 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return WorkOrderMaterial.objects.select_related(
             "work_order", "material", "registrado_por"
+        ).filter(
+            work_order_id=self.kwargs["pk"],
+            work_order__in=participant_queryset(self.request),
         )
 
     def _check_not_closed(self, instance):
@@ -387,10 +407,12 @@ class WorkOrderMaterialMarkBlockingView(views.APIView):
     @extend_schema(request=None, responses={200: WorkOrderMaterialSerializer})
     def post(self, request, pk, material_id):
         from apps.notifications.services import queue_for_administrators
+
+        order = get_object_or_404(participant_queryset(request), pk=pk)
         instance = get_object_or_404(
             WorkOrderMaterial.objects.select_related("work_order", "material", "registrado_por"),
             pk=material_id,
-            work_order_id=pk,
+            work_order=order,
         )
         if instance.work_order.status == WorkOrder.Status.CLOSED:
             from rest_framework.exceptions import PermissionDenied
@@ -427,8 +449,9 @@ class WorkOrderMaterialMarkAcquiredView(views.APIView):
     @extend_schema(request=None, responses={200: WorkOrderMaterialSerializer})
     def patch(self, request, pk, material_id):
         from django.utils import timezone
-        from apps.notifications.services import queue_notification, queue_for_roles
         from rest_framework.exceptions import ValidationError
+
+        from apps.notifications.services import queue_for_roles, queue_notification
 
         instance = get_object_or_404(
             WorkOrderMaterial.objects.select_related("work_order", "material", "registrado_por"),

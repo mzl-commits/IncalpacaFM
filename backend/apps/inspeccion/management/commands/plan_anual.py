@@ -1,7 +1,8 @@
 from datetime import date
+
 from django.core.management.base import BaseCommand
 
-from apps.inspeccion.planificacion import generar_plan_anual, construir_materiales_config
+from apps.inspeccion.planificacion import construir_materiales_config, generar_plan_anual
 
 
 class Command(BaseCommand):

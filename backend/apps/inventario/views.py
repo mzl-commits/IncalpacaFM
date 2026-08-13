@@ -1,30 +1,30 @@
 from django.utils import timezone
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.accounts.models import AccountProfile
 from apps.accounts.permissions import IsAlmaceneroOrAdministratorWrite
-from apps.inventario.models import Movimiento, SolicitudMovimiento
 from apps.catalogo.models import Pieza
+from apps.inventario.models import Movimiento, SolicitudMovimiento
 from apps.inventario.serializers import (
-    MovimientoSerializer,
-    SalidaMaterialSerializer,
-    SalidaPiezaSerializer,
-    EntradaMaterialSerializer,
-    EntradaPiezaSerializer,
     BajaMaterialSerializer,
     BajaPiezaSerializer,
+    EntradaMaterialSerializer,
+    EntradaPiezaSerializer,
+    MovimientoSerializer,
     PiezaPrestadaSerializer,
-    SolicitudMovimientoSerializer,
-    SolicitudMovimientoCreateSerializer,
     RechazarSolicitudSerializer,  # AprobarSolicitudSerializer no se usa: la aprobación no necesita payload
+    SalidaMaterialSerializer,
+    SalidaPiezaSerializer,
+    SolicitudMovimientoCreateSerializer,
+    SolicitudMovimientoSerializer,
 )
 from apps.inventario.services import (
-    registrar_salida_material,
-    registrar_salida_pieza,
     registrar_baja_material,
     registrar_baja_pieza,
+    registrar_salida_material,
+    registrar_salida_pieza,
 )
 
 
@@ -140,8 +140,9 @@ class MovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     # ── Exportar Excel ────────────────────────────────────────────────────────
     @action(detail=False, methods=["get"], url_path="exportar-excel")
     def exportar_excel(self, request):
-        from apps.inventario.exporters import generar_excel_movimientos
         from django.http import HttpResponse
+
+        from apps.inventario.exporters import generar_excel_movimientos
         material_id = request.query_params.get("material")
         buffer, filename = generar_excel_movimientos(material_id=material_id)
         response = HttpResponse(
@@ -176,13 +177,14 @@ def _crear_solicitud(request, tipo: str):
     if cantidad_cajas_raw and not data.get("cantidad"):
         material_id = data.get("material")
         if material_id:
-            from apps.catalogo.models import Material as _Material
             from rest_framework.exceptions import ValidationError as _ValidationError
+
+            from apps.catalogo.models import Material as _Material
             try:
                 mat = _Material.objects.get(pk=material_id)
-            except _Material.DoesNotExist:
+            except _Material.DoesNotExist as exc:
                 from rest_framework.exceptions import ValidationError as _VE
-                raise _VE({"material": "Material no encontrado."})
+                raise _VE({"material": "Material no encontrado."}) from exc
             if mat.unidad_manejo == "unidad":
                 raise _ValidationError({
                     "cantidad_cajas": (

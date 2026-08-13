@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -7,6 +9,8 @@ from apps.accounts.models import AccountProfile
 from apps.catalogo.models import Categoria, Material, Subcategoria
 from apps.incidents.models import Incident
 from apps.workorders.models import WorkOrder, WorkOrderCost, WorkOrderMaterial
+from apps.workorders.reporting import _effective_minutes
+from apps.workorders.serializers import effective_work_minutes
 
 
 class ServiceOrderVisibilityTests(TestCase):
@@ -104,6 +108,20 @@ class ServiceOrderVisibilityTests(TestCase):
             self.client.force_authenticate(user)
             response = self.client.get(f"/api/v1/work-orders/{self.service_order.id}/")
             self.assertEqual(response.status_code, 404)
+
+    def test_closed_order_does_not_accumulate_an_unclosed_legacy_session(self):
+        started_at = timezone.now() - timedelta(hours=2)
+        finished_at = started_at + timedelta(minutes=35)
+        self.work_order.status = WorkOrder.Status.CLOSED
+        self.work_order.finished_at = finished_at
+        self.work_order.closed_at = finished_at
+        self.work_order.work_sessions = [{"startAt": started_at.isoformat(), "endAt": None}]
+        self.work_order.save(
+            update_fields=("status", "finished_at", "closed_at", "work_sessions", "updated_at")
+        )
+
+        self.assertEqual(effective_work_minutes(self.work_order), 35)
+        self.assertEqual(_effective_minutes(self.work_order), 35)
 
     def test_material_sync_calculates_quantity_times_unit_price_and_is_idempotent(self):
         category = Categoria.objects.create(nombre="Consumibles de prueba", prefijo="CP")
@@ -207,6 +225,70 @@ class ServiceOrderVisibilityTests(TestCase):
         self.assertEqual(response.status_code, 200, response.json())
         cost.refresh_from_db()
         self.assertEqual(str(cost.amount), "30.00")
+
+    def test_technician_cannot_access_materials_from_another_work_order(self):
+        users = get_user_model()
+        other_technician = users.objects.create_user(username="tecnico-ajeno")
+        AccountProfile.objects.create(
+            user=other_technician,
+            worker_code="TEC-AJENO",
+            role=AccountProfile.Role.TECHNICIAN,
+            must_change_password=False,
+        )
+        other_supervisor = users.objects.create_user(username="supervisor-ajeno")
+        AccountProfile.objects.create(
+            user=other_supervisor,
+            worker_code="SUP-AJENO",
+            role=AccountProfile.Role.SUPERVISOR,
+            must_change_password=False,
+        )
+        other_incident = Incident.objects.create(
+            code="SOL-2026-9101",
+            requester=self.requester,
+            request_type="MANTENIMIENTO",
+            description="Solicitud aislada para validar materiales.",
+            requester_priority="MEDIA",
+            location_snapshot={"zone": "Zona", "building": "Edificio", "area": "Area", "room": "Ambiente"},
+            status=Incident.Status.IN_PROGRESS,
+        )
+        other_order = WorkOrder.objects.create(
+            code="OT-2026-9101",
+            incident=other_incident,
+            technician=other_technician,
+            supervisor=other_supervisor,
+            specialty="MANTENIMIENTO",
+            admin_priority="MEDIA",
+            scheduled_date=timezone.localdate(),
+            scheduled_start_time="08:00",
+            planned_hours=1,
+            created_by=self.admin,
+        )
+        category = Categoria.objects.create(nombre="Aislamiento de materiales", prefijo="AM")
+        subcategory = Subcategoria.objects.create(categoria=category, nombre="Consumibles")
+        material = Material.objects.create(
+            subcategoria=subcategory,
+            codigo="AM-001",
+            nombre="Material aislado",
+            tipo_control="no_retornable",
+            cantidad_total=10,
+        )
+        foreign_use = WorkOrderMaterial.objects.create(
+            work_order=other_order,
+            material=material,
+            cantidad=1,
+            tipo=WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE,
+            registrado_por=other_technician,
+        )
+
+        self.client.force_authenticate(self.technician)
+        detail_url = f"/api/v1/work-orders/{other_order.id}/materiales/{foreign_use.id}/"
+        blocking_url = f"{detail_url}marcar-bloqueante/"
+
+        self.assertEqual(self.client.get(detail_url).status_code, 404)
+        self.assertEqual(self.client.patch(detail_url, {"cantidad": 2}, format="json").status_code, 404)
+        self.assertEqual(self.client.post(blocking_url, {}, format="json").status_code, 404)
+        foreign_use.refresh_from_db()
+        self.assertFalse(foreign_use.es_bloqueante)
 
     def test_assigned_supervisor_can_approve_an_order_pending_supervision(self):
         self.work_order.status = WorkOrder.Status.SUPERVISION

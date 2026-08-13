@@ -1,19 +1,24 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import generics, permissions, response, serializers, status, views
 from openpyxl import load_workbook
-from django.db import transaction
+from rest_framework import generics, permissions, response, serializers, status, views
 from rest_framework_simplejwt.views import TokenRefreshView
-from django.contrib.auth import get_user_model
 
-from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginSerializer, UserListSerializer, TechnicianSerializer
-from .models import AccountProfile, AccountWorkerCode
-from .permissions import IsAdministrator, IsAuthenticatedReadAdministratorWrite
 from apps.notifications.services import queue_for_administrators, queue_notification
 from config.schema import DetailResponseSerializer, ImportResultSerializer
 
+from .models import AccountProfile, AccountWorkerCode
+from .permissions import IsAdministrator, IsAuthenticatedReadAdministratorWrite
+from .serializers import (
+    ChangePasswordSerializer,
+    CurrentUserSerializer,
+    LoginSerializer,
+    TechnicianSerializer,
+    UserListSerializer,
+)
 
 LoginResponseSerializer = inline_serializer(
     name="LoginResponse",
@@ -65,8 +70,8 @@ class ChangePasswordView(views.APIView):
 
 
 class UserListView(views.APIView):
-    """Lista todos los usuarios activos. Temporal con AllowAny hasta que exista autenticación en el frontend."""
-    permission_classes = [permissions.AllowAny]
+    """Lista usuarios activos para los selectores internos autenticados."""
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(responses={200: UserListSerializer(many=True)})
     def get(self, request):

@@ -1,33 +1,34 @@
-from rest_framework import viewsets, status
+from datetime import date, timedelta
 
-from datetime import timedelta, date
+from django.db.models import ProtectedError, Q
+from django.http import HttpResponse
 from django.utils import timezone
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from apps.catalogo.models import Material
-from django.db.models import Q
 
-from django.http import HttpResponse
-from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion
-
-from apps.inspeccion.models import (
-    PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
-    PlanInspeccionAnual, ProgramacionInspeccion,
-)
-
-from apps.inspeccion.planificacion import generar_plan_anual, construir_materiales_config
-from apps.inspeccion.serializers import (
-    PlantillaCriterioSerializer,
-    CriterioSerializer,
-    InspeccionSerializer,
-    InspeccionCrearSerializer,
-    RespuestaCriterioSerializer,
-    ProgramacionInspeccionSerializer,
-    PlanInspeccionAnualSerializer,
-)
-
-from django.db.models import ProtectedError
 from apps.accounts.permissions import IsInspectorOrAdministratorWrite
+from apps.catalogo.models import Material
+from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion
+from apps.inspeccion.models import (
+    Criterio,
+    Inspeccion,
+    PlanInspeccionAnual,
+    PlantillaCriterio,
+    ProgramacionInspeccion,
+    RespuestaCriterio,
+)
+from apps.inspeccion.planificacion import construir_materiales_config, generar_plan_anual
+from apps.inspeccion.serializers import (
+    CriterioSerializer,
+    InspeccionCrearSerializer,
+    InspeccionSerializer,
+    PlanInspeccionAnualSerializer,
+    PlantillaCriterioSerializer,
+    ProgramacionInspeccionSerializer,
+    RespuestaCriterioSerializer,
+)
+
 
 class PlantillaCriterioViewSet(viewsets.ModelViewSet):
     queryset = PlantillaCriterio.objects.prefetch_related("criterios").all()
@@ -118,7 +119,10 @@ class InspeccionViewSet(viewsets.ModelViewSet):
                 Q(material__nombre__icontains=q)
                 | Q(material__codigo__icontains=q)
                 | Q(pieza__codigo__icontains=q)
-                | Q(inspector__full_name__icontains=q)
+                | Q(inspector__first_name__icontains=q)
+                | Q(inspector__last_name__icontains=q)
+                | Q(inspector__username__icontains=q)
+                | Q(inspector__account_profile__worker_code__icontains=q)
             ).distinct()
         return qs
     

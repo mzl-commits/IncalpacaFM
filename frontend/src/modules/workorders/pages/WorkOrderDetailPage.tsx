@@ -24,6 +24,7 @@ import { api } from "@/services/api";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { getWorkRequestById } from "@/modules/incidents/incidentRepository";
+import { getApiErrorMessage } from "@/utils/httpError";
 import { MaterialesOTAdminSection } from "@/modules/workorders/components/MaterialesOTAdminSection";
 import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
 import {
@@ -39,9 +40,7 @@ import {
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
   listWorkOrders,
-  registerWorkOrderProgress,
   scheduleWorkOrderCorrection,
-  startWorkOrder,
   superviseWorkOrder,
   updateServiceOrderStatus,
   updateWorkOrderPlanning,
@@ -271,17 +270,15 @@ export function WorkOrderDetailPage() {
         type: "success",
         text: `✅ Foto de "${type === "start" ? "Antes" : "Después"}" subida correctamente.`,
       });
-    } catch (err: any) {
-      const detail =
-        err?.response?.data?.detail ||
-        err?.response?.data?.photo ||
-        err?.response?.data?.startPhoto ||
-        err?.response?.data?.finishPhoto ||
-        err?.response?.data?.action ||
-        "No se pudo guardar la fotografía. Intenta nuevamente.";
+    } catch (err: unknown) {
+      const detail = getApiErrorMessage(
+        err,
+        "No se pudo guardar la fotografía. Intenta nuevamente.",
+        ["photo", "startPhoto", "finishPhoto", "action"],
+      );
       setPhotoMessage({
         type: "error",
-        text: `❌ ${typeof detail === "string" ? detail : JSON.stringify(detail)}`,
+        text: `❌ ${detail}`,
       });
     } finally {
       setUploadingPhoto(null);
@@ -553,8 +550,8 @@ export function WorkOrderDetailPage() {
       const updated = await superviseWorkOrder(workOrder.id, approved, supervisorReviewComment.trim());
       setWorkOrder(updated);
       setSupervisorReviewComment("");
-    } catch (error: any) {
-      setSupervisorReviewError(error?.response?.data?.detail || error?.response?.data?.action || "No se pudo registrar la revisión del supervisor.");
+    } catch (error: unknown) {
+      setSupervisorReviewError(getApiErrorMessage(error, "No se pudo registrar la revisión del supervisor.", ["action"]));
     } finally {
       setSavingSupervisorReview(false);
     }
@@ -569,9 +566,8 @@ export function WorkOrderDetailPage() {
       const updated = await updateWorkOrderPlanning(workOrder.id, planning);
       setWorkOrder(updated);
       setEditingPlanning(false);
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail ?? "No se pudieron guardar los cambios de la orden.";
-      setPlanningError(typeof detail === "string" ? detail : JSON.stringify(detail));
+    } catch (error: unknown) {
+      setPlanningError(getApiErrorMessage(error, "No se pudieron guardar los cambios de la orden."));
     } finally { setSavingPlanning(false); }
   }
 

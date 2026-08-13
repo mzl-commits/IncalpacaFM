@@ -3,8 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
-from apps.incidents.models import Incident
 from apps.assets.storage import private_asset_photo_storage
+from apps.incidents.models import Incident
 
 
 class WorkOrder(models.Model):

@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
-from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_piezas, ajustar_stock
+from apps.catalogo.models import Categoria, Material, Pieza, Subcategoria
+from apps.catalogo.services import ajustar_stock, crear_estuche_con_piezas, crear_piezas_sueltas
+
 
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -215,8 +216,8 @@ class AjustarStockSerializer(serializers.Serializer):
     def create(self, validated_data):
         try:
             return ajustar_stock(validated_data["material"], validated_data["cantidad"])
-        except ValueError as e:
-            raise serializers.ValidationError({"cantidad": str(e)})
+        except ValueError as exc:
+            raise serializers.ValidationError({"cantidad": str(exc)}) from exc
 
 class PiezaHijaInlineSpecSerializer(serializers.Serializer):
     """Especificación inline de piezas hijas: nombre + medida (opcional) + cantidad."""
@@ -264,10 +265,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
                     subcategoria=subcategoria,
                     control_individual=True,
                 )
-                if medida:
-                    qs = qs.filter(medida__iexact=medida)
-                else:
-                    qs = qs.filter(medida="")
+                qs = qs.filter(medida__iexact=medida) if medida else qs.filter(medida="")
 
                 mat_hija = qs.first()
                 if not mat_hija:
@@ -308,8 +306,8 @@ class ReemplazarHijaSerializer(serializers.Serializer):
     def validate_pieza_suelta_id(self, value):
         try:
             suelta = Pieza.objects.select_related("material").get(pk=value)
-        except Pieza.DoesNotExist:
-            raise serializers.ValidationError("La pieza suelta especificada no existe.")
+        except Pieza.DoesNotExist as exc:
+            raise serializers.ValidationError("La pieza suelta especificada no existe.") from exc
         if suelta.padre is not None:
             raise serializers.ValidationError(
                 f"La pieza {suelta.codigo} ya pertenece a un estuche (padre: {suelta.padre.codigo})."
@@ -379,10 +377,7 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
                 subcategoria=subcategoria,
                 control_individual=True,
             )
-            if medida:
-                qs = qs.filter(medida__iexact=medida)
-            else:
-                qs = qs.filter(medida="")
+            qs = qs.filter(medida__iexact=medida) if medida else qs.filter(medida="")
 
             mat_hija = qs.first()
             if not mat_hija:

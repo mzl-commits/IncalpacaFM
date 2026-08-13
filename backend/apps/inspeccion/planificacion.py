@@ -1,9 +1,10 @@
-from datetime import timedelta, date
 from collections import defaultdict
+from datetime import date, timedelta
+
 from django.db import transaction
 
+from apps.inspeccion.models import Inspeccion, PlanInspeccionAnual, ProgramacionInspeccion
 from apps.inventario.models import Movimiento
-from apps.inspeccion.models import PlanInspeccionAnual, ProgramacionInspeccion, Inspeccion
 
 UMBRAL_ALTO = 15
 UMBRAL_MEDIO = 5

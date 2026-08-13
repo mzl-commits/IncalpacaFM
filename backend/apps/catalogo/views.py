@@ -1,29 +1,29 @@
 from django.db import transaction
-from rest_framework import viewsets, status
+from django.db.models import Exists, OuterRef, Q
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.db.models import Q, Exists, OuterRef
 
 from apps.accounts.permissions import (
-    IsAlmaceneroOrAdministratorWrite,
     IsAlmaceneroAdminOrInspectorWrite,
+    IsAlmaceneroOrAdministratorWrite,
 )
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
+from apps.catalogo.models import Categoria, Material, Pieza, Subcategoria
 from apps.catalogo.serializers import (
+    AgregarHijaInlineSerializer,
+    AjustarStockSerializer,
+    AltaEstucheInlineSerializer,
+    AltaEstucheSerializer,
+    AltaPiezasSueltasSerializer,
     CategoriaSerializer,
-    SubcategoriaSerializer,
-    MaterialSerializer,
     MaterialDetalleSerializer,
     MaterialFrecuenciaInspeccionSerializer,
+    MaterialSerializer,
     PiezaSerializer,
-    AltaPiezasSueltasSerializer,
-    AltaEstucheSerializer,
-    AltaEstucheInlineSerializer,
-    AjustarStockSerializer,
     ReemplazarHijaSerializer,
-    AgregarHijaInlineSerializer,
+    SubcategoriaSerializer,
 )
+
 
 class CategoriaViewSet(viewsets.ModelViewSet):
     queryset = Categoria.objects.all()
@@ -142,7 +142,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
         material = self.get_object()
         nombre = str(material)
         with transaction.atomic():
-            from apps.inspeccion.models import RespuestaCriterio, Inspeccion
+            from apps.inspeccion.models import Inspeccion, RespuestaCriterio
             from apps.inventario.models import Movimiento
             RespuestaCriterio.objects.filter(inspeccion__material=material).delete()
             Inspeccion.objects.filter(material=material).delete()

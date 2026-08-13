@@ -7,6 +7,7 @@ import { createWorkOrder, listWorkOrders } from "@/modules/workorders/workOrderR
 import { listWorkRequests } from "@/modules/incidents/incidentRepository";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { useLocations } from "@/modules/assets/locationMapQueries";
+import { getApiErrorMessage } from "@/utils/httpError";
 import {
   ADMIN_PRIORITIES,
   SPECIALTIES,
@@ -18,7 +19,6 @@ import {
   type WorkOrderType,
 } from "@/modules/workorders/workOrderModel";
 
-const SPECIALTIES_LIST = ["Electricista", "Gasfitero", "Carpintero", "Soldador", "Mecanico", "Pintor", "Climatizacion", "Limpieza", "Jardineria", "Multitecnico"];
 const ROLE_OPTIONS: Array<{ value: "TECNICO" | "ALMACENERO" | "INSPECTOR"; label: string }> = [
   { value: "TECNICO", label: "Técnico" },
   { value: "ALMACENERO", label: "Almacenero" },
@@ -268,10 +268,12 @@ export function TechnicianManagementPage() {
       setWorkOrderModalOpen(false);
       setOrderSuccess("Orden operativa asignada exitosamente.");
       setTimeout(() => setOrderSuccess(""), 4000);
-    } catch (err: any) {
-      const serverDetail = err?.response?.data?.detail || err?.response?.data?.directLocationId || err?.response?.data?.scheduledStartTime;
-      const errorMsg = typeof serverDetail === "string" ? serverDetail : Array.isArray(serverDetail) ? serverDetail[0] : "No se pudo crear la orden operativa. Revisa los campos obligatorios.";
-      setError(errorMsg);
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(
+        err,
+        "No se pudo crear la orden operativa. Revisa los campos obligatorios.",
+        ["directLocationId", "scheduledStartTime"],
+      ));
     } finally {
       setOrderSaving(false);
     }
