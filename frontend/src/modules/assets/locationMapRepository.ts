@@ -65,6 +65,7 @@ function mapLocation(item: ApiLocation): LocationOption {
     specificLocation: item.specific_location,
     headcount: item.headcount,
     squareMeters: item.square_meters == null ? null : Number(item.square_meters),
+    buildingSquareMeters: null,
     commonSpace: item.common_space,
     active: item.active,
     displayName: item.display_name,

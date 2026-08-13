@@ -23,7 +23,7 @@ export function PlanAnualPage() {
 
   const { data: planes = [], isLoading: cargandoPlanes } = useQuery({
     queryKey: ["planes-anuales"],
-    queryFn: listPlanesAnuales,
+    queryFn: () => listPlanesAnuales(),
   });
 
   // Sin filtro de fecha: trae todas las programaciones para poder contar por plan
