@@ -1,7 +1,6 @@
 import type { ComponentType } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
-import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 import { ProtectedRoute } from "@/modules/accounts/ProtectedRoute";
 import { RoleRoute } from "@/modules/accounts/RoleRoute";
 import { TaxonomyFormPage } from "@/modules/taxonomy/pages/TaxonomyFormPage";
@@ -48,8 +47,6 @@ function administratorLazyRoute<TModule, TKey extends keyof TModule>(
     };
   };
 }
-
-const modules = [["mantenimiento", "Mantenimiento"]] as const;
 
 export const router = createBrowserRouter([
   {
@@ -284,7 +281,6 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
-      { path: "bienes/escanear", lazy: lazyRoute(() => import("@/modules/assets/pages/AssetScannerPage"), "AssetScannerPage") },
       {
         path: "ordenes-trabajo/recomendaciones",
         lazy: administratorLazyRoute(
@@ -476,6 +472,34 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "administracion/espacios/nuevo",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceFormPage"),
+          "SpaceFormPage",
+        ),
+      },
+      {
+        path: "administracion/espacios/:id/editar",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceFormPage"),
+          "SpaceFormPage",
+        ),
+      },
+      {
+        path: "administracion/espacios/:id",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceDetailPage"),
+          "SpaceDetailPage",
+        ),
+      },
+      {
+        path: "administracion/espacios",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpacesCatalogPage"),
+          "SpacesCatalogPage",
+        ),
+      },
+      {
         path: "administracion/taxonomia/:id/editar",
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
@@ -598,10 +622,7 @@ export const router = createBrowserRouter([
         ),
       },
       // ─────────────────────────────────────────────────────────────────────
-      ...modules.map(([path, title]) => ({
-        path,
-        element: <ModulePlaceholderPage title={title} />,
-      })),
+      { path: "mantenimiento", element: <Navigate to="/" replace /> },
     ],
   },
 ]);
