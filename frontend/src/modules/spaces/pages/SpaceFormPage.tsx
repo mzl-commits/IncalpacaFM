@@ -1,6 +1,7 @@
 import { ArrowLeft, Buildings, MapPin, WarningCircle } from "@phosphor-icons/react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getApiErrorMessage } from "@/utils/httpError";
+import { TaxonomySectionNav } from "@/modules/taxonomy/components/TaxonomySectionNav";
 import { SpaceNodeForm, SpaceSiteForm } from "../components/SpaceForms";
 import {
   useCreateSite,
@@ -65,6 +66,8 @@ export function SpaceFormPage() {
         </div>
         <Link className="button button-secondary" to={backTo}><ArrowLeft />Volver</Link>
       </div>
+
+      <TaxonomySectionNav />
 
       <div className="space-form-layout">
         <main>

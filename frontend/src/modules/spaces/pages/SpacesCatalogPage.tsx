@@ -13,6 +13,8 @@ import { useSite, useSites, useSpaceNode, useSpaceTree } from "../spacesQueries"
 import type { SpaceKind, SpaceTreeNode } from "../types";
 import { spaceKindLabels } from "../types";
 
+import { TaxonomySectionNav } from "@/modules/taxonomy/components/TaxonomySectionNav";
+
 type StatusFilter = "" | "true" | "false";
 type Selection = { entity: "site" | "node"; id: string } | null;
 
@@ -88,6 +90,8 @@ export function SpacesCatalogPage() {
           <Link className="button button-primary" to="/administracion/espacios/nuevo"><Plus />Nuevo espacio</Link>
         </div>
       </div>
+
+      <TaxonomySectionNav />
 
       <dl className="spaces-summary" aria-label="Resumen de espacios">
         <div><dt>Sedes</dt><dd>{activeSites.length}</dd><small>Raíces configuradas</small></div>
