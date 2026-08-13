@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import { getWorkRequestById, updateWorkRequest } from "@/modules/incidents/incidentRepository";
+import type { WorkRequest } from "@/modules/incidents/types";
 import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { getAssetDisplayCode, type RegisteredAsset } from "@/modules/assets/entryModel";
@@ -77,6 +79,8 @@ function hasCleaningSpecialty(person: Technician) {
 export function DirectWorkOrderCreatePage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const linkedRequestId = new URLSearchParams(location.search).get("request");
+  const backPath = linkedRequestId ? `/incidencias/${linkedRequestId}` : "/ordenes-trabajo";
   const orderType: DirectOrderType = location.pathname.endsWith("/ol") ? "OL" : "OT";
   const isCleaningOrder = orderType === "OL";
   const orderName = isCleaningOrder ? "OL" : "OT";
@@ -100,6 +104,7 @@ export function DirectWorkOrderCreatePage() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [assets, setAssets] = useState<RegisteredAsset[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
+  const [linkedRequest, setLinkedRequest] = useState<WorkRequest | null>(null);
   const [form, setForm] = useState<DirectWorkOrderFormState>(() => initialForm(orderType));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -113,6 +118,36 @@ export function DirectWorkOrderCreatePage() {
     void listRegisteredAssets().then(setAssets);
     void listWorkOrders().then(setOrders);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!linkedRequestId) {
+      setLinkedRequest(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    void getWorkRequestById(linkedRequestId)
+      .then((request) => {
+        if (!isMounted) return;
+        setLinkedRequest(request);
+        setForm((current) => ({
+          ...current,
+          description: current.description || request.description,
+          assetId: request.assetId || current.assetId,
+          locationId: request.locationId || current.locationId,
+          adminPriority: request.requesterPriority === "NORMAL" ? current.adminPriority : "ALTA",
+        }));
+      })
+      .catch(() => {
+        if (isMounted) setError("No se pudo cargar la solicitud vinculada.");
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [linkedRequestId]);
 
   const selectedAsset = assets.find((asset) => asset.id === form.assetId) ?? null;
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
@@ -181,9 +216,11 @@ export function DirectWorkOrderCreatePage() {
     setError("");
     try {
       const workOrder = await createWorkOrder({
+        requestId: linkedRequest?.id,
+        requestCode: linkedRequest?.code,
         orderType,
         directRequestDescription: form.description.trim(),
-        directRequestType: isCleaningOrder ? "OL directa" : "OT directa",
+        directRequestType: linkedRequest ? `${orderName} desde solicitud` : isCleaningOrder ? "OL directa" : "OT directa",
         directAssetId: form.assetId || null,
         directLocationId: form.locationId,
         operatorId: form.operatorId,
@@ -201,7 +238,13 @@ export function DirectWorkOrderCreatePage() {
         administratorNotes: form.administratorNotes.trim(),
         progressPercentage: 0,
       });
-      navigate(`/órdenes-trabajo/${workOrder.id}`);
+      if (linkedRequest) {
+        await updateWorkRequest(linkedRequest.id, {
+          status: "CONVERTIDA_EN_OT",
+          workOrderId: workOrder.id,
+        });
+      }
+      navigate(`/ordenes-trabajo/${workOrder.id}`);
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
       setError(detail || `No se pudo generar la ${orderName} directa.`);
@@ -218,7 +261,7 @@ export function DirectWorkOrderCreatePage() {
           <h1>Crear {orderName} directa</h1>
           <p>{isCleaningOrder ? "Registra una limpieza puntual sin crear una solicitud manual previa." : "Registra una orden sin pedirle al administrador crear y aprobar una solicitud manualmente."}</p>
         </div>
-        <Link className="button button-secondary" to="/órdenes-trabajo/nueva">
+        <Link className="button button-secondary" to={backPath}>
           <ArrowLeft size={18} />
           Volver
         </Link>
@@ -409,7 +452,7 @@ export function DirectWorkOrderCreatePage() {
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-actions">
-          <Link className="button button-secondary" to="/órdenes-trabajo/nueva">Cancelar</Link>
+          <Link className="button button-secondary" to={backPath}>Cancelar</Link>
           <button className="button button-primary" type="submit" disabled={saving}>
             <FloppyDisk size={18} weight="bold" />
             {saving ? "Generando..." : `Generar ${orderName}`}
