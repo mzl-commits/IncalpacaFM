@@ -287,3 +287,92 @@
   .space-map-status,
   .space-form-check { border-color: CanvasText; }
 }
+
+/* Step-by-step box grid for 9-level space creation */
+.space-form-step {
+  margin-bottom: 24px;
+}
+
+.space-form-step > header {
+  margin-bottom: 12px;
+}
+
+.space-form-step > header span {
+  color: var(--accent);
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.space-form-step > header h3 {
+  margin: 3px 0;
+  color: var(--primary);
+  font-size: var(--type-small);
+}
+
+.space-form-step > header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+
+.space-level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.space-box-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--surface-raised);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.space-box-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.space-box-card.is-selected {
+  border-color: var(--accent);
+  background: var(--surface-selected);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.space-box-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.space-box-card .level-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: var(--surface-inset);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: var(--weight-bold);
+}
+
+.space-box-card strong {
+  color: var(--primary);
+  font-size: var(--type-meta);
+  font-weight: var(--weight-semibold);
+}
+
+.space-box-card small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  line-height: 1.35;
+}
