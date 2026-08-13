@@ -19,6 +19,8 @@ type ApiLocation = {
   location_code: string;
   source_company: string;
   source_version: string;
+  site: string;
+  level: string;
   requires_review: boolean;
   review_notes: string;
   zone: string;
@@ -57,6 +59,8 @@ function mapLocation(item: ApiLocation): LocationOption {
     locationCode: item.location_code,
     sourceCompany: item.source_company,
     sourceVersion: item.source_version,
+    site: item.site,
+    level: item.level,
     requiresReview: item.requires_review,
     reviewNotes: item.review_notes,
     zone: item.zone,
