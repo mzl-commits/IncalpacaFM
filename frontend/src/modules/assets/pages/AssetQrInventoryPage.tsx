@@ -308,18 +308,19 @@ export function AssetQrInventoryPage() {
       
       const style = document.createElement("style");
       style.textContent = `
-        @page { size: A4; margin: ${format === PRINT_FORMATS.COMPACT ? "8mm" : "12mm"}; }
+        @page { size: A4; margin: ${format === PRINT_FORMATS.COMPACT ? "6mm" : "10mm"}; }
         * { box-sizing: border-box; }
         body {
           margin: 0;
-          color: #10233f;
-          font: 14px/1.4 Inter, "Segoe UI", sans-serif;
+          color: #000;
+          font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+          background: #fff;
         }
         main {
           display: grid;
           grid-template-columns: repeat(${format.columns}, ${format.widthMm}mm);
           grid-auto-rows: ${format.heightMm}mm;
-          justify-content: start;
+          justify-content: center;
           align-content: start;
           gap: ${format.gapMm}mm;
         }
@@ -327,66 +328,126 @@ export function AssetQrInventoryPage() {
           break-inside: avoid;
           display: grid;
           grid-template-columns: ${format.qrMm}mm minmax(0, 1fr);
-          align-items: center;
-          gap: ${format === PRINT_FORMATS.COMPACT ? 1 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
+          align-items: stretch;
+          gap: ${format === PRINT_FORMATS.COMPACT ? 1.5 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
           height: ${format.heightMm}mm;
           padding: ${format === PRINT_FORMATS.COMPACT ? 1.5 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
-          border: 1px solid #9eabb9;
+          border: 1px solid #CCC;
+          border-radius: 4px;
           overflow: hidden;
+          background: #FFF;
         }
-        article.compact-label { grid-template-columns: ${format.qrMm}mm minmax(0, 1fr); gap: 2mm; text-align: left; }
-        article.compact-label .brand { font-size: 6px; letter-spacing: .03em; font-weight: 700; color: #343434; }
-        article.compact-label .human-code { font-family: "Courier New", monospace; font-size: 8px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
-        article.compact-label .asset-name { font-size: 7px; line-height: 1.1; max-height: 8mm; overflow: hidden; }
-        img { display: block; flex: 0 0 ${format.qrMm}mm; width: ${format.qrMm}mm; height: ${format.qrMm}mm; object-fit: contain; }
-        strong, span, small { display: block; }
-        strong { margin: 1mm 0; font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 16}px; line-height: 1.15; }
-        span { font-size: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 10 : 12}px; font-weight: 700; line-height: 1.2; }
-        small { margin-top: 1mm; color: #536170; font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 8 : 10}px; line-height: 1.2; }
+        .qr-image { 
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1mm;
+        }
+        img { 
+          display: block; 
+          width: 100%; 
+          height: 100%; 
+          object-fit: contain; 
+        }
+        .content {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 1mm 1mm 1mm 0;
+        }
+        .brand-logo {
+          display: flex;
+          align-items: center;
+          gap: 1.5mm;
+          margin-bottom: ${format === PRINT_FORMATS.COMPACT ? 1 : 2}mm;
+        }
+        .brand-logo svg {
+          width: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 12 : 14}px;
+          height: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 12 : 14}px;
+        }
+        .brand-logo span {
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 9 : 11}px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          color: #000;
+          line-height: 1;
+        }
+        strong { 
+          font-family: "Courier New", Courier, monospace;
+          margin: 0 0 ${format === PRINT_FORMATS.COMPACT ? 1 : 1.5}mm 0; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 9 : format === PRINT_FORMATS.STANDARD ? 13 : 15}px; 
+          line-height: 1.1; 
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+        .name { 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 9 : 11}px; 
+          font-weight: 600; 
+          line-height: 1.2;
+          color: #333;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          margin-bottom: 1mm;
+        }
+        .technical { 
+          color: #666; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.5 : format === PRINT_FORMATS.STANDARD ? 7.5 : 9}px; 
+          line-height: 1.2; 
+          margin-bottom: auto;
+        }
+        .instruction { 
+          margin-top: auto; 
+          color: #888; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 6 : format === PRINT_FORMATS.STANDARD ? 7 : 8}px; 
+          line-height: 1.1; 
+          font-style: italic;
+        }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          article { border-color: #000; }
         }
       `;
       const main = document.createElement("main");
 
       labels.forEach(({ asset, dataUrl }) => {
         const label = document.createElement("article");
+        
+        const imageWrapper = document.createElement("div");
+        imageWrapper.className = "qr-image";
         const image = document.createElement("img");
-        const copy = document.createElement("div");
-        const organization = document.createElement("span");
-        const code = document.createElement("strong");
-        const name = document.createElement("span");
-        const technicalCode = document.createElement("small");
-        const instruction = document.createElement("small");
-
         image.src = dataUrl;
         image.alt = "";
-        organization.textContent = "FM INCALPACA";
+        imageWrapper.appendChild(image);
+        
+        const copy = document.createElement("div");
+        copy.className = "content";
+        
+        const logoDiv = document.createElement("div");
+        logoDiv.className = "brand-logo";
+        logoDiv.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="8" height="8" fill="#000"/><rect x="8" y="8" width="8" height="8" fill="#000"/><rect x="16" y="16" width="8" height="8" fill="#000"/></svg><span>FM INCALPACA</span>`;
+        
+        const code = document.createElement("strong");
         code.textContent = getAssetDisplayCode(asset);
+        
+        const name = document.createElement("div");
+        name.className = "name";
         name.textContent = asset.draft.name;
-        technicalCode.textContent = asset.fmCode ? `ID técnico: ${asset.code}` : "";
-        instruction.textContent = "Escanea para más información";
+        
+        const technicalCode = document.createElement("div");
+        technicalCode.className = "technical";
+        technicalCode.textContent = asset.fmCode ? `ID: ${asset.code}` : "";
+        
+        const instruction = document.createElement("div");
+        instruction.className = "instruction";
+        instruction.textContent = "Escanea para más info";
 
-        if (format === PRINT_FORMATS.COMPACT) {
-          label.className = "compact-label";
-          const brand = document.createElement("span");
-          const humanCode = document.createElement("strong");
-          const assetName = document.createElement("span");
-          brand.className = "brand";
-          humanCode.className = "human-code";
-          assetName.className = "asset-name";
-          brand.textContent = "INCALPACA FM";
-          humanCode.textContent = `* ${getAssetDisplayCode(asset)} *`;
-          assetName.textContent = asset.draft.name;
-          copy.append(brand, humanCode, assetName);
-          label.append(image, copy);
-          main.append(label);
-          return;
-        }
-        copy.append(organization, code, name);
+        copy.append(logoDiv, code, name);
         if (asset.fmCode) copy.append(technicalCode);
         copy.append(instruction);
-        label.append(image, copy);
+        
+        label.append(imageWrapper, copy);
         main.append(label);
       });
 
@@ -410,7 +471,7 @@ export function AssetQrInventoryPage() {
       printWindow.document.body.append(main);
       
       await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, 200);
+        window.setTimeout(resolve, 300);
       });
       
       printWindow.focus();
