@@ -785,10 +785,12 @@ export function WorkOrderListPage() {
           <h1>Órdenes operativas</h1>
           <p>Consulta programación, responsables, avance y estado de OT, OL y OS generadas.</p>
         </div>
-        <button className="button button-primary" type="button" onClick={openCreateOrderModal}>
-          <Plus size={18} weight="bold" />
-          <span>Agregar orden operativa</span>
-        </button>
+        {isAdministrator && (
+          <button className="button button-primary" type="button" onClick={openCreateOrderModal}>
+            <Plus size={18} weight="bold" />
+            <span>Agregar orden operativa</span>
+          </button>
+        )}
       </div>
 
       {orderSuccess && (

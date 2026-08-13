@@ -503,6 +503,7 @@ export function WorkOrderDetailPage() {
     "PENDIENTE_DE_VALIDACION",
     "PENDIENTE_DE_CONFORMIDAD",
   ].includes(workOrder.status);
+  const canManagePhotos = !isServiceOrder && (canEditPlanning || canRegisterProgress);
 
   const supervisorComment = getTextValue(workOrder.supervisor_validation, "comment", "Sin comentarios del supervisor");
   const adminRegisteredComment = getTextValue(workOrder.administrator_validation, "comment", "Sin comentarios administrativos");
@@ -1060,7 +1061,7 @@ export function WorkOrderDetailPage() {
               <figure className="work-order-photo-card wo-compact-photo-card" key={label}>
                 <figcaption style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <strong>{label}</strong>
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  {canManagePhotos && <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                     {url && (
                       <button
                         type="button"
@@ -1112,7 +1113,7 @@ export function WorkOrderDetailPage() {
                         }}
                       />
                     </label>
-                  </div>
+                  </div>}
                 </figcaption>
                 {url ? <img src={url} alt={`Estado del bien ${label.toLowerCase()}`} /> : <div className="work-order-photo-empty">{help}</div>}
               </figure>
