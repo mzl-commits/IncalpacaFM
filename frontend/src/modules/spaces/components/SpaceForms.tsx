@@ -134,6 +134,23 @@ type SpaceNodeFormProps = {
   onSubmit: (input: SpaceNodeInput) => Promise<void> | void;
 };
 
+const LEVEL_BOXES: Array<{
+  type: SpaceNodeType;
+  level: number;
+  title: string;
+  description: string;
+}> = [
+  { type: "MACRO_AREA", level: 2, title: "Área macro", description: "Bloque principal u operativo." },
+  { type: "BUILDING", level: 2, title: "Edificio", description: "Edificio o estructura independiente." },
+  { type: "SECTOR", level: 3, title: "Sector", description: "Sub-bloque u organización interna." },
+  { type: "LEVEL", level: 4, title: "Nivel / Piso", description: "Planta, nivel o piso del edificio." },
+  { type: "AREA", level: 5, title: "Área", description: "Área funcional o departamento." },
+  { type: "MODULE", level: 6, title: "Módulo", description: "Estación de trabajo o módulo." },
+  { type: "ENVIRONMENT", level: 7, title: "Ambiente", description: "Oficina, almacén o taller físico." },
+  { type: "SUB_ENVIRONMENT", level: 8, title: "Sub-ambiente", description: "Zona delimitada en un ambiente." },
+  { type: "POINT", level: 9, title: "Punto específico", description: "Estante, bahía o posición final." },
+];
+
 export function SpaceNodeForm({
   node,
   defaultSiteId = "",
@@ -143,13 +160,11 @@ export function SpaceNodeForm({
   submitLabel,
   onSubmit,
 }: SpaceNodeFormProps) {
-  // New/moved nodes only offer active sites. For an archived record, include
-  // its current site just long enough to explain why it cannot be saved there.
   const sitesQuery = useSites(node ? "" : "true");
   const [siteId, setSiteId] = useState(node?.siteId ?? defaultSiteId);
   const [parentId, setParentId] = useState<string | null>(node?.parentId ?? defaultParentId);
   const optionsQuery = useSpaceOptions(siteId || undefined, parentId || undefined);
-  const [nodeType, setNodeType] = useState<SpaceNodeType>(node?.nodeType ?? defaultNodeType ?? "AREA");
+  const [nodeType, setNodeType] = useState<SpaceNodeType>(node?.nodeType ?? defaultNodeType ?? "MACRO_AREA");
   const [codeSegment, setCodeSegment] = useState(node?.codeSegment ?? "");
   const [name, setName] = useState(node?.name ?? "");
   const [squareMeters, setSquareMeters] = useState(node?.squareMeters == null ? "" : String(node.squareMeters));
@@ -181,22 +196,28 @@ export function SpaceNodeForm({
     }
   }, [node]);
 
-  useEffect(() => {
-    if (!allowedNodeTypes.length || allowedNodeTypes.some((option) => option.value === nodeType)) return;
-    setNodeType(allowedNodeTypes[0].value);
-  }, [allowedNodeTypes, nodeType]);
-
   const chosenParent = useMemo(() => parentOptions.find((item) => item.id === parentId) ?? null, [parentId, parentOptions]);
   const currentLevel = spaceKindLevels[selectedType] ?? 2;
 
-  function changeSite(value: string) {
-    setSiteId(value);
+  // Filter parent options by expected prior level for direct selection
+  const candidateParents = useMemo(() => {
+    if (!parentOptions.length) return [];
+    return parentOptions.filter((item) => item.id !== node?.id);
+  }, [node?.id, parentOptions]);
+
+  function changeSite(id: string) {
+    setSiteId(id);
     setParentId(null);
     setError("");
   }
 
-  function changeParent(value: string) {
-    setParentId(value || null);
+  function changeParent(id: string | null) {
+    setParentId(id);
+    setError("");
+  }
+
+  function selectLevel(targetType: SpaceNodeType) {
+    setNodeType(targetType);
     setError("");
   }
 
@@ -211,10 +232,6 @@ export function SpaceNodeForm({
     }
     if (currentLevel >= 3 && !parentId) {
       setError(`Para crear un espacio de Nivel ${currentLevel} (${spaceKindLabels[selectedType]}) debes seleccionar un espacio padre de nivel superior.`);
-      return;
-    }
-    if (!allowedNodeTypes.some((option) => option.value === nodeType)) {
-      setError("Selecciona un tipo permitido para esta posición dentro del árbol.");
       return;
     }
     if (!/^[A-Z][A-Z0-9]{0,15}$/.test(normalizedCode)) {
@@ -260,80 +277,215 @@ export function SpaceNodeForm({
     }
   }
 
+  const generatedPathPreview = useMemo(() => {
+    if (!selectedSite) return "";
+    const parentPath = chosenParent ? chosenParent.pathCode : selectedSite.code;
+    return `${parentPath}-${codeSegment.trim().toUpperCase() || "..."}`;
+  }, [chosenParent, codeSegment, selectedSite]);
+
   return (
     <form className="space-form surface-card" onSubmit={(event) => void submit(event)}>
-      <section>
+      {/* Paso 1: Selección de Sede */}
+      <section className="space-form-step">
         <header>
-          <span>Jerarquía espacial (9 Niveles)</span>
-          <h2>{node ? "Datos del espacio" : `Crear espacio · Nivel ${currentLevel}`}</h2>
-          <p>Los tipos y jerarquías van encadenados desde la Sede (Nivel 1) hasta el Punto específico (Nivel 9).</p>
+          <span>Paso 1</span>
+          <h3>Selecciona la Sede (Nivel 1)</h3>
+          <p>La sede es el punto de partida físico de la infraestructura.</p>
         </header>
-        {sites.length === 0 && !sitesQuery.isPending && (
-          <div className="space-form-feedback is-error" style={{ marginBottom: "1rem" }}>
+        {sites.length === 0 && !sitesQuery.isPending ? (
+          <div className="space-form-feedback is-error">
             <WarningCircle weight="fill" />
-            <span>No hay sedes (Nivel 1) registradas. Para crear espacios de Nivel 2 a 9 debes registrar primero una Sede.</span>
+            <span>No existen sedes (Nivel 1) registradas. Debes crear una sede primero.</span>
+          </div>
+        ) : (
+          <div className="space-level-grid">
+            {sites.map((site) => (
+              <button
+                key={site.id}
+                type="button"
+                className={`space-box-card ${site.id === siteId ? "is-selected" : ""}`}
+                onClick={() => changeSite(site.id)}
+              >
+                <span className="level-badge">Nivel 1 · Sede</span>
+                <strong>{site.code} · {site.name}</strong>
+                <small>{site.address.addressLine || site.address.district || "Sede activa"}</small>
+              </button>
+            ))}
           </div>
         )}
+      </section>
+
+      {/* Paso 2: Selección del Nivel del Espacio */}
+      <section className="space-form-step">
+        <header>
+          <span>Paso 2</span>
+          <h3>Selecciona el Nivel a Crear (Nivel 2 al 9)</h3>
+          <p>Selecciona directamente el nivel del espacio. No necesitas entrar nivel por nivel.</p>
+        </header>
+        <div className="space-level-grid">
+          {LEVEL_BOXES.map((box) => (
+            <button
+              key={box.type}
+              type="button"
+              className={`space-box-card ${nodeType === box.type ? "is-selected" : ""}`}
+              onClick={() => selectLevel(box.type)}
+              disabled={!siteId}
+            >
+              <span className="level-badge">Nivel {box.level}</span>
+              <strong>{box.title}</strong>
+              <small>{box.description}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Paso 3: Selección del Padre Directo */}
+      <section className="space-form-step">
+        <header>
+          <span>Paso 3</span>
+          <h3>
+            {currentLevel === 2
+              ? "Padre Directo: Raíz de la Sede"
+              : `Selecciona el Padre Directo (Nivel ${currentLevel - 1} o superior)`}
+          </h3>
+          <p>
+            {currentLevel === 2
+              ? "Los espacios de Nivel 2 se ubican directamente en la raíz de la Sede."
+              : `Selecciona el espacio de Nivel ${currentLevel - 1} al que pertenece directamente.`}
+          </p>
+        </header>
+        {currentLevel === 2 ? (
+          <div className="space-form-feedback">
+            <Info weight="duotone" />
+            <span>El espacio se creará directamente en la Sede seleccionada ({selectedSite?.code || "Sede"}).</span>
+          </div>
+        ) : (
+          <div className="space-form-grid">
+            <label className="space-form-full">
+              <span>Espacio Padre <b>*</b></span>
+              <select
+                value={parentId ?? ""}
+                onChange={(event) => changeParent(event.target.value || null)}
+                disabled={!siteId || optionsQuery.isPending}
+                required
+              >
+                <option value="">-- Selecciona el espacio padre --</option>
+                {candidateParents.map((parent) => (
+                  <option key={parent.id} value={parent.id}>
+                    {parent.pathCode} · {parent.name} ({spaceKindLabels[parent.kind] || parent.kind})
+                  </option>
+                ))}
+              </select>
+              {chosenParent ? (
+                <small>Padre seleccionado: <b>{chosenParent.name}</b> ({chosenParent.pathCode})</small>
+              ) : (
+                <small>Selecciona el espacio de nivel superior.</small>
+              )}
+            </label>
+          </div>
+        )}
+      </section>
+
+      {/* Paso 4: Identidad y Medidas del Espacio */}
+      <section className="space-form-step">
+        <header>
+          <span>Paso 4</span>
+          <h3>Datos e Identificación del Espacio</h3>
+          <p>Asigna el código de segmento, el nombre legible y sus medidas operativas.</p>
+        </header>
         <div className="space-form-grid">
           <label>
-            <span>Sede (Nivel 1) <b>*</b></span>
-            <select value={siteId} onChange={(event) => changeSite(event.target.value)} required>
-              <option value="">Selecciona una sede</option>
-              {sites.map((site) => <option key={site.id} value={site.id}>{site.code} · {site.name}</option>)}
-            </select>
-            {selectedSiteArchived && <small>Esta sede está archivada. Restáurala o selecciona una sede activa antes de guardar.</small>}
-          </label>
-          <label>
-            <span>Padre dentro de la sede</span>
-            <select value={parentId ?? ""} onChange={(event) => changeParent(event.target.value)} disabled={!siteId}>
-              <option value="">Raíz de la sede (Nivel 1)</option>
-              {parentOptions.filter((item) => item.id !== node?.id).map((parent) => <option key={parent.id} value={parent.id}>{parent.pathCode} · {parent.name}</option>)}
-            </select>
-            {chosenParent ? <small>Se creará bajo: {chosenParent.pathCode}</small> : <small>Espacio de Nivel 2 directo en la Sede.</small>}
-          </label>
-          <label>
-            <span>Tipo de espacio (Nivel {currentLevel}) <b>*</b></span>
-            <select value={nodeType} onChange={(event) => setNodeType(event.target.value as SpaceNodeType)} disabled={!siteId || optionsQuery.isPending} required>
-              {allowedNodeTypes.length ? allowedNodeTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>) : <option value="">{siteId ? "Sin tipos disponibles" : "Selecciona la sede"}</option>}
-            </select>
-            <small>{spaceKindDescriptions[selectedType]}</small>
-          </label>
-          <label>
             <span>Segmento de código <b>*</b></span>
-            <input value={codeSegment} onChange={(event) => setCodeSegment(event.target.value.toUpperCase())} placeholder={spaceKindCodeHints[selectedType]} maxLength={16} autoComplete="off" required />
-            <small>Se agregará a la ruta automática de la sede.</small>
+            <input
+              value={codeSegment}
+              onChange={(event) => setCodeSegment(event.target.value.toUpperCase())}
+              placeholder={spaceKindCodeHints[selectedType]}
+              maxLength={16}
+              autoComplete="off"
+              required
+            />
+            <small>Segmento único dentro del mismo nivel.</small>
           </label>
-          <label className="space-form-full">
-            <span>Nombre <b>*</b></span>
-            <input value={name} onChange={(event) => setName(event.target.value)} placeholder={`Ej. ${spaceKindLabels[selectedType]} principal`} required />
+          <label>
+            <span>Nombre del espacio <b>*</b></span>
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder={`Ej. ${spaceKindLabels[selectedType]} principal`}
+              required
+            />
+            <small>Nombre descriptivo legible.</small>
+          </label>
+          <label>
+            <span>Metros cuadrados</span>
+            <div className="space-input-unit">
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                value={squareMeters}
+                onChange={(event) => setSquareMeters(event.target.value)}
+                placeholder="Ej. 45.50"
+              />
+              <b>m²</b>
+            </div>
+            <small>Opcional; mayor a cero.</small>
+          </label>
+          <label>
+            <span>Aforo</span>
+            <div className="space-input-unit">
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={headcount}
+                onChange={(event) => setHeadcount(event.target.value)}
+                disabled={commonSpace}
+                placeholder="Ej. 12"
+              />
+              <b>pers.</b>
+            </div>
+            <small>Referencial; aforo estimado.</small>
+          </label>
+          <label className="space-form-check">
+            <input
+              type="checkbox"
+              checked={commonSpace}
+              onChange={(event) => setCommonSpace(event.target.checked)}
+            />
+            <span>
+              <strong>Espacio común</strong>
+              <small>Permite uso compartido entre diferentes áreas.</small>
+            </span>
           </label>
         </div>
       </section>
 
-      <section>
-        <header>
-          <span>Capacidad y uso</span>
-          <h2>Datos operativos</h2>
-          <p>Los m² y el aforo se guardan en este nodo sin alterar la taxonomía de los bienes.</p>
-        </header>
-        <div className="space-form-grid">
-          <label>
-            <span>Metros cuadrados</span>
-            <div className="space-input-unit"><input type="number" inputMode="decimal" min="0.01" step="0.01" value={squareMeters} onChange={(event) => setSquareMeters(event.target.value)} placeholder="Ej. 45.50" /><b>m²</b></div>
-            <small>Opcional; debe ser mayor a cero.</small>
-          </label>
-          <label>
-            <span>Aforo</span>
-            <div className="space-input-unit"><input type="number" inputMode="numeric" min="0" step="1" value={headcount} onChange={(event) => setHeadcount(event.target.value)} disabled={commonSpace} placeholder="Ej. 12" /><b>pers.</b></div>
-            <small>Es referencial: el sobreaforo justificado se audita.</small>
-          </label>
-          <label className="space-form-check"><input type="checkbox" checked={commonSpace} onChange={(event) => setCommonSpace(event.target.checked)} /><span><strong>Espacio común</strong><small>El aforo se considera informativo y permite uso compartido.</small></span></label>
-        </div>
-      </section>
-      <FormFeedback error={error} helper={node ? "Los cambios de jerarquía y medidas quedan registrados en auditoría." : "La ruta se calcula al guardar para proteger la integridad del árbol."} />
+      <FormFeedback
+        error={error}
+        helper={
+          node
+            ? "Los cambios quedan auditados sin modificar bienes de otras sedes."
+            : `Ruta esperada al guardar: ${generatedPathPreview || "Sede-Código"}`
+        }
+      />
       <footer className="space-form-actions">
-        <button className="button button-primary" type="submit" disabled={busy || optionsQuery.isPending || selectedSiteArchived}><FloppyDisk />{busy ? "Guardando…" : submitLabel}</button>
-        {node && <span className="space-form-state"><CheckCircle weight="fill" />Ruta actual: {node.pathCode}</span>}
+        <button
+          className="button button-primary"
+          type="submit"
+          disabled={busy || optionsQuery.isPending || selectedSiteArchived}
+        >
+          <FloppyDisk />
+          {busy ? "Guardando…" : submitLabel}
+        </button>
+        {node && (
+          <span className="space-form-state">
+            <CheckCircle weight="fill" />
+            Ruta actual: {node.pathCode}
+          </span>
+        )}
       </footer>
     </form>
   );
