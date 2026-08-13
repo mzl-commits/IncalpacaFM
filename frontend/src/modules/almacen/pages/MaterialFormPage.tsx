@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Modal } from "@/components/shared/Modal";
-import { CategoriaSubcategoriaManager } from "@/components/shared/CategoriaSubcategoriaManager";
+import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
 import { Field } from "@/modules/almacen/components/shared/Field";
-import { GuiaCroquisFormulario } from "@/modules/almacen/components/GuiaCroquisFormulario";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 import {
   createMaterial,
@@ -14,15 +14,17 @@ import {
   listSubcategorias,
   updateMaterial,
 } from "@/modules/almacen/catalogoRepository";
+
 import type {
   MaterialCreatePayload,
+  Moneda,
   TipoControl,
   UnidadMedida,
   UnidadManejo,
 } from "@/modules/almacen/types";
 import { unidadManejoLabels } from "@/modules/almacen/types";
 
-// ─── Tipos y constantes del formulario ───────────────────────────────────────
+
 type Fase = "form" | "exito";
 
 export function MaterialFormPage() {
@@ -32,22 +34,19 @@ export function MaterialFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
   const materialId = Number(id);
+  const { almacenId } = useAlmacenActivo();
 
   const [fase, setFase] = useState<Fase>("form");
   const [formInicializado, setFormInicializado] = useState(false);
-  const [materialCreado, setMaterialCreado] = useState<{
-    id: number;
-    codigo: string;
-    nombre: string;
-  } | null>(null);
+  const [materialCreado, setMaterialCreado] = useState<{ id: number; codigo: string; nombre: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const fotoRef = useRef<HTMLInputElement>(null);
 
-  // Form state
   const [form, setForm] = useState<MaterialCreatePayload>({
     subcategoria: 0,
+    almacen: almacenId,
     nombre: "",
     marca: "",
     modelo: "",
@@ -57,39 +56,46 @@ export function MaterialFormPage() {
     largo: "",
     ubicacion_fisica: "",
     precio: "",
-    clasificacion_operativa: "HERRAMIENTA",
     tipo_control: "retornable",
     control_individual: false,
     periodicidad_valor: 3,
     periodicidad_unidad: "meses",
     unidad_manejo: "unidad",
     unidades_por_caja: "",
+    moneda: "PEN",
   });
-  // Solo usado en el paso "Stock inicial" para calcular cantidad_total = cajas × unidades_por_caja.
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, almacen: almacenId }));
+  }, [almacenId]);
+
   const [cajasIniciales, setCajasIniciales] = useState<string>("");
   const [categoriaId, setCategoriaId] = useState<number>(0);
   const [catalogoModalOpen, setCatalogoModalOpen] = useState(false);
 
-  // Queries
-  const { data: categorias = [] } = useQuery({ queryKey: ["categorias"], queryFn: listCategorias });
-
-  // Subcategorías filtradas por la categoría seleccionada (Paso 1 del formulario)
-  const { data: subcategorias = [] } = useQuery({
-    queryKey: ["subcategorias", categoriaId],
-    queryFn: () => listSubcategorias(categoriaId),
-    enabled: !!categoriaId,
+  // Queries parametrizados por almacén activo
+  const { data: categorias = [] } = useQuery({
+    queryKey: ["categorias", almacenId],
+    queryFn: () => listCategorias(almacenId),
+    enabled: !!almacenId,
   });
 
-  // Edición: cargar material existente
+  const { data: subcategorias = [] } = useQuery({
+    queryKey: ["subcategorias", almacenId, categoriaId],
+    queryFn: () => listSubcategorias(almacenId, categoriaId),
+    enabled: !!almacenId && !!categoriaId,
+  });
+
   const { data: materialExistente, isLoading: isLoadingMaterial } = useQuery({
-    queryKey: ["material", materialId],
+    queryKey: ["material", almacenId, materialId],
     queryFn: () => getMaterialDetalle(materialId),
     enabled: isEditMode,
   });
+
   const { data: todasSubcategorias = [] } = useQuery({
-    queryKey: ["subcategorias-todas"],
-    queryFn: () => listSubcategorias(),
-    enabled: isEditMode,
+    queryKey: ["subcategorias-todas", almacenId],
+    queryFn: () => listSubcategorias(almacenId),
+    enabled: isEditMode && !!almacenId,
   });
 
   useEffect(() => {
@@ -98,6 +104,7 @@ export function MaterialFormPage() {
       if (sub) setCategoriaId(sub.categoria);
       setForm({
         subcategoria: materialExistente.subcategoria,
+        almacen: materialExistente.almacen,
         nombre: materialExistente.nombre,
         marca: materialExistente.marca,
         modelo: materialExistente.modelo,
@@ -107,7 +114,7 @@ export function MaterialFormPage() {
         largo: materialExistente.largo ?? "",
         ubicacion_fisica: materialExistente.ubicacion_fisica,
         precio: materialExistente.precio ?? "",
-        clasificacion_operativa: materialExistente.clasificacion_operativa,
+        moneda: materialExistente.moneda ?? "PEN",
         tipo_control: materialExistente.tipo_control,
         control_individual: materialExistente.control_individual,
         periodicidad_valor: materialExistente.periodicidad_valor ?? 3,
@@ -121,20 +128,20 @@ export function MaterialFormPage() {
     }
   }, [isEditMode, materialExistente, todasSubcategorias, formInicializado]);
 
-  // Mutations
   const guardarMut = useMutation({
-    mutationFn: () =>
-      isEditMode ? updateMaterial(materialId, form, fotoFile) : createMaterial(form, fotoFile),
+    mutationFn: (payload: MaterialCreatePayload) =>
+      isEditMode
+        ? updateMaterial(materialId, payload, fotoFile)
+        : createMaterial(payload, fotoFile),
     onSuccess: (mat) => {
-      qc.invalidateQueries({ queryKey: ["materiales"] });
+      qc.invalidateQueries({ queryKey: ["materiales", almacenId] });
       if (isEditMode) {
-        qc.invalidateQueries({ queryKey: ["material", materialId] });
-        navigate(`/almacen/catalogo/${mat.id}`);
+        qc.invalidateQueries({ queryKey: ["material", almacenId, materialId] });
+        navigate(`/almacen/${almacenId}/catalogo/${mat.id}`);
         return;
       }
-      // Material nuevo: si tiene control individual, ir directo a alta de piezas
       if (form.control_individual) {
-        navigate(`/almacen/catalogo/${mat.id}/alta-piezas`);
+        navigate(`/almacen/${almacenId}/catalogo/${mat.id}/alta-piezas`);
       } else {
         setMaterialCreado({ id: mat.id, codigo: mat.codigo, nombre: mat.nombre });
         setFase("exito");
@@ -143,20 +150,14 @@ export function MaterialFormPage() {
     onError: (e: { response?: { data?: Record<string, string[]> } }) => {
       const data = e?.response?.data ?? {};
       const mapped: Record<string, string> = {};
-      Object.entries(data).forEach(([k, v]) => {
-        mapped[k] = Array.isArray(v) ? v[0] : String(v);
-      });
+      Object.entries(data).forEach(([k, v]) => { mapped[k] = Array.isArray(v) ? v[0] : String(v); });
       setErrors(mapped);
     },
   });
 
   function set<K extends keyof MaterialCreatePayload>(key: K, value: MaterialCreatePayload[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+    setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
   }
 
   function validate(): boolean {
@@ -175,10 +176,23 @@ export function MaterialFormPage() {
     return Object.keys(errs).length === 0;
   }
 
+  function buildPayload(): MaterialCreatePayload {
+    const usaEmpaque =
+      form.tipo_control === "no_retornable" &&
+      !form.control_individual &&
+      form.unidad_manejo !== "unidad";
+    return {
+      ...form,
+      almacen: almacenId,
+      unidades_por_caja: usaEmpaque ? Number(form.unidades_por_caja) : null,
+    };
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
-    guardarMut.mutate();
+    const payload = buildPayload();
+    guardarMut.mutate(payload);
   }
 
   function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -191,14 +205,11 @@ export function MaterialFormPage() {
   }
 
   function handleCatalogoChange() {
-    // Refresca categorías/subcategorías en el formulario tras crear/editar/eliminar
-    // desde el modal, para que aparezcan de inmediato en los selects.
-    qc.invalidateQueries({ queryKey: ["categorias"] });
-    qc.invalidateQueries({ queryKey: ["subcategorias"] });
-    qc.invalidateQueries({ queryKey: ["subcategorias-todas"] });
+    qc.invalidateQueries({ queryKey: ["categorias", almacenId] });
+    qc.invalidateQueries({ queryKey: ["subcategorias", almacenId] });
+    qc.invalidateQueries({ queryKey: ["subcategorias-todas", almacenId] });
   }
 
-  // ─── Fase: exito ──────────────────────────────────────────────────────────
   if (fase === "exito") {
     return (
       <section className="success-panel">
@@ -207,10 +218,10 @@ export function MaterialFormPage() {
           <code className="pieza-code">{materialCreado?.codigo}</code> — {materialCreado?.nombre}
         </p>
         <div className="success-actions">
-          <Link className="button button-primary" to={`/almacen/catalogo/${materialCreado?.id}`}>
+          <Link className="button button-primary" to={`/almacen/${almacenId}/catalogo/${materialCreado?.id}`}>
             Ver ficha del material
           </Link>
-          <Link className="button button-secondary" to="/almacen/catalogo">
+          <Link className="button button-secondary" to={`/almacen/${almacenId}/catalogo`}>
             Volver al catálogo
           </Link>
         </div>
@@ -222,11 +233,10 @@ export function MaterialFormPage() {
     return <div className="loading-panel">Cargando datos del material…</div>;
   }
 
-  // ─── Fase: form ─────────────────────────────────────────────────────────
   return (
     <section>
       <div className="wizard-heading">
-        <Link to="/almacen/catalogo" className="back-link">
+        <Link to={`/almacen/${almacenId}/catalogo`} className="back-link">
           <ArrowLeft size={16} /> Catálogo
         </Link>
         <div>
@@ -244,12 +254,8 @@ export function MaterialFormPage() {
 
       <form className="wizard-layout" onSubmit={handleSubmit} noValidate>
         <div style={{ display: "grid", gap: 20 }}>
-          {/* Clasificación */}
           <div className="form-panel">
-            <div
-              className="form-section-heading"
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
-            >
+            <div className="form-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <span>Paso 1</span>
                 <h2>Clasificación</h2>
@@ -274,9 +280,7 @@ export function MaterialFormPage() {
                 >
                   <option value="">Seleccionar categoría…</option>
                   {categorias.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
                   ))}
                 </select>
               </Field>
@@ -288,23 +292,16 @@ export function MaterialFormPage() {
                 >
                   <option value="">Seleccionar subcategoría…</option>
                   {subcategorias.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre}
-                    </option>
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
                   ))}
                 </select>
               </Field>
             </div>
-            {/* Aviso si no hay categorías */}
             {categorias.length === 0 && (
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 14px",
-                  borderRadius: 8,
-                  marginTop: 12,
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "12px 14px", borderRadius: 8, marginTop: 12,
                   background: "var(--warning-surface, #fffbeb)",
                   border: "1px solid var(--warning, #f59e0b)",
                   color: "var(--warning-text, #92400e)",
@@ -313,14 +310,12 @@ export function MaterialFormPage() {
               >
                 <WarningCircle size={18} style={{ flexShrink: 0 }} />
                 <span>
-                  No hay categorías creadas. Haz clic en <strong>+ Gestionar categorías</strong>{" "}
-                  para agregar una antes de continuar.
+                  No hay categorías creadas. Haz clic en <strong>+ Gestionar categorías</strong> para agregar una antes de continuar.
                 </span>
               </div>
             )}
           </div>
 
-          {/* Datos del material */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 2</span>
@@ -385,11 +380,7 @@ export function MaterialFormPage() {
                   onChange={(e) => set("largo", e.target.value)}
                 />
               </Field>
-              <Field
-                label="Precio (S/)"
-                hint="Precio de referencia (opcional)"
-                error={errors.precio}
-              >
+              <Field label="Precio" hint="Precio de referencia (opcional)" error={errors.precio}>
                 <input
                   type="number"
                   step="0.01"
@@ -399,31 +390,16 @@ export function MaterialFormPage() {
                   placeholder="Ej. 150.00"
                 />
               </Field>
-              <Field
-                label="Tratamiento en Ã³rdenes de trabajo"
-                hint="Los consumibles generan costo; herramientas y EPP solo dejan trazabilidad de uso."
-                wide
-              >
+              <Field label="Moneda" error={errors.moneda}>
                 <select
-                  value={form.clasificacion_operativa}
-                  onChange={(e) =>
-                    set(
-                      "clasificacion_operativa",
-                      e.target.value as typeof form.clasificacion_operativa,
-                    )
-                  }
+                  value={form.moneda ?? "PEN"}
+                  onChange={(e) => set("moneda", e.target.value as Moneda)}
                 >
-                  <option value="CONSUMIBLE">Consumible â€” genera costo</option>
-                  <option value="HERRAMIENTA">Herramienta reutilizable â€” solo uso</option>
-                  <option value="EPP">EPP reutilizable â€” solo uso</option>
+                  <option value="PEN">Soles (PEN)</option>
+                  <option value="USD">Dólares (USD)</option>
                 </select>
               </Field>
-              <Field
-                label="Ubicación física"
-                hint="Ej. A1, Estante 3, Caja de brocas"
-                error={errors.ubicacion_fisica}
-                wide
-              >
+              <Field label="Ubicación física" hint="Ej. A1, Estante 3, Caja de brocas" error={errors.ubicacion_fisica} wide>
                 <input
                   type="text"
                   value={form.ubicacion_fisica}
@@ -433,11 +409,7 @@ export function MaterialFormPage() {
               </Field>
 
               {categorias.find((c) => c.id === categoriaId)?.requiere_inspeccion && (
-                <Field
-                  label="Frecuencia de inspección"
-                  hint="Cada cuánto debe inspeccionarse este material"
-                  wide
-                >
+                <Field label="Frecuencia de inspección" hint="Cada cuánto debe inspeccionarse este material" wide>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       type="number"
@@ -448,9 +420,7 @@ export function MaterialFormPage() {
                     />
                     <select
                       value={form.periodicidad_unidad}
-                      onChange={(e) =>
-                        set("periodicidad_unidad", e.target.value as "dias" | "meses")
-                      }
+                      onChange={(e) => set("periodicidad_unidad", e.target.value as "dias" | "meses")}
                     >
                       <option value="dias">Días</option>
                       <option value="meses">Meses</option>
@@ -458,15 +428,9 @@ export function MaterialFormPage() {
                   </div>
                 </Field>
               )}
-
-              {/* Guía visual del croquis */}
-              <div style={{ gridColumn: "1 / -1" }}>
-                <GuiaCroquisFormulario />
-              </div>
             </div>
           </div>
 
-          {/* Tipo de control */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 3</span>
@@ -492,13 +456,12 @@ export function MaterialFormPage() {
               <label htmlFor="control_individual" style={{ cursor: "pointer" }}>
                 <strong>Control por pieza individual</strong>
                 <small>
-                  Activa si cada unidad tiene código propio (herramientas, equipos). Desactiva para
-                  consumibles (tornillos, tuercas).
+                  Activa si cada unidad tiene código propio (herramientas, equipos).
+                  Desactiva para consumibles (tornillos, tuercas).
                 </small>
               </label>
             </div>
 
-            {/* Stock inicial: solo cuando NO es control individual y es no_retornable */}
             {form.tipo_control === "no_retornable" && !form.control_individual && (
               <div
                 style={{
@@ -513,14 +476,10 @@ export function MaterialFormPage() {
                   Stock inicial
                 </strong>
                 <small style={{ color: "var(--muted)", display: "block", marginBottom: 12 }}>
-                  Los materiales no retornables se consumen. Indica cómo se maneja el stock y cuánto
-                  hay disponible actualmente.
+                  Los materiales no retornables se consumen. Indica cómo se maneja
+                  el stock y cuánto hay disponible actualmente.
                 </small>
-                <Field
-                  label="Manejo de stock"
-                  required
-                  hint="Elige cómo se cuenta este consumible en el almacén."
-                >
+                <Field label="Manejo de stock" required hint="Elige cómo se cuenta este consumible en el almacén.">
                   <select
                     value={form.unidad_manejo ?? "unidad"}
                     onChange={(e) => {
@@ -534,37 +493,24 @@ export function MaterialFormPage() {
                     style={{ maxWidth: 220 }}
                   >
                     <option value="unidad">Por unidad suelta</option>
-                    <optgroup label="Empaques cerrados">
-                      <option value="caja">Por caja</option>
-                      <option value="bolsa">Por bolsa</option>
-                      <option value="paquete">Por paquete</option>
-                      <option value="fardo">Por fardo</option>
-                      <option value="saco">Por saco</option>
-                      <option value="balde">Por balde</option>
-                      <option value="cunete">Por cuñete</option>
-                      <option value="tambor">Por tambor / cilindro</option>
-                      <option value="bidon">Por bidón</option>
-                      <option value="frasco">Por frasco</option>
-                      <option value="blister">Por blíster</option>
-                    </optgroup>
-                    <optgroup label="Rollos / enrollados">
-                      <option value="rollo">Por rollo</option>
-                      <option value="bobina">Por bobina</option>
-                      <option value="carrete">Por carrete</option>
-                    </optgroup>
-                    <optgroup label="Medidas de cantidad">
-                      <option value="millar">Por millar</option>
-                      <option value="ciento">Por ciento</option>
-                      <option value="docena">Por docena</option>
-                    </optgroup>
-                    <optgroup label="Juegos / conjuntos">
-                      <option value="juego">Por juego / kit</option>
-                    </optgroup>
-                    <optgroup label="Piezas largas / planas">
-                      <option value="plancha">Por plancha / lámina</option>
-                      <option value="barra">Por barra</option>
-                      <option value="hoja">Por hoja</option>
-                    </optgroup>
+                    <option value="Paquete">Por Paquete</option>
+                    <option value="Bolsa">Por Bolsa</option>
+                    <option value="Blister">Por Blister</option>
+                    <option value="Rollo">Por Rollo</option>
+                    <option value="Docena">Por Docena</option>
+                    <option value="Millar">Por Millar</option>
+                    <option value="Litro">Por Litro</option>
+                    <option value="Mililitro">Por Mililitro</option>
+                    <option value="Galon">Por Galon</option>
+                    <option value="Bidon">Por Bidon</option>
+                    <option value="Kilogramo">Por Kilogramo</option>
+                    <option value="Gramo">Por Gramo</option>
+                    <option value="Libra">Por Libra</option>
+                    <option value="Metro">Por Metro</option>
+                    <option value="Centimetro">Por Centimetro</option>
+                    <option value="Milimetro">Por Milimetro</option>
+                    <option value="MetroCuadrado">Por MetroCuadrado</option>
+
                   </select>
                 </Field>
 
@@ -584,10 +530,7 @@ export function MaterialFormPage() {
                           const porCaja = e.target.value;
                           set("unidades_por_caja", porCaja);
                           const cajas = Number(cajasIniciales) || 0;
-                          setForm((prev) => ({
-                            ...prev,
-                            cantidad_total: cajas * (Number(porCaja) || 0),
-                          }));
+                          setForm((prev) => ({ ...prev, cantidad_total: cajas * (Number(porCaja) || 0) }));
                         }}
                         placeholder="Ej. 50"
                         style={{ maxWidth: 140 }}
@@ -605,10 +548,7 @@ export function MaterialFormPage() {
                           const cajas = e.target.value;
                           setCajasIniciales(cajas);
                           const porCaja = Number(form.unidades_por_caja) || 0;
-                          setForm((prev) => ({
-                            ...prev,
-                            cantidad_total: (Number(cajas) || 0) * porCaja,
-                          }));
+                          setForm((prev) => ({ ...prev, cantidad_total: (Number(cajas) || 0) * porCaja }));
                         }}
                         placeholder="0"
                         style={{ maxWidth: 140 }}
@@ -619,11 +559,7 @@ export function MaterialFormPage() {
                         type="number"
                         value={form.cantidad_total ?? 0}
                         readOnly
-                        style={{
-                          maxWidth: 160,
-                          background: "var(--surface, #fff)",
-                          color: "var(--muted)",
-                        }}
+                        style={{ maxWidth: 160, background: "var(--surface, #fff)", color: "var(--muted)" }}
                       />
                     </Field>
                   </div>
@@ -647,7 +583,6 @@ export function MaterialFormPage() {
             )}
           </div>
 
-          {/* Foto */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 4</span>
@@ -658,11 +593,7 @@ export function MaterialFormPage() {
                 <strong>Imagen del material</strong>
                 <small>JPG, PNG o WEBP. Foto genérica del tipo de material.</small>
               </div>
-              <label
-                htmlFor={fotoInputId}
-                className="button button-secondary"
-                style={{ width: "fit-content" }}
-              >
+              <label htmlFor={fotoInputId} className="button button-secondary" style={{ width: "fit-content" }}>
                 Seleccionar imagen
                 <input
                   id={fotoInputId}
@@ -680,11 +611,7 @@ export function MaterialFormPage() {
                     type="button"
                     className="button button-secondary"
                     style={{ fontSize: 12 }}
-                    onClick={() => {
-                      setFotoFile(null);
-                      setFotoPreview(null);
-                      if (fotoRef.current) fotoRef.current.value = "";
-                    }}
+                    onClick={() => { setFotoFile(null); setFotoPreview(null); if (fotoRef.current) fotoRef.current.value = ""; }}
                   >
                     <Trash size={14} /> Quitar foto
                   </button>
@@ -693,21 +620,21 @@ export function MaterialFormPage() {
             </div>
           </div>
 
-          {/* Errores generales */}
           {errors.non_field_errors && (
-            <div
-              className="aviso-estuche"
-              style={{ borderColor: "var(--error)", background: "#fff5f5", color: "var(--error)" }}
-            >
+            <div className="aviso-estuche" style={{ borderColor: "var(--error)", background: "#fff5f5", color: "var(--error)" }}>
               {errors.non_field_errors}
             </div>
           )}
 
           <div className="form-actions">
-            <Link to="/almacen/catalogo" className="button button-secondary">
+            <Link to={`/almacen/${almacenId}/catalogo`} className="button button-secondary">
               <ArrowLeft size={15} /> Cancelar
             </Link>
-            <button type="submit" className="button button-primary" disabled={guardarMut.isPending}>
+            <button
+              type="submit"
+              className="button button-primary"
+              disabled={guardarMut.isPending}
+            >
               {guardarMut.isPending
                 ? "Guardando…"
                 : isEditMode
@@ -717,7 +644,6 @@ export function MaterialFormPage() {
           </div>
         </div>
 
-        {/* Panel de ayuda */}
         <div className="help-panel">
           <h2>Sobre el código</h2>
           <p>
@@ -727,8 +653,8 @@ export function MaterialFormPage() {
           <hr style={{ margin: "16px 0", borderColor: "#dfe6ef" }} />
           <h2>Control individual</h2>
           <p>
-            Si activas el control por pieza, después de guardar podrás dar de alta las piezas
-            físicas (sueltas o en estuche).
+            Si activas el control por pieza, después de guardar podrás dar de alta las
+            piezas físicas (sueltas o en estuche).
           </p>
         </div>
       </form>
@@ -739,7 +665,10 @@ export function MaterialFormPage() {
         title="Gestionar categorías y subcategorías"
         maxWidth={720}
       >
-        <CategoriaSubcategoriaManager onChange={handleCatalogoChange} />
+        <GestionCategoriasPanel
+          onClose={() => setCatalogoModalOpen(false)}
+          onChange={handleCatalogoChange}
+        />
       </Modal>
     </section>
   );

@@ -7,9 +7,8 @@ from .facility_plan_views import (
     FacilityPlanReconcileView,
 )
 from .location_map_views import (
-    BuildingAreaUpdateView,
-    LocationAreaUpdateView,
     LocationListView,
+    LocationAreaUpdateView,
     LocationMapDeactivateView,
     LocationMapImageView,
     LocationMapListCreateView,
@@ -18,7 +17,6 @@ from .views import (
     AssetClassificationView,
     AssetDetailView,
     AssetListCreateView,
-    AssetPdfView,
     PublicAssetPhotoView,
     PublicAssetView,
     TaxonomyModelListView,
@@ -32,7 +30,6 @@ urlpatterns = [
     path('taxonomy-models/', TaxonomyModelListView.as_view(), name='taxonomy-model-list'),
     path('locations/', LocationListView.as_view(), name='location-list'),
     path('locations/<uuid:pk>/area/', LocationAreaUpdateView.as_view(), name='location-area-update'),
-    path('locations/<uuid:pk>/building-area/', BuildingAreaUpdateView.as_view(), name='building-area-update'),
     path(
         'location-maps/',
         LocationMapListCreateView.as_view(),
@@ -70,7 +67,6 @@ urlpatterns = [
     ),
     path('assets/', AssetListCreateView.as_view(), name='asset-list-create'),
     path('assets/<uuid:pk>/', AssetDetailView.as_view(), name='asset-detail'),
-    path('assets/<uuid:pk>/pdf/', AssetPdfView.as_view(), name='asset-pdf'),
     path(
         'assets/<uuid:pk>/classify/',
         AssetClassificationView.as_view(),

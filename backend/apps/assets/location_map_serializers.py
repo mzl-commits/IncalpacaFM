@@ -1,6 +1,7 @@
 import hashlib
 from decimal import Decimal
 from pathlib import Path
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Max
@@ -142,6 +143,20 @@ class BuildingAreaUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BuildingArea
+        fields = ("square_meters",)
+
+
+class LocationAreaUpdateSerializer(serializers.ModelSerializer):
+    square_meters = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = Location
         fields = ("square_meters",)
 
 

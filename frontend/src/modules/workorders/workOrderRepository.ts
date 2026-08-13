@@ -18,13 +18,7 @@ export async function listWorkOrders(): Promise<WorkOrder[]> {
 }
 
 export type WorkOrderCreatePayload = Partial<Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">> & {
-  description?: string;
-  title?: string;
-  assetName?: string;
-  type?: string;
-  priority?: string;
   technicianWorkerCode?: string;
-  supervisorWorkerCode?: string;
   technicianWorkerCodes?: string[];
   directRequestDescription?: string;
   directRequestType?: string;
@@ -48,15 +42,6 @@ export async function createWorkOrder(
 
 export async function getWorkOrderById(id: string): Promise<WorkOrder> {
   const { data } = await api.get<WorkOrder>(`/work-orders/${id}/`);
-  return data;
-}
-
-export async function updateWorkOrderPlanning(
-  id: string,
-  payload: Partial<Pick<WorkOrder, "specialty" | "adminPriority" | "status" | "scheduledDate" | "scheduledStartTime" | "plannedHours" | "administratorNotes" | "operatorId" | "supervisorId">>,
-): Promise<WorkOrder> {
-  const { data } = await api.patch<WorkOrder>(`/work-orders/${id}/planning/`, payload);
-  notifyChanges();
   return data;
 }
 
@@ -112,38 +97,6 @@ export async function registerWorkOrderProgress(
   notifyChanges();
   return data;
 }
-
-export async function updateWorkOrderPhoto(
-  id: string,
-  stage: "START" | "FINISH",
-  photoFile: File,
-): Promise<WorkOrder> {
-  const payload = new FormData();
-  payload.append("action", "UPDATE_PHOTO");
-  payload.append("observation", stage);
-  if (stage === "START") {
-    payload.append("startPhoto", photoFile);
-  } else {
-    payload.append("finishPhoto", photoFile);
-  }
-  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, payload, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  notifyChanges();
-  return data;
-}
-
-export async function deleteWorkOrderPhoto(
-  id: string,
-  stage: "START" | "FINISH",
-): Promise<WorkOrder> {
-  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
-    action: "DELETE_PHOTO",
-    observation: stage,
-  });
-  notifyChanges();
-  return data;
-}
 export async function superviseWorkOrder(
   id: string,
   approved: boolean,
@@ -190,7 +143,7 @@ export async function pauseWorkOrder(id: string): Promise<WorkOrder> {
   return data;
 }
 
-export type WorkOrderCost = { id: string; category: string; categoryLabel: string; description: string; amount: string | null; sourceMaterial?: number | null; createdAt: string };
+export type WorkOrderCost = { id: string; category: string; categoryLabel: string; description: string; amount: string; createdAt: string };
 export async function listWorkOrderCosts(id: string): Promise<WorkOrderCost[]> {
   const { data } = await api.get<WorkOrderCost[]>(`/work-orders/${id}/costs/`);
   return data;

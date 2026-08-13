@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
   altaEstucheInline,
   altaPiezasSueltas,
@@ -54,6 +55,11 @@ export function AltaPiezasPage() {
   const materialId = Number(id);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  // FIX: faltaba este hook. Sin almacenId, los links de "volver" y "ver ficha
+  // del material" armaban /almacen/catalogo/:id en vez de
+  // /almacen/:almacenId/catalogo/:id, y React Router no encontraba ninguna
+  // ruta que matchee -> 404.
+  const { almacenId } = useAlmacenActivo();
 
   const [modo, setModo] = useState<Modo>("elegir");
   const [piezasCreadas, setPiezasCreadas] = useState<PiezaBase[]>([]);
@@ -75,14 +81,14 @@ export function AltaPiezasPage() {
     setGuardando(piezaId);
     try {
       await updatePieza(piezaId, { detalle: detalles[piezaId] ?? "" });
-      qc.invalidateQueries({ queryKey: ["material", materialId] });
+      qc.invalidateQueries({ queryKey: ["material", almacenId, materialId] });
     } finally {
       setGuardando(null);
     }
   }
 
   const { data: material, isLoading } = useQuery({
-    queryKey: ["material", materialId],
+    queryKey: ["material", almacenId, materialId],
     queryFn: () => getMaterialDetalle(materialId),
     enabled: !!materialId,
   });
@@ -91,7 +97,7 @@ export function AltaPiezasPage() {
   const altaPiezasMut = useMutation({
     mutationFn: () => altaPiezasSueltas({ material_id: materialId, cantidad: cantPiezas }),
     onSuccess: (piezas) => {
-      qc.invalidateQueries({ queryKey: ["material", materialId] });
+      qc.invalidateQueries({ queryKey: ["material", almacenId, materialId] });
       setPiezasCreadas(piezas);
       setModo("exito");
     },
@@ -113,7 +119,7 @@ export function AltaPiezasPage() {
       return altaEstucheInline(payload);
     },
     onSuccess: (piezas) => {
-      qc.invalidateQueries({ queryKey: ["material", materialId] });
+      qc.invalidateQueries({ queryKey: ["material", almacenId, materialId] });
       setPiezasCreadas(piezas);
       setModo("exito");
     },
@@ -134,7 +140,8 @@ export function AltaPiezasPage() {
   // ─── Cabecera común ──────────────────────────────────────────────────────────
   const Header = ({ titulo, subtitulo }: { titulo: string; subtitulo?: string }) => (
     <div className="wizard-heading">
-      <Link to={`/almacen/catalogo/${materialId}`} className="back-link">
+      {/* FIX: faltaba /:almacenId/ en el path */}
+      <Link to={`/almacen/${almacenId}/catalogo/${materialId}`} className="back-link">
         <ArrowLeft size={16} /> {material.codigo} — {material.nombre}
       </Link>
       <div>
@@ -259,9 +266,10 @@ export function AltaPiezasPage() {
             )}
 
             <div className="flex-row mt-24">
+              {/* FIX: faltaba /:almacenId/ en el path */}
               <Link
                 className="button button-primary"
-                to={`/almacen/catalogo/${materialId}`}
+                to={`/almacen/${almacenId}/catalogo/${materialId}`}
               >
                 Ver ficha del material
               </Link>

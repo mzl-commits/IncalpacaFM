@@ -13,21 +13,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import AccountProfile
-from apps.accounts.permissions import (
-    IsAdministrator,
-    IsAuthenticatedReadAdministratorWrite,
-    user_role,
-)
+from apps.accounts.permissions import IsAdministrator, IsAuthenticatedReadAdministratorWrite, user_role
 from apps.audit.services import record_audit
 from config.schema import UserDashboardResponseSerializer
 
 from .models import Asset, AssignableResponsible
-from .serializers import (
-    AssetClassificationSerializer,
-    AssetDetailSerializer,
-    AssetSerializer,
-    PublicAssetSerializer,
-)
+from .serializers import AssetClassificationSerializer, AssetDetailSerializer, AssetSerializer, PublicAssetSerializer
 
 
 class AssetListCreateView(generics.ListCreateAPIView):
@@ -110,26 +101,6 @@ class AssetDetailView(generics.RetrieveUpdateAPIView):
         return queryset
 
 
-class AssetPdfView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, pk):
-        from io import BytesIO
-
-        from .reporting import build_asset_pdf
-        asset = get_object_or_404(
-            Asset.objects.select_related("taxonomy", "location").prefetch_related("incidents__work_order__technician"),
-            pk=pk
-        )
-        content = build_asset_pdf(asset).getvalue()
-        return FileResponse(
-            BytesIO(content),
-            content_type="application/pdf",
-            as_attachment=True,
-            filename=f"ficha-{asset.fm_code or asset.code}.pdf",
-        )
-
-
 class AssetClassificationView(APIView):
     permission_classes = [IsAdministrator]
 
@@ -191,11 +162,6 @@ def _responsibles_for_user(user):
     the self-service dashboard never silently hides their assets.
     """
     profile = getattr(user, 'account_profile', None)
-    worker_codes = (
-        (profile.worker_code, *profile.worker_code_aliases.values_list('code', flat=True))
-        if profile
-        else ()
-    )
     identifiers = {
         value.strip()
         for value in (
@@ -203,7 +169,7 @@ def _responsibles_for_user(user):
             user.username or '',
             user.email or '',
             str(profile.pk) if profile else '',
-            *worker_codes,
+            profile.worker_code if profile else '',
         )
         if value and value.strip()
     }

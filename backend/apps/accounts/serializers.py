@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
+from apps.catalogo.models import Almacen
 
 from .models import AccountProfile, AccountWorkerCode
 
@@ -33,6 +34,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     must_change_password = serializers.BooleanField(
         source="account_profile.must_change_password", read_only=True
     )
+    almacen_id = serializers.IntegerField(source="account_profile.almacen_id", read_only=True, default=None)
+    almacen_nombre = serializers.CharField(source="account_profile.almacen.nombre", read_only=True, default=None)
 
     class Meta:
         model = get_user_model()
@@ -48,6 +51,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "position",
             "hourly_rate",
             "must_change_password",
+            "almacen_id",
+            "almacen_nombre",
         )
 
     def get_full_name(self, obj) -> str:
@@ -150,6 +155,8 @@ class UserListSerializer(serializers.ModelSerializer):
         except AccountProfile.DoesNotExist:
             return ""
 
+from apps.catalogo.models import Almacen  # ← nuevo import, junto a los de arriba
+
 class TechnicianSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='account_profile.id', read_only=True)
     full_name = serializers.CharField(max_length=160, write_only=True)
@@ -168,11 +175,21 @@ class TechnicianSerializer(serializers.ModelSerializer):
         default=AccountProfile.Role.TECHNICIAN,
         required=False,
     )
+    almacen = serializers.PrimaryKeyRelatedField(
+        source='account_profile.almacen',
+        queryset=Almacen.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    almacen_nombre = serializers.CharField(
+        source='account_profile.almacen.nombre', read_only=True, default=None,
+    )
 
     class Meta:
         model = get_user_model()
         fields = (
-            'id', 'full_name', 'email', 'worker_code', 'worker_codes', 'dni', 'specialty', 'position', 'hourly_rate', 'active', 'temporary_password', 'role',
+            'id', 'full_name', 'email', 'worker_code', 'worker_codes', 'dni', 'specialty', 'position',
+            'hourly_rate', 'active', 'temporary_password', 'role', 'almacen', 'almacen_nombre',
         )
 
     def validate_worker_code(self, value):
@@ -190,8 +207,6 @@ class TechnicianSerializer(serializers.ModelSerializer):
 
     def validate_dni(self, value):
         value = normalize_employee_dni(value)
-        # El DNI identifica a la persona. Un segundo código se incorpora como alias
-        # durante create(), no como una segunda cuenta.
         if not self.instance:
             return value
         queryset = AccountProfile.objects.filter(dni=value)
@@ -206,6 +221,18 @@ class TechnicianSerializer(serializers.ModelSerializer):
 
     def get_worker_codes(self, instance):
         return [instance.account_profile.worker_code, *instance.account_profile.worker_code_aliases.values_list('code', flat=True)]
+
+    def validate(self, attrs):
+        profile_data = attrs.get('account_profile', {})
+        current_role = self.instance.account_profile.role if self.instance else None
+        role = profile_data.get('role', current_role or AccountProfile.Role.TECHNICIAN)
+
+        current_almacen = self.instance.account_profile.almacen_id if self.instance else None
+        almacen = profile_data.get('almacen', current_almacen)
+
+        if role in (AccountProfile.Role.ALMACENERO, AccountProfile.Role.INSPECTOR) and not almacen:
+            raise serializers.ValidationError({'almacen': 'Selecciona un almacén para este rol.'})
+        return attrs
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -255,6 +282,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
             hourly_rate=profile_data.get('hourly_rate', 0),
             active=profile_data.get('active', True),
             role=profile_data.get('role', AccountProfile.Role.TECHNICIAN),
+            almacen=profile_data.get('almacen'),
             must_change_password=True,
         )
         return user
@@ -277,8 +305,10 @@ class TechnicianSerializer(serializers.ModelSerializer):
         profile = instance.account_profile
         if 'worker_code' in profile_data and profile_data['worker_code'] != profile.worker_code:
             profile.register_worker_code(profile_data.pop('worker_code'))
-        for field in ('worker_code', 'dni', 'specialty', 'position', 'hourly_rate', 'active', 'role'):
+        for field in ('worker_code', 'dni', 'specialty', 'position', 'hourly_rate', 'active', 'role', 'almacen'):
             if field in profile_data:
                 setattr(profile, field, profile_data[field])
+        if profile.role not in (AccountProfile.Role.ALMACENERO, AccountProfile.Role.INSPECTOR):
+            profile.almacen = None
         profile.save()
         return instance

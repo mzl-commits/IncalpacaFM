@@ -27,7 +27,7 @@ import {
   type AssignmentRecord,
 } from "@/modules/assignments/assignmentRepository";
 import { listRetirementRequests } from "@/modules/lifecycle/lifecycleRepository";
-import { listMateriales } from "@/modules/almacen/catalogoRepository";
+import { listAlmacenes, listMateriales } from "@/modules/almacen/catalogoRepository";
 import { listTechnicians } from "@/modules/accounts/technicianRepository";
 import { listWorkRequests } from "@/modules/incidents/incidentRepository";
 import { useAuth } from "@/modules/accounts/AuthContext";
@@ -199,6 +199,14 @@ function AdministrativeDashboard() {
     setLoading(true);
     setError("");
 
+    async function listMaterialesTodosLosAlmacenes() {
+      const almacenes = await listAlmacenes();
+      const porAlmacen = await Promise.all(
+        almacenes.map((a) => listMateriales(a.id)),
+      );
+      return porAlmacen.flat();
+    }
+
     const [assetsResult, assignmentsResult, retirementResult, workOrdersResult, workRequestsResult, techniciansResult, materialsResult] =
       await Promise.allSettled([
         listRegisteredAssets(),
@@ -207,7 +215,7 @@ function AdministrativeDashboard() {
         listWorkOrders(),
         listWorkRequests(),
         listTechnicians(),
-        listMateriales(),
+        listMaterialesTodosLosAlmacenes(),
       ]);
 
     const nextData: DashboardData = {

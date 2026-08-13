@@ -71,6 +71,13 @@ class Inspeccion(models.Model):
     accion_tomada = models.CharField(max_length=25, choices=ACCION_CHOICES, blank=True)
     observaciones = models.TextField(blank=True)
 
+
+    almacen = models.ForeignKey(
+        "catalogo.Almacen",
+        on_delete=models.PROTECT,
+        related_name="inspecciones",
+    )
+
     class Meta:
         ordering = ["-fecha"]
 
@@ -102,7 +109,15 @@ class PlanInspeccionAnual(models.Model):
         ("cerrado", "Cerrado"),
     ]
 
-    anio = models.PositiveIntegerField(unique=True)
+    anio = models.PositiveIntegerField()
+    # El plan es por (anio, almacen).
+    almacen = models.ForeignKey(
+        "catalogo.Almacen",
+        on_delete=models.PROTECT,
+        related_name="planes_inspeccion_anual",
+        null=True,   # null=True solo para la migración inicial, igual que Categoria.almacen en Fase 1
+        blank=True,
+    )
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default="borrador")
@@ -110,9 +125,11 @@ class PlanInspeccionAnual(models.Model):
 
     class Meta:
         ordering = ["-anio"]
+        unique_together = ("anio", "almacen")
 
     def __str__(self):
-        return f"Plan de inspección {self.anio}"
+        almacen_nombre = self.almacen.nombre if self.almacen_id else "sin almacén"
+        return f"Plan de inspección {self.anio} — {almacen_nombre}"
 
 
 class ProgramacionInspeccion(models.Model):
@@ -124,6 +141,16 @@ class ProgramacionInspeccion(models.Model):
     plan = models.ForeignKey(PlanInspeccionAnual, on_delete=models.CASCADE, related_name="programaciones")
     material = models.ForeignKey("catalogo.Material", null=True, blank=True, on_delete=models.CASCADE, related_name="programaciones_inspeccion")
     pieza = models.ForeignKey("catalogo.Pieza", null=True, blank=True, on_delete=models.CASCADE, related_name="programaciones_inspeccion")
+    # patrón que Movimiento.almacen e Inspeccion.almacen. Permite que
+    # AlmacenScopedMixin filtre este viewset sin resolver el join
+    # material__almacen / pieza__material__almacen en cada query.
+    almacen = models.ForeignKey(
+        "catalogo.Almacen",
+        on_delete=models.PROTECT,
+        related_name="programaciones_por_almacen",
+        null=True,  # null=True solo para la migración inicial
+        blank=True,
+    )
     periodicidad_dias = models.PositiveIntegerField()
     fecha_programada = models.DateField()
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default="pendiente")
@@ -148,3 +175,5 @@ class ProgramacionInspeccion(models.Model):
         if self.fecha_programada <= hoy + timedelta(days=15):
             return "proxima"
         return "pendiente"
+
+

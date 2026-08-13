@@ -4,7 +4,6 @@ import {
   listLocations,
   removeLocationMap,
   updateLocationArea,
-  updateBuildingArea,
   uploadLocationMap,
 } from "./locationMapRepository";
 
@@ -55,17 +54,6 @@ export function useUpdateLocationArea() {
   return useMutation({
     mutationFn: ({ locationId, squareMeters }: { locationId: string; squareMeters: number | null }) =>
       updateLocationArea(locationId, squareMeters),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: locationMapKeys.locations() });
-    },
-  });
-}
-
-export function useUpdateBuildingArea() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ locationId, squareMeters }: { locationId: string; squareMeters: number | null }) =>
-      updateBuildingArea(locationId, squareMeters),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: locationMapKeys.locations() });
     },

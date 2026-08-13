@@ -1,7 +1,3 @@
-/**
- * Dashboard de inicio para el rol Almacenero.
- * Muestra resumen rápido de stock, movimientos recientes y accesos directos.
- */
 import { ArrowRight, ListChecks, ListDashes, Package, WarningCircle } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -15,21 +11,39 @@ import { STOCK_MINIMO } from "@/modules/almacen/types";
 
 export default function AlmaceneroDashboardPage() {
   const { user } = useAuth();
+  const almacenId = user?.almacenId ?? null;
 
   const { data: materiales = [], isLoading: loadingMateriales } = useQuery({
-    queryKey: ["materiales"],
-    queryFn: () => listMateriales(),
+    queryKey: ["materiales", almacenId],
+    queryFn: () => listMateriales(almacenId!),
+    enabled: !!almacenId,
   });
 
   const { data: movimientos = [], isLoading: loadingMovimientos } = useQuery({
-    queryKey: ["movimientos"],
-    queryFn: () => listMovimientos(),
+    queryKey: ["movimientos", almacenId],
+    queryFn: () => listMovimientos(almacenId!),
+    enabled: !!almacenId,
   });
 
   const { data: prestadas = [] } = useQuery({
-    queryKey: ["checklist-prestados"],
-    queryFn: () => listChecklistPrestados(),
+    queryKey: ["checklist-prestados", almacenId],
+    queryFn: () => listChecklistPrestados(almacenId!),
+    enabled: !!almacenId,
   });
+
+  if (!almacenId) {
+    return (
+      <section>
+        <div className="page-heading">
+          <div>
+            <p className="breadcrumb">Almacén / Inicio</p>
+            <h1>Hola, {user?.fullName?.split(" ")[0] || "Almacenero"}</h1>
+            <p>Tu cuenta no tiene un almacén asignado todavía. Contacta al administrador.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const loading = loadingMateriales || loadingMovimientos;
   const stockCritico = materiales.filter((m) => !m.control_individual && m.cantidad_total < STOCK_MINIMO);
@@ -47,7 +61,15 @@ export default function AlmaceneroDashboardPage() {
         </div>
       </div>
 
-      <div className="stat-cards-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
+      <div
+        className="stat-cards-row"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
         <StatCard icon={<Package size={20} />} value={loading ? "…" : materiales.length} label="Materiales en catálogo" />
         <StatCard
           icon={<WarningCircle size={20} />}
@@ -60,13 +82,13 @@ export default function AlmaceneroDashboardPage() {
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
-        <Link to="/almacen/catalogo" className="button button-secondary">
+        <Link to={`/almacen/${almacenId}/catalogo`} className="button button-secondary">
           <ListDashes size={16} /> Ver catálogo
         </Link>
-        <Link to="/almacen/movimientos/nuevo" className="button button-primary">
+        <Link to={`/almacen/${almacenId}/movimientos/nuevo`} className="button button-primary">
           <ArrowRight size={16} /> Registrar movimiento
         </Link>
-        <Link to="/almacen/checklist" className="button button-secondary">
+        <Link to={`/almacen/${almacenId}/checklist`} className="button button-secondary">
           <ListChecks size={16} /> Devolución
         </Link>
       </div>
@@ -75,7 +97,7 @@ export default function AlmaceneroDashboardPage() {
         <div className="data-panel">
           <div className="table-toolbar">
             <strong style={{ fontSize: 15 }}>Materiales con stock bajo</strong>
-            <Link to="/almacen/catalogo" className="table-action" style={{ fontSize: 13 }}>
+            <Link to={`/almacen/${almacenId}/catalogo`} className="table-action" style={{ fontSize: 13 }}>
               Ver catálogo
             </Link>
           </div>
@@ -97,10 +119,14 @@ export default function AlmaceneroDashboardPage() {
                   {stockCritico.slice(0, 8).map((m) => (
                     <tr key={m.id}>
                       <td className="col-fecha" style={{ fontSize: 12 }}>
-                        <Link to={`/almacen/catalogo/${m.id}`}>{m.codigo}</Link>
+                        <Link to={`/almacen/${almacenId}/catalogo/${m.id}`}>{m.codigo}</Link>
                       </td>
-                      <td className="col-detalle" data-label="Material" style={{ fontSize: 12 }}>{m.nombre}</td>
-                      <td className="col-detalle" data-label="Cantidad" style={{ fontSize: 12, color: "var(--error)" }}>{m.cantidad_total}</td>
+                      <td className="col-detalle" data-label="Material" style={{ fontSize: 12 }}>
+                        {m.nombre}
+                      </td>
+                      <td className="col-detalle" data-label="Cantidad" style={{ fontSize: 12, color: "var(--error)" }}>
+                        {m.cantidad_total}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -112,7 +138,7 @@ export default function AlmaceneroDashboardPage() {
         <div className="data-panel">
           <div className="table-toolbar">
             <strong style={{ fontSize: 15 }}>Movimientos recientes</strong>
-            <Link to="/almacen/movimientos" className="table-action" style={{ fontSize: 13 }}>
+            <Link to={`/almacen/${almacenId}/movimientos`} className="table-action" style={{ fontSize: 13 }}>
               Ver todos
             </Link>
           </div>
@@ -143,7 +169,9 @@ export default function AlmaceneroDashboardPage() {
                       <td className="col-detalle" data-label="Material" style={{ fontSize: 12 }}>
                         {mov.pieza_codigo ?? mov.material_nombre}
                       </td>
-                      <td className="col-detalle" data-label="Cant." style={{ fontSize: 12 }}>{mov.cantidad}</td>
+                      <td className="col-detalle" data-label="Cant." style={{ fontSize: 12 }}>
+                        {mov.cantidad}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
