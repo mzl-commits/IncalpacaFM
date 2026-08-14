@@ -214,6 +214,7 @@ export function AssignmentWizardPage() {
   const [draft, setDraft] = useState(empty);
   const [step, setStep] = useState(0);
   const [type, setType] = useState<"PERSONA" | "AREA" | "ESPACIO_COMUN">("PERSONA");
+  const [responsibleQuery, setResponsibleQuery] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<Awaited<ReturnType<typeof deliverAsset>> | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -343,7 +344,7 @@ export function AssignmentWizardPage() {
       </section>
     );
   const assets = catalog?.assets || [],
-    responsibles = (catalog?.responsibles || []).filter((x) => x.type === type),
+    responsibles = (catalog?.responsibles || []).filter((x) => x.type === type && (!responsibleQuery || [x.display_name, x.area_name, x.external_reference].some(val => val?.toLowerCase().includes(responsibleQuery.toLowerCase())))),
     locations = catalog?.locations || [];
   return (
     <section className="assignment-wizard">
@@ -427,7 +428,16 @@ export function AssignmentWizardPage() {
                   </button>
                 ))}
               </div>
-              <div className="responsible-options">
+              <div className="field">
+                <input
+                  type="search"
+                  placeholder="Buscar por nombre, área o código..."
+                  value={responsibleQuery}
+                  onChange={(e) => setResponsibleQuery(e.target.value)}
+                  style={{ marginBottom: '16px' }}
+                />
+              </div>
+              <div className="responsible-options" style={{ maxHeight: '400px', overflowY: 'auto', alignContent: 'start' }}>
                 {responsibles.length === 0 ? (
                   <div className="form-alert" style={{ background: '#f8f9fa', color: '#555', border: '1px dashed #ccc' }}>
                     <p style={{ margin: 0 }}>No hay {type === "PERSONA" ? "personas" : type === "AREA" ? "áreas" : "espacios comunes"} disponibles.</p>
