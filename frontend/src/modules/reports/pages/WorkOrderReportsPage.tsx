@@ -4,6 +4,7 @@ import { api } from "@/services/api";
 import { addWorkOrderCost, generateWorkOrderReport, listWorkOrderCosts, listWorkOrders, type WorkOrderCost } from "@/modules/workorders/workOrderRepository";
 import { listWorkOrderMateriales, updateWorkOrderCostAmount, updateWorkOrderMaterial, type WorkOrderMaterial } from "@/modules/workorders/workOrderMaterialRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
+import { generateWorkOrderApaPdf } from "@/modules/reports/utils/workOrderReportPdf";
 
 const manualCategories = [{ value: "MANO_OBRA", label: "Mano de obra" }, { value: "SERVICIO", label: "Servicio externo" }, { value: "OTRO", label: "Otro" }];
 
@@ -83,31 +84,25 @@ export function WorkOrderReportsPage() {
   }
 
   async function generate() {
-    if (!selectedId) return;
-    setMessage("Generando PDF...");
+    if (!selected) return;
+    setMessage("Generando informe en formato APA...");
     try {
-      const report = await generateWorkOrderReport(selectedId);
-      const result = await api.get(report.downloadPath, { responseType: "blob" });
-      const url = URL.createObjectURL(result.data);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `informe-${selected?.code ?? "OT"}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setMessage("Informe generado y almacenado.");
-    } catch { setMessage("No se pudo generar el informe."); }
+      await generateWorkOrderApaPdf({ order: selected, costs, materials, action: "download" });
+      setMessage("Informe técnico APA generado correctamente.");
+    } catch {
+      setMessage("No se pudo generar el informe APA.");
+    }
   }
 
   async function printPdf() {
-    if (!selectedId) return;
-    const report = await generateWorkOrderReport(selectedId);
-    const result = await api.get(report.downloadPath, { responseType: "blob" });
-    const url = URL.createObjectURL(new Blob([result.data], { type: "application/pdf" }));
-    const frame = document.createElement("iframe");
-    Object.assign(frame.style, { position: "fixed", width: "0", height: "0", border: "0" });
-    frame.src = url;
-    document.body.appendChild(frame);
-    frame.onload = () => frame.contentWindow?.print();
+    if (!selected) return;
+    setMessage("Preparando informe APA para impresión...");
+    try {
+      await generateWorkOrderApaPdf({ order: selected, costs, materials, action: "print" });
+      setMessage("Diálogo de impresión del informe APA abierto.");
+    } catch {
+      setMessage("No se pudo abrir la impresión del informe APA.");
+    }
   }
 
   return <section className="work-order-reports-page">
