@@ -102,7 +102,7 @@ export function ChecklistPage() {
           <h1>Checklist de préstamos</h1>
           <p>Marca las piezas devueltas para registrar la entrada automáticamente.</p>
         </div>
-        <Link to="/almacen/movimientos" className="button button-secondary">
+        <Link to={`/almacen/${almacenId}/movimientos`} className="button button-secondary">
           ← Movimientos
         </Link>
       </div>

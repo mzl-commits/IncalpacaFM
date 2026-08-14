@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 import { ajustarStock } from "@/modules/almacen/catalogoRepository";
 import type { MaterialDetalle } from "@/modules/almacen/types";
@@ -8,6 +9,7 @@ import type { MaterialDetalle } from "@/modules/almacen/types";
 type Modo = "entrada" | "salida";
 
 export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
+  const { almacenId } = useAlmacenActivo();
   const queryClient = useQueryClient();
 
   const [modo, setModo] = useState<Modo>("entrada");
@@ -123,7 +125,7 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
         Esto es un ajuste manual (ej. corregir un conteo) y no queda
         registrado como baja. Si las unidades están dañadas, vencidas o se
         perdieron, regístralo como baja formal — con su observación — desde{" "}
-        <Link to={`/almacen/movimientos/nuevo?material=${material.id}`} style={{ fontWeight: 600 }}>
+        <Link to={`/almacen/${almacenId}/movimientos/nuevo?material=${material.id}`} style={{ fontWeight: 600 }}>
           Movimientos → Nuevo movimiento → Baja
         </Link>.
       </p>

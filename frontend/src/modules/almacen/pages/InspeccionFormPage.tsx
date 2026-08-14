@@ -243,10 +243,10 @@ export function InspeccionFormPage() {
       <section className="success-panel">
         <h2>Inspección registrada</h2>
         <div className="success-actions">
-          <Link className="button button-primary" to={`/almacen/inspecciones/${exito}`}>
+          <Link className="button button-primary" to={`/almacen/${almacenId}/inspecciones/${exito}`}>
             Ver detalle
           </Link>
-          <Link className="button button-secondary" to="/almacen/inspecciones">
+          <Link className="button button-secondary" to={`/almacen/${almacenId}/inspecciones`}>
             Volver a inspecciones
           </Link>
           <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
@@ -260,7 +260,7 @@ export function InspeccionFormPage() {
   return (
     <section>
       <div className="wizard-heading">
-        <Link to="/almacen/inspecciones" className="back-link">
+        <Link to={`/almacen/${almacenId}/inspecciones`} className="back-link">
           <ArrowLeft size={16} /> Inspecciones
         </Link>
         <div>
@@ -576,7 +576,7 @@ export function InspeccionFormPage() {
           )}
 
           <div className="form-actions">
-            <Link to="/almacen/inspecciones" className="button button-secondary">
+            <Link to={`/almacen/${almacenId}/inspecciones`} className="button button-secondary">
               <ArrowLeft size={15} /> Cancelar
             </Link>
             <button type="submit" className="button button-primary" disabled={mut.isPending}>
