@@ -12,7 +12,6 @@ from reportlab.platypus import (
     Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, HRFlowable, KeepTogether
 )
 
-
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo_brand.png")
 
 
@@ -69,7 +68,7 @@ def _effective_minutes(order):
 def build_work_order_pdf(order):
     output = BytesIO()
 
-    # 1. Configuración de página A4 con márgenes holgados
+    # 1. Configuración de página A4 con márgenes APA 7 (2.54 cm)
     doc = SimpleDocTemplate(
         output,
         pagesize=A4,
@@ -79,7 +78,7 @@ def build_work_order_pdf(order):
         bottomMargin=2.54 * cm,
     )
 
-    # 2. Estilos Tipográficos Formales con Generoso Interlineado
+    # 2. Estilos Tipográficos Formales
     styles = getSampleStyleSheet()
 
     doc_header_title = ParagraphStyle(
@@ -110,6 +109,7 @@ def build_work_order_pdf(order):
         textColor=colors.HexColor("#000000"),
         spaceBefore=16,
         spaceAfter=8,
+        keepWithNext=True,
     )
 
     cell_bold = ParagraphStyle(
@@ -156,7 +156,7 @@ def build_work_order_pdf(order):
         doc_header_title
     )
 
-    now_str = timezone.localtime().strftime('%d/%m/%Y %H:%M')
+    now_str = timezone.localtime().strftime('%d/%m/%Y<br/>%H:%M')
     status_str = order.get_status_display().upper()
 
     meta_text = Paragraph(
@@ -167,9 +167,9 @@ def build_work_order_pdf(order):
     )
 
     if logo_img:
-        header_table = Table([[logo_img, brand_text, meta_text]], colWidths=[2.2 * cm, 9.3 * cm, 5.5 * cm])
+        header_table = Table([[logo_img, brand_text, meta_text]], colWidths=[2.0 * cm, 8.9 * cm, 5.0 * cm])
     else:
-        header_table = Table([[brand_text, meta_text]], colWidths=[11.5 * cm, 5.5 * cm])
+        header_table = Table([[brand_text, meta_text]], colWidths=[10.9 * cm, 5.0 * cm])
 
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -219,20 +219,20 @@ def build_work_order_pdf(order):
             Paragraph("<b>Personal de Apoyo:</b>", cell_bold),
             Paragraph(supporting_techs, cell_normal),
             Paragraph("<b>Prioridad Reportada:</b>", cell_bold),
-            Paragraph(str(getattr(incident, "priority", "Normal")).upper(), cell_normal),
+            Paragraph(str(getattr(incident, "priority", "NORMAL")).upper(), cell_normal),
         ],
     ]
 
-    t_sec1 = Table(sec1_data, colWidths=[3.6 * cm, 4.9 * cm, 3.6 * cm, 4.9 * cm])
+    t_sec1 = Table(sec1_data, colWidths=[3.2 * cm, 4.7 * cm, 3.3 * cm, 4.7 * cm])
     t_sec1.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F4F4F4")),
         ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F4F4F4")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 7),
+        ("PADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(t_sec1)
-    story.append(Spacer(1, 0.65 * cm))
+    story.append(Spacer(1, 0.5 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 2: PROGRAMACIÓN Y TIEMPOS DE ATENCIÓN
@@ -243,7 +243,7 @@ def build_work_order_pdf(order):
     started_real_str = timezone.localtime(order.started_at).strftime("%d/%m/%Y %H:%M") if order.started_at else "No iniciado"
     finished_real_str = timezone.localtime(order.finished_at).strftime("%d/%m/%Y %H:%M") if order.finished_at else ("En ejecución" if order.started_at else "Pendiente")
     eff_mins = _effective_minutes(order)
-    eff_hours_str = f"{eff_mins} minutos ({round(eff_mins / 60, 2)} hrs)"
+    eff_hours_str = f"{eff_mins} minutos ({round(eff_mins / 60, 1)} hrs)"
     sat_str = f"{order.satisfaction.rating} / 5" if hasattr(order, "satisfaction") and order.satisfaction and order.satisfaction.rating else "Pendiente de conformidad"
 
     sec2_data = [
@@ -267,16 +267,16 @@ def build_work_order_pdf(order):
         ],
     ]
 
-    t_sec2 = Table(sec2_data, colWidths=[3.6 * cm, 4.9 * cm, 3.6 * cm, 4.9 * cm])
+    t_sec2 = Table(sec2_data, colWidths=[3.2 * cm, 4.7 * cm, 3.3 * cm, 4.7 * cm])
     t_sec2.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F4F4F4")),
         ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F4F4F4")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 7),
+        ("PADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(t_sec2)
-    story.append(Spacer(1, 0.65 * cm))
+    story.append(Spacer(1, 0.5 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 3: CONSOLIDADO DE COSTOS Y MATERIALES
@@ -296,7 +296,6 @@ def build_work_order_pdf(order):
 
     if all_costs:
         for idx, item in enumerate(all_costs):
-            bg = colors.HexColor("#FFFFFF") if idx % 2 == 0 else colors.HexColor("#F9F9F9")
             cost_rows.append([
                 Paragraph(item.get_category_display(), cell_normal),
                 Paragraph(item.description or "-", cell_normal),
@@ -315,16 +314,16 @@ def build_work_order_pdf(order):
         Paragraph(f"<b>S/ {total_amount:.2f}</b>", cell_right_bold),
     ])
 
-    t_costs = Table(cost_rows, colWidths=[4.0 * cm, 9.2 * cm, 3.8 * cm])
+    t_costs = Table(cost_rows, colWidths=[3.2 * cm, 9.2 * cm, 3.5 * cm])
     t_costs.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#000000")),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E0E0E0")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 7),
+        ("PADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(t_costs)
-    story.append(Spacer(1, 0.65 * cm))
+    story.append(Spacer(1, 0.5 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 4: OBSERVACIONES Y DIAGNÓSTICO
@@ -338,14 +337,14 @@ def build_work_order_pdf(order):
     if diag_text:
         obs_content += f"<br/><br/><b>Diagnóstico y Recomendaciones Técnicas:</b><br/>{diag_text}"
 
-    t_obs = Table([[Paragraph(obs_content, cell_normal)]], colWidths=[17.0 * cm])
+    t_obs = Table([[Paragraph(obs_content, cell_normal)]], colWidths=[15.9 * cm])
     t_obs.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#FFFFFF")),
         ("BOX", (0, 0), (0, 0), 0.5, colors.HexColor("#A0A0A0")),
-        ("PADDING", (0, 0), (0, 0), 10),
+        ("PADDING", (0, 0), (0, 0), 8),
     ]))
     story.append(t_obs)
-    story.append(Spacer(1, 0.65 * cm))
+    story.append(Spacer(1, 0.6 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 5: EVIDENCIA FOTOGRÁFICA (ANTES / DESPUÉS)
@@ -368,7 +367,7 @@ def build_work_order_pdf(order):
         ]
     ]
 
-    t_photos = Table(photo_table_data, colWidths=[8.5 * cm, 8.5 * cm])
+    t_photos = Table(photo_table_data, colWidths=[7.95 * cm, 7.95 * cm])
     t_photos.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F4F4F4")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
@@ -378,7 +377,7 @@ def build_work_order_pdf(order):
     ]))
     photo_block.append(t_photos)
     story.append(KeepTogether(photo_block))
-    story.append(Spacer(1, 1.2 * cm))
+    story.append(Spacer(1, 1.0 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 6: VALIDACIÓN Y FIRMAS DE CONFORMIDAD
@@ -386,11 +385,11 @@ def build_work_order_pdf(order):
     sig_block = []
     sig_data = [
         [
-            Paragraph("<br/><br/><br/><br/>________________________________________<br/><b>Firma del Técnico Responsable</b><br/>" + tech_main, ParagraphStyle("S1ASpaced", parent=cell_normal, alignment=1)),
-            Paragraph("<br/><br/><br/><br/>________________________________________<br/><b>V°B° Supervisor / Administración</b><br/>" + supervisor_name, ParagraphStyle("S2ASpaced", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>________________________________________<br/><b>Firma del Técnico Responsable</b><br/>" + tech_main, ParagraphStyle("S1ASpaced", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>________________________________________<br/><b>V°B° Supervisor / Administración</b><br/>" + supervisor_name, ParagraphStyle("S2ASpaced", parent=cell_normal, alignment=1)),
         ]
     ]
-    t_sig = Table(sig_data, colWidths=[8.5 * cm, 8.5 * cm])
+    t_sig = Table(sig_data, colWidths=[7.95 * cm, 7.95 * cm])
     t_sig.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -399,17 +398,17 @@ def build_work_order_pdf(order):
     story.append(KeepTogether(sig_block))
 
     # ---------------------------------------------------------
-    # 3. Pie de página institucional formal
+    # Pie de página institucional formal
     # ---------------------------------------------------------
     def add_footer(canvas, doc):
         canvas.saveState()
         canvas.setFont("Times-Roman", 8.5)
         canvas.setFillColor(colors.HexColor("#555555"))
-        canvas.drawString(2.0 * cm, 1.1 * cm, "INCALPACA FM S.A. — Documento Técnico Oficial de Gestión de Infraestructura")
-        canvas.drawRightString(21.0 * cm - 2.0 * cm, 1.1 * cm, f"Página {doc.page}")
+        canvas.drawString(2.54 * cm, 1.2 * cm, "INCALPACA FM S.A. — Documento Técnico Oficial de Gestión de Infraestructura")
+        canvas.drawRightString(21.0 * cm - 2.54 * cm, 1.2 * cm, f"Página {doc.page}")
         canvas.setStrokeColor(colors.HexColor("#000000"))
         canvas.setLineWidth(0.5)
-        canvas.line(2.0 * cm, 1.4 * cm, 21.0 * cm - 2.0 * cm, 1.4 * cm)
+        canvas.line(2.54 * cm, 1.5 * cm, 21.0 * cm - 2.54 * cm, 1.5 * cm)
         canvas.restoreState()
 
     doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
