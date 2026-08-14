@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import type { AssetDetailRecord } from "../assetDetailRepository";
+import { INCALPACA_LOGO_SVG, getIncalpacaReportCSS } from "@/modules/reports/utils/incalpacaReportStyles";
 
 function formatDate(dateStr?: string | null) {
   if (!dateStr) return "Fecha no registrada";
@@ -10,6 +11,28 @@ function formatDate(dateStr?: string | null) {
     month: "long",
     year: "numeric",
   }).format(date);
+}
+
+function conditionLabel(val?: string | null) {
+  const map: Record<string, string> = {
+    BUENO: "Bueno",
+    REGULAR: "Regular",
+    MALO: "Malo",
+    NUEVO: "Nuevo",
+    EN_REPARACION: "En reparación",
+    DADO_DE_BAJA: "Dado de baja",
+  };
+  return val ? (map[val] ?? val) : "No registrado";
+}
+
+function statusLabel(val?: string | null) {
+  const map: Record<string, string> = {
+    ACTIVA: "Activa",
+    INACTIVA: "Inactiva",
+    PENDIENTE: "Pendiente",
+    COMPLETADA: "Completada",
+  };
+  return val ? (map[val] ?? val) : "—";
 }
 
 export async function generateAssetApaPdf({
@@ -29,304 +52,255 @@ export async function generateAssetApaPdf({
   const displayCode = asset.display_code || asset.fm_code || asset.code;
   const nowStr = formatDate(new Date().toISOString());
 
+  const activeResponsible = asset.responsible_history?.find(r => r.status === "ACTIVA")
+    ?? asset.responsible_history?.[0]
+    ?? null;
+
+  const locationStr = asset.location_detail
+    ? [
+        asset.location_detail.building,
+        asset.location_detail.area,
+        asset.location_detail.room,
+        asset.location_detail.specific_location,
+      ].filter(Boolean).join(" / ")
+    : "Ubicación no registrada";
+
+  const taxonomyStr = asset.taxonomy_detail
+    ? [
+        asset.taxonomy_detail.asset_type,
+        asset.taxonomy_detail.category,
+        asset.taxonomy_detail.subcategory,
+      ].filter(Boolean).join(" › ")
+    : "Sin clasificar";
+
+  // Tabla de responsables
+  const responsibleRows = (asset.responsible_history?.length ?? 0) > 0
+    ? asset.responsible_history.map(r => `
+        <tr>
+          <td><strong>${r.responsible}</strong></td>
+          <td>${r.area || "—"}</td>
+          <td>${formatDate(r.start_date)}</td>
+          <td>${r.end_date ? formatDate(r.end_date) : "<em>Vigente</em>"}</td>
+          <td>${statusLabel(r.status)}</td>
+          <td>${r.reason || "Asignación técnica"}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="6" class="td-empty">Sin historial de custodia registrado.</td></tr>`;
+
+  // Tabla de mantenimientos
+  const repairRows = (asset.repair_history?.length ?? 0) > 0
+    ? asset.repair_history.map(m => `
+        <tr>
+          <td><strong>${m.work_order}</strong></td>
+          <td>${m.type}</td>
+          <td style="max-width:180px;">${m.issue || "—"}</td>
+          <td>${m.technician_name || "—"}</td>
+          <td>${m.resulting_condition || "—"}</td>
+          <td style="text-align:right;">${m.cost ? `S/ ${Number(m.cost).toFixed(2)}` : "—"}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="6" class="td-empty">Sin historial de mantenimiento registrado.</td></tr>`;
+
   const htmlContent = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Ficha Técnica - ${displayCode}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ficha Técnica — ${displayCode} | Incalpaca FM</title>
   <style>
-    @page {
-      size: A4;
-      margin: 15mm;
-    }
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: #111111;
-      background: #ffffff;
-      margin: 0;
-      padding: 0;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 2px solid #111111;
-      padding-bottom: 12px;
-      margin-bottom: 20px;
-    }
-    .logo-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .company-title {
-      font-weight: 800;
-      font-size: 16px;
-      letter-spacing: -0.5px;
-      text-transform: uppercase;
-    }
-    .doc-type {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #555555;
-    }
-    .header-meta {
-      text-align: right;
-      font-size: 11px;
-    }
-    .header-meta strong {
-      display: block;
-      font-size: 13px;
-    }
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1fr 150px;
-      gap: 20px;
-      background: #f8f9fa;
-      border: 1px solid #e4e4e4;
-      border-radius: 6px;
-      padding: 16px;
-      margin-bottom: 20px;
-    }
-    .asset-title {
-      font-size: 20px;
-      font-weight: 800;
-      margin: 0 0 4px 0;
-    }
-    .asset-code-badge {
-      display: inline-block;
-      background: #111111;
-      color: #ffffff;
-      font-family: monospace;
-      font-size: 12px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-bottom: 8px;
-    }
-    .qr-box {
-      text-align: center;
-      background: #ffffff;
-      border: 1px solid #e4e4e4;
-      padding: 8px;
-      border-radius: 6px;
-    }
-    .qr-box img {
-      width: 110px;
-      height: 110px;
-      display: block;
-      margin: 0 auto 4px auto;
-    }
-    .qr-box small {
-      font-size: 9px;
-      color: #666666;
-    }
-    .section-title {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid #111111;
-      padding-bottom: 4px;
-      margin: 20px 0 10px 0;
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    .fact-card {
-      border: 1px solid #e4e4e4;
-      padding: 10px;
-      border-radius: 4px;
-    }
-    .fact-card dt {
-      font-size: 10px;
-      text-transform: uppercase;
-      color: #666666;
-      font-weight: 600;
-    }
-    .fact-card dd {
-      margin: 2px 0 0 0;
-      font-weight: 700;
-      font-size: 13px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      font-size: 11px;
-    }
-    th {
-      background: #111111;
-      color: #ffffff;
-      text-transform: uppercase;
-      font-size: 10px;
-      padding: 6px 10px;
-      text-align: left;
-    }
-    td {
-      padding: 6px 10px;
-      border-bottom: 1px solid #eeeeee;
-    }
-    .footer {
-      margin-top: 30px;
-      border-top: 1px solid #e4e4e4;
-      padding-top: 10px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #666666;
-    }
-    @media print {
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
+    ${getIncalpacaReportCSS()}
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <div class="logo-group">
-      <svg width="32" height="32" viewBox="0 0 100 100" fill="none">
-        <rect x="10" y="10" width="35" height="35" fill="#111111" />
-        <rect x="55" y="10" width="35" height="35" fill="#111111" />
-        <rect x="10" y="55" width="35" height="35" fill="#111111" />
-      </svg>
-      <div>
-        <div class="company-title">Incalpaca FM</div>
-        <div class="doc-type">Sistema de Gestión Técnica y Bienes</div>
+  <!-- ENCABEZADO INSTITUCIONAL -->
+  <div class="page-header">
+    <div class="logo-area">
+      ${INCALPACA_LOGO_SVG}
+      <div class="company-block">
+        <div class="company-name">Incalpaca FM S.A.</div>
+        <div class="company-subtitle">Sistema de Gestión Técnica y Bienes</div>
+        <div class="company-subtitle" style="letter-spacing:0.5px; margin-top:2px;">Control Patrimonial y Facilidades</div>
       </div>
     </div>
-    <div class="header-meta">
-      <strong>FICHA TÉCNICA OFICIAL DE ACTIVO</strong>
-      <span>Emitido: ${nowStr}</span>
+    <div class="header-right">
+      <span class="doc-code">${displayCode}</span>
+      <span>Emitido: ${nowStr}</span><br/>
+      <span>Estado operativo: <strong>${conditionLabel(asset.condition)}</strong></span><br/>
+      <span>Criticidad: ${asset.criticality || "—"}</span>
     </div>
   </div>
 
-  <div class="hero-grid">
-    <div>
-      <div class="asset-code-badge">${displayCode}</div>
-      <h1 class="asset-title">${asset.name}</h1>
-      <p style="margin: 4px 0 12px 0; color: #444444;">${asset.description}</p>
-      
+  <!-- TÍTULO DEL DOCUMENTO -->
+  <div class="doc-title-block">
+    <h1>Ficha Técnica Oficial de Activo Patrimonial</h1>
+    <div class="doc-meta">
+      Código FM: <strong>${displayCode}</strong> &nbsp;·&nbsp;
+      Identificador técnico: <strong>${asset.code}</strong> &nbsp;·&nbsp;
+      Registrado: <strong>${formatDate(asset.created_at)}</strong>
+    </div>
+  </div>
+
+  <!-- BLOQUE HERO: NOMBRE + DATOS CLAVE + QR -->
+  <div class="hero-block">
+    <div class="hero-main">
+      <div class="code-badge">${displayCode}</div>
+      <h2 class="asset-name">${asset.name}</h2>
+      <div class="description-block" style="margin-bottom:14px; font-size:10.5pt;">
+        ${asset.description || "Sin descripción registrada para este activo."}
+      </div>
       <div class="grid-2">
-        <div class="fact-card">
-          <dt>Marca / Modelo</dt>
-          <dd>${[asset.brand, asset.model].filter(Boolean).join(" ") || "No registrado"}</dd>
+        <div class="grid-col">
+          <div class="fact-card">
+            <dt>Marca / Modelo</dt>
+            <dd>${[asset.brand, asset.model].filter(Boolean).join(" — ") || "No registrado"}</dd>
+          </div>
+          <div class="fact-card">
+            <dt>Número de Serie</dt>
+            <dd>${asset.serial_number || "Sin número de serie"}</dd>
+          </div>
         </div>
-        <div class="fact-card">
-          <dt>Número de Serie</dt>
-          <dd>${asset.serial_number || "Sin serie registrada"}</dd>
-        </div>
-        <div class="fact-card">
-          <dt>Condición Operativa</dt>
-          <dd>${asset.condition}</dd>
-        </div>
-        <div class="fact-card">
-          <dt>Criticidad Patrimonio</dt>
-          <dd>${asset.criticality}</dd>
+        <div class="grid-col">
+          <div class="fact-card">
+            <dt>Condición Operativa</dt>
+            <dd>${conditionLabel(asset.condition)}</dd>
+          </div>
+          <div class="fact-card">
+            <dt>Nivel de Criticidad</dt>
+            <dd>${asset.criticality || "No registrado"}</dd>
+          </div>
         </div>
       </div>
     </div>
-
-    <div class="qr-box">
-      <img src="${qrDataUrl}" alt="QR" />
-      <strong>Verificación QR</strong>
-      <small>Escanea para trazabilidad pública</small>
+    <div class="hero-qr">
+      <img src="${qrDataUrl}" alt="QR de verificación"/>
+      <strong style="font-size:9pt; display:block; margin-bottom:4px;">Verificación QR</strong>
+      <small>Escanear para acceso público y trazabilidad del activo</small>
     </div>
   </div>
 
-  <div class="section-title">Ubicación y Custodia Actual</div>
-  <div class="grid-2" style="margin-bottom: 16px;">
-    <div class="fact-card">
-      <dt>Ubicación Física</dt>
-      <dd>${asset.location_detail ? `${asset.location_detail.building} / ${asset.location_detail.area} / ${asset.location_detail.room}` : "Ubicación General"}</dd>
+  <!-- SECCIÓN 1: CLASIFICACIÓN Y TAXONOMÍA -->
+  <div class="section-heading">1. Clasificación Técnica y Taxonomía</div>
+  <div class="grid-2">
+    <div class="grid-col">
+      <div class="fact-card">
+        <dt>Clasificación Técnica</dt>
+        <dd class="normal">${taxonomyStr}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Tipo de Ingreso al Sistema</dt>
+        <dd>${asset.entry_type_label || "No especificado"}</dd>
+      </div>
     </div>
-    <div class="fact-card">
-      <dt>Responsable Actual</dt>
-      <dd>${asset.responsible_history.find(r => r.status === "ACTIVA")?.responsible || asset.responsible_history[0]?.responsible || "Sin asignar"}</dd>
+    <div class="grid-col">
+      <div class="fact-card">
+        <dt>Estado Administrativo</dt>
+        <dd>${asset.administrative_status || "No especificado"}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Estado de Asignación</dt>
+        <dd>${asset.assignment_status || "No especificado"}</dd>
+      </div>
     </div>
   </div>
 
-  <div class="section-title">Historial de Custodia y Responsables</div>
-  <table>
+  <!-- SECCIÓN 2: UBICACIÓN Y CUSTODIA ACTUAL -->
+  <div class="section-heading">2. Ubicación Física y Custodia Actual</div>
+  <div class="grid-2">
+    <div class="grid-col">
+      <div class="fact-card">
+        <dt>Ubicación Física Registrada</dt>
+        <dd class="normal">${locationStr}</dd>
+      </div>
+    </div>
+    <div class="grid-col">
+      <div class="fact-card">
+        <dt>Responsable / Custodio Actual</dt>
+        <dd>${activeResponsible?.responsible || "Sin asignar"}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Área de Custodia</dt>
+        <dd class="normal">${activeResponsible?.area || "—"}</dd>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN 3: HISTORIAL DE CUSTODIA -->
+  <div class="section-heading">3. Historial de Custodia y Responsables</div>
+  <table class="report-table">
     <thead>
       <tr>
         <th>Responsable</th>
         <th>Área</th>
         <th>Fecha Inicio</th>
+        <th>Fecha Fin</th>
         <th>Estado</th>
         <th>Motivo</th>
       </tr>
     </thead>
     <tbody>
-      ${
-        asset.responsible_history.length > 0
-          ? asset.responsible_history.map(r => `
-            <tr>
-              <td><strong>${r.responsible}</strong></td>
-              <td>${r.area || "N/A"}</td>
-              <td>${formatDate(r.start_date)}</td>
-              <td>${r.status}</td>
-              <td>${r.reason || "Asignación técnica"}</td>
-            </tr>
-          `).join("")
-          : `<tr><td colSpan="5" style="text-align: center; color: #888;">Sin historial previo registrado</td></tr>`
-      }
+      ${responsibleRows}
     </tbody>
   </table>
 
-  <div class="section-title">Historial de Mantenimiento y Reparaciones</div>
-  <table>
+  <!-- SECCIÓN 4: HISTORIAL DE MANTENIMIENTO -->
+  <div class="section-heading">4. Historial de Mantenimiento y Reparaciones</div>
+  <table class="report-table">
     <thead>
       <tr>
-        <th>Orden Trabajo</th>
+        <th>N.° Orden</th>
         <th>Tipo</th>
         <th>Problema / Trabajo</th>
         <th>Técnico</th>
-        <th>Costo</th>
+        <th>Condición Resultante</th>
+        <th style="text-align:right;">Costo</th>
       </tr>
     </thead>
     <tbody>
-      ${
-        asset.repair_history.length > 0
-          ? asset.repair_history.map(m => `
-            <tr>
-              <td><strong>${m.work_order}</strong></td>
-              <td>${m.type}</td>
-              <td>${m.issue} - ${m.work_performed}</td>
-              <td>${m.technician_name}</td>
-              <td>${m.cost}</td>
-            </tr>
-          `).join("")
-          : `<tr><td colSpan="5" style="text-align: center; color: #888;">Sin mantenimiento registrado</td></tr>`
-      }
+      ${repairRows}
     </tbody>
   </table>
 
-  <div style="margin-top: 45px; display: flex; justify-content: space-around; text-align: center; page-break-inside: avoid;">
-    <div>
-      <div style="border-bottom: 1px solid #111111; width: 220px; margin-bottom: 6px;"></div>
-      <strong>Responsable del Activo / Custodio</strong>
-      <div style="font-size: 10px; color: #555555;">${asset.responsible_history.find(r => r.status === "ACTIVA")?.responsible || "Firma de Custodia"}</div>
+  <!-- SECCIÓN 5: REGISTRO Y TRAZABILIDAD -->
+  <div class="section-heading">5. Datos de Registro y Trazabilidad Digital</div>
+  <div class="grid-2">
+    <div class="grid-col">
+      <div class="fact-card">
+        <dt>Registrado por</dt>
+        <dd>${asset.registered_by_name || "Sistema"}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Fecha de Alta en Sistema</dt>
+        <dd>${formatDate(asset.created_at)}</dd>
+      </div>
     </div>
-    <div>
-      <div style="border-bottom: 1px solid #111111; width: 220px; margin-bottom: 6px;"></div>
-      <strong>V°B° Control Patrimonial & FM</strong>
-      <div style="font-size: 10px; color: #555555;">Administración de Activos SGTB</div>
+    <div class="grid-col">
+      <div class="fact-card">
+        <dt>URL de Verificación Pública</dt>
+        <dd class="normal" style="font-size:8.5pt; word-break:break-all;">${publicUrl}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Normas de Referencia</dt>
+        <dd class="normal" style="font-size:9pt;">APA 7 · ISO 55000 · NTP-ISO 55001</dd>
+      </div>
     </div>
   </div>
 
-  <div class="footer">
-    <span>SGTB Incalpaca FM — Documento Técnico Oficial</span>
+  <!-- FIRMAS -->
+  <div class="signatures-block">
+    <div class="sig-cell">
+      <div class="sig-line"></div>
+      <div class="sig-name">${activeResponsible?.responsible || "Responsable / Custodio del Bien"}</div>
+      <div class="sig-role">Firma de Custodia y Conformidad</div>
+    </div>
+    <div class="sig-cell">
+      <div class="sig-line"></div>
+      <div class="sig-name">V°B° Control Patrimonial &amp; FM</div>
+      <div class="sig-role">Administración de Activos — Incalpaca FM S.A.</div>
+    </div>
+  </div>
+
+  <!-- PIE DE PÁGINA -->
+  <div class="page-footer">
+    <span>SGTB Incalpaca FM — Ficha Técnica Oficial · ${nowStr}</span>
     <span>Página 1 de 1</span>
   </div>
 

@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import type { WorkOrder } from "@/modules/workorders/types";
 import type { WorkOrderCost } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrderMaterial } from "@/modules/workorders/workOrderMaterialRepository";
+import { INCALPACA_LOGO_SVG, getIncalpacaReportCSS } from "@/modules/reports/utils/incalpacaReportStyles";
 
 function formatDateLong(dateStr?: string | null) {
   if (!dateStr) return "Fecha no registrada";
@@ -13,6 +14,17 @@ function formatDateLong(dateStr?: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  }).format(date);
+}
+
+function formatDateShort(dateStr?: string | null) {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
   }).format(date);
 }
 
@@ -36,7 +48,7 @@ export async function generateWorkOrderApaPdf({
   const publicUrl = window.location.origin + `/ordenes-trabajo/${order.id}`;
   const qrDataUrl = await QRCode.toDataURL(publicUrl, {
     margin: 1,
-    width: 180,
+    width: 200,
     color: { dark: "#111111", light: "#ffffff" },
   });
 
@@ -47,299 +59,220 @@ export async function generateWorkOrderApaPdf({
     return total + Math.max(0, Math.round((endedAt - startedAt) / 60000));
   }, order.effectiveWorkMinutes ?? 0);
 
-  const styleHtml = `
-    <style>
-      @page {
-        size: A4;
-        margin: 20mm 20mm 20mm 20mm;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: "Times New Roman", Times, Georgia, serif;
-        font-size: 11pt;
-        line-height: 1.6;
-        color: #111111;
-        background: #ffffff;
-      }
-      .apa-running-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid #111111;
-        padding-bottom: 6px;
-        margin-bottom: 24px;
-        font-size: 9pt;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-      .apa-running-head strong {
-        font-weight: bold;
-      }
-      .apa-header-table {
-        width: 100%;
-        margin-bottom: 24px;
-        border-collapse: collapse;
-      }
-      .apa-header-table td {
-        vertical-align: top;
-      }
-      .logo-box {
-        width: 60px;
-      }
-      .title-box {
-        padding-left: 12px;
-      }
-      .title-box h1 {
-        font-size: 16pt;
-        font-weight: bold;
-        margin: 0 0 4px 0;
-        text-transform: uppercase;
-        letter-spacing: -0.5px;
-      }
-      .title-box p {
-        margin: 0;
-        font-size: 10pt;
-        color: #444444;
-      }
-      .meta-box {
-        text-align: right;
-        font-size: 9.5pt;
-      }
-      .apa-section-heading {
-        font-size: 12pt;
-        font-weight: bold;
-        border-bottom: 1px solid #111111;
-        padding-bottom: 3px;
-        margin-top: 22px;
-        margin-bottom: 10px;
-        text-transform: uppercase;
-      }
-      .apa-grid-2 {
-        display: table;
-        width: 100%;
-        margin-bottom: 12px;
-      }
-      .apa-col {
-        display: table-cell;
-        width: 50%;
-        vertical-align: top;
-        padding-right: 10px;
-      }
-      .apa-col:last-child {
-        padding-right: 0;
-        padding-left: 10px;
-      }
-      .apa-card {
-        border: 1px solid #cccccc;
-        padding: 10px 12px;
-        margin-bottom: 10px;
-        border-radius: 2px;
-      }
-      .apa-card dt {
-        font-size: 8.5pt;
-        text-transform: uppercase;
-        font-weight: bold;
-        color: #555555;
-      }
-      .apa-card dd {
-        margin: 2px 0 0 0;
-        font-size: 10.5pt;
-        font-weight: bold;
-      }
-      table.apa-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-        margin-bottom: 16px;
-        font-size: 10pt;
-      }
-      table.apa-table th {
-        background: #111111;
-        color: #ffffff;
-        text-align: left;
-        padding: 6px 8px;
-        font-size: 9pt;
-        text-transform: uppercase;
-      }
-      table.apa-table td {
-        padding: 6px 8px;
-        border-bottom: 1px solid #e0e0e0;
-      }
-      .apa-footer {
-        margin-top: 40px;
-        padding-top: 10px;
-        border-top: 1px solid #111111;
-        display: flex;
-        justify-content: space-between;
-        font-size: 8.5pt;
-        color: #555555;
-      }
-      .signatures {
-        margin-top: 50px;
-        display: table;
-        width: 100%;
-        text-align: center;
-      }
-      .sig-col {
-        display: table-cell;
-        width: 50%;
-        vertical-align: bottom;
-      }
-      .sig-line {
-        border-top: 1px solid #111111;
-        width: 70%;
-        margin: 0 auto 6px auto;
-      }
-      @media print {
-        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      }
-    </style>
-  `;
+  const nowStr = formatDateShort(new Date().toISOString());
+
+  // Rows de sesiones de trabajo
+  const sessionRows = (order.workSessions ?? []).length > 0
+    ? (order.workSessions ?? []).map((session, i) => {
+        const start = new Date(session.startAt).getTime();
+        const end = session.endAt ? new Date(session.endAt).getTime() : Date.now();
+        const mins = Math.max(0, Math.round((end - start) / 60000));
+        return `
+          <tr>
+            <td><strong>Sesión #${i + 1}</strong></td>
+            <td>${formatDateLong(session.startAt)}</td>
+            <td>${session.endAt ? formatDateLong(session.endAt) : "<em>En ejecución</em>"}</td>
+            <td style="font-weight:700;">${formatHours(mins)}</td>
+          </tr>`;
+      }).join("")
+    : `<tr><td colspan="4" class="td-empty">Tiempo acumulado total: ${formatHours(totalWorkedMinutes)}</td></tr>`;
+
+  // Rows de costos
+  const costRows = costs.length > 0
+    ? costs.map(item => `
+        <tr>
+          <td><strong>${item.categoryLabel}</strong></td>
+          <td>${item.description}</td>
+          <td style="text-align:center;">1</td>
+          <td style="text-align:right; font-weight:700;">S/ ${Number(item.amount || 0).toFixed(2)}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="4" class="td-empty">Sin costos registrados en esta orden de trabajo.</td></tr>`;
+
+  // Rows de materiales
+  const materialRows = materials.length > 0
+    ? materials.map(m => `
+        <tr>
+          <td><strong>${m.name || m.description || "—"}</strong></td>
+          <td style="text-align:center;">${m.quantity ?? 1}</td>
+          <td>${m.unit || "Unid."}</td>
+          <td>${m.notes || "—"}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="4" class="td-empty">Sin materiales registrados.</td></tr>`;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Informe Técnico APA - ${order.code}</title>
-  ${styleHtml}
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informe Técnico OT — ${order.code} | Incalpaca FM</title>
+  <style>
+    ${getIncalpacaReportCSS()}
+  </style>
 </head>
 <body>
-  <div class="apa-running-head">
-    <span>INFORME TÉCNICO OFICIAL — FORMATO APA EN 60204-1</span>
-    <strong>CÓDIGO: ${order.code}</strong>
+
+  <!-- ENCABEZADO INSTITUCIONAL -->
+  <div class="page-header">
+    <div class="logo-area">
+      ${INCALPACA_LOGO_SVG}
+      <div class="company-block">
+        <div class="company-name">Incalpaca FM S.A.</div>
+        <div class="company-subtitle">Sistema de Gestión Técnica y Bienes</div>
+        <div class="company-subtitle" style="letter-spacing:0.5px; margin-top:2px;">Facilidades y Mantenimiento Corporativo</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="doc-code">${order.code}</span>
+      <span>Emitido: ${nowStr}</span><br/>
+      <span>Estado: <strong>${order.status || "—"}</strong></span><br/>
+      <span>Tipo: ${order.orderTypeLabel || "Correctivo"}</span>
+    </div>
   </div>
 
-  <table class="apa-header-table">
-    <tr>
-      <td class="logo-box">
-        <svg width="46" height="46" viewBox="0 0 100 100" fill="none">
-          <rect x="10" y="10" width="35" height="35" fill="#111111" />
-          <rect x="55" y="10" width="35" height="35" fill="#111111" />
-          <rect x="10" y="55" width="35" height="35" fill="#111111" />
-        </svg>
-      </td>
-      <td class="title-box">
-        <h1>INCALPACA FM S.A.</h1>
-        <p>Informe Técnico de Mantenimiento y Control Operativo</p>
-      </td>
-      <td class="meta-box">
-        <strong>${order.code}</strong><br/>
-        Fecha: ${formatDateLong(order.createdAt)}<br/>
-        Estado: <strong>${order.status}</strong>
-      </td>
-    </tr>
-  </table>
+  <!-- TÍTULO DEL DOCUMENTO -->
+  <div class="doc-title-block">
+    <h1>Informe Técnico de Orden de Trabajo</h1>
+    <div class="doc-meta">
+      Orden N.° <strong>${order.code}</strong> &nbsp;·&nbsp;
+      Fecha de registro: <strong>${formatDateLong(order.createdAt)}</strong> &nbsp;·&nbsp;
+      Técnico responsable: <strong>${order.operatorName || "Sin asignar"}</strong>
+    </div>
+  </div>
 
-  <div class="apa-section-heading">1. Identificación del Trabajo y Activo Atendido</div>
-  <div class="apa-grid-2">
-    <div class="apa-col">
-      <div class="apa-card">
+  <!-- SECCIÓN 1: IDENTIFICACIÓN -->
+  <div class="section-heading">1. Identificación del Trabajo y Activo Atendido</div>
+  <div class="grid-2">
+    <div class="grid-col">
+      <div class="fact-card">
         <dt>Bien / Activo Afectado</dt>
         <dd>${order.assetDisplayCode || order.assetCode || "Sin bien asignado"}</dd>
       </div>
-      <div class="apa-card">
-        <dt>Ubicación / Área</dt>
-        <dd>${order.specificLocation || order.zone || "Planta Principal"}</dd>
+      <div class="fact-card">
+        <dt>Ubicación / Área de Trabajo</dt>
+        <dd>${order.specificLocation || order.zone || "Planta Principal Incalpaca"}</dd>
       </div>
-    </div>
-    <div class="apa-col">
-      <div class="apa-card">
-        <dt>Técnico Principal</dt>
-        <dd>${order.operatorName || "Sin asignar"}</dd>
-      </div>
-      <div class="apa-card">
+      <div class="fact-card">
         <dt>Tipo de Mantenimiento</dt>
         <dd>${order.orderTypeLabel || "Correctivo"}</dd>
       </div>
     </div>
+    <div class="grid-col">
+      <div class="fact-card">
+        <dt>Técnico Principal Ejecutor</dt>
+        <dd>${order.operatorName || "Sin asignar"}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Fecha de Inicio</dt>
+        <dd>${formatDateLong(order.createdAt)}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Horas Efectivas Totales</dt>
+        <dd>${formatHours(totalWorkedMinutes)}</dd>
+      </div>
+    </div>
   </div>
 
-  <div class="apa-section-heading">2. Resumen Técnico del Trabajo Realizado</div>
-  <div class="apa-card" style="margin-bottom: 16px;">
-    <dt>Descripción del Requerimiento / Falla Reportada</dt>
-    <dd style="font-weight: normal; font-size: 10pt;">${order.description || "Sin descripción registrada"}</dd>
+  <!-- SECCIÓN 2: DESCRIPCIÓN / FALLA -->
+  <div class="section-heading">2. Descripción del Requerimiento y Falla Reportada</div>
+  <div class="description-block">
+    ${order.description || "Sin descripción registrada para esta orden de trabajo."}
   </div>
 
-  <div class="apa-section-heading">3. Trazabilidad de Jornadas y Horas Efectivas</div>
-  <table class="apa-table">
+  <!-- SECCIÓN 3: JORNADAS -->
+  <div class="section-heading">3. Trazabilidad de Jornadas y Horas Efectivas</div>
+  <table class="report-table">
     <thead>
       <tr>
         <th>Sesión / Tramo</th>
-        <th>Inicio</th>
-        <th>Fin / Cierre</th>
+        <th>Inicio de Jornada</th>
+        <th>Fin / Cierre de Jornada</th>
         <th>Duración</th>
       </tr>
     </thead>
     <tbody>
-      ${
-        (order.workSessions ?? []).length > 0
-          ? (order.workSessions ?? []).map((session, index) => {
-              const start = new Date(session.startAt).getTime();
-              const end = session.endAt ? new Date(session.endAt).getTime() : Date.now();
-              const mins = Math.max(0, Math.round((end - start) / 60000));
-              return `
-                <tr>
-                  <td><strong>Sesión #${index + 1}</strong></td>
-                  <td>${formatDateLong(session.startAt)}</td>
-                  <td>${session.endAt ? formatDateLong(session.endAt) : "En ejecución"}</td>
-                  <td>${formatHours(mins)}</td>
-                </tr>
-              `;
-            }).join("")
-          : `<tr><td colspan="4" style="text-align: center; color: #666;">Registradas ${formatHours(totalWorkedMinutes)} en jornada acumulada.</td></tr>`
-      }
+      ${sessionRows}
     </tbody>
+    <tfoot>
+      <tr style="background:#eeeeee;">
+        <td colspan="3" style="text-align:right; font-weight:700; padding:7px 10px;">Total horas efectivas acumuladas:</td>
+        <td style="font-weight:700; padding:7px 10px;">${formatHours(totalWorkedMinutes)}</td>
+      </tr>
+    </tfoot>
   </table>
 
-  <div class="apa-section-heading">4. Consolidado de Materiales y Costos Operativos</div>
-  <table class="apa-table">
+  <!-- SECCIÓN 4: MATERIALES -->
+  <div class="section-heading">4. Materiales e Insumos Utilizados</div>
+  <table class="report-table">
     <thead>
       <tr>
-        <th>Categoría</th>
-        <th>Descripción / Material</th>
-        <th>Cantidad</th>
-        <th>Importe</th>
+        <th>Material / Insumo</th>
+        <th style="text-align:center;">Cantidad</th>
+        <th>Unidad</th>
+        <th>Observaciones</th>
       </tr>
     </thead>
     <tbody>
-      ${
-        costs.length > 0
-          ? costs.map(item => `
-            <tr>
-              <td><strong>${item.categoryLabel}</strong></td>
-              <td>${item.description}</td>
-              <td>1</td>
-              <td>S/ ${Number(item.amount || 0).toFixed(2)}</td>
-            </tr>
-          `).join("")
-          : `<tr><td colspan="4" style="text-align: center; color: #666;">Sin costos registrados en este informe.</td></tr>`
-      }
+      ${materialRows}
     </tbody>
   </table>
 
-  <div style="text-align: right; font-size: 11pt; font-weight: bold; margin-bottom: 20px;">
-    Costo Total Acumulado: S/ ${totalCost.toFixed(2)}
+  <!-- SECCIÓN 5: COSTOS -->
+  <div class="section-heading">5. Consolidado de Costos Operativos</div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th>Categoría</th>
+        <th>Descripción</th>
+        <th style="text-align:center;">Cant.</th>
+        <th style="text-align:right;">Importe (S/)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${costRows}
+    </tbody>
+  </table>
+  ${costs.length > 0 ? `
+  <div class="total-row">
+    <span>Costo Total Acumulado de la Orden:</span>
+    <span>S/ ${totalCost.toFixed(2)}</span>
+  </div>` : ""}
+
+  <!-- SECCIÓN 6: QR Y VERIFICACIÓN -->
+  <div class="section-heading">6. Código de Verificación y Trazabilidad</div>
+  <div style="display:table; width:100%; margin-bottom:10px;">
+    <div style="display:table-cell; vertical-align:middle; width:130px; text-align:center;">
+      <img src="${qrDataUrl}" alt="Código QR de verificación" style="width:110px;height:110px;display:block;margin:0 auto 4px;border:1px solid #dedede;"/>
+      <span style="font-size:8pt;color:#777777;">Escanear para verificar</span>
+    </div>
+    <div style="display:table-cell; vertical-align:middle; padding-left:20px;">
+      <div class="fact-card" style="margin-bottom:6px;">
+        <dt>URL de Verificación Pública</dt>
+        <dd class="normal" style="font-size:9.5pt; word-break:break-all;">${publicUrl}</dd>
+      </div>
+      <div class="fact-card">
+        <dt>Normas de Referencia</dt>
+        <dd class="normal" style="font-size:9.5pt;">APA 7 · ISO 55000 · EN 13460 · DS 005-2012-TR</dd>
+      </div>
+    </div>
   </div>
 
-  <div class="signatures">
-    <div class="sig-col">
+  <!-- FIRMAS -->
+  <div class="signatures-block">
+    <div class="sig-cell">
       <div class="sig-line"></div>
-      <strong>${order.operatorName || "Técnico Responsable"}</strong><br/>
-      <span style="font-size: 9pt; color: #555;">Firma Técnico Ejecutor</span>
+      <div class="sig-name">${order.operatorName || "Técnico Responsable"}</div>
+      <div class="sig-role">Firma del Técnico Ejecutor</div>
     </div>
-    <div class="sig-col">
+    <div class="sig-cell">
       <div class="sig-line"></div>
-      <strong>Control Operativo FM</strong><br/>
-      <span style="font-size: 9pt; color: #555;">V°B° Supervisión Incalpaca</span>
+      <div class="sig-name">Control Operativo FM</div>
+      <div class="sig-role">V°B° Supervisión — Incalpaca FM S.A.</div>
     </div>
   </div>
 
-  <div class="apa-footer">
-    <span>Documento generado con norma APA e ISO 55000 — SGTB Incalpaca FM</span>
+  <!-- PIE DE PÁGINA -->
+  <div class="page-footer">
+    <span>SGTB Incalpaca FM — Documento Técnico Oficial · ${nowStr}</span>
     <span>Página 1 de 1</span>
   </div>
 
@@ -355,15 +288,6 @@ export async function generateWorkOrderApaPdf({
 </html>`;
 
   if (action === "download") {
-    const blob = new Blob([htmlContent], { type: "text/html" });
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = `Informe-APA-${order.code}.html`;
-    link.click();
-    URL.revokeObjectURL(blobUrl);
-
-    // También abre la vista impresa en nueva ventana
     const printWin = window.open("", "_blank");
     if (printWin) {
       printWin.document.write(htmlContent);
