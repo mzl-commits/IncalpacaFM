@@ -140,15 +140,9 @@ const LEVEL_BOXES: Array<{
   title: string;
   description: string;
 }> = [
-  { type: "MACRO_AREA", level: 2, title: "Área macro", description: "Bloque principal u operativo." },
-  { type: "BUILDING", level: 2, title: "Edificio", description: "Edificio o estructura independiente." },
-  { type: "SECTOR", level: 3, title: "Sector", description: "Sub-bloque u organización interna." },
-  { type: "LEVEL", level: 4, title: "Nivel / Piso", description: "Planta, nivel o piso del edificio." },
-  { type: "AREA", level: 5, title: "Área", description: "Área funcional o departamento." },
-  { type: "MODULE", level: 6, title: "Módulo", description: "Estación de trabajo o módulo." },
-  { type: "ENVIRONMENT", level: 7, title: "Ambiente", description: "Oficina, almacén o taller físico." },
-  { type: "SUB_ENVIRONMENT", level: 8, title: "Sub-ambiente", description: "Zona delimitada en un ambiente." },
-  { type: "POINT", level: 9, title: "Punto específico", description: "Estante, bahía o posición final." },
+  { type: "MACRO_AREA", level: 2, title: "Área macro", description: "Inicia con PP, AD, CO, RE o AL." },
+  { type: "AREA", level: 3, title: "Área", description: "Área funcional o departamento." },
+  { type: "MODULE", level: 4, title: "Módulo", description: "Estación de trabajo o módulo." },
 ];
 
 export function SpaceNodeForm({
@@ -252,9 +246,17 @@ export function SpaceNodeForm({
     }
     setError("");
     try {
+      if (nodeType === "MACRO_AREA") {
+        const validPrefixes = ["PP", "AD", "CO", "RE", "AL"];
+        if (!validPrefixes.some(p => normalizedCode.startsWith(p))) {
+          setError("El código del Área Macro debe iniciar con PP, AD, CO, RE o AL.");
+          return;
+        }
+      }
+
       await onSubmit({
         siteId,
-        parentId,
+        parentId: chosenParent ? chosenParent.id : null,
         nodeType,
         codeSegment: normalizedCode,
         name: name.trim(),
