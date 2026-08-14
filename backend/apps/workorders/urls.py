@@ -8,7 +8,6 @@ from .views import (
     WorkOrderCostDetailView,
     WorkOrderCostListCreateView,
     WorkOrderDetailView,
-    WorkOrderPlanningUpdateView,
     WorkOrderListCreateView,
     WorkOrderMaterialDetailView,
     WorkOrderMaterialListCreateView,
@@ -23,7 +22,6 @@ from .views import (
 urlpatterns = [
     path("work-orders/", WorkOrderListCreateView.as_view(), name="work-order-list-create"),
     path("work-orders/<uuid:pk>/", WorkOrderDetailView.as_view(), name="work-order-detail"),
-    path("work-orders/<uuid:pk>/planning/", WorkOrderPlanningUpdateView.as_view(), name="work-order-planning-update"),
     path("work-orders/<uuid:pk>/quick-assign/", WorkOrderQuickAssignView.as_view(), name="work-order-quick-assign"),
     path("work-orders/<uuid:pk>/actions/", WorkOrderActionView.as_view(), name="work-order-action"),
     path("work-orders/<uuid:pk>/photos/<str:stage>/", WorkOrderPhotoView.as_view(), name="work-order-photo"),

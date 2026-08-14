@@ -1,12 +1,14 @@
 from rest_framework import serializers
 
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
+from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza, Almacen
 from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_piezas, ajustar_stock
 
 class CategoriaSerializer(serializers.ModelSerializer):
+    almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
+
     class Meta:
         model = Categoria
-        fields = ["id", "nombre", "prefijo", "descripcion", "activo", "requiere_inspeccion"]
+        fields = ["id", "almacen", "almacen_nombre", "nombre", "prefijo", "descripcion", "activo", "requiere_inspeccion"]
 
 class SubcategoriaSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="categoria.nombre", read_only=True)
@@ -46,14 +48,14 @@ class PiezaAnidadaSerializer(serializers.ModelSerializer):
         model = Pieza
         fields = ["id", "codigo", "detalle", "estado", "foto", "material_nombre", "material_medida", "total_hijas", "hijas_disponibles", "piezas_hijas"]
 
-    def get_piezas_hijas(self, obj):
+    def get_piezas_hijas(self, obj) -> list[dict]:
         hijas = obj.piezas_hijas.all()
         return PiezaSerializer(hijas, many=True).data
 
-    def get_total_hijas(self, obj):
+    def get_total_hijas(self, obj) -> int:
         return obj.piezas_hijas.count()
 
-    def get_hijas_disponibles(self, obj):
+    def get_hijas_disponibles(self, obj) -> int:
         return obj.piezas_hijas.filter(estado="Disponible").count()
 
 class MaterialSerializer(serializers.ModelSerializer):
@@ -61,13 +63,9 @@ class MaterialSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="subcategoria.categoria.nombre", read_only=True)
     subcategoria_plantilla_inspeccion = serializers.PrimaryKeyRelatedField(source="subcategoria.plantilla_inspeccion", read_only=True)
     subcategoria_plantilla_inspeccion_nombre = serializers.CharField(source="subcategoria.plantilla_inspeccion.nombre", read_only=True, default=None)
-    # NUEVO: periodicidad_inspeccion_dias ya se calcula en el modelo Material
-    # (ver models.py), pero no estaba expuesta en el serializer — el frontend
-    # la necesita para TrimestreBadge (estado vencida/próxima/al día).
     periodicidad_inspeccion_dias = serializers.ReadOnlyField()
-    # NUEVO: única fuente de verdad para "¿este material es inspeccionable?"
-    # (antes esa condición vivía duplicada/incompleta en el frontend).
     es_inspeccionable = serializers.SerializerMethodField()
+    almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
 
     class Meta:
         model = Material
@@ -75,17 +73,18 @@ class MaterialSerializer(serializers.ModelSerializer):
             "id", "subcategoria", "subcategoria_nombre", "categoria_nombre",
             "subcategoria_plantilla_inspeccion", "subcategoria_plantilla_inspeccion_nombre",
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
-            "unidad_medida", "grosor", "largo", "ubicacion_fisica", "precio",
+            "unidad_medida", "grosor", "largo", "ubicacion_fisica", "precio", "moneda",
+            "codigo_quipu",
             "tipo_control", "control_individual", "cantidad_total",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",
             "unidad_manejo", "unidades_por_caja",
+            "almacen", "almacen_nombre",
             "activo", "creado_en",
         ]
-        # cantidad_total YA NO va aquí — ahora es editable
         read_only_fields = ["codigo", "creado_en"]
 
-    def get_es_inspeccionable(self, obj):
+    def get_es_inspeccionable(self, obj) -> bool:
         return bool(
             obj.subcategoria.plantilla_inspeccion_id
             and obj.subcategoria.categoria.requiere_inspeccion
@@ -129,7 +128,7 @@ class MaterialDetalleSerializer(MaterialSerializer):
     class Meta(MaterialSerializer.Meta):
         fields = MaterialSerializer.Meta.fields + ["piezas"]
 
-    def get_piezas(self, obj):
+    def get_piezas(self, obj) -> list[dict]:
         piezas_raiz = obj.piezas.filter(padre__isnull=True)
         return PiezaAnidadaSerializer(piezas_raiz, many=True).data
 
@@ -258,7 +257,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
                 nombre = spec["nombre"].strip()
                 medida = spec.get("medida", "").strip()
 
-                # Buscar material existente con mismo nombre+medida en la misma subcategor\u00eda
+                # Buscar material existente con mismo nombre+medida en la misma subcategoría
                 qs = Material.objects.filter(
                     nombre__iexact=nombre,
                     subcategoria=subcategoria,
@@ -274,6 +273,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
                     # Crear el material hijo automáticamente, oculto del catálogo general
                     mat_hija = Material.objects.create(
                         subcategoria=subcategoria,
+                        almacen=contenedor.almacen,
                         nombre=nombre,
                         medida=medida,
                         tipo_control=contenedor.tipo_control,
@@ -282,7 +282,7 @@ class AltaEstucheInlineSerializer(serializers.Serializer):
                         es_componente=True,
                     )
                 elif not mat_hija.es_componente:
-                    # Si ya exist\u00eda pero no estaba marcado como componente, marcarlo
+                    # Si ya existía pero no estaba marcado como componente, marcarlo
                     mat_hija.es_componente = True
                     mat_hija.save(update_fields=["es_componente"])
 
@@ -388,6 +388,7 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
             if not mat_hija:
                 mat_hija = Material.objects.create(
                     subcategoria=subcategoria,
+                    almacen=contenedor.almacen,
                     nombre=nombre,
                     medida=medida,
                     tipo_control=contenedor.material.tipo_control,
@@ -418,3 +419,8 @@ class MaterialFrecuenciaInspeccionSerializer(serializers.ModelSerializer):
         model = Material
         fields = ["id", "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias"]
         read_only_fields = ["id", "periodicidad_inspeccion_dias"]
+
+class AlmacenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Almacen
+        fields = ["id", "nombre", "codigo", "ubicacion", "activo"]

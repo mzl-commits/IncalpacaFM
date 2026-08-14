@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
-from apps.inspeccion.models import PlantillaCriterio, Criterio
+
+from apps.inspeccion.models import Criterio, PlantillaCriterio
 
 CRITERIOS = {
     "Manual": [

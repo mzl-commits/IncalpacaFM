@@ -18,14 +18,14 @@ export async function listWorkOrders(): Promise<WorkOrder[]> {
 }
 
 export type WorkOrderCreatePayload = Partial<Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">> & {
-  description?: string;
   title?: string;
-  assetName?: string;
+  description?: string;
   type?: string;
   priority?: string;
+  assetName?: string;
   technicianWorkerCode?: string;
-  supervisorWorkerCode?: string;
   technicianWorkerCodes?: string[];
+  supervisorWorkerCode?: string;
   directRequestDescription?: string;
   directRequestType?: string;
   directAssetId?: string | null;
@@ -48,15 +48,6 @@ export async function createWorkOrder(
 
 export async function getWorkOrderById(id: string): Promise<WorkOrder> {
   const { data } = await api.get<WorkOrder>(`/work-orders/${id}/`);
-  return data;
-}
-
-export async function updateWorkOrderPlanning(
-  id: string,
-  payload: Partial<Pick<WorkOrder, "specialty" | "adminPriority" | "status" | "scheduledDate" | "scheduledStartTime" | "plannedHours" | "administratorNotes" | "operatorId" | "supervisorId">>,
-): Promise<WorkOrder> {
-  const { data } = await api.patch<WorkOrder>(`/work-orders/${id}/planning/`, payload);
-  notifyChanges();
   return data;
 }
 
@@ -109,38 +100,6 @@ export async function registerWorkOrderProgress(
     ? { headers: { "Content-Type": "multipart/form-data" } }
     : undefined,
   );
-  notifyChanges();
-  return data;
-}
-
-export async function updateWorkOrderPhoto(
-  id: string,
-  stage: "START" | "FINISH",
-  photoFile: File,
-): Promise<WorkOrder> {
-  const payload = new FormData();
-  payload.append("action", "UPDATE_PHOTO");
-  payload.append("observation", stage);
-  if (stage === "START") {
-    payload.append("startPhoto", photoFile);
-  } else {
-    payload.append("finishPhoto", photoFile);
-  }
-  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, payload, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  notifyChanges();
-  return data;
-}
-
-export async function deleteWorkOrderPhoto(
-  id: string,
-  stage: "START" | "FINISH",
-): Promise<WorkOrder> {
-  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
-    action: "DELETE_PHOTO",
-    observation: stage,
-  });
   notifyChanges();
   return data;
 }

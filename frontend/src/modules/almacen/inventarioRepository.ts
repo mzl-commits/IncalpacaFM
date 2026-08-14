@@ -11,17 +11,22 @@ export interface MovimientosParams {
   responsable?: number;
 }
 
-export async function listMovimientos(params: MovimientosParams = {}): Promise<Movimiento[]> {
-  const { data } = await api.get<Movimiento[]>("/movimientos/", { params });
+export async function listMovimientos(
+  almacenId: number,
+  params: MovimientosParams = {},
+): Promise<Movimiento[]> {
+  const { data } = await api.get<Movimiento[]>("/movimientos/", {
+    params: { ...params, almacen: almacenId },
+  });
   return data;
 }
 
-export async function listChecklistPrestados(opts: {
-  salio_hoy?: boolean;
-  fecha?: string;
-} = {}): Promise<PiezaPrestada[]> {
+export async function listChecklistPrestados(
+  almacenId: number,
+  opts: { salio_hoy?: boolean; fecha?: string } = {},
+): Promise<PiezaPrestada[]> {
   const { data } = await api.get<PiezaPrestada[]>("/movimientos/checklist-prestados/", {
-    params: opts,
+    params: { ...opts, almacen: almacenId },
   });
   return data;
 }
@@ -138,6 +143,8 @@ export interface SolicitudMovimiento {
   material_codigo: string | null;
   pieza: number | null;
   pieza_codigo: string | null;
+  pieza_nombre: string | null;
+  pieza_detalle: string | null;
   piezas_hijas_ids: number[];
   cantidad: number;
   cantidad_cajas: number | null;
@@ -150,6 +157,7 @@ export interface SolicitudMovimiento {
   resuelto_por: number | null;
   resuelto_por_nombre: string | null;
   motivo_rechazo: string;
+  motivo_no_entrega: string;
   movimiento: number | null;
 }
 
@@ -218,4 +226,101 @@ export async function descargarExcelMovimientos(materialId?: number): Promise<vo
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Grupos de Solicitudes y OTs Activas (Objetivo 1) ───────────────────────
+
+export interface RenglonSalida {
+  id: string;
+  materialId: number;
+  cantidad: number;
+  cantidadCajas: number;
+}
+
+export interface WorkOrderActiva {
+  id: string;
+  code: string;
+  status: string;
+  status_display: string;
+  technician_name: string;
+}
+
+export async function listOrdenesTrabajoActivas(): Promise<WorkOrderActiva[]> {
+  const { data } = await api.get<WorkOrderActiva[]>("/ots-activas/");
+  return data;
+}
+
+export interface GrupoSolicitudItemInput {
+  tipo: TipoSolicitud;
+  material: number;
+  cantidad?: number;
+  cantidad_cajas?: number;
+  observaciones?: string;
+}
+
+export interface CrearGrupoSolicitudInput {
+  work_order?: string | null;
+  observaciones?: string;
+  items: GrupoSolicitudItemInput[];
+}
+
+export interface WorkOrderDetailInGrupo {
+  id: string;
+  code: string;
+  status: string;
+  status_display: string;
+  technician_name: string;
+  supporting_technicians: string[];
+}
+
+export interface GrupoSolicitud {
+  id: number;
+  solicitado_por: number;
+  solicitado_por_nombre: string;
+  work_order: string | null;
+  work_order_code: string | null;
+  work_order_detail?: WorkOrderDetailInGrupo | null;
+  observaciones: string;
+  creado_en: string;
+  estado: EstadoSolicitud;
+  items: SolicitudMovimiento[];
+}
+
+export async function crearGrupoSolicitud(
+  input: CrearGrupoSolicitudInput
+): Promise<GrupoSolicitud> {
+  const { data } = await api.post<GrupoSolicitud>("/grupos-solicitud/", input);
+  return data;
+}
+
+export async function listGruposSolicitud(params: { estado?: string } = {}): Promise<GrupoSolicitud[]> {
+  const { data } = await api.get<GrupoSolicitud[]>("/grupos-solicitud/", { params });
+  return data;
+}
+
+export async function getGrupoSolicitud(id: number | string): Promise<GrupoSolicitud> {
+  const { data } = await api.get<GrupoSolicitud>(`/grupos-solicitud/${id}/`);
+  return data;
+}
+
+export async function aprobarTodosGrupoSolicitud(id: number | string): Promise<{ mensaje: string; grupo: GrupoSolicitud }> {
+  const { data } = await api.post<{ mensaje: string; grupo: GrupoSolicitud }>(`/grupos-solicitud/${id}/aprobar-todos/`);
+  return data;
+}
+
+export interface ItemDecisionInput {
+  solicitud_id: number;
+  aprobado: boolean;
+  motivo_no_entrega?: string;
+}
+
+export async function resolverParcialGrupoSolicitud(
+  id: number | string,
+  items: ItemDecisionInput[]
+): Promise<{ mensaje: string; grupo: GrupoSolicitud }> {
+  const { data } = await api.post<{ mensaje: string; grupo: GrupoSolicitud }>(
+    `/grupos-solicitud/${id}/resolver-parcial/`,
+    { items }
+  );
+  return data;
 }

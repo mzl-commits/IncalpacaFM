@@ -13,6 +13,7 @@ import {
   updatePlantillaCriterio,
 } from "@/modules/almacen/inspeccionRepository";
 import type { Criterio, PlantillaCriterio } from "@/modules/almacen/types";
+import { getApiErrorMessage } from "@/utils/httpError";
 
 export function GestionPlantillasPage() {
   const queryClient = useQueryClient();
@@ -55,9 +56,8 @@ export function GestionPlantillasPage() {
       }
       resetPlantillaForm();
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.detail || err.message || "Error al guardar plantilla.";
-      setPlantillaError(msg);
+    onError: (err: unknown) => {
+      setPlantillaError(getApiErrorMessage(err, "Error al guardar plantilla."));
     },
   });
 
@@ -68,9 +68,8 @@ export function GestionPlantillasPage() {
       if (selectedPlantillaId === deletedId) setSelectedPlantillaId(null);
       resetPlantillaForm();
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.detail || "No se puede eliminar la plantilla si contiene inspecciones asociadas o está asignada a una subcategoría.";
-      setPlantillaError(msg);
+    onError: (err: unknown) => {
+      setPlantillaError(getApiErrorMessage(err, "No se puede eliminar la plantilla si contiene inspecciones asociadas o está asignada a una subcategoría."));
     },
   });
 
@@ -96,16 +95,15 @@ export function GestionPlantillasPage() {
       queryClient.invalidateQueries({ queryKey: ["plantillas-criterios"] });
       resetCriterioForm();
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.detail || err.message || "Error al guardar criterio.";
-      setCriterioError(msg);
+    onError: (err: unknown) => {
+      setCriterioError(getApiErrorMessage(err, "Error al guardar criterio."));
     },
   });
 
   const delCriterioMut = useMutation({
     mutationFn: (id: number) => deleteCriterio(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["plantillas-criterios"] }),
-    onError: (err: any) => setCriterioError(err.response?.data?.detail || "Error al eliminar criterio."),
+    onError: (err: unknown) => setCriterioError(getApiErrorMessage(err, "Error al eliminar criterio.")),
   });
 
   const moveCriterio = async (index: number, direction: "up" | "down") => {
@@ -156,66 +154,56 @@ export function GestionPlantillasPage() {
   const activePlantilla = selectedPlantilla;
 
   return (
-    <section className="gestion-plantillas-page">
-      <header className="page-heading">
+    <section>
+      <div className="page-heading">
         <div>
           <p className="breadcrumb">Inspecciones / Plantillas de Criterios</p>
           <h1>Plantillas de Inspección SST</h1>
           <p>Gestiona y reordena los criterios de evaluación binaria (Cumple / No cumple / No aplica).</p>
         </div>
-      </header>
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 24, marginTop: 16 }}>
+      <div className="grid-2col" style={{ gridTemplateColumns: "340px 1fr" }}>
         {/* Columna Izquierda: Lista y Alta de Plantillas */}
-        <aside className="data-panel" style={{ padding: 16 }}>
-          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <ClipboardText size={20} style={{ color: "var(--accent, #6366f1)" }} />
+        <div className="data-panel">
+          <div className="table-toolbar">
+            <div className="flex-row">
+              <ClipboardText size={20} style={{ color: "var(--accent)" }} />
               <strong style={{ fontSize: 15 }}>Plantillas SST</strong>
             </div>
             {editPlantilla && (
               <button
                 type="button"
                 onClick={resetPlantillaForm}
-                style={{ fontSize: 12, color: "var(--accent)", background: "none", border: 0, cursor: "pointer" }}
+                className="button button-sm button-secondary"
               >
                 + Nueva
               </button>
             )}
-          </header>
+          </div>
 
           {/* Formulario Plantilla */}
-          <div
-            style={{
-              background: "var(--surface-raised, #f9fafb)",
-              padding: 12,
-              borderRadius: 8,
-              border: "1px solid var(--border, #e5e7eb)",
-              marginBottom: 16,
-            }}
-          >
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-              {editPlantilla ? "Editar Nombre" : "Nueva Plantilla"}
+          <div className="form-panel" style={{ margin: "0 16px 16px" }}>
+            <label className="field">
+              <span>{editPlantilla ? "Editar nombre" : "Nueva plantilla"}</span>
+              <input
+                type="text"
+                placeholder="Nombre (ej. EPP, Escaleras...)"
+                value={plantillaNombre}
+                onChange={(e) => setPlantillaNombre(e.target.value)}
+              />
             </label>
-            <input
-              type="text"
-              placeholder="Nombre (ej. EPP, Escaleras...)"
-              value={plantillaNombre}
-              onChange={(e) => setPlantillaNombre(e.target.value)}
-              style={{ fontSize: 13, width: "100%", marginBottom: 8 }}
-            />
             {plantillaError && (
-              <p style={{ fontSize: 12, color: "var(--error, #dc2626)", marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
+              <small className="field-error mt-8">
                 <WarningCircle size={14} /> {plantillaError}
-              </p>
+              </small>
             )}
-            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            <div className="flex-row-end mt-8">
               {editPlantilla && (
                 <button
                   type="button"
                   onClick={resetPlantillaForm}
-                  className="button button-secondary"
-                  style={{ fontSize: 12, padding: "4px 8px" }}
+                  className="button button-sm button-secondary"
                 >
                   Cancelar
                 </button>
@@ -224,47 +212,46 @@ export function GestionPlantillasPage() {
                 type="button"
                 onClick={() => plantillaMut.mutate()}
                 disabled={plantillaMut.isPending}
-                className="button button-primary"
-                style={{ fontSize: 12, padding: "4px 12px" }}
+                className="button button-sm button-primary"
               >
-                {plantillaMut.isPending ? "Guardando..." : editPlantilla ? "Guardar" : "+ Crear plantilla"}
+                {plantillaMut.isPending ? "Guardando…" : editPlantilla ? "Guardar" : "+ Crear plantilla"}
               </button>
             </div>
           </div>
 
           {/* Lista de Plantillas */}
-          <div style={{ display: "grid", gap: 6 }}>
-            {isLoading && <p style={{ fontSize: 13, color: "var(--muted)" }}>Cargando plantillas...</p>}
+          <div className="checklist-list" style={{ paddingTop: 0 }}>
+            {isLoading && <p className="text-muted-sm">Cargando plantillas…</p>}
+            {!isLoading && plantillas.length === 0 && (
+              <p className="empty-row">Aún no hay plantillas creadas.</p>
+            )}
             {plantillas.map((p) => {
               const isSelected = activePlantilla?.id === p.id;
               return (
                 <div
                   key={p.id}
+                  className="checklist-row"
                   onClick={() => { setSelectedPlantillaId(p.id); resetCriterioForm(); }}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    border: isSelected ? "2px solid var(--accent, #6366f1)" : "1px solid var(--border, #e5e7eb)",
-                    background: isSelected ? "rgba(99, 102, 241, 0.06)" : "var(--surface, #fff)",
+                    gridTemplateColumns: "1fr auto",
                     cursor: "pointer",
-                    fontSize: 13,
+                    borderColor: isSelected ? "var(--accent)" : undefined,
+                    background: isSelected ? "var(--surface-raised, #f9fafb)" : undefined,
                   }}
                 >
                   <div>
-                    <strong style={{ display: "block" }}>{p.nombre}</strong>
-                    <small style={{ color: "var(--muted)" }}>{p.criterios?.length || 0} criterios</small>
+                    <strong className="text-base" style={{ display: "block" }}>{p.nombre}</strong>
+                    <small className="text-muted-sm">{p.criterios?.length || 0} criterios</small>
                   </div>
-                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <div className="flex-row">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleEditPlantilla(p); }}
-                      style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", padding: 4 }}
+                      className="button button-sm button-secondary"
                       title="Renombrar plantilla"
+                      aria-label={`Renombrar ${p.nombre}`}
                     >
-                      <PencilSimple size={15} />
+                      <PencilSimple size={14} />
                     </button>
                     <button
                       type="button"
@@ -274,28 +261,29 @@ export function GestionPlantillasPage() {
                           delPlantillaMut.mutate(p.id);
                         }
                       }}
-                      style={{ background: "none", border: 0, cursor: "pointer", color: "var(--error, #dc2626)", padding: 4 }}
+                      className="icon-button-danger"
                       title="Eliminar plantilla"
+                      aria-label={`Eliminar ${p.nombre}`}
                     >
-                      <Trash size={15} />
+                      <Trash size={16} />
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
-        </aside>
+        </div>
 
         {/* Columna Derecha: Criterios de la Plantilla seleccionada */}
-        <section className="data-panel" style={{ padding: 20 }}>
+        <div className="data-panel">
           {!activePlantilla ? (
-            <p style={{ color: "var(--muted)" }}>Selecciona una plantilla para ver y editar sus criterios.</p>
+            <p className="text-center-empty">Selecciona una plantilla para ver y editar sus criterios.</p>
           ) : (
             <>
-              <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="table-toolbar">
                 <div>
-                  <h2 style={{ fontSize: 18, margin: 0 }}>{activePlantilla.nombre}</h2>
-                  <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>
+                  <strong style={{ fontSize: 15 }}>{activePlantilla.nombre}</strong>
+                  <p className="text-muted-sm" style={{ margin: "2px 0 0" }}>
                     Lista de preguntas/criterios evaluados en esta plantilla
                   </p>
                 </div>
@@ -303,102 +291,82 @@ export function GestionPlantillasPage() {
                   <button
                     type="button"
                     onClick={resetCriterioForm}
-                    className="button button-secondary"
-                    style={{ fontSize: 12 }}
+                    className="button button-sm button-secondary"
                   >
-                    + Nuevo Criterio
+                    + Nuevo criterio
                   </button>
                 )}
-              </header>
+              </div>
 
               {/* Formulario Criterio */}
-              <div
-                style={{
-                  background: "var(--surface-raised, #f9fafb)",
-                  padding: 14,
-                  borderRadius: 8,
-                  border: "1px solid var(--border, #e5e7eb)",
-                  marginBottom: 16,
-                }}
-              >
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                  {editCriterio ? "Editar Criterio" : "Agregar Nuevo Criterio de Inspección"}
-                </label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="text"
-                    placeholder="Ej. Estado del casco, Ausencia de grietas..."
-                    value={criterioTexto}
-                    onChange={(e) => setCriterioTexto(e.target.value)}
-                    style={{ fontSize: 13, flex: 1 }}
-                  />
-                  {editCriterio && (
+              <div className="form-panel" style={{ margin: "0 16px 16px" }}>
+                <label className="field">
+                  <span>{editCriterio ? "Editar criterio" : "Agregar nuevo criterio de inspección"}</span>
+                  <div className="flex-row">
+                    <input
+                      type="text"
+                      placeholder="Ej. Estado del casco, Ausencia de grietas..."
+                      value={criterioTexto}
+                      onChange={(e) => setCriterioTexto(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    {editCriterio && (
+                      <button
+                        type="button"
+                        onClick={resetCriterioForm}
+                        className="button button-secondary"
+                      >
+                        Cancelar
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={resetCriterioForm}
-                      className="button button-secondary"
-                      style={{ fontSize: 13 }}
+                      onClick={() => criterioMut.mutate()}
+                      disabled={criterioMut.isPending}
+                      className="button button-primary"
                     >
-                      Cancelar
+                      <Plus size={16} />
+                      {criterioMut.isPending ? "Guardando…" : editCriterio ? "Guardar" : "Agregar criterio"}
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => criterioMut.mutate()}
-                    disabled={criterioMut.isPending}
-                    className="button button-primary"
-                    style={{ fontSize: 13 }}
-                  >
-                    <Plus size={16} />
-                    {criterioMut.isPending ? "Guardando..." : editCriterio ? "Guardar" : "Agregar Criterio"}
-                  </button>
-                </div>
+                  </div>
+                </label>
                 {criterioError && (
-                  <p style={{ fontSize: 12, color: "var(--error, #dc2626)", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                  <small className="field-error mt-8">
                     <WarningCircle size={14} /> {criterioError}
-                  </p>
+                  </small>
                 )}
               </div>
 
               {/* Lista de Criterios */}
               <div className="table-scroll">
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <table className="tabla-detalle-mobile">
                   <thead>
-                    <tr style={{ borderBottom: "1px solid var(--border, #e5e7eb)", textAlign: "left" }}>
-                      <th style={{ padding: "8px 12px", width: 60 }}>Orden</th>
-                      <th style={{ padding: "8px 12px" }}>Texto del Criterio</th>
-                      <th style={{ padding: "8px 12px", width: 100, textAlign: "center" }}>Reordenar</th>
-                      <th style={{ padding: "8px 12px", width: 80, textAlign: "right" }}>Acciones</th>
+                    <tr>
+                      <th style={{ width: 60 }}>Orden</th>
+                      <th>Texto del criterio</th>
+                      <th style={{ width: 100, textAlign: "center" }}>Reordenar</th>
+                      <th style={{ width: 80, textAlign: "right" }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
+                    {(activePlantilla.criterios || []).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="empty-row">Esta plantilla no contiene criterios asignados aún.</td>
+                      </tr>
+                    )}
                     {(activePlantilla.criterios || []).map((c, index) => (
-                      <tr
-                        key={c.id}
-                        style={{
-                          borderBottom: "1px solid var(--border, #f3f4f6)",
-                          background: index % 2 === 0 ? "transparent" : "rgba(0,0,0,0.01)",
-                        }}
-                      >
-                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "var(--muted)" }}>
-                          #{c.orden || index + 1}
-                        </td>
-                        <td style={{ padding: "10px 12px", fontSize: 14 }}>{c.texto}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                          <div style={{ display: "inline-flex", gap: 4 }}>
+                      <tr key={c.id}>
+                        <td className="text-muted-sm">#{c.orden || index + 1}</td>
+                        <td className="text-base">{c.texto}</td>
+                        <td style={{ textAlign: "center" }}>
+                          <div className="flex-row" style={{ justifyContent: "center" }}>
                             <button
                               type="button"
                               disabled={index === 0}
                               onClick={() => moveCriterio(index, "up")}
-                              style={{
-                                background: "none",
-                                border: "1px solid var(--border, #e5e7eb)",
-                                borderRadius: 4,
-                                padding: "2px 6px",
-                                cursor: index === 0 ? "not-allowed" : "pointer",
-                                opacity: index === 0 ? 0.3 : 1,
-                              }}
+                              className="button button-sm button-secondary"
                               title="Subir"
+                              aria-label={`Subir criterio ${c.orden || index + 1}`}
                             >
                               <ArrowUp size={14} />
                             </button>
@@ -406,29 +374,24 @@ export function GestionPlantillasPage() {
                               type="button"
                               disabled={index === (activePlantilla.criterios.length - 1)}
                               onClick={() => moveCriterio(index, "down")}
-                              style={{
-                                background: "none",
-                                border: "1px solid var(--border, #e5e7eb)",
-                                borderRadius: 4,
-                                padding: "2px 6px",
-                                cursor: index === (activePlantilla.criterios.length - 1) ? "not-allowed" : "pointer",
-                                opacity: index === (activePlantilla.criterios.length - 1) ? 0.3 : 1,
-                              }}
+                              className="button button-sm button-secondary"
                               title="Bajar"
+                              aria-label={`Bajar criterio ${c.orden || index + 1}`}
                             >
                               <ArrowDown size={14} />
                             </button>
                           </div>
                         </td>
-                        <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <td>
+                          <div className="flex-row-end">
                             <button
                               type="button"
                               onClick={() => handleEditCriterio(c)}
-                              style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)" }}
+                              className="button button-sm button-secondary"
                               title="Editar criterio"
+                              aria-label={`Editar criterio ${c.texto}`}
                             >
-                              <PencilSimple size={16} />
+                              <PencilSimple size={14} />
                             </button>
                             <button
                               type="button"
@@ -437,8 +400,9 @@ export function GestionPlantillasPage() {
                                   delCriterioMut.mutate(c.id);
                                 }
                               }}
-                              style={{ background: "none", border: 0, cursor: "pointer", color: "var(--error, #dc2626)" }}
+                              className="icon-button-danger"
                               title="Eliminar criterio"
+                              aria-label={`Eliminar criterio ${c.texto}`}
                             >
                               <Trash size={16} />
                             </button>
@@ -446,19 +410,12 @@ export function GestionPlantillasPage() {
                         </td>
                       </tr>
                     ))}
-                    {(activePlantilla.criterios || []).length === 0 && (
-                      <tr>
-                        <td colSpan={4} style={{ padding: 20, textAlign: "center", color: "var(--muted)" }}>
-                          Esta plantilla no contiene criterios asignados aún.
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
             </>
           )}
-        </section>
+        </div>
       </div>
     </section>
   );

@@ -1,7 +1,3 @@
-/**
- * Dashboard de inicio para el rol Inspector.
- * Muestra inspecciones vencidas, próximas y accesos directos.
- */
 import { CalendarBlank, CalendarPlus, ClipboardText, Files, WarningCircle } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -12,11 +8,27 @@ import { listVencidas } from "@/modules/almacen/inspeccionRepository";
 
 export default function InspectorDashboardPage() {
   const { user } = useAuth();
+  const almacenId = user?.almacenId ?? null;
 
   const { data: vencidas = [], isLoading } = useQuery({
-    queryKey: ["inspecciones-vencidas"],
-    queryFn: listVencidas,
+    queryKey: ["inspecciones-vencidas", almacenId],
+    queryFn: () => listVencidas(almacenId!),
+    enabled: !!almacenId,
   });
+
+  if (!almacenId) {
+    return (
+      <section>
+        <div className="page-heading">
+          <div>
+            <p className="breadcrumb">Almacén / Inicio</p>
+            <h1>Hola, {user?.fullName?.split(" ")[0] || "Inspector"}</h1>
+            <p>Tu cuenta no tiene un almacén asignado todavía. Contacta al administrador.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const totalMateriales = vencidas.length;
   const totalPiezas = vencidas.reduce(
@@ -26,9 +38,9 @@ export default function InspectorDashboardPage() {
 
   function buildLoteUrl(materialId: number, piezasIds: number[]): string {
     if (piezasIds.length > 0) {
-      return `/almacen/inspecciones/nueva?material=${materialId}&piezas_lote=${piezasIds.join(",")}`;
+      return `/almacen/${almacenId}/inspecciones/nueva?material=${materialId}&piezas_lote=${piezasIds.join(",")}`;
     }
-    return `/almacen/inspecciones/nueva?material=${materialId}`;
+    return `/almacen/${almacenId}/inspecciones/nueva?material=${materialId}`;
   }
 
   return (
@@ -52,16 +64,16 @@ export default function InspectorDashboardPage() {
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
-        <Link to="/almacen/inspecciones/nueva" className="button button-primary">
+        <Link to={`/almacen/${almacenId}/inspecciones/nueva`} className="button button-primary">
           <ClipboardText size={16} /> Registrar inspección
         </Link>
-        <Link to="/almacen/calendario" className="button button-secondary">
+        <Link to={`/almacen/${almacenId}/calendario`} className="button button-secondary">
           <CalendarBlank size={16} /> Ver calendario
         </Link>
-        <Link to="/almacen/plan-anual" className="button button-secondary">
+        <Link to={`/almacen/${almacenId}/plan-anual`} className="button button-secondary">
           <CalendarPlus size={16} /> Plan anual
         </Link>
-        <Link to="/almacen/plantillas" className="button button-secondary">
+        <Link to={`/almacen/${almacenId}/plantillas`} className="button button-secondary">
           <Files size={16} /> Plantillas SST
         </Link>
       </div>
@@ -71,7 +83,7 @@ export default function InspectorDashboardPage() {
           <strong style={{ fontSize: 15 }}>
             {totalMateriales > 0 ? "Inspecciones vencidas o pendientes" : "Sin inspecciones vencidas"}
           </strong>
-          <Link to="/almacen/inspecciones/vencidas" className="table-action" style={{ fontSize: 13 }}>
+          <Link to={`/almacen/${almacenId}/inspecciones/vencidas`} className="table-action" style={{ fontSize: 13 }}>
             Ver todas
           </Link>
         </div>

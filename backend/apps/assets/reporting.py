@@ -2,15 +2,20 @@ import os
 from io import BytesIO
 
 from django.utils import timezone
-
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, HRFlowable, KeepTogether
+    HRFlowable,
+    Image,
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
-
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "workorders", "logo_brand.png")
 
@@ -86,18 +91,6 @@ def build_asset_pdf(asset):
         fontSize=9.5,
         leading=14,
         textColor=colors.HexColor("#111111"),
-    )
-
-    cell_right = ParagraphStyle(
-        "CellRightAsset",
-        parent=cell_normal,
-        alignment=2,
-    )
-
-    cell_right_bold = ParagraphStyle(
-        "CellRightBoldAsset",
-        parent=cell_bold,
-        alignment=2,
     )
 
     story = []
@@ -277,7 +270,7 @@ def build_asset_pdf(asset):
     ]
 
     if incidents:
-        for idx, inc in enumerate(incidents):
+        for inc in incidents:
             wo = getattr(inc, "work_order", None)
             wo_code = wo.code if wo else inc.code
             date_str = inc.created_at.strftime("%d/%m/%Y")

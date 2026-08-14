@@ -30,7 +30,6 @@ type ApiLocation = {
   specific_location: string;
   headcount: number | null;
   square_meters: string | number | null;
-  building_square_meters: string | number | null;
   common_space: boolean;
   active: boolean;
   display_name: string;
@@ -70,7 +69,7 @@ function mapLocation(item: ApiLocation): LocationOption {
     specificLocation: item.specific_location,
     headcount: item.headcount,
     squareMeters: item.square_meters == null ? null : Number(item.square_meters),
-    buildingSquareMeters: item.building_square_meters == null ? null : Number(item.building_square_meters),
+    buildingSquareMeters: null,
     commonSpace: item.common_space,
     active: item.active,
     displayName: item.display_name,
@@ -86,10 +85,6 @@ export async function listLocations(): Promise<LocationOption[]> {
 
 export async function updateLocationArea(locationId: string, squareMeters: number | null): Promise<void> {
   await api.patch(`/locations/${locationId}/area/`, { square_meters: squareMeters });
-}
-
-export async function updateBuildingArea(locationId: string, squareMeters: number | null): Promise<void> {
-  await api.patch(`/locations/${locationId}/building-area/`, { square_meters: squareMeters });
 }
 
 export async function uploadLocationMap(input: {

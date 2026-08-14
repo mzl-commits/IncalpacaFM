@@ -14,7 +14,6 @@ import {
   useLocations,
   useRemoveLocationMap,
   useUpdateLocationArea,
-  useUpdateBuildingArea,
   useUploadLocationMap,
 } from "../locationMapQueries";
 
@@ -25,7 +24,6 @@ export function LocationMapAdminPage() {
   const uploadMutation = useUploadLocationMap();
   const removeMutation = useRemoveLocationMap();
   const updateAreaMutation = useUpdateLocationArea();
-  const updateBuildingAreaMutation = useUpdateBuildingArea();
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MapFilter>("ALL");
@@ -36,7 +34,6 @@ export function LocationMapAdminPage() {
   const [messageTone, setMessageTone] = useState<"success" | "error">("success");
   const [confirmRemoval, setConfirmRemoval] = useState(false);
   const [squareMeters, setSquareMeters] = useState("");
-  const [buildingSquareMeters, setBuildingSquareMeters] = useState("");
 
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const selected = locations.find((item) => item.id === selectedId) ?? locations[0] ?? null;
@@ -53,10 +50,6 @@ export function LocationMapAdminPage() {
   useEffect(() => {
     setSquareMeters(selected?.squareMeters == null ? "" : String(selected.squareMeters));
   }, [selected?.id, selected?.squareMeters]);
-
-  useEffect(() => {
-    setBuildingSquareMeters(selected?.buildingSquareMeters == null ? "" : String(selected.buildingSquareMeters));
-  }, [selected?.building, selected?.buildingSquareMeters, selected?.zone]);
 
   const filteredLocations = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es-PE");
@@ -147,26 +140,6 @@ export function LocationMapAdminPage() {
     }
   }
 
-  async function saveBuildingArea() {
-    if (!selected) return;
-    const normalized = buildingSquareMeters.trim().replace(",", ".");
-    const value = normalized === "" ? null : Number(normalized);
-    if (value !== null && (!Number.isFinite(value) || value <= 0)) {
-      setMessage("Ingresa un tamaño de edificio mayor a 0 m² o deja el campo vacío para quitarlo.");
-      setMessageTone("error");
-      return;
-    }
-    setMessage("");
-    try {
-      await updateBuildingAreaMutation.mutateAsync({ locationId: selected.id, squareMeters: value });
-      setMessage(value === null ? "Se quitó el tamaño registrado del edificio." : "Tamaño del edificio actualizado.");
-      setMessageTone("success");
-    } catch {
-      setMessage("No se pudo actualizar el tamaño del edificio. Usa hasta dos decimales.");
-      setMessageTone("error");
-    }
-  }
-
   return (
     <section className="location-map-admin-page">
       <div className="page-heading">
@@ -222,14 +195,6 @@ export function LocationMapAdminPage() {
               <div className="location-map-area-control">
                 <label><span className="sr-only">Metros cuadrados</span><input type="number" inputMode="decimal" min="0.01" step="0.01" value={squareMeters} onChange={(event) => setSquareMeters(event.target.value)} placeholder="Ej. 45.50" /><b>m²</b></label>
                 <button className="button button-secondary" type="button" disabled={updateAreaMutation.isPending} onClick={() => void saveArea()}>{updateAreaMutation.isPending ? "Guardando…" : "Guardar tamaño"}</button>
-              </div>
-            </section>
-
-            <section className="location-map-area-panel location-map-building-area-panel" aria-labelledby="building-area-title">
-              <div><h3 id="building-area-title">Tamaño del edificio</h3><p>Este valor es compartido por todos los ambientes de <strong>{selected.building}</strong>. No modifica los m² propios de cada ambiente.</p></div>
-              <div className="location-map-area-control">
-                <label><span className="sr-only">Metros cuadrados del edificio</span><input type="number" inputMode="decimal" min="0.01" step="0.01" value={buildingSquareMeters} onChange={(event) => setBuildingSquareMeters(event.target.value)} placeholder="Ej. 1,250.00" /><b>m²</b></label>
-                <button className="button button-secondary" type="button" disabled={updateBuildingAreaMutation.isPending} onClick={() => void saveBuildingArea()}>{updateBuildingAreaMutation.isPending ? "Guardando…" : "Guardar edificio"}</button>
               </div>
             </section>
 

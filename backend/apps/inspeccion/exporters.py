@@ -1,17 +1,24 @@
 import io
 import unicodedata
+from contextlib import suppress
 from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.styles import Font
-
-from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-
+from reportlab.platypus import (
+    Image,
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 TEMPLATE_PATH = Path(__file__).resolve().parent / "plantillas" / "Formato_Inspeccion.xlsx"
 
@@ -79,10 +86,8 @@ def _normalizar(texto):
     """Quita tildes/mayusculas y corrige mojibake comun (utf-8 mal leido como latin-1)."""
     if not texto:
         return ""
-    try:
+    with suppress(UnicodeDecodeError, UnicodeEncodeError):
         texto = texto.encode("latin-1").decode("utf-8")
-    except (UnicodeDecodeError, UnicodeEncodeError):
-        pass
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     return texto.lower()
@@ -301,10 +306,6 @@ def generar_pdf_inspeccion(inspeccion):
         "Empresa", parent=styles["Normal"], fontSize=11.5,
         textColor=NEGRO_TEXTO, fontName="Helvetica-Bold", leading=13,
     )
-    empresa_sub_style = ParagraphStyle(
-        "EmpresaSub", parent=styles["Normal"], fontSize=7, textColor=GRIS_MEDIO, leading=9,
-    )
-
     if LOGO_PATH.exists():
         logo_img = Image(str(LOGO_PATH), width=1.05 * cm, height=1.05 * cm)
     else:

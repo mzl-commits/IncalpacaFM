@@ -7,22 +7,23 @@ import type {
   MaterialCreatePayload,
   PiezaBase,
   AltaPiezasSueltasPayload,
+  Almacen,
 } from "./types";
-
+ 
 // ─── Categorías ───────────────────────────────────────────────────────────────
-
-export async function listCategorias(): Promise<Categoria[]> {
-  const { data } = await api.get<Categoria[]>("/categorias/");
+ 
+export async function listCategorias(almacenId: number): Promise<Categoria[]> {
+  const { data } = await api.get<Categoria[]>("/categorias/", { params: { almacen: almacenId } });
   return data;
 }
-
+ 
 export async function createCategoria(
   payload: Omit<Categoria, "id">,
 ): Promise<Categoria> {
   const { data } = await api.post<Categoria>("/categorias/", payload);
   return data;
 }
-
+ 
 export async function updateCategoria(
   id: number,
   payload: Partial<Omit<Categoria, "id">>,
@@ -30,26 +31,30 @@ export async function updateCategoria(
   const { data } = await api.patch<Categoria>(`/categorias/${id}/`, payload);
   return data;
 }
-
+ 
 export async function deleteCategoria(id: number): Promise<void> {
   await api.delete(`/categorias/${id}/`);
 }
-
+ 
 // ─── Subcategorías ────────────────────────────────────────────────────────────
-
-export async function listSubcategorias(categoriaId?: number): Promise<Subcategoria[]> {
-  const params = categoriaId ? { categoria: categoriaId } : {};
+ 
+export async function listSubcategorias(
+  almacenId: number,
+  categoriaId?: number,
+): Promise<Subcategoria[]> {
+  const params: Record<string, number> = { almacen: almacenId };
+  if (categoriaId) params.categoria = categoriaId;
   const { data } = await api.get<Subcategoria[]>("/subcategorias/", { params });
   return data;
 }
-
+ 
 export async function createSubcategoria(
   payload: Omit<Subcategoria, "id" | "categoria_nombre" | "plantilla_inspeccion_nombre">,
 ): Promise<Subcategoria> {
   const { data } = await api.post<Subcategoria>("/subcategorias/", payload);
   return data;
 }
-
+ 
 export async function updateSubcategoria(
   id: number,
   payload: Partial<Omit<Subcategoria, "id" | "categoria_nombre" | "plantilla_inspeccion_nombre">>,
@@ -57,13 +62,20 @@ export async function updateSubcategoria(
   const { data } = await api.patch<Subcategoria>(`/subcategorias/${id}/`, payload);
   return data;
 }
-
+ 
 export async function deleteSubcategoria(id: number): Promise<void> {
   await api.delete(`/subcategorias/${id}/`);
 }
-
+ 
+// ─── Almacenes ────────────────────────────────────────────────────────────────
+ 
+export async function listAlmacenes(): Promise<Almacen[]> {
+  const { data } = await api.get<Almacen[]>("/almacenes/");
+  return data;
+}
+ 
 // ─── Materiales ───────────────────────────────────────────────────────────────
-
+ 
 export interface MaterialesParams {
   categoria?: number;
   subcategoria?: number;
@@ -72,9 +84,13 @@ export interface MaterialesParams {
   activo?: boolean;
   q?: string;
 }
-
-export async function listMateriales(params: MaterialesParams = {}): Promise<Material[]> {
+ 
+export async function listMateriales(
+  almacenId?: number,
+  params: MaterialesParams = {},
+): Promise<Material[]> {
   const query: Record<string, string | number | boolean> = {};
+  if (almacenId) query.almacen = almacenId;
   if (params.categoria) query.categoria = params.categoria;
   if (params.subcategoria) query.subcategoria = params.subcategoria;
   if (params.control_individual !== undefined)
@@ -86,12 +102,12 @@ export async function listMateriales(params: MaterialesParams = {}): Promise<Mat
   const { data } = await api.get<Material[]>("/materiales/", { params: query });
   return data;
 }
-
+ 
 export async function getMaterialDetalle(id: number): Promise<MaterialDetalle> {
   const { data } = await api.get<MaterialDetalle>(`/materiales/${id}/`);
   return data;
 }
-
+ 
 /**
  * Devuelve los materiales "hijos" (tipos de piezas individuales) que
  * pertenecen a un material contenedor (estuche). Vacío si el material
@@ -101,7 +117,7 @@ export async function getMaterialesHijas(materialId: number): Promise<Material[]
   const { data } = await api.get<Material[]>(`/materiales/${materialId}/materiales-hijas/`);
   return data;
 }
-
+ 
 /**
  * Normaliza campos numéricos "delicados" del payload antes de enviarlo al
  * backend. En particular, "unidades_por_caja" es un IntegerField que NO
@@ -117,7 +133,7 @@ function sanitizeMaterialPayload<T extends Partial<MaterialCreatePayload>>(paylo
   const valorFinal = num !== null && Number.isFinite(num) ? num : null;
   return { ...payload, unidades_por_caja: valorFinal };
 }
-
+ 
 export async function createMaterial(
   payload: MaterialCreatePayload,
   foto?: File | null,
@@ -138,7 +154,7 @@ export async function createMaterial(
   const { data } = await api.post<Material>("/materiales/", clean);
   return data;
 }
-
+ 
 export async function updateMaterial(
   id: number,
   payload: Partial<MaterialCreatePayload>,
@@ -159,16 +175,16 @@ export async function updateMaterial(
   const { data } = await api.patch<Material>(`/materiales/${id}/`, clean);
   return data;
 }
-
+ 
 // ─── Alta de piezas ───────────────────────────────────────────────────────────
-
+ 
 export async function altaPiezasSueltas(payload: AltaPiezasSueltasPayload): Promise<PiezaBase[]> {
   const { data } = await api.post<PiezaBase[]>("/materiales/alta-piezas-sueltas/", payload);
   return data;
 }
-
+ 
 // ─── Piezas ───────────────────────────────────────────────────────────────────
-
+ 
 export interface PiezasParams {
   material?: number;
   estado?: string;
@@ -178,7 +194,7 @@ export interface PiezasParams {
   /** Búsqueda por código de pieza o nombre/código de material */
   q?: string;
 }
-
+ 
 export async function listPiezas(params: PiezasParams = {}): Promise<PiezaBase[]> {
   const query: Record<string, string | number | boolean> = {};
   if (params.material) query.material = params.material;
@@ -189,25 +205,25 @@ export async function listPiezas(params: PiezasParams = {}): Promise<PiezaBase[]
   const { data } = await api.get<PiezaBase[]>("/piezas/", { params: query });
   return data;
 }
-
+ 
 // ─── Ajuste de stock (materiales sin control individual) ──────────────────────
-
+ 
 export interface AjustarStockPayload {
   material_id: number;
   cantidad: number;
 }
-
+ 
 export async function ajustarStock(payload: AjustarStockPayload): Promise<Material> {
   const { data } = await api.post<Material>("/materiales/ajustar-stock/", payload);
   return data;
 }
-
+ 
 // ─── Reemplazar pieza hija rota con una suelta disponible ─────────────────────
-
+ 
 export interface ReemplazarHijaPayload {
   pieza_suelta_id: number;
 }
-
+ 
 /**
  * Reemplaza una pieza hija rota/en mantenimiento dentro de un estuche
  * con una pieza suelta disponible del mismo material.
@@ -224,14 +240,14 @@ export async function reemplazarHija(
   );
   return data;
 }
-
+ 
 // ─── Eliminar material ────────────────────────────────────────────────────────
-
+ 
 /** Elimina un material del catálogo. El backend protege si tiene piezas activas. */
 export async function deleteMaterial(id: number): Promise<void> {
   await api.delete(`/materiales/${id}/`);
 }
-
+ 
 /**
  * Eliminación forzada: borra el material junto con TODAS sus piezas,
  * movimientos e inspecciones. Irreversible.
@@ -241,21 +257,21 @@ export async function deleteMaterialForzado(id: number): Promise<void> {
     data: { confirmar: true },
   });
 }
-
+ 
 // ─── Alta estuche inline (piezas definidas por nombre+medida, sin catálogo) ───
-
+ 
 export interface PiezaHijaInlineSpec {
   nombre: string;
   medida?: string;
   cantidad: number;
 }
-
+ 
 export interface AltaEstucheInlinePayload {
   material_contenedor_id: number;
   piezas_hijas: PiezaHijaInlineSpec[];
   num_estuches: number;
 }
-
+ 
 export async function altaEstucheInline(
   payload: AltaEstucheInlinePayload,
 ): Promise<PiezaBase[]> {
@@ -265,15 +281,15 @@ export async function altaEstucheInline(
   );
   return data;
 }
-
+ 
 // ─── Desvincular pieza hija de su estuche ─────────────────────────────────────
-
+ 
 /** Quita una pieza hija de su estuche (padre → null). Pasa a ser pieza suelta. */
 export async function desvinculaPieza(piezaId: number): Promise<PiezaBase> {
   const { data } = await api.post<PiezaBase>(`/piezas/${piezaId}/desvincular/`);
   return data;
 }
-
+ 
 /**
  * Elimina una pieza física.
  * Si es un estuche, el backend elimina también todas sus piezas hijas y sus movimientos.
@@ -281,15 +297,15 @@ export async function desvinculaPieza(piezaId: number): Promise<PiezaBase> {
 export async function deletePieza(piezaId: number): Promise<void> {
   await api.delete(`/piezas/${piezaId}/`);
 }
-
+ 
 // ─── Agregar pieza hija a estuche existente ──────────────────────────────────────────
-
+ 
 export interface AgregarHijaInlineInput {
   nombre: string;
   medida?: string;
   cantidad: number;
 }
-
+ 
 /**
  * Agrega una o más piezas hijas a un estuche ya existente.
  * Si el material hijo no existe en la subcategoría, el backend lo crea automáticamente.
@@ -306,14 +322,14 @@ export async function agregarHijaInline(
   );
   return data;
 }
-
+ 
 // ─── Editar pieza (ej. campo "detalle") ───────────────────────────────────────
-
+ 
 export interface UpdatePiezaPayload {
   detalle?: string;
   estado?: string;
 }
-
+ 
 /**
  * Actualiza campos editables de una pieza física — por ahora, principalmente
  * "detalle" (nombre/nota personalizada de esa unidad específica).
@@ -325,4 +341,21 @@ export async function updatePieza(
 ): Promise<PiezaBase> {
   const { data } = await api.patch<PiezaBase>(`/piezas/${id}/`, payload);
   return data;
+}
+
+export async function createAlmacen(payload: Omit<Almacen, "id">): Promise<Almacen> {
+  const { data } = await api.post<Almacen>("/almacenes/", payload);
+  return data;
+}
+
+export async function updateAlmacen(
+  id: number,
+  payload: Partial<Omit<Almacen, "id">>,
+): Promise<Almacen> {
+  const { data } = await api.patch<Almacen>(`/almacenes/${id}/`, payload);
+  return data;
+}
+
+export async function deleteAlmacen(id: number): Promise<void> {
+  await api.delete(`/almacenes/${id}/`);
 }

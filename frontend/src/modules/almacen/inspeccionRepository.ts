@@ -44,15 +44,20 @@ export async function deletePlantillaCriterio(id: number): Promise<void> {
   await api.delete(`/plantillas-criterios/${id}/`);
 }
 
-type CriterioCreatePayload = Pick<Criterio, "plantilla" | "texto" | "orden">;
-type CriterioUpdatePayload = Partial<CriterioCreatePayload>;
-
-export async function createCriterio(payload: CriterioCreatePayload): Promise<Criterio> {
+// Usamos Pick<Criterio, ...> para que los tipos de payload no se desincronicen
+// del modelo Criterio (DRY), pero manteniendo "orden" opcional tanto en
+// creación (puede autoasignarse) como en actualización (PATCH parcial).
+export async function createCriterio(
+  payload: Pick<Criterio, "plantilla" | "texto"> & Partial<Pick<Criterio, "orden">>,
+): Promise<Criterio> {
   const { data } = await api.post<Criterio>("/criterios/", payload);
   return data;
 }
 
-export async function updateCriterio(id: number, payload: CriterioUpdatePayload): Promise<Criterio> {
+export async function updateCriterio(
+  id: number,
+  payload: Partial<Pick<Criterio, "texto" | "orden">>,
+): Promise<Criterio> {
   const { data } = await api.patch<Criterio>(`/criterios/${id}/`, payload);
   return data;
 }
@@ -76,9 +81,12 @@ export interface InspeccionesParams {
 }
 
 export async function listInspecciones(
+  almacenId: number,
   params: InspeccionesParams = {},
 ): Promise<Inspeccion[]> {
-  const { data } = await api.get<Inspeccion[]>("/inspecciones/", { params });
+  const { data } = await api.get<Inspeccion[]>("/inspecciones/", {
+    params: { ...params, almacen: almacenId },
+  });
   return data;
 }
 
@@ -87,8 +95,10 @@ export async function getInspeccion(id: number): Promise<Inspeccion> {
   return data;
 }
 
-export async function listVencidas(): Promise<VencidaItem[]> {
-  const { data } = await api.get<VencidaItem[]>("/inspecciones/vencidas/");
+export async function listVencidas(almacenId: number): Promise<VencidaItem[]> {
+  const { data } = await api.get<VencidaItem[]>("/inspecciones/vencidas/", {
+    params: { almacen: almacenId },
+  });
   return data;
 }
 

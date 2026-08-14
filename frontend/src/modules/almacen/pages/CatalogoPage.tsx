@@ -1,5 +1,4 @@
 import {
-  CaretRight,
   Check,
   Copy,
   Cube,
@@ -23,12 +22,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
+
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
-import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
-import { CroquisCarrusel } from "@/modules/almacen/components/CroquisCarrusel";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import type { Material } from "@/modules/almacen/types";
@@ -36,6 +35,7 @@ import type { Material } from "@/modules/almacen/types";
 const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
 
 export function CatalogoPage() {
+  const { almacenId } = useAlmacenActivo();
   const { user } = useAuth();
   const isTechnician = user?.role === "TECNICO";
   const isInspector = user?.role === "INSPECTOR";
@@ -47,9 +47,9 @@ export function CatalogoPage() {
   const [copiedBasket, setCopiedBasket] = useState(false);
 
   const { data: materiales = [], isLoading } = useQuery({
-    queryKey: ["materiales", values],
+    queryKey: ["materiales", almacenId, values],
     queryFn: () =>
-      listMateriales({
+      listMateriales(almacenId, {
         q: values.q || undefined,
         categoria: values.categoria ? Number(values.categoria) : undefined,
         subcategoria: values.subcategoria ? Number(values.subcategoria) : undefined,
@@ -63,14 +63,14 @@ export function CatalogoPage() {
   });
 
   const { data: categorias = [] } = useQuery({
-    queryKey: ["categorias"],
-    queryFn: listCategorias,
+    queryKey: ["categorias", almacenId],
+    queryFn: () => listCategorias(almacenId),
   });
 
   const { data: subcategorias = [] } = useQuery({
-    queryKey: ["subcategorias", values.categoria],
+    queryKey: ["subcategorias", almacenId, values.categoria],
     queryFn: () =>
-      listSubcategorias(values.categoria ? Number(values.categoria) : undefined),
+      listSubcategorias(almacenId, values.categoria ? Number(values.categoria) : undefined),
   });
 
   // Stats
@@ -184,10 +184,12 @@ export function CatalogoPage() {
             <MapTrifold size={18} />
             <span>Croquis del almacén</span>
           </button>
-          {!isTechnician && !isInspector && <Link className="btn-primary" to="/almacen/catalogo/nuevo">
-            <Plus size={18} weight="bold" />
-            <span>Nuevo material</span>
-          </Link>}
+          {!isTechnician && !isInspector && (
+            <Link className="btn-primary" to={`/almacen/${almacenId}/catalogo/nuevo`}>
+              <Plus size={18} weight="bold" />
+              <span>Nuevo material</span>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -489,11 +491,12 @@ function TechnicianMaterialShelf({ materiales, isLoading, basket, basketUnits, c
 // ─── Card de material ────────────────────────────────────────────────────────
 
 function MaterialCard({ m, busquedaPieza, q }: { m: Material; busquedaPieza: boolean; q: string }) {
+  const { almacenId } = useAlmacenActivo();
   const stockAlerta = !m.control_individual && m.cantidad_total < STOCK_MINIMO;
 
   return (
     <Link
-      to={`/almacen/catalogo/${m.id}`}
+      to={`/almacen/${almacenId}/catalogo/${m.id}`}
       aria-label={`Ver detalle de ${m.nombre}`}
       className="material-card"
     >

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import type { Categoria, Subcategoria } from "@/modules/almacen/types";
 import {
   listCategorias,
@@ -20,6 +21,7 @@ interface Props {
 type Tab = "categorias" | "subcategorias";
 
 export function CategoriaSubcategoriaManager({ onChange }: Props) {
+  const { almacenId } = useAlmacenActivo();
   const [tab, setTab] = useState<Tab>("categorias");
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
@@ -27,10 +29,14 @@ export function CategoriaSubcategoriaManager({ onChange }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
+    if (!almacenId) return;
     setLoading(true);
     setError(null);
     try {
-      const [cats, subs] = await Promise.all([listCategorias(), listSubcategorias()]);
+      const [cats, subs] = await Promise.all([
+        listCategorias(almacenId),
+        listSubcategorias(almacenId),
+      ]);
       setCategorias(cats);
       setSubcategorias(subs);
     } catch {
@@ -42,7 +48,7 @@ export function CategoriaSubcategoriaManager({ onChange }: Props) {
 
   useEffect(() => {
     reload();
-  }, []);
+  }, [almacenId]);
 
   function notifyChange() {
     reload();
@@ -68,14 +74,12 @@ export function CategoriaSubcategoriaManager({ onChange }: Props) {
         </button>
       </div>
 
-      {error && (
-        <p style={{ color: "#b91c1c", marginBottom: 12 }}>{error}</p>
-      )}
+      {error && <p style={{ color: "#b91c1c", marginBottom: 12 }}>{error}</p>}
 
       {loading ? (
         <p>Cargando...</p>
       ) : tab === "categorias" ? (
-        <CategoriasTab categorias={categorias} onChange={notifyChange} />
+        <CategoriasTab categorias={categorias} almacenId={almacenId} onChange={notifyChange} />
       ) : (
         <SubcategoriasTab
           categorias={categorias}
@@ -91,9 +95,11 @@ export function CategoriaSubcategoriaManager({ onChange }: Props) {
 
 function CategoriasTab({
   categorias,
+  almacenId,
   onChange,
 }: {
   categorias: Categoria[];
+  almacenId: number;
   onChange: () => void;
 }) {
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -136,7 +142,14 @@ function CategoriasTab({
     setFormError(null);
     try {
       if (editingId === 0) {
-        await createCategoria({ nombre, prefijo, descripcion, activo: true, requiere_inspeccion: requiereInspeccion });
+        await createCategoria({
+          almacen: almacenId,
+          nombre,
+          prefijo,
+          descripcion,
+          activo: true,
+          requiere_inspeccion: requiereInspeccion,
+        });
       } else if (editingId) {
         await updateCategoria(editingId, { nombre, prefijo, descripcion, requiere_inspeccion: requiereInspeccion });
       }
