@@ -1,20 +1,24 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
+from datetime import date
 from apps.accounts.models import AccountProfile
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza
-from apps.inspeccion.models import PlantillaCriterio, Inspeccion
+from apps.catalogo.models import Almacen, Categoria, Subcategoria, Material, Pieza
+from apps.inspeccion.models import PlantillaCriterio, Inspeccion, ProgramacionInspeccion
+from apps.inspeccion.planificacion import construir_materiales_config, generar_plan_anual
 
 User = get_user_model()
 
 class ActiveChecksTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.almacen = Almacen.objects.create(nombre="Almacen Test", codigo="ALM-TEST")
         self.user = User.objects.create_user(username="testinspector", password="password")
         AccountProfile.objects.create(
             user=self.user,
             worker_code="INSPECTOR-TEST",
-            role=AccountProfile.Role.ALMACENERO,
+            role=AccountProfile.Role.INSPECTOR,
+            almacen=self.almacen,
             must_change_password=False,
         )
         self.client.force_authenticate(self.user)
@@ -24,6 +28,7 @@ class ActiveChecksTests(TestCase):
         
         # Categoría
         self.categoria = Categoria.objects.create(
+            almacen=self.almacen,
             nombre="Herramientas", 
             prefijo="H",
             activo=True,
@@ -41,6 +46,7 @@ class ActiveChecksTests(TestCase):
         # Material
         self.material = Material.objects.create(
             subcategoria=self.subcategoria,
+            almacen=self.almacen,
             nombre="Taladro",
             tipo_control="retornable",
             control_individual=True,
@@ -52,6 +58,22 @@ class ActiveChecksTests(TestCase):
             material=self.material,
             estado="Disponible"
         )
+
+    def test_plan_anual_escalonado(self):
+        """Verifica que el plan anual se genere con fechas escalonadas y no concentradas."""
+        # Crear varias piezas para el material
+        for _ in range(10):
+            Pieza.objects.create(material=self.material, estado="Disponible")
+        
+        cfg = construir_materiales_config(self.almacen.id)
+        plan, creadas = generar_plan_anual(2026, date(2026, 1, 1), cfg, self.almacen.id)
+        self.assertEqual(len(creadas), 11)
+        fechas = [p.fecha_programada for p in creadas]
+        # No deben ser todas la misma fecha
+        self.assertGreater(len(set(fechas)), 1)
+        # Ninguna debe caer en domingo
+        for f in fechas:
+            self.assertNotEqual(f.weekday(), 6)
 
     def test_vencidas_active_elements_appear(self):
         """Un material con todo activo debe aparecer en las alertas de vencidas."""

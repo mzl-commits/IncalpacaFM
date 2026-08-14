@@ -48,10 +48,28 @@ def construir_materiales_config(almacen):
 
     return materiales_config
 
+def _es_dia_laborable(d: date) -> bool:
+    """Evita domingos (weekday == 6)."""
+    return d.weekday() != 6
+
+def _ajustar_dia_laborable(d: date) -> date:
+    while not _es_dia_laborable(d):
+        d += timedelta(days=1)
+    return d
+
+def _obtener_ultima_inspeccion_fecha(objetivo, es_pieza: bool):
+    filtro = {"pieza": objetivo} if es_pieza else {"material": objetivo}
+    ultima = Inspeccion.objects.filter(**filtro).order_by("-fecha").first()
+    if ultima:
+        return ultima.fecha.date()
+    return None
+
 @transaction.atomic
 def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
     """materiales_config: lista de dicts con {"material" o "pieza", "periodicidad_dias"}.
-    Fase 6: el plan queda scoped por (anio, almacen); 'almacen' es obligatorio."""
+    Fase 6: el plan queda scoped por (anio, almacen); 'almacen' es obligatorio.
+    Distribuye y escalona las fechas a lo largo de los ciclos de periodicidad para evitar
+    saturar la jornada del inspector en un solo día, excluyendo domingos."""
     from apps.catalogo.models import Almacen
 
     if isinstance(almacen, Almacen):
@@ -64,33 +82,38 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
         defaults={"fecha_inicio": fecha_inicio, "fecha_fin": date(anio, 12, 31)},
     )
 
-    creadas = []
-    por_material = defaultdict(list)
+    fecha_base = max(fecha_inicio, date.today())
+
+    # Agrupar todos los items por periodicidad para escalonar uniformemente
     por_periodicidad = defaultdict(list)
     for item in materiales_config:
-        if "pieza" in item:
-            por_material[item["pieza"].material_id].append(item)
-        else:
-            # se agrupan por periodicidad para escalonar fechas en vez de amontonarlas
-            por_periodicidad[item["periodicidad_dias"]].append(item)
+        por_periodicidad[item["periodicidad_dias"]].append(item)
 
-    for items in por_periodicidad.values():
-        for item in items:
-            ancla = _fecha_ancla(item["material"], item["periodicidad_dias"], False, fecha_inicio)
+    creadas = []
+    for periodicidad_dias, items in por_periodicidad.items():
+        n = len(items)
+        for i, item in enumerate(items):
+            es_pieza = "pieza" in item
+            objetivo = item["pieza"] if es_pieza else item["material"]
+
+            # Si ya tiene una inspección previa registrada, respetar su fecha real
+            ultima_fecha = _obtener_ultima_inspeccion_fecha(objetivo, es_pieza)
+            if ultima_fecha:
+                fecha_prog = _ajustar_dia_laborable(ultima_fecha + timedelta(days=periodicidad_dias))
+            else:
+                # Escalonar uniformemente en el intervalo [1, periodicidad_dias]
+                dias_offset = 1 + int(round(i * (periodicidad_dias - 1) / max(n - 1, 1)))
+                fecha_prog = _ajustar_dia_laborable(fecha_base + timedelta(days=dias_offset))
+
             creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, material=item["material"], almacen=almacen_obj,
-                periodicidad_dias=item["periodicidad_dias"],
-                fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
+                plan=plan,
+                material=None if es_pieza else objetivo,
+                pieza=objetivo if es_pieza else None,
+                almacen=almacen_obj,
+                periodicidad_dias=periodicidad_dias,
+                fecha_programada=fecha_prog,
             ))
 
-    for items in por_material.values():
-        for item in items:
-            ancla = _fecha_ancla(item["pieza"], item["periodicidad_dias"], True, fecha_inicio)
-            creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, pieza=item["pieza"], almacen=almacen_obj,
-                periodicidad_dias=item["periodicidad_dias"],
-                fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
-            ))
     return plan, creadas
 
 def registrar_inspeccion_completada(programacion, inspeccion, generar_siguiente=True):
