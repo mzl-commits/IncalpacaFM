@@ -4,28 +4,11 @@
  * Formato APA 7 — Documento corporativo oficial.
  */
 
-/** Logo Incalpaca en SVG — forma de alpaca estilizada en negro institucional */
 export const INCALPACA_LOGO_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 200 200" fill="none">
-  <!-- Cuerpo principal -->
-  <ellipse cx="105" cy="130" rx="55" ry="42" fill="#111111"/>
-  <!-- Cuello -->
-  <rect x="88" y="72" width="22" height="46" rx="8" fill="#111111"/>
-  <!-- Cabeza -->
-  <ellipse cx="99" cy="62" rx="20" ry="18" fill="#111111"/>
-  <!-- Orejas -->
-  <ellipse cx="86" cy="44" rx="6" ry="12" rx="5" fill="#111111" transform="rotate(-15 86 44)"/>
-  <ellipse cx="112" cy="44" rx="6" ry="12" fill="#111111" transform="rotate(15 112 44)"/>
-  <!-- Patas delanteras -->
-  <rect x="78" y="162" width="12" height="28" rx="5" fill="#111111"/>
-  <rect x="95" y="162" width="12" height="28" rx="5" fill="#111111"/>
-  <!-- Patas traseras -->
-  <rect x="113" y="162" width="12" height="28" rx="5" fill="#111111"/>
-  <rect x="130" y="162" width="12" height="28" rx="5" fill="#111111"/>
-  <!-- Hocico -->
-  <ellipse cx="99" cy="72" rx="9" ry="6" fill="#333333"/>
-  <!-- Ojo -->
-  <circle cx="107" cy="57" r="3" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 105 105" fill="none">
+  <rect x="0" y="0" width="35" height="35" fill="#000000" />
+  <rect x="35" y="35" width="35" height="35" fill="#000000" />
+  <rect x="70" y="70" width="35" height="35" fill="#000000" />
 </svg>`;
 
 /** CSS base compartido para todos los reportes APA 7 corporativos de Incalpaca */

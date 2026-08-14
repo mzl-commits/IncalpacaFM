@@ -73,10 +73,10 @@ def build_work_order_pdf(order):
     doc = SimpleDocTemplate(
         output,
         pagesize=A4,
-        rightMargin=2.0 * cm,
-        leftMargin=2.0 * cm,
-        topMargin=2.2 * cm,
-        bottomMargin=2.2 * cm,
+        rightMargin=2.54 * cm,
+        leftMargin=2.54 * cm,
+        topMargin=2.54 * cm,
+        bottomMargin=2.54 * cm,
     )
 
     # 2. Estilos Tipográficos Formales con Generoso Interlineado
