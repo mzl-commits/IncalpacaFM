@@ -164,18 +164,14 @@ def _derive_legacy_fields(node: SpaceNode) -> dict:
         return fallback
 
     site_name = node.site.name
-    zone = first_name(SpaceNode.Type.MACRO_AREA, SpaceNode.Type.SECTOR, fallback="General")
+    zone = first_name(SpaceNode.Type.MACRO_AREA, fallback="General")
     building = first_name(
-        SpaceNode.Type.BUILDING,
-        SpaceNode.Type.SECTOR,
         SpaceNode.Type.MACRO_AREA,
         fallback=site_name,
     )
-    level = first_name(SpaceNode.Type.LEVEL)
+    level = "General"
     area = first_name(
         SpaceNode.Type.AREA,
-        SpaceNode.Type.MODULE,
-        SpaceNode.Type.SECTOR,
         SpaceNode.Type.MACRO_AREA,
         fallback="General",
     )
@@ -226,7 +222,7 @@ def sync_legacy_location(node: SpaceNode):
     activos, asignaciones y mapas históricos.
     """
 
-    if node.node_type != SpaceNode.Type.ENVIRONMENT:
+    if node.node_type != SpaceNode.Type.MODULE:
         return None
     from apps.assets.models import Location
 
@@ -273,7 +269,7 @@ def sync_legacy_location(node: SpaceNode):
 def sync_legacy_building_area(node: SpaceNode):
     """Proyecta m² de un edificio nuevo al registro legado de superficies."""
 
-    if node.node_type != SpaceNode.Type.BUILDING:
+    if node.node_type != SpaceNode.Type.MACRO_AREA:
         return None
     from apps.assets.models import BuildingArea
 
@@ -314,7 +310,7 @@ def sync_legacy_building_area(node: SpaceNode):
 def _nearest_building(node: SpaceNode) -> SpaceNode | None:
     current = node
     while current is not None:
-        if current.node_type == SpaceNode.Type.BUILDING:
+        if current.node_type == SpaceNode.Type.MACRO_AREA:
             return current
         current = current.parent
     return None
@@ -344,7 +340,7 @@ def sync_node_capacity_from_legacy_location(location):
     if not location.space_node_id:
         return None
     node = SpaceNode.objects.select_for_update().get(pk=location.space_node_id)
-    if node.node_type != SpaceNode.Type.ENVIRONMENT:
+    if node.node_type != SpaceNode.Type.MODULE:
         return None
     updates = []
     for field in ("square_meters", "headcount", "common_space"):
@@ -380,11 +376,11 @@ def update_facility_site(*, instance: FacilitySite, data: dict) -> FacilitySite:
         if field in data:
             setattr(site, field, data[field])
     site.full_clean()
-    if previous_name != site.name and SpaceNode.objects.filter(site=site, node_type=SpaceNode.Type.ENVIRONMENT).exists():
+    if previous_name != site.name and SpaceNode.objects.filter(site=site, node_type=SpaceNode.Type.MODULE).exists():
         # La proyección legada muestra el nombre de la sede; se actualiza sin
         # migrar ni tocar las ubicaciones ajenas a este nuevo dominio.
         site.save()
-        for environment in SpaceNode.objects.filter(site=site, node_type=SpaceNode.Type.ENVIRONMENT):
+        for environment in SpaceNode.objects.filter(site=site, node_type=SpaceNode.Type.MODULE):
             sync_legacy_location(environment)
         return site
     site.save()
@@ -495,7 +491,7 @@ def update_space_node(*, instance: SpaceNode, data: dict) -> SpaceNode:
         node_id=node.id,
     )
     if requested_type != node.node_type:
-        if node.node_type == SpaceNode.Type.ENVIRONMENT and requested_type != SpaceNode.Type.ENVIRONMENT:
+        if node.node_type == SpaceNode.Type.MODULE and requested_type != SpaceNode.Type.MODULE:
             try:
                 legacy_location = node.legacy_location
             except ObjectDoesNotExist:
@@ -557,9 +553,9 @@ def update_space_node(*, instance: SpaceNode, data: dict) -> SpaceNode:
         affected_nodes = _subtree_nodes(node) if projection_change else [node]
 
     for affected in affected_nodes:
-        if affected.node_type == SpaceNode.Type.ENVIRONMENT:
+        if affected.node_type == SpaceNode.Type.MODULE:
             sync_legacy_location(affected)
-        elif affected.node_type == SpaceNode.Type.BUILDING:
+        elif affected.node_type == SpaceNode.Type.MACRO_AREA:
             sync_legacy_building_area(affected)
     return node
 
@@ -627,7 +623,7 @@ def calculate_node_impact(node: SpaceNode) -> dict:
         "node_id": str(node.id),
         "active_children": SpaceNode.objects.filter(parent=node, active=True).count(),
         "descendant_count": max(len(descendants) - 1, 0),
-        "environment_count": sum(item.node_type == SpaceNode.Type.ENVIRONMENT for item in descendants),
+        "environment_count": sum(item.node_type == SpaceNode.Type.MODULE for item in descendants),
         "legacy_location_count": locations.count(),
         "asset_count": Asset.objects.filter(location__in=locations).count(),
         "assignment_count": AssetAssignment.objects.filter(location__in=locations).count(),
