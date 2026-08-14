@@ -578,8 +578,8 @@ export function AssetDetailPage() {
                     )}
                     <div style={{ flex: 1, display: "grid", gap: "8px" }}>
                       <label className="button button-secondary" style={{ width: "fit-content", cursor: "pointer", padding: "6px 14px", fontSize: "13px", margin: 0 }}>
-                        <span>{editForm.photo_url ? "Cambiar foto de bien" : "Subir imagen desde equipo"}</span>
-                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
+                        <span>{editForm.photo_url ? "Cambiar imagen" : "Subir imagen"}</span>
+                        <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
                           const reader = new FileReader();
@@ -589,13 +589,6 @@ export function AssetDetailPage() {
                           reader.readAsDataURL(file);
                         }} />
                       </label>
-                      <input
-                        type="url"
-                        placeholder="O pega el enlace URL de la foto (http://...)"
-                        value={editForm.photo_url || ""}
-                        onChange={(e) => updateEditField("photo_url", e.target.value)}
-                        style={{ fontSize: "12px", padding: "6px 10px" }}
-                      />
                     </div>
                   </div>
                 </div>
