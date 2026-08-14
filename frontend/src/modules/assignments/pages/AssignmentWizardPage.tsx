@@ -428,18 +428,24 @@ export function AssignmentWizardPage() {
                 ))}
               </div>
               <div className="responsible-options">
-                {responsibles.map((x) => (
-                  <label className={draft.responsible_id === x.id ? "is-selected" : ""} key={x.id}>
-                    <input
-                      type="radio"
-                      name="responsible"
-                      checked={draft.responsible_id === x.id}
-                      onChange={() => set("responsible_id", x.id)}
-                    />
-                    <strong>{x.display_name}</strong>
-                    <small>{x.area_name || x.external_reference}</small>
-                  </label>
-                ))}
+                {responsibles.length === 0 ? (
+                  <div className="form-alert" style={{ background: '#f8f9fa', color: '#555', border: '1px dashed #ccc' }}>
+                    <p style={{ margin: 0 }}>No hay {type === "PERSONA" ? "personas" : type === "AREA" ? "áreas" : "espacios comunes"} disponibles.</p>
+                  </div>
+                ) : (
+                  responsibles.map((x) => (
+                    <label className={draft.responsible_id === x.id ? "is-selected" : ""} key={x.id}>
+                      <input
+                        type="radio"
+                        name="responsible"
+                        checked={draft.responsible_id === x.id}
+                        onChange={() => set("responsible_id", x.id)}
+                      />
+                      <strong>{x.display_name}</strong>
+                      <small>{x.area_name || x.external_reference}</small>
+                    </label>
+                  ))
+                )}
               </div>
               <label className="field">
                 <span>Motivo de la asignación *</span>
