@@ -1,7 +1,7 @@
 import { CheckCircle, FloppyDisk, Info, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { useSpaceOptions, useSites } from "../spacesQueries";
-import type { SpaceNode, SpaceNodeInput, SpaceSite, SpaceSiteInput } from "../types";
+import type { SpaceNode, SpaceNodeInput, SpaceSite, SpaceSiteInput, SpaceOption } from "../types";
 import {
   spaceKindCodeHints,
   spaceKindDescriptions,
@@ -165,13 +165,22 @@ export function SpaceNodeForm({
   const [headcount, setHeadcount] = useState(node?.headcount == null ? "" : String(node.headcount));
   const [commonSpace, setCommonSpace] = useState(node?.commonSpace ?? false);
   const [error, setError] = useState("");
+  const [macroPrefix, setMacroPrefix] = useState("AD");
+
+  const MACRO_PREFIXES = [
+    { value: "PP", label: "PP - Planta de producción" },
+    { value: "AD", label: "AD - Sectores administrativos" },
+    { value: "CO", label: "CO - Sectores comerciales" },
+    { value: "RE", label: "RE - Sectores de retail" },
+    { value: "AL", label: "AL - Sectores de almacenamiento" },
+  ];
 
   const sites = useMemo(
     () => (sitesQuery.data ?? optionsQuery.data?.sites ?? []).filter((site) => site.active || site.id === node?.siteId),
     [node?.siteId, optionsQuery.data?.sites, sitesQuery.data],
   );
   const allowedNodeTypes = useMemo(() => optionsQuery.data?.allowedNodeTypes ?? [], [optionsQuery.data?.allowedNodeTypes]);
-  const parentOptions = useMemo(() => optionsQuery.data?.nodes ?? [], [optionsQuery.data?.nodes]);
+  const parentOptions = useMemo(() => optionsQuery.data?.nodes ?? ([] as SpaceOption[]), [optionsQuery.data?.nodes]);
   const selectedType = nodeType;
   const selectedSite = sites.find((site) => site.id === siteId) ?? null;
   const selectedSiteArchived = Boolean(selectedSite && !selectedSite.active);
@@ -187,6 +196,11 @@ export function SpaceNodeForm({
       setHeadcount(node.headcount == null ? "" : String(node.headcount));
       setCommonSpace(node.commonSpace);
       setError("");
+      
+      if (node.nodeType === "MACRO_AREA") {
+        const match = MACRO_PREFIXES.find(p => node.codeSegment.startsWith(p.value));
+        if (match) setMacroPrefix(match.value);
+      }
     }
   }, [node]);
 
@@ -217,6 +231,33 @@ export function SpaceNodeForm({
     setNodeType(targetType);
     setError("");
   }
+
+  useEffect(() => {
+    if (node) return; // Solo autogenera en creación
+    if (!name.trim()) {
+      setCodeSegment("");
+      return;
+    }
+
+    const letters = name.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (!letters) return;
+
+    let basePrefix = "";
+    if (selectedType === "MACRO_AREA") {
+      basePrefix = macroPrefix;
+    }
+
+    const siblings = parentOptions.filter((p: any) => p.parentId === parentId && p.nodeType === selectedType);
+    
+    let generated = basePrefix + letters.charAt(0);
+    const isRepeated = (code: string) => siblings.some(s => s.codeSegment === code);
+
+    if (isRepeated(generated) && letters.length > 1) {
+      generated = basePrefix + letters.substring(0, 2);
+    }
+    
+    setCodeSegment(generated);
+  }, [name, macroPrefix, selectedType, parentId, parentOptions, node]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -352,26 +393,17 @@ export function SpaceNodeForm({
       </section>
 
       {/* Paso 3: Selección del Padre Directo */}
-      <section className="space-form-step">
-        <header>
-          <span>Paso 3</span>
-          <h3>
-            {currentLevel === 2
-              ? "Padre Directo: Raíz de la Sede"
-              : `Selecciona el Padre Directo (Nivel ${currentLevel - 1} o superior)`}
-          </h3>
-          <p>
-            {currentLevel === 2
-              ? "Los espacios de Nivel 2 se ubican directamente en la raíz de la Sede."
-              : `Selecciona el espacio de Nivel ${currentLevel - 1} al que pertenece directamente.`}
-          </p>
-        </header>
-        {currentLevel === 2 ? (
-          <div className="space-form-feedback">
-            <Info weight="duotone" />
-            <span>El espacio se creará directamente en la Sede seleccionada ({selectedSite?.code || "Sede"}).</span>
-          </div>
-        ) : (
+      {currentLevel > 2 && (
+        <section className="space-form-step">
+          <header>
+            <span>Paso 3</span>
+            <h3>
+              Selecciona el Padre Directo (Nivel {currentLevel - 1} o superior)
+            </h3>
+            <p>
+              Selecciona el espacio de Nivel {currentLevel - 1} al que pertenece directamente.
+            </p>
+          </header>
           <div className="space-form-grid">
             <label className="space-form-full">
               <span>Pertenece a <b>*</b></span>
@@ -395,29 +427,17 @@ export function SpaceNodeForm({
               )}
             </label>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Paso 4: Identidad y Medidas del Espacio */}
       <section className="space-form-step">
         <header>
-          <span>Paso 4</span>
+          <span>Paso {currentLevel > 2 ? 4 : 3}</span>
           <h3>Datos e Identificación del Espacio</h3>
-          <p>Asigna el código de segmento, el nombre legible y sus medidas operativas.</p>
+          <p>Asigna el nombre legible y sus medidas operativas.</p>
         </header>
         <div className="space-form-grid">
-          <label>
-            <span>Segmento de código <b>*</b></span>
-            <input
-              value={codeSegment}
-              onChange={(event) => setCodeSegment(event.target.value.toUpperCase())}
-              placeholder={spaceKindCodeHints[selectedType]}
-              maxLength={16}
-              autoComplete="off"
-              required
-            />
-            <small>Segmento único dentro del mismo nivel.</small>
-          </label>
           <label>
             <span>Nombre del espacio <b>*</b></span>
             <input
@@ -428,6 +448,17 @@ export function SpaceNodeForm({
             />
             <small>Nombre descriptivo legible.</small>
           </label>
+          {selectedType === "MACRO_AREA" && !node && (
+            <label>
+              <span>Tipo de área macro <b>*</b></span>
+              <select value={macroPrefix} onChange={(e) => setMacroPrefix(e.target.value)}>
+                {MACRO_PREFIXES.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+              <small>Clasificador operativo predefinido.</small>
+            </label>
+          )}
           <label>
             <span>Metros cuadrados</span>
             <div className="space-input-unit">

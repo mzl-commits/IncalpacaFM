@@ -123,7 +123,7 @@ export type SpaceImpact = {
 
 export type SpaceOption = Pick<
   SpaceNode,
-  "id" | "siteId" | "parentId" | "kind" | "nodeType" | "code" | "name" | "pathCode" | "active"
+  "id" | "siteId" | "parentId" | "kind" | "nodeType" | "codeSegment" | "code" | "name" | "pathCode" | "active"
 >;
 
 export type SpaceNodeTypeOption = {
