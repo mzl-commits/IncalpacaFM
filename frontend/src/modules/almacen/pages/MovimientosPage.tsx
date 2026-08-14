@@ -1,16 +1,30 @@
-import { Plus, MagnifyingGlass, Funnel, ArrowClockwise } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, Funnel, ArrowClockwise, FileXls, ClipboardText } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
-import { listMovimientos } from "@/modules/almacen/inventarioRepository";
+import { listMovimientos, listGruposSolicitud, descargarExcelMovimientos } from "@/modules/almacen/inventarioRepository";
+import { useAuth } from "@/modules/accounts/AuthContext";
 import type { TipoMovimiento } from "@/modules/almacen/types";
 
 export function MovimientosPage() {
   const { almacenId } = useAlmacenActivo();
+  const { user } = useAuth();
   const [q, setQ] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimiento | "todos">("todos");
+  const [exportando, setExportando] = useState(false);
+
+  const esAdmin = user?.role === "ADMINISTRADOR";
+
+  async function handleExportarExcel() {
+    setExportando(true);
+    try {
+      await descargarExcelMovimientos();
+    } finally {
+      setExportando(false);
+    }
+  }
 
   const {
     data: movimientos,
@@ -24,6 +38,12 @@ export function MovimientosPage() {
         tipo: tipoFiltro === "todos" ? undefined : tipoFiltro,
       }),
     enabled: !!almacenId,
+  });
+
+  const { data: gruposPendientes = [] } = useQuery({
+    queryKey: ["grupos-solicitud", "pendiente"],
+    queryFn: () => listGruposSolicitud({ estado: "pendiente" }),
+    enabled: esAdmin,
   });
 
   // La API no soporta búsqueda por texto en el backend, así que filtramos en el cliente.
@@ -56,13 +76,41 @@ export function MovimientosPage() {
           <p className="breadcrumb">Almacén / Movimientos</p>
           <h1 style={{ margin: 0 }}>Historial de Movimientos</h1>
         </div>
-        <Link
-          to={`/almacen/${almacenId}/movimientos/nuevo`}
-          className="button button-primary"
-          style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-        >
-          <Plus size={18} weight="bold" /> Registrar movimiento
-        </Link>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {esAdmin && (
+            <>
+              {gruposPendientes.length > 0 && (
+                <Link
+                  to={`/almacen/${almacenId}/movimientos/solicitudes`}
+                  className="button button-secondary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <ClipboardText size={17} />
+                  Solicitudes
+                  <span style={{ background: "#f59e0b", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 12, fontWeight: 700 }}>
+                    {gruposPendientes.length}
+                  </span>
+                </Link>
+              )}
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportarExcel}
+                disabled={exportando}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                <FileXls size={17} /> {exportando ? "Exportando…" : "Exportar Excel"}
+              </button>
+            </>
+          )}
+          <Link
+            to={`/almacen/${almacenId}/movimientos/nuevo`}
+            className="button button-primary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+          >
+            <Plus size={18} weight="bold" /> Registrar movimiento
+          </Link>
+        </div>
       </div>
 
       {/* Controles y Filtros */}
@@ -166,7 +214,7 @@ export function MovimientosPage() {
                     </td>
                     <td style={{ padding: "12px 16px", fontWeight: 600 }}>
                       {mov.cantidad_cajas
-                        ? `${mov.cantidad_cajas} caja(s)`
+                        ? `${mov.cantidad_cajas} emp. (${mov.cantidad} u.)`
                         : `${mov.cantidad ?? 1} u.`}
                     </td>
                     <td style={{ padding: "12px 16px" }}>

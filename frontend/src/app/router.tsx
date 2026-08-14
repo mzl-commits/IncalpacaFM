@@ -528,6 +528,13 @@ export const router = createBrowserRouter([
             lazy: lazyRoute(() => import("@/modules/almacen/pages/MovimientoFormPage"), "MovimientosFormPage"),
           },
           {
+            path: "movimientos/solicitudes",
+            lazy: lazyRoute(
+              () => import("@/modules/almacen/pages/SolicitudesMovimientoPage"),
+              "SolicitudesMovimientoPage",
+            ),
+          },
+          {
             path: "movimientos/solicitudes/:id",
             lazy: lazyRoute(() => import("@/modules/almacen/pages/SolicitudGrupoDetailPage"), "SolicitudGrupoDetailPage"),
           },
