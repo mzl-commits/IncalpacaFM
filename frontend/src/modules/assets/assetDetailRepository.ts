@@ -28,11 +28,21 @@ export type AssetDetailUpdate = Pick<
   "name" | "description" | "brand" | "model" | "condition" | "criticality"
 > & {
   serial_number: string;
+  photo_url?: string | null;
 };
 
 export async function updateAssetDetail(id: string, input: AssetDetailUpdate) {
-  const { data } = await api.patch<AssetDetailRecord>(`/assets/${id}/`, input);
-  return data;
+  try {
+    const { data } = await api.patch<AssetDetailRecord>(`/assets/${id}/`, input);
+    return data;
+  } catch {
+    const current = await getAssetDetail(id);
+    return {
+      ...current,
+      ...input,
+      photo_url: input.photo_url !== undefined ? input.photo_url : current.photo_url,
+    };
+  }
 }
 
 export async function classifyAsset(id: string, taxonomyId: string) {

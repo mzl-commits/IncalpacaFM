@@ -139,6 +139,7 @@ export function AssetDetailPage() {
       serial_number: asset.serial_number ?? "",
       condition: asset.condition,
       criticality: asset.criticality,
+      photo_url: asset.photo_url ?? "",
     });
     setEditError("");
     setSaved(false);
@@ -168,7 +169,8 @@ export function AssetDetailPage() {
     } finally {
       setSaving(false);
     }
-  }  function handleOpenAddResponsible() {
+  }
+  function handleOpenAddResponsible() {
     setNewRespForm({
       responsible: activeAssignment?.responsible && activeAssignment.responsible !== "Sin asignar" ? activeAssignment.responsible : "",
       area: activeAssignment?.area || "",
@@ -561,6 +563,42 @@ export function AssetDetailPage() {
                 </div>
               )}
               <div className="asset-edit-fields">
+                <div className="field field-wide" style={{ display: "grid", gap: "8px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#111" }}>Fotografía del bien / equipo</span>
+                  <div style={{ display: "flex", gap: "14px", alignItems: "center", background: "#f8f9fa", padding: "12px", borderRadius: "8px", border: "1px solid #e4e4e4" }}>
+                    {editForm.photo_url ? (
+                      <div style={{ position: "relative", width: "72px", height: "72px", flexShrink: 0 }}>
+                        <img src={editForm.photo_url} alt="Vista previa" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "6px", border: "1px solid #ddd" }} />
+                        <button type="button" onClick={() => updateEditField("photo_url", "")} style={{ position: "absolute", top: "-6px", right: "-6px", background: "#111", color: "#fff", border: "none", borderRadius: "50%", width: "20px", height: "20px", cursor: "pointer", fontSize: "11px" }}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{ width: "72px", height: "72px", borderRadius: "6px", background: "#eee", display: "grid", placeItems: "center", color: "#888", flexShrink: 0, fontSize: "11px", textAlign: "center" }}>
+                        Sin foto
+                      </div>
+                    )}
+                    <div style={{ flex: 1, display: "grid", gap: "8px" }}>
+                      <label className="button button-secondary" style={{ width: "fit-content", cursor: "pointer", padding: "6px 14px", fontSize: "13px", margin: 0 }}>
+                        <span>{editForm.photo_url ? "Cambiar foto de bien" : "Subir imagen desde equipo"}</span>
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            if (ev.target?.result) updateEditField("photo_url", ev.target.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }} />
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="O pega el enlace URL de la foto (http://...)"
+                        value={editForm.photo_url || ""}
+                        onChange={(e) => updateEditField("photo_url", e.target.value)}
+                        style={{ fontSize: "12px", padding: "6px 10px" }}
+                      />
+                    </div>
+                  </div>
+                </div>
                 <label className="field field-wide">
                   <span>Nombre del bien *</span>
                   <input
