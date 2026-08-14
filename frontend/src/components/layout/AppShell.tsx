@@ -70,9 +70,11 @@ const modules: ModuleGroup[] = [
     label: "Mantenimiento",
     shortLabel: "Mantenimiento",
     icon: Wrench,
-    paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada", "/supervision"],
+    paths: ["/", "/mi-perfil", "/incidencias", "/ordenes-trabajo", "/mi-jornada", "/supervision"],
     items: [
       { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true, roles: ["ADMINISTRADOR", "TECNICO"] },
+      { to: "/", label: "Inicio", icon: House, end: true, roles: ["SOLICITANTE"] },
+      { to: "/incidencias/nueva", label: "Nueva solicitud", icon: WarningDiamond, roles: ["SOLICITANTE"] },
       { to: "/", label: "Inicio", icon: SquaresFour, end: true, roles: ["SUPERVISOR"] },
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, roles: ["ADMINISTRADOR"] },
       { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, roles: ["ADMINISTRADOR", "TECNICO"] },
@@ -223,6 +225,7 @@ function compactSupervisorLabel(path: string, label: string) {
 
 function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Mantenimiento", "Panel operativo"];
+  if (pathname.startsWith("/mi-perfil")) return ["Solicitante", "Inicio"];
   if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
   if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
   if (pathname.startsWith("/mapa")) return ["Activos y espacios", "Mapa de activos"];
@@ -367,13 +370,13 @@ export function AppShell() {
 
   return (
     <div className="app-frame-overlay">
-      {user?.role === "TECNICO" ? (
+      {user?.role === "TECNICO" || user?.role === "SOLICITANTE" ? (
         <aside className="technician-sidebar" aria-label="Navegación del técnico">
           <div className="technician-sidebar-brand">
             <BrandLogo size={36} variant="light" />
-            <span><strong>FM Incalpaca</strong><small>Mi trabajo</small></span>
+            <span><strong>FM Incalpaca</strong><small>{user.role === "SOLICITANTE" ? "Mis solicitudes" : "Mi trabajo"}</small></span>
           </div>
-          <nav className="technician-sidebar-nav" aria-label="Mi trabajo">
+          <nav className="technician-sidebar-nav" aria-label={user.role === "SOLICITANTE" ? "Mis solicitudes" : "Mi trabajo"}>
             {technicianNavigation.map(({ to, label, icon: Icon, end, count }) => (
               <NavLink key={to} to={to} end={end} className={({ isActive }) => `technician-sidebar-link ${isActive ? "is-active" : ""}`}>
                 <Icon size={20} weight="duotone" /><span>{label}</span>{count !== undefined && <small>{count}</small>}
@@ -381,7 +384,7 @@ export function AppShell() {
             ))}
           </nav>
           <NavLink to="/perfil" className="technician-sidebar-profile">
-            <span>{initials}</span><div><strong>{user.fullName}</strong><small>Técnico</small></div>
+            <span>{initials}</span><div><strong>{user.fullName}</strong><small>{user.role === "SOLICITANTE" ? "Usuario solicitante" : "Técnico"}</small></div>
           </NavLink>
           <button className="technician-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
         </aside>

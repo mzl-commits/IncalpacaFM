@@ -46,7 +46,7 @@ export function ReportIncidentModal({ onClose, prefilledAssetId, assignedAssets 
     setIsSubmitting(true);
 
     try {
-      await createWorkRequest({
+      const createdRequest = await createWorkRequest({
         requesterId: currentUser.id,
         requesterName: currentUser.fullName,
         requesterEmail: currentUser.email,
@@ -64,7 +64,7 @@ export function ReportIncidentModal({ onClose, prefilledAssetId, assignedAssets 
         status: "PENDIENTE",
       });
       onClose();
-      navigate("/incidencias");
+      navigate(`/incidencias/${createdRequest.id}`);
     } catch {
       setError("No se pudo registrar la solicitud. Inténtalo nuevamente.");
       setIsSubmitting(false);
@@ -82,17 +82,17 @@ export function ReportIncidentModal({ onClose, prefilledAssetId, assignedAssets 
         </button>
         
         <div style={{ marginBottom: "1.5rem" }}>
-          <h2 style={{ fontSize: "1.25rem", margin: "0 0 0.5rem 0" }}>Reportar Incidencia</h2>
+          <h2 style={{ fontSize: "1.25rem", margin: "0 0 0.5rem 0" }}>Registrar solicitud</h2>
           <p style={{ margin: 0, color: "var(--color-text-light)", fontSize: "0.875rem" }}>
-            Describe el problema para que el equipo de mantenimiento pueda atenderlo.
+            Describe lo que necesitas para que el equipo de mantenimiento pueda atenderlo.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           <label className="field">
-            <span>Bien Afectado</span>
+            <span>Bien relacionado</span>
             <select value={assetId} onChange={(e) => setAssetId(e.target.value)}>
-              <option value="general">Ninguno / Otro bien (Reporte General)</option>
+              <option value="general">Ninguno / Otro bien (Solicitud general)</option>
               {assignedAssets.map(asset => (
                 <option key={asset.id} value={asset.id}>
                   {asset.name} ({asset.fm_code || asset.code})
@@ -127,10 +127,10 @@ export function ReportIncidentModal({ onClose, prefilledAssetId, assignedAssets 
               </label>
 
               <label className="field field-wide">
-                <span>Descripción del problema *</span>
+                <span>Descripcion de la solicitud *</span>
                 <textarea
                   required
-                  placeholder="Describe qué ocurre, desde cuándo y detalles importantes."
+                  placeholder="Describe que necesitas, desde cuando ocurre y detalles importantes."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
@@ -149,7 +149,7 @@ export function ReportIncidentModal({ onClose, prefilledAssetId, assignedAssets 
             </>
           ) : (
             <div style={{ padding: "1rem", backgroundColor: "var(--color-background-soft)", borderRadius: "8px", fontSize: "0.875rem", color: "var(--color-text-light)", textAlign: "center" }}>
-              Serás redirigido al formulario completo para buscar la ubicación oficial del problema o el código de otro bien.
+              Iras al formulario completo para buscar la ubicacion oficial de la solicitud o el codigo de otro bien.
             </div>
           )}
 

@@ -1,9 +1,12 @@
 import { Camera, CheckCircle, PaperPlaneTilt } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { api } from "@/services/api";
 import { createClientId } from "@/utils/uuid";
+import { useAuth } from "@/modules/accounts/AuthContext";
+import type { WorkRequest } from "@/modules/incidents/types";
+import type { RequestType } from "@/modules/incidents/incidentModel";
 
 type ImpactAnswer = "" | "SI" | "NO";
 type AffectedPeople = "" | "SOLO_YO" | "VARIAS_PERSONAS" | "TODA_EL_AREA";
@@ -133,7 +136,24 @@ function getSubmitErrorMessage(error: unknown) {
   }
   return "No se pudo registrar la solicitud. Intenta nuevamente.";
 }
+
+function getInternalRequestType(issueCategory: string): RequestType {
+  const categoryMap: Record<string, RequestType> = {
+    ELECTRICO: "ELECTRICO",
+    GASFITERIA: "GASFITERIA",
+    CLIMATIZACION: "CLIMATIZACION",
+    MOBILIARIO: "MOBILIARIO",
+    INFRAESTRUCTURA: "ACABADOS",
+    EQUIPO: "MANTENIMIENTO_CORRECTIVO",
+    OTRO: "OTRO",
+  };
+  return categoryMap[issueCategory] ?? "MANTENIMIENTO_CORRECTIVO";
+}
+
 export function PublicWorkRequestPage() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [assetToken] = useState(() => new URLSearchParams(window.location.search).get("asset")?.trim() ?? "");
   const [form, setForm] = useState<PublicRequestFormState>(initialForm);
   const [submittedCode, setSubmittedCode] = useState("");
@@ -147,6 +167,24 @@ export function PublicWorkRequestPage() {
   const [identityMessage, setIdentityMessage] = useState("");
 
   useEffect(() => {
+    if (user && location.pathname === "/solicitud-trabajo") {
+      navigate(`/incidencias/nueva${location.search}`, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    setForm((current) => ({
+      ...current,
+      requesterName: user.fullName,
+      requesterEmail: user.email,
+      requesterDni: user.dni ?? current.requesterDni,
+      requesterWorkerCode: user.workerCode ?? current.requesterWorkerCode,
+    }));
+  }, [user]);
+
+  useEffect(() => {
+    if (user) return;
     const dni = form.requesterDni.trim();
     const workerCode = form.requesterWorkerCode.trim();
     if (dni.length !== 8 && !workerCode) { setIdentityMessage(""); return; }
@@ -160,7 +198,7 @@ export function PublicWorkRequestPage() {
         .catch(() => setIdentityMessage("No se pudo verificar la identidad; puedes continuar completando los datos."));
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [form.requesterDni, form.requesterWorkerCode]);
+  }, [form.requesterDni, form.requesterWorkerCode, user]);
 
   useEffect(() => {
     let active = true;
@@ -325,6 +363,53 @@ export function PublicWorkRequestPage() {
     setError("");
 
     try {
+      if (user) {
+        const { data } = await api.post<WorkRequest>("/incidents/", {
+          assetId: undefined,
+          locationId: form.locationId,
+          locationMapId: undefined,
+          locationMarkerX: undefined,
+          locationMarkerY: undefined,
+          zone: form.zone,
+          building: form.building.trim(),
+          area: form.area.trim(),
+          room: form.room.trim(),
+          requestType: getInternalRequestType(form.issueCategory),
+          description: form.description.trim(),
+          requesterPriority: suggestedPriority,
+          project: false,
+          evidence: form.photoName
+            ? [
+                {
+                  id: createClientId("evidence"),
+                  name: form.photoName,
+                  mimeType: "image/*",
+                  size: 0,
+                },
+              ]
+            : [],
+          impactAssessment: {
+            suggestedPriority,
+            priorityReasons,
+            answers: {
+              issueCategory: form.issueCategory,
+              otherIssueCategoryDetail: form.issueCategory === "OTRO" ? form.otherIssueCategoryDetail.trim() : "",
+              otherRequestDetail: form.issueCategory === "OTRO" ? form.otherIssueCategoryDetail.trim() : "",
+              assetCondition: form.assetCondition,
+              startedWhen: form.startedWhen,
+              stopsWork: form.stopsWork,
+              safetyRisk: form.safetyRisk,
+              essentialService: form.essentialService,
+              biggerDamageRisk: form.biggerDamageRisk,
+              affectedPeople: form.affectedPeople,
+            },
+            noPhotoReason: form.cannotAttachPhoto ? form.noPhotoReason.trim() : "",
+          },
+        });
+        navigate(`/incidencias/${data.id}`);
+        return;
+      }
+
       const { data } = await api.post<{ code: string; emailSent?: boolean }>("/incidents/public/", {
         requesterName: form.requesterName.trim(),
         requesterEmail: form.requesterEmail.trim(),
@@ -427,7 +512,21 @@ export function PublicWorkRequestPage() {
           </div>
         )}
 
+        {user && (
+          <div className="public-request-success" role="status">
+            <CheckCircle size={24} weight="fill" />
+            <div>
+              <strong>Solicitud como usuario registrado</strong>
+              <p>
+                Se registrara con {user.fullName}
+                {user.workerCode ? ` (${user.workerCode})` : ""}. No necesitas volver a escribir tus datos.
+              </p>
+            </div>
+          </div>
+        )}
+
         <form className="data-panel public-request-form" onSubmit={handleSubmit}>
+          {!user && (
           <div className="form-section">
             <div className="section-heading">
               <div>
@@ -496,6 +595,7 @@ export function PublicWorkRequestPage() {
               {identityMessage && <p className="form-hint" role="status">{identityMessage}</p>}
             </div>
           </div>
+          )}
 
           <div className="form-section">
             <div className="section-heading">
