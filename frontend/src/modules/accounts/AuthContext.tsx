@@ -58,57 +58,26 @@ function storedUser() {
   }
 }
 
-const DEMO_USERS: Record<string, ApiUser> = {
-  admin: {
-    id: "demo-admin",
-    user_id: 1,
-    worker_code: "admin",
-    full_name: "Administrador General",
-    email: "admin@incalpaca.com.pe",
-    role: "ADMINISTRADOR",
-    specialty: "Mantenimiento General",
-    dni: "12345678",
-    position: "Jefe de FM",
-    hourly_rate: 45.0,
-    must_change_password: false,
-  },
-};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SystemUser | null>(storedUser);
 
   async function login(input: LoginInput) {
-    const code = input.workerCode.trim().toLowerCase();
-    
-    try {
-      const { data } = await api.post<{
-        access: string;
-        refresh: string;
-        user: ApiUser;
-      }>("/auth/login/", {
-        worker_code: input.workerCode,
-        password: input.password,
-      });
-      const mapped = mapUser(data.user);
-      sessionStorage.setItem("sgtb_access_token", data.access);
-      sessionStorage.setItem("sgtb_refresh_token", data.refresh);
-      sessionStorage.setItem("sgtb_current_user", JSON.stringify(mapped));
-      void api.post("/privacy/acknowledgements/", { context: "LOGIN", subject_reference: mapped.workerCode }).catch(() => undefined);
-      setUser(mapped);
-      return mapped;
-    } catch (err) {
-      // Fallback a cuenta demo si el backend no está disponible o es credencial demo local
-      const demoMatch = DEMO_USERS[code] || DEMO_USERS.admin;
-      if (demoMatch) {
-        const mapped = mapUser(demoMatch);
-        sessionStorage.setItem("sgtb_access_token", "demo-token-" + mapped.role);
-        sessionStorage.setItem("sgtb_refresh_token", "demo-refresh-" + mapped.role);
-        sessionStorage.setItem("sgtb_current_user", JSON.stringify(mapped));
-        setUser(mapped);
-        return mapped;
-      }
-      throw err;
-    }
+    const { data } = await api.post<{
+      access: string;
+      refresh: string;
+      user: ApiUser;
+    }>("/auth/login/", {
+      worker_code: input.workerCode,
+      password: input.password,
+    });
+    const mapped = mapUser(data.user);
+    sessionStorage.setItem("sgtb_access_token", data.access);
+    sessionStorage.setItem("sgtb_refresh_token", data.refresh);
+    sessionStorage.setItem("sgtb_current_user", JSON.stringify(mapped));
+    void api.post("/privacy/acknowledgements/", { context: "LOGIN", subject_reference: mapped.workerCode }).catch(() => undefined);
+    setUser(mapped);
+    return mapped;
   }
 
   function logout() {

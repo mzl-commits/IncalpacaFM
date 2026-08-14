@@ -9,8 +9,8 @@ export function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [workerCode, setWorkerCode] = useState("admin");
-  const [password, setPassword] = useState("Montescoli3");
+  const [workerCode, setWorkerCode] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -93,59 +93,6 @@ export function LoginPage() {
           <p className="login-privacy-copy">
             Al ingresar, el sistema registra el acceso para proteger los bienes y la trazabilidad del servicio. Consulta el aviso de privacidad y ejerce tus derechos ARCO en <a href="/privacidad">Privacidad</a>.
           </p>
-          <aside className="login-demo-accounts">
-            <strong>Ingreso rápido (demostración):</strong>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
-              <button
-                type="button"
-                className="button button-secondary"
-                style={{ fontSize: "12px", padding: "6px 12px" }}
-                onClick={() => {
-                  setWorkerCode("admin");
-                  setPassword("Montescoli3");
-                  void login({ workerCode: "admin", password: "Montescoli3" }).then((u) => navigate(u.role === "SUPERVISOR" ? "/supervision" : "/"));
-                }}
-              >
-                👑 Admin (admin)
-              </button>
-              <button
-                type="button"
-                className="button button-secondary"
-                style={{ fontSize: "12px", padding: "6px 12px" }}
-                onClick={() => {
-                  setWorkerCode("supervisor");
-                  setPassword("12345");
-                  void login({ workerCode: "supervisor", password: "12345" }).then(() => navigate("/supervision"));
-                }}
-              >
-                📋 Supervisor (supervisor)
-              </button>
-              <button
-                type="button"
-                className="button button-secondary"
-                style={{ fontSize: "12px", padding: "6px 12px" }}
-                onClick={() => {
-                  setWorkerCode("tecnico");
-                  setPassword("Montescoli3");
-                  void login({ workerCode: "tecnico", password: "Montescoli3" }).then(() => navigate("/mi-jornada"));
-                }}
-              >
-                🛠️ Técnico (tecnico)
-              </button>
-              <button
-                type="button"
-                className="button button-secondary"
-                style={{ fontSize: "12px", padding: "6px 12px" }}
-                onClick={() => {
-                  setWorkerCode("usuario");
-                  setPassword("Montescoli3");
-                  void login({ workerCode: "usuario", password: "Montescoli3" }).then(() => navigate("/mi-perfil"));
-                }}
-              >
-                👤 Solicitante (usuario)
-              </button>
-            </div>
-          </aside>
         </form>
       </section>
     </main>
