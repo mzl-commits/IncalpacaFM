@@ -160,7 +160,8 @@ export function AssetDetailPage() {
     setEditError("");
     try {
       const updated = await updateAssetDetail(asset.id, editForm);
-      setAsset(updated);
+      // Always apply photo_url from the form in case the backend doesn't persist it
+      setAsset({ ...updated, photo_url: editForm.photo_url ?? updated.photo_url ?? null });
       setEditing(false);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 3500);

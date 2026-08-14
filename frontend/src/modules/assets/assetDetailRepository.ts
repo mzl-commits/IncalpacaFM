@@ -18,9 +18,24 @@ export type AssetDetailRecord = {
   }>;
 };
 
+const PHOTO_STORAGE_KEY = (id: string) => `asset_photo_${id}`;
+
+export function getLocalPhoto(id: string): string | null {
+  try { return localStorage.getItem(PHOTO_STORAGE_KEY(id)); } catch { return null; }
+}
+
+export function setLocalPhoto(id: string, url: string | null | undefined) {
+  try {
+    if (url) localStorage.setItem(PHOTO_STORAGE_KEY(id), url);
+    else localStorage.removeItem(PHOTO_STORAGE_KEY(id));
+  } catch { /* ignore */ }
+}
+
 export async function getAssetDetail(id: string) {
   const { data } = await api.get<AssetDetailRecord>(`/assets/${id}/`);
-  return data;
+  // Merge with locally stored photo (local takes precedence when backend hasn't stored it)
+  const localPhoto = getLocalPhoto(id);
+  return { ...data, photo_url: data.photo_url ?? localPhoto ?? null };
 }
 
 export type AssetDetailUpdate = Pick<
@@ -32,9 +47,14 @@ export type AssetDetailUpdate = Pick<
 };
 
 export async function updateAssetDetail(id: string, input: AssetDetailUpdate) {
+  // Always persist photo_url locally so it survives page reloads
+  setLocalPhoto(id, input.photo_url);
+
   try {
     const { data } = await api.patch<AssetDetailRecord>(`/assets/${id}/`, input);
-    return data;
+    // Merge backend response with the photo we saved locally
+    const localPhoto = getLocalPhoto(id);
+    return { ...data, photo_url: data.photo_url ?? localPhoto ?? null };
   } catch {
     const current = await getAssetDetail(id);
     return {
