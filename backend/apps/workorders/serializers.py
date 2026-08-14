@@ -284,15 +284,40 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         direct_request_type = validated_data.pop("directRequestType", "").strip() or ("OL directa" if order_type == WorkOrder.OrderType.CLEANING else "OT directa")
         direct_asset_id = validated_data.pop("directAssetId", None)
         direct_location_id = validated_data.pop("directLocationId", None)
-        technician_code = validated_data.pop("technicianWorkerCode", "tecnico")
+        technician_code = validated_data.pop("technicianWorkerCode", None)
         technician_codes = validated_data.pop("technicianWorkerCodes", [])
-        supervisor_code = validated_data.pop("supervisorWorkerCode", "supervisor")
+        supervisor_code = validated_data.pop("supervisorWorkerCode", None)
+        operator_id = validated_data.pop("operatorId", None)
+        supervisor_id = validated_data.pop("supervisorId", None)
         users = get_user_model().objects.select_related("account_profile")
-        technician = users.get(
-            account_profile__worker_code=technician_code,
-            account_profile__role=AccountProfile.Role.TECHNICIAN,
-        )
-        supervisor = users.get(account_profile__worker_code=supervisor_code)
+        technician = None
+        if technician_code:
+            technician = users.filter(
+                account_profile__worker_code__iexact=technician_code,
+                account_profile__role=AccountProfile.Role.TECHNICIAN,
+            ).first()
+        if not technician and operator_id:
+            technician = (
+                users.filter(account_profile__id=operator_id).first()
+                or users.filter(pk=operator_id).first()
+            )
+        if not technician:
+            technician = users.filter(account_profile__role=AccountProfile.Role.TECHNICIAN).first() or request.user
+
+        supervisor = None
+        if supervisor_code:
+            supervisor = users.filter(account_profile__worker_code__iexact=supervisor_code).first()
+        if not supervisor and supervisor_id:
+            supervisor = (
+                users.filter(account_profile__id=supervisor_id).first()
+                or users.filter(pk=supervisor_id).first()
+            )
+        if not supervisor:
+            supervisor = (
+                users.filter(account_profile__role=AccountProfile.Role.SUPERVISOR).first()
+                or users.filter(account_profile__role=AccountProfile.Role.ADMIN).first()
+                or request.user
+            )
         if incident_id:
             incident = Incident.objects.select_for_update().get(pk=incident_id)
         else:
