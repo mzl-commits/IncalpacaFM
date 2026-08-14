@@ -376,3 +376,28 @@
   font-size: var(--type-caption);
   line-height: 1.35;
 }
+
+/* Grouped parent selector (AREA creation grouped by macro prefix) */
+.space-form-parent-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.space-parent-group {
+  display: grid;
+  gap: 10px;
+}
+
+.space-parent-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface-inset);
+  color: var(--accent);
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
