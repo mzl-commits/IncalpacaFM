@@ -2,13 +2,18 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.catalogo.models import Categoria, Material, Subcategoria
+from apps.catalogo.models import Almacen, Categoria, Material, Subcategoria
 from apps.catalogo.serializers import MaterialSerializer
 
 
 class MaterialPrecioTest(TestCase):
     def setUp(self):
+        self.almacen = Almacen.objects.create(
+            nombre="Almacen Central",
+            codigo="ALM-CENTRAL",
+        )
         self.categoria = Categoria.objects.create(
+            almacen=self.almacen,
             nombre="Herramientas Test",
             prefijo="HT",
         )
@@ -19,6 +24,7 @@ class MaterialPrecioTest(TestCase):
 
     def test_crear_material_con_precio(self):
         material = Material.objects.create(
+            almacen=self.almacen,
             subcategoria=self.subcategoria,
             nombre="Llave Inglesa 10",
             tipo_control="retornable",
@@ -29,6 +35,7 @@ class MaterialPrecioTest(TestCase):
 
     def test_material_serializer_incluye_precio(self):
         material = Material.objects.create(
+            almacen=self.almacen,
             subcategoria=self.subcategoria,
             nombre="Alicate Universal",
             tipo_control="retornable",

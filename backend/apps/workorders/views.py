@@ -1,4 +1,5 @@
 import mimetypes
+from decimal import Decimal
 
 import hashlib
 from django.core.files.base import ContentFile
@@ -266,6 +267,9 @@ class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
+    def perform_create(self, serializer):
+        from .material_costs import sync_material_costs
+        order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
         if order.status == WorkOrder.Status.CLOSED:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("No se pueden agregar materiales a una OT cerrada.")
@@ -274,9 +278,11 @@ class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
             material=serializer.validated_data["material"],
             cantidad=serializer.validated_data["cantidad"],
             tipo=serializer.validated_data["tipo"],
+            precio_unitario=serializer.validated_data.get("precio_unitario"),
             porcentaje_requerido=serializer.validated_data.get("porcentaje_requerido"),
             registrado_por=self.request.user,
         )
+        sync_material_costs(order, actor=self.request.user)
         return instance
 
     def create(self, request, *args, **kwargs):
@@ -305,9 +311,10 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
         return WorkOrderMaterialSerializer
 
     def get_queryset(self):
+        order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
         return WorkOrderMaterial.objects.select_related(
             "work_order", "material", "registrado_por"
-        )
+        ).filter(work_order=order)
 
     def _check_not_closed(self, instance):
         if instance.work_order.status == WorkOrder.Status.CLOSED:
@@ -315,6 +322,7 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise PermissionDenied("No se puede modificar un material de una OT cerrada.")
 
     def update(self, request, *args, **kwargs):
+        from .material_costs import sync_material_costs
         instance = self.get_object()
         self._check_not_closed(instance)
         serializer = self.get_serializer(data=request.data, partial=True)
@@ -323,15 +331,21 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.material = data.get("material", instance.material)
         instance.cantidad = data.get("cantidad", instance.cantidad)
         instance.tipo = data.get("tipo", instance.tipo)
+        if "precio_unitario" in data:
+            instance.precio_unitario = data["precio_unitario"]
         if "porcentaje_requerido" in data:
             instance.porcentaje_requerido = data["porcentaje_requerido"]
         instance.save()
+        sync_material_costs(instance.work_order, actor=request.user)
         return response.Response(WorkOrderMaterialSerializer(instance).data)
 
     def destroy(self, request, *args, **kwargs):
+        from .material_costs import sync_material_costs
         instance = self.get_object()
         self._check_not_closed(instance)
+        order = instance.work_order
         instance.delete()
+        sync_material_costs(order, actor=request.user)
         from rest_framework import status as http_status
         return response.Response(status=http_status.HTTP_204_NO_CONTENT)
 
@@ -346,10 +360,11 @@ class WorkOrderMaterialMarkBlockingView(views.APIView):
     @extend_schema(request=None, responses={200: WorkOrderMaterialSerializer})
     def post(self, request, pk, material_id):
         from apps.notifications.services import queue_for_administrators
+        order = get_object_or_404(participant_queryset(request), pk=pk)
         instance = get_object_or_404(
             WorkOrderMaterial.objects.select_related("work_order", "material", "registrado_por"),
             pk=material_id,
-            work_order_id=pk,
+            work_order_id=order.id,
         )
         if instance.work_order.status == WorkOrder.Status.CLOSED:
             from rest_framework.exceptions import PermissionDenied
@@ -431,39 +446,18 @@ class WorkOrderMaterialMarkAcquiredView(views.APIView):
 
 class WorkOrderCostAutocompletarView(views.APIView):
     """
-    POST: genera WorkOrderCost de categoría MATERIAL
+    POST: genera/sincroniza WorkOrderCost de categoría MATERIAL
     para cada WorkOrderMaterial de tipo USADO en la OT.
-    Idempotente: no duplica si ya existe un costo con la misma descripción + categoría MATERIAL.
+    Idempotente: actualiza montos y elimina si cambió la clasificación.
     """
     permission_classes = [IsAdministrator]
 
-    @extend_schema(request=None, responses={200: WorkOrderCostSerializer(many=True), 201: WorkOrderCostSerializer(many=True)})
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT, 201: OpenApiTypes.OBJECT})
     def post(self, request, pk):
+        from .material_costs import sync_material_costs
         order = get_object_or_404(WorkOrder, pk=pk)
-        materiales_usados = order.materiales_usados.filter(
-            tipo=WorkOrderMaterial.Tipo.USADO
-        ).select_related("material")
-        created = []
-        for uso in materiales_usados:
-            # idempotencia: evitar duplicados por nombre
-            existe = order.cost_items.filter(
-                category=WorkOrderCost.Category.MATERIAL,
-                description=uso.material.nombre,
-            ).exists()
-            if not existe:
-                cost = WorkOrderCost.objects.create(
-                    work_order=order,
-                    category=WorkOrderCost.Category.MATERIAL,
-                    description=uso.material.nombre,
-                    amount=uso.material.precio,  # puede ser None
-                    created_by=request.user,
-                )
-                created.append(cost)
-        all_costs = order.cost_items.all()
-        return response.Response(
-            WorkOrderCostSerializer(all_costs, many=True).data,
-            status=201 if created else 200,
-        )
+        result = sync_material_costs(order, actor=request.user)
+        return response.Response(result, status=201 if result["created"] else 200)
 
 
 class WorkOrderCostDetailView(generics.RetrieveUpdateDestroyAPIView):

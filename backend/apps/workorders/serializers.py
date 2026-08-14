@@ -84,10 +84,14 @@ def active_work_session(order):
 
 def effective_work_minutes(order):
     total_seconds = 0
-    now = timezone.now()
+    fallback_end = (
+        timezone.now()
+        if order.status == WorkOrder.Status.IN_PROGRESS
+        else order.finished_at or order.closed_at
+    )
     for session in order.work_sessions or []:
         start = parse_datetime(session.get("startAt") or "")
-        end = parse_datetime(session.get("endAt") or "") if session.get("endAt") else now
+        end = parse_datetime(session.get("endAt") or "") if session.get("endAt") else fallback_end
         if start and end and end >= start:
             total_seconds += (end - start).total_seconds()
     return round(total_seconds / 60)
@@ -606,7 +610,6 @@ class WorkOrderActionSerializer(serializers.Serializer):
             # Check for necessary_no_blocking materials whose required progress percentage is met
             # and check if they still lack stock to notify administrators
             from apps.workorders.models import WorkOrderMaterial
-            from apps.notifications.services import queue_for_administrators
             
             materiales_pendientes = order.materiales_usados.filter(
                 tipo=WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE,
@@ -989,6 +992,13 @@ class WorkOrderMaterialWriteSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    precioUnitario = serializers.DecimalField(
+        source="precio_unitario",
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
     # NUEVO Fase 7: opcional — si el frontend manda el almacén que el técnico
     # eligió en el selector, se valida contra el almacén real del material.
     # Defensa en profundidad, mismo criterio que en Movimiento/Inspeccion:
@@ -1003,14 +1013,16 @@ class WorkOrderMaterialWriteSerializer(serializers.Serializer):
         self.fields["material"].queryset = Material.objects.all()
 
     def validate(self, attrs):
-        material = attrs["material"]
+        material = attrs.get("material") or getattr(self.instance, "material", None)
+        if not material:
+            return attrs
         almacen_id = attrs.pop("almacen", None)
         if almacen_id is not None and material.almacen_id != almacen_id:
             raise serializers.ValidationError({
                 "material": "Este material no pertenece al almacén seleccionado."
             })
 
-        cantidad = attrs["cantidad"]
+        cantidad = attrs.get("cantidad") if "cantidad" in attrs else getattr(self.instance, "cantidad", 1)
         if material.control_individual:
             from apps.catalogo.models import Pieza
             disponibles = Pieza.objects.filter(

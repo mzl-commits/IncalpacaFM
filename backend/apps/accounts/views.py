@@ -65,8 +65,8 @@ class ChangePasswordView(views.APIView):
 
 
 class UserListView(views.APIView):
-    """Lista todos los usuarios activos. Temporal con AllowAny hasta que exista autenticación en el frontend."""
-    permission_classes = [permissions.AllowAny]
+    """Lista todos los usuarios activos. Requiere autenticación."""
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(responses={200: UserListSerializer(many=True)})
     def get(self, request):

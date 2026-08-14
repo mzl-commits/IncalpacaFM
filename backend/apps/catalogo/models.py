@@ -174,7 +174,19 @@ class Material(models.Model):
         max_length=3, choices=MONEDA_CHOICES, blank=True, default="PEN",
         help_text="Moneda en la que está expresado el precio."
     )
+    CLASIFICACION_OPERATIVA_CHOICES = [
+        ("CONSUMIBLE", "Consumible (genera costo)"),
+        ("HERRAMIENTA", "Herramienta reutilizable (solo uso)"),
+        ("EPP", "Equipo de protección personal (solo uso)"),
+    ]
+
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
+    clasificacion_operativa = models.CharField(
+        max_length=16,
+        choices=CLASIFICACION_OPERATIVA_CHOICES,
+        default="CONSUMIBLE",
+        help_text="Define el tratamiento en una OT. Solo los consumibles generan costos; herramientas y EPP quedan registrados como uso operativo.",
+    )
     control_individual = models.BooleanField(default=False)
 
     # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).

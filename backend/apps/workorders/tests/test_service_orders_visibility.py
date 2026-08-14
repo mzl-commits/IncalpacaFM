@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AccountProfile
-from apps.catalogo.models import Categoria, Material, Subcategoria
+from apps.catalogo.models import Almacen, Categoria, Material, Subcategoria
 from apps.incidents.models import Incident
 from apps.workorders.models import WorkOrder, WorkOrderCost, WorkOrderMaterial
 from apps.workorders.reporting import _effective_minutes
@@ -81,6 +81,7 @@ class ServiceOrderVisibilityTests(TestCase):
             specialty="SERVICIO EXTERNO",
             **common,
         )
+        self.almacen = Almacen.objects.create(nombre="Almacén de Prueba Visibilidad", codigo="ALM-VIS")
         self.client = APIClient()
 
     def list_codes_as(self, user):
@@ -124,9 +125,10 @@ class ServiceOrderVisibilityTests(TestCase):
         self.assertEqual(_effective_minutes(self.work_order), 35)
 
     def test_material_sync_calculates_quantity_times_unit_price_and_is_idempotent(self):
-        category = Categoria.objects.create(nombre="Consumibles de prueba", prefijo="CP")
+        category = Categoria.objects.create(almacen=self.almacen, nombre="Consumibles de prueba", prefijo="CP")
         subcategory = Subcategoria.objects.create(categoria=category, nombre="Eléctricos")
         material = Material.objects.create(
+            almacen=self.almacen,
             subcategoria=subcategory,
             codigo="CP-001",
             nombre="Cable de prueba",
@@ -165,12 +167,13 @@ class ServiceOrderVisibilityTests(TestCase):
         self.assertEqual(str(WorkOrderCost.objects.get(work_order=self.work_order, category="MATERIAL").amount), "87.50")
 
     def test_reusable_tool_or_epp_usage_is_not_included_in_material_costs(self):
-        category = Categoria.objects.create(nombre="EPP de prueba", prefijo="EP")
+        category = Categoria.objects.create(almacen=self.almacen, nombre="EPP de prueba", prefijo="EP")
         subcategory = Subcategoria.objects.create(categoria=category, nombre="ProtecciÃ³n")
         harness = Material.objects.create(
+            almacen=self.almacen,
             subcategoria=subcategory,
             codigo="EP-001",
-            nombre="ArnÃ©s de seguridad",
+            nombre="Arnés de seguridad",
             precio="210.00",
             clasificacion_operativa="EPP",
             tipo_control="retornable",
@@ -196,12 +199,13 @@ class ServiceOrderVisibilityTests(TestCase):
         self.assertFalse(WorkOrderCost.objects.filter(work_order=self.work_order, category="MATERIAL").exists())
 
     def test_material_cost_is_synced_when_technician_registers_and_edits_usage(self):
-        category = Categoria.objects.create(nombre="Consumibles automÃ¡ticos", prefijo="CA")
+        category = Categoria.objects.create(almacen=self.almacen, nombre="Consumibles automáticos", prefijo="CA")
         subcategory = Subcategoria.objects.create(categoria=category, nombre="ElÃ©ctricos")
         cable = Material.objects.create(
+            almacen=self.almacen,
             subcategoria=subcategory,
             codigo="CA-001",
-            nombre="Cable automÃ¡tico",
+            nombre="Cable automático",
             precio="8.00",
             clasificacion_operativa="CONSUMIBLE",
             tipo_control="no_retornable",
@@ -263,9 +267,10 @@ class ServiceOrderVisibilityTests(TestCase):
             planned_hours=1,
             created_by=self.admin,
         )
-        category = Categoria.objects.create(nombre="Aislamiento de materiales", prefijo="AM")
+        category = Categoria.objects.create(almacen=self.almacen, nombre="Aislamiento de materiales", prefijo="AM")
         subcategory = Subcategoria.objects.create(categoria=category, nombre="Consumibles")
         material = Material.objects.create(
+            almacen=self.almacen,
             subcategoria=subcategory,
             codigo="AM-001",
             nombre="Material aislado",
