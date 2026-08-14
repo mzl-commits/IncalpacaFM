@@ -485,23 +485,11 @@ export function SpaceNodeForm({
                 step="1"
                 value={headcount}
                 onChange={(event) => setHeadcount(event.target.value)}
-                disabled={commonSpace}
                 placeholder="Ej. 12"
               />
               <b>pers.</b>
             </div>
             <small>Referencial; aforo estimado.</small>
-          </label>
-          <label className="space-form-check">
-            <input
-              type="checkbox"
-              checked={commonSpace}
-              onChange={(event) => setCommonSpace(event.target.checked)}
-            />
-            <span>
-              <strong>Espacio común</strong>
-              <small>Permite uso compartido entre diferentes áreas.</small>
-            </span>
           </label>
         </div>
       </section>
