@@ -13,7 +13,7 @@ import type { Almacen } from "@/modules/almacen/types";
 
 export function AlmacenesLandingPage() {
   const { user } = useAuth();
-  const puedeAdministrar = user?.role === "ADMINISTRADOR" || user?.role === "ALMACENERO";
+  const puedeAdministrar = user?.role === "ADMINISTRADOR";
   const queryClient = useQueryClient();
 
   const { data: almacenes = [], isLoading } = useQuery({

@@ -10,7 +10,6 @@ from .services import daily_discriminator, weekly_discriminator, queue_for_roles
 # Cada rol recibe el resumen con una cadencia distinta: los inspectores lo ven
 # a diario (siguen el detalle operativo día a día); los administradores solo
 # una vez por semana (vista gerencial, sin ruido diario).
-ALERT_ROLES = [AccountProfile.Role.INSPECTOR, AccountProfile.Role.ADMIN]
 
 ROLE_DISCRIMINATORS = {
     AccountProfile.Role.INSPECTOR: daily_discriminator,
@@ -19,67 +18,98 @@ ROLE_DISCRIMINATORS = {
 
 DIAS_ANTICIPACION_PROXIMA = 2
 
-
 def _plural(n, singular, plural):
     return singular if n == 1 else plural
 
+def _queue_role_summary(role, *, event, subject, body, base_discriminator, context=None, almacen=None):
+    """Encola una notificación agregada (sin entidad puntual) para UN rol.
+    `almacen` se pasa a queue_for_roles: si el rol tiene alcance de almacén
+    (Inspector), solo la reciben los inspectores de ESE almacén — Admin
+    (alcance global) siempre se llama con almacen=None."""
+    discriminator_fn = ROLE_DISCRIMINATORS[role]
+    return queue_for_roles(
+        event=event,
+        roles=[role],
+        subject=subject,
+        body=body,
+        entity=None,
+        context=context or {},
+        discriminator=discriminator_fn(base_discriminator),
+        almacen=almacen,
+    )
 
-def _queue_summary(*, event, subject, body, base_discriminator, context=None):
-    """Encola una notificación agregada (sin entidad puntual) para cada rol de
-    alerta, usando la cadencia de discriminador que le corresponde a ese rol."""
-    results = []
-    for role, discriminator_fn in ROLE_DISCRIMINATORS.items():
-        results += queue_for_roles(
-            event=event,
-            roles=[role],
-            subject=subject,
-            body=body,
-            entity=None,
-            context=context or {},
-            discriminator=discriminator_fn(base_discriminator),
-        )
-    return results
+def _body_vencidas(total):
+    return (
+        f"Hay {total} inspecci{_plural(total, 'ón', 'ones')} "
+        f"vencida{_plural(total, '', 's')} pendiente{_plural(total, '', 's')} de registrar."
+    )
+
+
+def _body_proximas(total, fecha):
+    return (
+        f"Hay {total} inspecci{_plural(total, 'ón', 'ones')} programada"
+        f"{_plural(total, '', 's')} para el {fecha:%d/%m/%Y}."
+    )
 
 
 def evaluate_all_inspection_alerts():
     """Sweep diario: agrupa las ProgramacionInspeccion pendientes por estado
     (vencidas / próximas a vencer) y encola UNA notificación resumen por
-    grupo y por rol, sin exponer qué material o pieza puntual está detrás de
-    cada conteo. Pensado para Celery Beat (correr una vez al día)."""
+    grupo. Administrador ve el total global (alcance de sistema); Inspector
+    ve solo el total DE SU ALMACÉN. Pensado para Celery Beat (una vez al día)."""
     hoy = timezone.localdate()
     pendientes = ProgramacionInspeccion.objects.filter(estado="pendiente")
 
-    total_vencidas = pendientes.filter(fecha_programada__lt=hoy).count()
-    if total_vencidas:
-        _queue_summary(
+    vencidas = pendientes.filter(fecha_programada__lt=hoy)
+    total_global = vencidas.count()
+    if total_global:
+        _queue_role_summary(
+            AccountProfile.Role.ADMIN,
             event="INSPECTION_OVERDUE",
             subject="Inspecciones vencidas",
-            body=(
-                f"Hay {total_vencidas} inspecci{_plural(total_vencidas, 'ón', 'ones')} "
-                f"vencida{_plural(total_vencidas, '', 's')} pendiente{_plural(total_vencidas, '', 's')} "
-                f"de registrar."
-            ),
+            body=_body_vencidas(total_global),
             base_discriminator="vencidas",
-            context={"total": total_vencidas, "fechaCorte": str(hoy)},
+            context={"total": total_global, "fechaCorte": str(hoy)},
+        )
+
+    for fila in vencidas.values("almacen").annotate(total=Count("id")):
+        _queue_role_summary(
+            AccountProfile.Role.INSPECTOR,
+            event="INSPECTION_OVERDUE",
+            subject="Inspecciones vencidas",
+            body=_body_vencidas(fila["total"]),
+            base_discriminator="vencidas",
+            context={"total": fila["total"], "fechaCorte": str(hoy)},
+            almacen=fila["almacen"],
         )
 
     limite = hoy + timedelta(days=DIAS_ANTICIPACION_PROXIMA)
-    proximas_por_fecha = (
-        pendientes.filter(fecha_programada__gte=hoy, fecha_programada__lte=limite)
-        .values("fecha_programada")
+    proximas = pendientes.filter(fecha_programada__gte=hoy, fecha_programada__lte=limite)
+
+    for fila in proximas.values("fecha_programada").annotate(total=Count("id")).order_by("fecha_programada"):
+        fecha = fila["fecha_programada"]
+        _queue_role_summary(
+            AccountProfile.Role.ADMIN,
+            event="INSPECTION_DUE_SOON",
+            subject="Inspecciones próximas a vencer",
+            body=_body_proximas(fila["total"], fecha),
+            base_discriminator=f"proximas-{fecha.isoformat()}",
+            context={"total": fila["total"], "fechaProgramada": str(fecha)},
+        )
+
+    por_almacen_y_fecha = (
+        proximas.values("almacen", "fecha_programada")
         .annotate(total=Count("id"))
         .order_by("fecha_programada")
     )
-    for fila in proximas_por_fecha:
+    for fila in por_almacen_y_fecha:
         fecha = fila["fecha_programada"]
-        total = fila["total"]
-        _queue_summary(
+        _queue_role_summary(
+            AccountProfile.Role.INSPECTOR,
             event="INSPECTION_DUE_SOON",
             subject="Inspecciones próximas a vencer",
-            body=(
-                f"Hay {total} inspecci{_plural(total, 'ón', 'ones')} programada"
-                f"{_plural(total, '', 's')} para el {fecha:%d/%m/%Y}."
-            ),
+            body=_body_proximas(fila["total"], fecha),
             base_discriminator=f"proximas-{fecha.isoformat()}",
-            context={"total": total, "fechaProgramada": str(fecha)},
+            context={"total": fila["total"], "fechaProgramada": str(fecha)},
+            almacen=fila["almacen"],
         )

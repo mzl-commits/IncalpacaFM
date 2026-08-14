@@ -411,7 +411,6 @@ class AgregarHijaInlineSerializer(serializers.Serializer):
 
         return creadas
 
-
 class MaterialFrecuenciaInspeccionSerializer(serializers.ModelSerializer):
     periodicidad_inspeccion_dias = serializers.IntegerField(read_only=True)
 
@@ -423,4 +422,4 @@ class MaterialFrecuenciaInspeccionSerializer(serializers.ModelSerializer):
 class AlmacenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Almacen
-        fields = ["id", "nombre", "codigo", "ubicacion", "activo"]
+        fields = ["id", "nombre", "codigo", "ubicacion", "activo","croquis"]

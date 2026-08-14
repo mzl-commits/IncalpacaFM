@@ -133,6 +133,7 @@ export interface Almacen {
   codigo: string;
   ubicacion: string;
   activo: boolean;
+  croquis?:string|null;
 }
 
 export interface Subcategoria {
