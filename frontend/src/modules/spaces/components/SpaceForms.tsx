@@ -193,6 +193,9 @@ export function SpaceNodeForm({
   const chosenParent = useMemo(() => parentOptions.find((item) => item.id === parentId) ?? null, [parentId, parentOptions]);
   const currentLevel = spaceKindLevels[selectedType] ?? 2;
 
+  const hasMacroArea = parentOptions.some((p) => p.nodeType === "MACRO_AREA");
+  const hasArea = parentOptions.some((p) => p.nodeType === "AREA");
+
   // Filter parent options by expected prior level for direct selection
   const candidateParents = useMemo(() => {
     if (!parentOptions.length) return [];
@@ -325,19 +328,26 @@ export function SpaceNodeForm({
           <p>Selecciona directamente el nivel del espacio. No necesitas entrar nivel por nivel.</p>
         </header>
         <div className="space-level-grid">
-          {LEVEL_BOXES.map((box) => (
-            <button
-              key={box.type}
-              type="button"
-              className={`space-box-card ${nodeType === box.type ? "is-selected" : ""}`}
-              onClick={() => selectLevel(box.type)}
-              disabled={!siteId}
-            >
-              <span className="level-badge">Nivel {box.level}</span>
-              <strong>{box.title}</strong>
-              <small>{box.description}</small>
-            </button>
-          ))}
+          {LEVEL_BOXES.map((box) => {
+            const missingPredecessor = 
+              (box.type === "AREA" && !hasMacroArea) ||
+              (box.type === "MODULE" && !hasArea);
+
+            return (
+              <button
+                key={box.type}
+                type="button"
+                className={`space-box-card ${nodeType === box.type ? "is-selected" : ""}`}
+                onClick={() => selectLevel(box.type)}
+                disabled={!siteId || missingPredecessor}
+                title={missingPredecessor ? `Debes crear al menos un espacio de Nivel ${box.level - 1} primero.` : undefined}
+              >
+                <span className="level-badge">Nivel {box.level}</span>
+                <strong>{box.title}</strong>
+                <small>{box.description}</small>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -364,14 +374,14 @@ export function SpaceNodeForm({
         ) : (
           <div className="space-form-grid">
             <label className="space-form-full">
-              <span>Espacio Padre <b>*</b></span>
+              <span>Pertenece a <b>*</b></span>
               <select
                 value={parentId ?? ""}
                 onChange={(event) => changeParent(event.target.value || null)}
                 disabled={!siteId || optionsQuery.isPending}
                 required
               >
-                <option value="">-- Selecciona el espacio padre --</option>
+                <option value="">-- Selecciona a qué espacio pertenece --</option>
                 {candidateParents.map((parent) => (
                   <option key={parent.id} value={parent.id}>
                     {parent.pathCode} · {parent.name} ({spaceKindLabels[parent.kind] || parent.kind})
@@ -379,7 +389,7 @@ export function SpaceNodeForm({
                 ))}
               </select>
               {chosenParent ? (
-                <small>Padre seleccionado: <b>{chosenParent.name}</b> ({chosenParent.pathCode})</small>
+                <small>Pertenece a: <b>{chosenParent.name}</b> ({chosenParent.pathCode})</small>
               ) : (
                 <small>Selecciona el espacio de nivel superior.</small>
               )}
