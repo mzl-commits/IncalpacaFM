@@ -75,6 +75,7 @@ const modules: ModuleGroup[] = [
       { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true, roles: ["ADMINISTRADOR", "TECNICO"] },
       { to: "/", label: "Inicio", icon: House, end: true, roles: ["SOLICITANTE"] },
       { to: "/incidencias/nueva", label: "Nueva solicitud", icon: WarningDiamond, roles: ["SOLICITANTE"] },
+      { to: "/incidencias", label: "Mis solicitudes", icon: ListChecks, roles: ["SOLICITANTE"] },
       { to: "/", label: "Inicio", icon: SquaresFour, end: true, roles: ["SUPERVISOR"] },
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, roles: ["ADMINISTRADOR"] },
       { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, roles: ["ADMINISTRADOR", "TECNICO"] },
@@ -260,7 +261,15 @@ export function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  const [routeSection, routeTitle] = getRouteContext(location.pathname);
+  const [baseRouteSection, baseRouteTitle] = getRouteContext(location.pathname);
+  const [routeSection, routeTitle] =
+    user?.role === "SOLICITANTE" && location.pathname.startsWith("/incidencias/nueva")
+      ? ["Solicitudes", "Nueva solicitud"]
+      : user?.role === "SOLICITANTE" && location.pathname.startsWith("/incidencias")
+        ? ["Solicitudes", "Mis solicitudes"]
+        : user?.role === "SOLICITANTE"
+          ? ["Solicitante", "Inicio"]
+          : [baseRouteSection, baseRouteTitle];
   const [liveCounts, setLiveCounts] = useState<MenuCounts>({});
 
   useEffect(() => {
@@ -532,7 +541,7 @@ export function AppShell() {
       </dialog>
 
       {/* MAIN CONTENT FRAME: Starts immediately after rail (margin-left: 92px) */}
-      <div className={`content-frame-overlay ${user?.role === "TECNICO" ? "is-technician" : user?.role === "SUPERVISOR" ? "is-supervisor-rail" : ""}`}>
+      <div className={`content-frame-overlay ${user?.role === "TECNICO" || user?.role === "SOLICITANTE" ? "is-technician" : user?.role === "SUPERVISOR" ? "is-supervisor-rail" : ""}`}>
         <header className="topbar">
           <div className="topbar-context">
             <SquaresFour size={22} weight="duotone" />
