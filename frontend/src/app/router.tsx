@@ -7,7 +7,6 @@ import { TaxonomyFormPage } from "@/modules/taxonomy/pages/TaxonomyFormPage";
 import { FmCodeCatalogPage } from "@/modules/taxonomy/pages/FmCodeCatalogPage";
 import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";
 import { FacilityMapPage } from "@/modules/taxonomy/pages/FacilityMapPage";
-import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPage";
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
@@ -465,11 +464,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "administracion/mapas-ambientes",
-        element: (
-          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
-            <LocationMapAdminPage />
-          </RoleRoute>
-        ),
+        element: <Navigate to="/mapa" replace />,
       },
       {
         path: "administracion/espacios/nuevo",
