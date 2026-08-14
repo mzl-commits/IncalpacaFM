@@ -431,12 +431,15 @@ export function WorkOrderExecutionPage() {
               </button>
             </article>
           )}
-          <div className="data-panel" style={{ marginBottom: 16, overflow: "visible" }}>
-            <MaterialesUsadosSection
-              workOrderId={workOrder.id}
-              isOtClosed={workOrder.status === "CERRADA"}
-            />
-          </div>
+
+          {!isCleaningOrder && (
+            <div className="data-panel" style={{ marginBottom: 16, overflow: "visible" }}>
+              <MaterialesUsadosSection
+                workOrderId={workOrder.id}
+                isOtClosed={workOrder.status === "CERRADA"}
+              />
+            </div>
+          )}
 
           {hasActiveSession ? (
           <form

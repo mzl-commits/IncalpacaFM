@@ -92,6 +92,22 @@ def effective_work_minutes(order):
             total_seconds += (end - start).total_seconds()
     return round(total_seconds / 60)
 
+
+def same_person_name(first, second):
+    return bool(first and second and str(first).strip().lower() == str(second).strip().lower())
+
+
+def is_assigned_supervisor(order, user):
+    profile = getattr(user, "account_profile", None)
+    user_name = user.get_full_name() or user.username
+    supervisor_name = order.supervisor.get_full_name() or order.supervisor.username
+    return (
+        order.supervisor_id == user.id
+        or (profile and str(order.supervisor_id) == str(profile.id))
+        or same_person_name(user_name, supervisor_name)
+    )
+
+
 class WorkOrderSerializer(serializers.ModelSerializer):
     requestId = serializers.UUIDField(source="incident_id", required=False, allow_null=True)
     requestCode = serializers.CharField(source="incident.code", read_only=True)
@@ -530,7 +546,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 if action not in technical_actions:
                     raise PermissionDenied('Esta acción corresponde a la validación administrativa.')
             elif role == AccountProfile.Role.SUPERVISOR:
-                if order.supervisor_id != request.user.id:
+                if not is_assigned_supervisor(order, request.user):
                     raise PermissionDenied('Solo el supervisor asignado puede revisar esta orden.')
                 if action not in {'SUPERVISOR_APPROVE', 'SUPERVISOR_RETURN'}:
                     raise PermissionDenied('Esta acción corresponde al administrador o al operario.')
@@ -641,7 +657,6 @@ class WorkOrderActionSerializer(serializers.Serializer):
             # Check for necessary_no_blocking materials whose required progress percentage is met
             # and check if they still lack stock to notify administrators
             from apps.workorders.models import WorkOrderMaterial
-            from apps.notifications.services import queue_for_administrators
             
             materiales_pendientes = order.materiales_usados.filter(
                 tipo=WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE,
@@ -699,6 +714,13 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 order.status = WorkOrder.Status.SUPERVISION
                 order.finished_at = now
             else:
+                order.work_sessions = [
+                    {
+                        **item,
+                        "endAt": now.isoformat() if item.get("id") == session.get("id") else item.get("endAt"),
+                    }
+                    for item in (order.work_sessions or [])
+                ]
                 order.status = WorkOrder.Status.IN_PROGRESS
         elif action == "DIAGNOSIS":
             order.diagnosis = self.validated_data["payload"]
@@ -710,9 +732,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 "at": now.isoformat(),
                 "by": request.user.get_full_name(),
             }
-            order.status = (
-                WorkOrder.Status.ADMIN_REVIEW if approved else WorkOrder.Status.RETURNED
-            )
+            order.status = WorkOrder.Status.ADMIN_REVIEW
             if not approved:
                 snapshot = {**(order.recommendation_snapshot or {})}
                 snapshot.pop("correctionSchedule", None)
