@@ -165,15 +165,6 @@ export function SpaceNodeForm({
   const [headcount, setHeadcount] = useState(node?.headcount == null ? "" : String(node.headcount));
   const [commonSpace, setCommonSpace] = useState(node?.commonSpace ?? false);
   const [error, setError] = useState("");
-  const [macroPrefix, setMacroPrefix] = useState("AD");
-
-  const MACRO_PREFIXES = [
-    { value: "PP", label: "PP - Planta de producción" },
-    { value: "AD", label: "AD - Sectores administrativos" },
-    { value: "CO", label: "CO - Sectores comerciales" },
-    { value: "RE", label: "RE - Sectores de retail" },
-    { value: "AL", label: "AL - Sectores de almacenamiento" },
-  ];
 
   const sites = useMemo(
     () => (sitesQuery.data ?? optionsQuery.data?.sites ?? []).filter((site) => site.active || site.id === node?.siteId),
@@ -196,11 +187,6 @@ export function SpaceNodeForm({
       setHeadcount(node.headcount == null ? "" : String(node.headcount));
       setCommonSpace(node.commonSpace);
       setError("");
-      
-      if (node.nodeType === "MACRO_AREA") {
-        const match = MACRO_PREFIXES.find(p => node.codeSegment.startsWith(p.value));
-        if (match) setMacroPrefix(match.value);
-      }
     }
   }, [node]);
 
@@ -243,21 +229,22 @@ export function SpaceNodeForm({
     if (!letters) return;
 
     let basePrefix = "";
-    if (selectedType === "MACRO_AREA") {
-      basePrefix = macroPrefix;
-    }
 
     const siblings = parentOptions.filter((p: any) => p.parentId === parentId && p.nodeType === selectedType);
     
-    let generated = basePrefix + letters.charAt(0);
-    const isRepeated = (code: string) => siblings.some(s => s.codeSegment === code);
-
-    if (isRepeated(generated) && letters.length > 1) {
-      generated = basePrefix + letters.substring(0, 2);
+    let generated = basePrefix;
+    if (selectedType === "AREA") {
+      generated += letters.substring(0, 3);
+    } else {
+      generated += letters.charAt(0);
+      const isRepeated = (code: string) => siblings.some(s => s.codeSegment === code);
+      if (isRepeated(generated) && letters.length > 1) {
+        generated = basePrefix + letters.substring(0, 2);
+      }
     }
     
     setCodeSegment(generated);
-  }, [name, macroPrefix, selectedType, parentId, parentOptions, node]);
+  }, [name, selectedType, parentId, parentOptions, node]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -448,17 +435,16 @@ export function SpaceNodeForm({
             />
             <small>Nombre descriptivo legible.</small>
           </label>
-          {selectedType === "MACRO_AREA" && !node && (
-            <label>
-              <span>Tipo de área macro <b>*</b></span>
-              <select value={macroPrefix} onChange={(e) => setMacroPrefix(e.target.value)}>
-                {MACRO_PREFIXES.map(p => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
-              <small>Clasificador operativo predefinido.</small>
-            </label>
-          )}
+          <label>
+            <span>Código <b>*</b></span>
+            <input
+              value={codeSegment}
+              onChange={(event) => setCodeSegment(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+              placeholder="Ej. MKT"
+              required
+            />
+            <small>Se autogenera desde el nombre, pero puedes editarlo.</small>
+          </label>
           <label>
             <span>Metros cuadrados</span>
             <div className="space-input-unit">
