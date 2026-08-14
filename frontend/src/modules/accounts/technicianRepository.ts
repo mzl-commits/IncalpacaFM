@@ -33,9 +33,20 @@ export async function updateTechnician(id: string, input: Partial<TechnicianInpu
   return data;
 }
 
-export const listManagedUsers = listTechnicians;
-export const createManagedUser = createTechnician;
-export const updateManagedUser = updateTechnician;
+export async function listManagedUsers() {
+  const { data } = await api.get<Technician[]>("/users/manage/");
+  return data;
+}
+
+export async function createManagedUser(input: TechnicianInput) {
+  const { data } = await api.post<Technician>("/users/manage/", input);
+  return data;
+}
+
+export async function updateManagedUser(id: string, input: Partial<TechnicianInput>) {
+  const { data } = await api.patch<Technician>(`/users/manage/${id}/`, input);
+  return data;
+}
 
 export async function notifyTechnician(id: string, input: { template: "REMINDER" | "TRACEABILITY" | "SCHEDULE" | "CUSTOM"; deliveryChannel: "SISTEMA" | "CORREO"; subject?: string; body?: string }) {
   const { data } = await api.post<{ detail: string }>(`/technicians/${id}/notifications/`, input);
