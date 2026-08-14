@@ -29,6 +29,9 @@ export async function fetchUserDashboard(): Promise<UserDashboardData> {
 }
 
 export async function fetchUserProfile(id: string): Promise<UserDashboardData> {
-  const { data } = await api.get<UserDashboardData>(`/assets/users/${id}/`);
+  // Profile details and its assigned assets are exposed by the assets API;
+  // the URL intentionally has no `/assets` prefix because all app routers
+  // are mounted directly below `/api/v1/`.
+  const { data } = await api.get<UserDashboardData>(`/users/${id}/`);
   return data;
 }

@@ -8,7 +8,6 @@ from django.dispatch import receiver
 from apps.accounts.models import AccountProfile
 from apps.notifications.services import queue_for_roles
 
-
 NON_CONFORMING = {"requiere_reparacion", "fuera_servicio"}
 
 

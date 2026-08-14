@@ -1,7 +1,6 @@
 import type { ComponentType } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
-import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 import { ProtectedRoute } from "@/modules/accounts/ProtectedRoute";
 import { RoleRoute } from "@/modules/accounts/RoleRoute";
 import { TaxonomyFormPage } from "@/modules/taxonomy/pages/TaxonomyFormPage";
@@ -48,8 +47,6 @@ function administratorLazyRoute<TModule, TKey extends keyof TModule>(
     };
   };
 }
-
-const modules = [["mantenimiento", "Mantenimiento"]] as const;
 
 export const router = createBrowserRouter([
   {
@@ -179,8 +176,8 @@ export const router = createBrowserRouter([
       {
         path: "incidencias/nueva",
         lazy: lazyRoute(
-          () => import("@/modules/incidents/pages/IncidentCreatePage"),
-          "IncidentCreatePage",
+          () => import("@/modules/incidents/pages/PublicWorkRequestPage"),
+          "PublicWorkRequestPage",
         ),
       },
       {
@@ -284,7 +281,6 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
-      { path: "bienes/escanear", lazy: lazyRoute(() => import("@/modules/assets/pages/AssetScannerPage"), "AssetScannerPage") },
       {
         path: "ordenes-trabajo/recomendaciones",
         lazy: administratorLazyRoute(
@@ -476,6 +472,34 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "administracion/espacios/nuevo",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceFormPage"),
+          "SpaceFormPage",
+        ),
+      },
+      {
+        path: "administracion/espacios/:id/editar",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceFormPage"),
+          "SpaceFormPage",
+        ),
+      },
+      {
+        path: "administracion/espacios/:id",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceDetailPage"),
+          "SpaceDetailPage",
+        ),
+      },
+      {
+        path: "administracion/espacios",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpacesCatalogPage"),
+          "SpacesCatalogPage",
+        ),
+      },
+      {
         path: "administracion/taxonomia/:id/editar",
         element: (
           <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
@@ -483,125 +507,100 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
-      // ── Almacén ──────────────────────────────────────────────────────────
-      { path: "almacen", element: <Navigate to="/almacen/catalogo" replace /> },
+// ── Almacén ──────────────────────────────────────────────────────────
       {
-        path: "almacen/catalogo",
+        path: "almacen",
         lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/CatalogoPage"),
-          "CatalogoPage",
+          () => import("@/modules/almacen/pages/AlmacenesLandingPage"),
+          "AlmacenesLandingPage",
         ),
       },
       {
-        path: "almacen/catalogo/nuevo",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/MaterialFormPage"),
-          "MaterialFormPage",
-        ),
-      },
-      {
-        path: "almacen/catalogo/:id",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/MaterialDetailPage"),
-          "MaterialDetailPage",
-        ),
-      },
-      {
-        path: "almacen/catalogo/:id/editar",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/MaterialFormPage"),
-          "MaterialFormPage",
-        ),
-      },
-      {
-        path: "almacen/catalogo/:id/alta-piezas",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/AltaPiezasPage"),
-          "AltaPiezasPage",
-        ),
-      },
-      {
-        path: "almacen/movimientos",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/MovimientosPage"),
-          "MovimientosPage",
-        ),
-      },
-      {
-        path: "almacen/movimientos/nuevo",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/MovimientoFormPage"),
-          "MovimientoFormPage",
-        ),
-      },
-      {
-        path: "almacen/checklist",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/ChecklistPage"),
-          "ChecklistPage",
-        ),
-      },
-      {
-        path: "almacen/plantillas",
+        path: "almacen/:almacenId",
         lazy: async () => {
-          const m = await import("@/modules/almacen/pages/GestionPlantillasPage");
-          const Component = m.GestionPlantillasPage;
-          return {
-            Component: () => (
-              <RoleRoute allowedRoles={["ADMINISTRADOR", "INSPECTOR"]}>
-                <Component />
-              </RoleRoute>
-            ),
-          };
+          const m = await import("@/modules/almacen/AlmacenContext");
+          return { Component: m.AlmacenLayout };
         },
-      },
-      {
-        path: "almacen/inspecciones",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/InspeccionesPage"),
-          "InspeccionesPage",
-        ),
-      },
-      {
-        path: "almacen/inspecciones/nueva",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/InspeccionFormPage"),
-          "InspeccionFormPage",
-        ),
-      },
-      {
-        path: "almacen/inspecciones/vencidas",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/InspeccionVencidasPage"),
-          "InspeccionVencidasPage",
-        ),
-      },
-      {
-        path: "almacen/inspecciones/:id",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/InspeccionDetailPage"),
-          "InspeccionDetailPage",
-        ),
-      },
-      {
-        path: "almacen/calendario",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/CalendarioPage"),
-          "CalendarioPage",
-        ),
-      },
-      {
-        path: "almacen/plan-anual",
-        lazy: lazyRoute(
-          () => import("@/modules/almacen/pages/PlanAnualPage"),
-          "PlanAnualPage",
-        ),
+        children: [
+          { index: true, element: <Navigate to="catalogo" replace /> },
+          {
+            path: "catalogo",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/CatalogoPage"), "CatalogoPage"),
+          },
+          {
+            path: "catalogo/nuevo",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/MaterialFormPage"), "MaterialFormPage"),
+          },
+          {
+            path: "catalogo/:id",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/MaterialDetailPage"), "MaterialDetailPage"),
+          },
+          {
+            path: "catalogo/:id/editar",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/MaterialFormPage"), "MaterialFormPage"),
+          },
+          {
+            path: "catalogo/:id/alta-piezas",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/AltaPiezasPage"), "AltaPiezasPage"),
+          },
+          {
+            path: "movimientos",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/MovimientosPage"), "MovimientosPage"),
+          },
+          {
+            path: "movimientos/nuevo",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/MovimientoFormPage"), "MovimientosFormPage"),
+          },
+          {
+            path: "movimientos/solicitudes/:id",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/SolicitudGrupoDetailPage"), "SolicitudGrupoDetailPage"),
+          },
+          {
+            path: "checklist",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/ChecklistPage"), "ChecklistPage"),
+          },
+          {
+            path: "plantillas",
+            lazy: async () => {
+              const m = await import("@/modules/almacen/pages/GestionPlantillasPage");
+              const Component = m.GestionPlantillasPage;
+              return {
+                Component: () => (
+                  <RoleRoute allowedRoles={["ADMINISTRADOR", "INSPECTOR"]}>
+                    <Component />
+                  </RoleRoute>
+                ),
+              };
+            },
+          },
+          {
+            path: "inspecciones",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/InspeccionesPage"), "InspeccionesPage"),
+          },
+          {
+            path: "inspecciones/nueva",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/InspeccionFormPage"), "InspeccionFormPage"),
+          },
+          {
+            path: "inspecciones/vencidas",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/InspeccionVencidasPage"), "InspeccionVencidasPage"),
+          },
+          {
+            path: "inspecciones/:id",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/InspeccionDetailPage"), "InspeccionDetailPage"),
+          },
+          {
+            path: "calendario",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/CalendarioPage"), "CalendarioPage"),
+          },
+          {
+            path: "plan-anual",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/PlanAnualPage"), "PlanAnualPage"),
+          },
+        ],
       },
       // ─────────────────────────────────────────────────────────────────────
-      ...modules.map(([path, title]) => ({
-        path,
-        element: <ModulePlaceholderPage title={title} />,
-      })),
+      { path: "mantenimiento", element: <Navigate to="/" replace /> },
     ],
   },
 ]);

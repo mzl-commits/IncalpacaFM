@@ -1,0 +1,197 @@
+import { FolderPlus, Package, PencilSimple, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  createAlmacen,
+  deleteAlmacen,
+  listAlmacenes,
+  updateAlmacen,
+} from "@/modules/almacen/catalogoRepository";
+import { useAuth } from "@/modules/accounts/AuthContext";
+import type { Almacen } from "@/modules/almacen/types";
+
+export function AlmacenesLandingPage() {
+  const { user } = useAuth();
+  const puedeAdministrar = user?.role === "ADMINISTRADOR" || user?.role === "ALMACENERO";
+  const queryClient = useQueryClient();
+
+  const { data: almacenes = [], isLoading } = useQuery({
+    queryKey: ["almacenes"],
+    queryFn: listAlmacenes,
+  });
+
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [editando, setEditando] = useState<Almacen | null>(null);
+  const [nombre, setNombre] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [ubicacion, setUbicacion] = useState("");
+  const [activo, setActivo] = useState(true);
+  const [error, setError] = useState("");
+
+  function resetForm() {
+    setEditando(null);
+    setNombre("");
+    setCodigo("");
+    setUbicacion("");
+    setActivo(true);
+    setError("");
+    setMostrarForm(false);
+  }
+
+  function abrirEdicion(a: Almacen) {
+    setEditando(a);
+    setNombre(a.nombre);
+    setCodigo(a.codigo);
+    setUbicacion(a.ubicacion || "");
+    setActivo(a.activo);
+    setError("");
+    setMostrarForm(true);
+  }
+
+  const guardarMut = useMutation({
+    mutationFn: async () => {
+      setError("");
+      if (!nombre.trim() || !codigo.trim()) {
+        throw new Error("Nombre y código son obligatorios.");
+      }
+      const payload = { nombre: nombre.trim(), codigo: codigo.trim(), ubicacion: ubicacion.trim(), activo };
+      return editando ? updateAlmacen(editando.id, payload) : createAlmacen(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["almacenes"] });
+      resetForm();
+    },
+    onError: (err: Error) => setError(err.message || "No se pudo guardar el almacén."),
+  });
+
+  const eliminarMut = useMutation({
+    mutationFn: (id: number) => deleteAlmacen(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["almacenes"] }),
+    onError: () => setError("No se puede eliminar: el almacén tiene categorías o materiales asociados."),
+  });
+
+  return (
+    <section>
+      <header className="page-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <p className="breadcrumb">Almacén</p>
+          <h1>Selecciona un almacén</h1>
+          <p>Cada almacén maneja su propio catálogo, movimientos e inspecciones.</p>
+        </div>
+        {puedeAdministrar && (
+          <button type="button" className="btn-primary" onClick={() => { resetForm(); setMostrarForm(true); }}>
+            <Plus size={18} weight="bold" /> Nuevo almacén
+          </button>
+        )}
+      </header>
+
+      {mostrarForm && puedeAdministrar && (
+        <div style={{
+          background: "var(--surface, #fff)", borderRadius: 12, border: "1px solid var(--border, #e5e7eb)",
+          padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,.06)",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <FolderPlus size={20} style={{ color: "var(--accent, #6366f1)" }} />
+              <strong style={{ fontSize: 15 }}>{editando ? "Editar almacén" : "Nuevo almacén"}</strong>
+            </div>
+            <button type="button" onClick={resetForm} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)" }}>
+              <X size={18} />
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 10 }}>
+            <input
+              type="text" placeholder="Nombre (ej. Almacén de Herramientas)"
+              value={nombre} onChange={(e) => setNombre(e.target.value)}
+              style={{ fontSize: 13 }}
+            />
+            <input
+              type="text" placeholder="Código (ej. ALM-HERR)"
+              value={codigo} onChange={(e) => setCodigo(e.target.value)}
+              style={{ fontSize: 13 }}
+            />
+          </div>
+          <input
+            type="text" placeholder="Ubicación (opcional)"
+            value={ubicacion} onChange={(e) => setUbicacion(e.target.value)}
+            style={{ fontSize: 13, width: "100%", marginBottom: 10 }}
+          />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 12 }}>
+            <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
+            Almacén activo
+          </label>
+
+          {error && (
+            <p style={{ fontSize: 12, color: "var(--error, #dc2626)", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
+              <WarningCircle size={14} /> {error}
+            </p>
+          )}
+
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button type="button" onClick={resetForm} className="button button-secondary" style={{ fontSize: 13 }}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => guardarMut.mutate()}
+              disabled={guardarMut.isPending}
+              className="button button-primary"
+              style={{ fontSize: 13 }}
+            >
+              {guardarMut.isPending ? "Guardando…" : editando ? "Guardar cambios" : "Crear almacén"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isLoading && <div className="loading-panel">Cargando almacenes…</div>}
+
+      {!isLoading && almacenes.length === 0 && (
+        <div className="empty-row">
+          <WarningCircle size={18} /> No hay almacenes registrados todavía.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+        {almacenes.map((a) => (
+          <div key={a.id} className="material-card" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 8, position: "relative", opacity: a.activo ? 1 : 0.6 }}>
+            {puedeAdministrar && (
+              <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 4 }}>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); abrirEdicion(a); }}
+                  style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", padding: 4 }}
+                  title="Editar almacén"
+                >
+                  <PencilSimple size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (confirm(`¿Eliminar el almacén "${a.nombre}"? Esta acción no se puede deshacer.`)) {
+                      eliminarMut.mutate(a.id);
+                    }
+                  }}
+                  style={{ background: "none", border: 0, cursor: "pointer", color: "var(--error, #dc2626)", padding: 4 }}
+                  title="Eliminar almacén"
+                >
+                  <Trash size={15} />
+                </button>
+              </div>
+            )}
+            <Link to={`/almacen/${a.id}/catalogo`} style={{ display: "flex", flexDirection: "column", gap: 8, textDecoration: "none", color: "inherit" }}>
+              <Package size={28} style={{ color: "var(--accent, #6366f1)" }} />
+              <strong style={{ fontSize: 16 }}>{a.nombre}</strong>
+              <code style={{ fontSize: 12, color: "var(--muted)" }}>{a.codigo}</code>
+              {a.ubicacion && <span style={{ fontSize: 12, color: "var(--muted)" }}>{a.ubicacion}</span>}
+              {!a.activo && <span style={{ fontSize: 11, color: "var(--error, #dc2626)" }}>Inactivo</span>}
+            </Link>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

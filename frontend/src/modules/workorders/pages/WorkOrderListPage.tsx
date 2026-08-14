@@ -41,6 +41,7 @@ import {
   WORK_ORDERS_UPDATED_EVENT,
 } from "@/modules/workorders/workOrderRepository";
 import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
+import { getApiErrorMessage } from "@/utils/httpError";
 
 const TIME_SLOTS_12H = [
   { value: "06:00", label: "06:00 AM" },
@@ -299,7 +300,7 @@ export function WorkOrderListPage() {
 
   const supervisors = useMemo(() => {
     const sups = technicians.filter(
-      (t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR"
+      (t) => (t.role as string) === "SUPERVISOR" || (t.role as string) === "ADMINISTRADOR"
     );
     return sups.length ? sups : technicians;
   }, [technicians]);
@@ -308,7 +309,7 @@ export function WorkOrderListPage() {
     const { people } = await loadAuxiliaryData();
     const activeTechs = people.length ? people : technicians;
     const defaultOperator = activeTechs.find((t) => t.email === user?.email || t.worker_code === user?.workerCode) || activeTechs[0];
-    const sups = activeTechs.filter((t) => t.role === "SUPERVISOR" || t.role === "ADMINISTRADOR");
+    const sups = activeTechs.filter((t) => (t.role as string) === "SUPERVISOR" || (t.role as string) === "ADMINISTRADOR");
     const defaultSup = sups.length ? sups[0] : activeTechs[0];
 
     setOrderForm({
@@ -489,10 +490,12 @@ export function WorkOrderListPage() {
       setWorkOrderModalOpen(false);
       setOrderSuccess(isRoutineCleaning ? `${datesToCreate.length} OL rutinaria(s) registradas exitosamente.` : "Orden operativa registrada exitosamente.");
       setTimeout(() => setOrderSuccess(""), 4000);
-    } catch (err: any) {
-      const serverDetail = err?.response?.data?.detail || err?.response?.data?.directLocationId || err?.response?.data?.scheduledStartTime;
-      const errorMsg = typeof serverDetail === "string" ? serverDetail : Array.isArray(serverDetail) ? serverDetail[0] : "No se pudo crear la orden operativa. Revisa los campos obligatorios.";
-      setOrderError(errorMsg);
+    } catch (err: unknown) {
+      setOrderError(getApiErrorMessage(
+        err,
+        "No se pudo crear la orden operativa. Revisa los campos obligatorios.",
+        ["directLocationId", "scheduledStartTime"],
+      ));
     } finally {
       setOrderSaving(false);
     }

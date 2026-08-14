@@ -17,6 +17,8 @@ type ApiUser = {
   position?: string;
   hourly_rate?: number | string;
   must_change_password: boolean;
+  almacen_id?: number | null;
+  almacen_nombre?: string | null;
 };
 
 type AuthContextValue = {
@@ -41,6 +43,8 @@ function mapUser(user: ApiUser): SystemUser {
     hourlyRate: user.hourly_rate,
     mustChangePassword: user.must_change_password,
     active: true,
+    almacenId: user.almacen_id ?? null,
+    almacenNombre: user.almacen_nombre ?? null,
   };
 }
 
@@ -53,6 +57,7 @@ function storedUser() {
     return null;
   }
 }
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SystemUser | null>(storedUser);
@@ -70,7 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem("sgtb_access_token", data.access);
     sessionStorage.setItem("sgtb_refresh_token", data.refresh);
     sessionStorage.setItem("sgtb_current_user", JSON.stringify(mapped));
-    // La autenticación no se bloquea si la telemetría de privacidad falla.
     void api.post("/privacy/acknowledgements/", { context: "LOGIN", subject_reference: mapped.workerCode }).catch(() => undefined);
     setUser(mapped);
     return mapped;

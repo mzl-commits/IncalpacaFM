@@ -3,8 +3,8 @@ from django.urls import path
 from .views import (
     DiagnosisDetailView,
     DiagnosisListCreateView,
-    RetirementEvaluationRequestView,
     RetirementDetailView,
+    RetirementEvaluationRequestView,
     RetirementListCreateView,
 )
 

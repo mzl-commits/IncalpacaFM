@@ -15,9 +15,11 @@ import { STOCK_MINIMO, tipoControlLabels, unidadMedidaAbrev } from "@/modules/al
 import { AjustarStockPanel } from "@/modules/almacen/components/AjustarStockPanel";
 import { PiezaTreeRow } from "@/modules/almacen/components/PiezaTreeRow";
 
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 export function MaterialDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { almacenId } = useAlmacenActivo();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const materialId = Number(id);
@@ -31,14 +33,14 @@ export function MaterialDetailPage() {
   });
 
   const { data: movimientos = [] } = useQuery({
-    queryKey: ["movimientos", { material: materialId }],
-    queryFn: () => listMovimientos({ material: materialId }),
+    queryKey: ["movimientos", almacenId, { material: materialId }],
+    queryFn: () => listMovimientos(almacenId, { material: materialId }),
     enabled: !!materialId,
   });
 
   const { data: inspecciones = [] } = useQuery({
-    queryKey: ["inspecciones", { material: materialId }],
-    queryFn: () => listInspecciones({ material: materialId }),
+    queryKey: ["inspecciones", almacenId, { material: materialId }],
+    queryFn: () => listInspecciones(almacenId, { material: materialId }),
     enabled: !!materialId,
   });
 
@@ -49,7 +51,7 @@ export function MaterialDetailPage() {
     mutationFn: () => deleteMaterial(materialId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["materiales"] });
-      navigate("/almacen/catalogo");
+      navigate(`/almacen/${almacenId}/catalogo`);
     },
     onError: (err: unknown) => {
       const status = (err as { response?: { status?: number } })?.response?.status;
@@ -67,7 +69,7 @@ export function MaterialDetailPage() {
     mutationFn: () => deleteMaterialForzado(materialId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["materiales"] });
-      navigate("/almacen/catalogo");
+      navigate(`/almacen/${almacenId}/catalogo`);
     },
     onError: () => {
       setDeleteStep("idle");
@@ -155,7 +157,7 @@ export function MaterialDetailPage() {
 
       {/* Cabecera */}
       <div className="mat-detail-header">
-        <Link to="/almacen/catalogo" className="back-link">
+        <Link to={`/almacen/${almacenId}/catalogo`} className="back-link">
           <ArrowLeft size={16} /> Catálogo
         </Link>
 
@@ -171,28 +173,19 @@ export function MaterialDetailPage() {
 
         <div className="mat-detail-actions">
           {!isInspector && (
-            <Link
-              className="button button-secondary button-sm"
-              to={`/almacen/movimientos/nuevo?material=${material.id}`}
-            >
+            <Link className="button button-secondary button-sm" to={`/almacen/${almacenId}/movimientos/nuevo?material=${material.id}`}>
               <ArrowRight size={14} /> Registrar movimiento
             </Link>
           )}
           {material.control_individual && (
-            <Link
-              className="button button-secondary button-sm"
-              to={`/almacen/inspecciones/nueva?material=${material.id}`}
-            >
+            <Link className="button button-secondary button-sm" to={`/almacen/${almacenId}/inspecciones/nueva?material=${material.id}`}>
               <ClipboardText size={14} /> Nueva inspección
             </Link>
           )}
           {!isInspector && (
-            <Link
-              className="button button-secondary button-sm"
-              to={`/almacen/catalogo/${material.id}/editar`}
-            >
-              <PencilSimple size={14} /> Editar
-            </Link>
+           <Link className="button button-secondary button-sm" to={`/almacen/${almacenId}/catalogo/${material.id}/editar`}>
+            <PencilSimple size={14} /> Editar
+          </Link>
           )}
           {!isInspector && (
             <button
@@ -322,6 +315,9 @@ export function MaterialDetailPage() {
             <div className="form-section-heading" style={{ marginBottom: 16 }}>
               <span>Datos del material</span>
               <h2>{material.codigo}</h2>
+              <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
+                {material.nombre}
+              </p>
             </div>
 
             {material.foto && (
@@ -332,12 +328,13 @@ export function MaterialDetailPage() {
               />
             )}
 
-            <dl className="review-card dl" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0 }}>
+            <dl className="review-card dl" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0, padding: "16px" }}>
               <div><dt className="dt-label">Marca / Modelo</dt><dd className="dd-value">{[material.marca, material.modelo].filter(Boolean).join(" / ") || "—"}</dd></div>
               <div><dt className="dt-label">Medida</dt><dd className="dd-value">{material.medida || "—"}</dd></div>
               <div><dt className="dt-label">Tipo de control</dt><dd className="dd-value">{tipoControlLabels[material.tipo_control]}</dd></div>
               <div><dt className="dt-label">Control individual</dt><dd className="dd-value">{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt className="dt-label">Ubicación física</dt><dd className="dd-value">{material.ubicacion_fisica || "—"}</dd></div>
+              <div><dt className="dt-label">Código QUIPU</dt><dd className="dd-value">{material.codigo_quipu || "—"}</dd></div>
               {material.es_inspeccionable && (
                 <div>
                   <dt className="dt-label">Frecuencia de inspección</dt>
@@ -350,7 +347,10 @@ export function MaterialDetailPage() {
                 <dt className="dt-label">Precio de referencia</dt>
                 <dd className="dd-value">
                   {material.precio !== null && material.precio !== undefined && material.precio !== ""
-                    ? `S/ ${Number(material.precio).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    ? `${material.moneda === "USD" ? "$" : "S/"} ${Number(material.precio).toLocaleString(
+                        material.moneda === "USD" ? "en-US" : "es-PE",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}`
                     : "—"}
                 </dd>
               </div>
@@ -400,11 +400,7 @@ export function MaterialDetailPage() {
               <div className="table-toolbar">
                 <strong style={{ fontSize: 15 }}>Piezas ({material.cantidad_total})</strong>
                 {!isInspector && (
-                  <Link
-                    className="button button-secondary"
-                    to={`/almacen/catalogo/${material.id}/alta-piezas`}
-                    style={{ fontSize: 13 }}
-                  >
+                  <Link className="button button-secondary" to={`/almacen/${almacenId}/catalogo/${material.id}/alta-piezas`} style={{ fontSize: 13 }}>
                     <Plus size={14} /> Alta de piezas
                   </Link>
                 )}
@@ -431,11 +427,7 @@ export function MaterialDetailPage() {
           <div className="data-panel">
             <div className="table-toolbar">
               <strong style={{ fontSize: 15 }}>Movimientos</strong>
-              <Link
-                to={`/almacen/movimientos?material=${encodeURIComponent(material.codigo)}`}
-                className="table-action"
-                style={{ fontSize: 13 }}
-              >
+              <Link to={`/almacen/${almacenId}/movimientos?material=${encodeURIComponent(material.codigo)}`} className="table-action" style={{ fontSize: 13 }}>
                 Ver todos
               </Link>
             </div>
@@ -484,11 +476,7 @@ export function MaterialDetailPage() {
           <div className="data-panel">
             <div className="table-toolbar">
               <strong style={{ fontSize: 15 }}>Inspecciones</strong>
-              <Link
-                to={`/almacen/inspecciones/nueva?material=${material.id}`}
-                className="button button-secondary"
-                style={{ fontSize: 13 }}
-              >
+              <Link to={`/almacen/${almacenId}/inspecciones/nueva?material=${material.id}`} className="button button-secondary" style={{ fontSize: 13 }}>
                 <Plus size={14} /> Nueva
               </Link>
             </div>
@@ -523,11 +511,7 @@ export function MaterialDetailPage() {
                         {insp.inspector_nombre}
                       </td>
                       <td className="col-action">
-                        <Link
-                          to={`/almacen/inspecciones/${insp.id}`}
-                          className="table-action"
-                          aria-label="Ver inspección"
-                        >
+                        <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}`} className="table-action" aria-label="Ver inspección">
                           <ArrowRight size={14} />
                         </Link>
                       </td>

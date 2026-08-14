@@ -5,13 +5,13 @@ from rest_framework import serializers
 
 from apps.accounts.models import AccountProfile
 from apps.audit.services import record_audit
-from .file_validation import validate_uploaded_file
 from apps.taxonomy.services import (
     allocate_fm_identifier,
     allocate_internal_code,
     assign_fm_identifier,
 )
 
+from .file_validation import validate_uploaded_file
 from .models import Asset, Location, LocationMap, Taxonomy
 
 
@@ -21,7 +21,20 @@ class AssetSerializer(serializers.ModelSerializer):
     photo = serializers.ImageField(write_only=True, required=False, allow_null=True)
 
     def validate_photo(self, value):
-        return validate_uploaded_file(value) if value else value
+        if not value:
+            return value
+
+        validated_photo = validate_uploaded_file(value)
+        image = getattr(validated_photo, "image", None)
+        if image is None:
+            raise serializers.ValidationError("Usa una imagen JPG, PNG o WEBP válida.")
+
+        width, height = image.size
+        if width < 320 or height < 240:
+            raise serializers.ValidationError("La fotografía debe tener al menos 320 × 240 px.")
+        if width * height > 25_000_000:
+            raise serializers.ValidationError("La resolución de la fotografía es demasiado alta.")
+        return validated_photo
     registered_by_name = serializers.SerializerMethodField()
     public_url = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()
@@ -93,18 +106,6 @@ class AssetSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         path = f'/api/v1/public/assets/{obj.public_token}/photo/'
         return request.build_absolute_uri(path) if request else path
-
-    def validate_photo(self, value):
-        if value.size > 8 * 1024 * 1024:
-            raise serializers.ValidationError('La fotografía no puede superar 8 MB.')
-        if value.image.format not in {'JPEG', 'PNG', 'WEBP'}:
-            raise serializers.ValidationError('Usa una imagen JPG, PNG o WEBP.')
-        width, height = value.image.size
-        if width < 320 or height < 240:
-            raise serializers.ValidationError('La fotografía debe tener al menos 320 × 240 px.')
-        if width * height > 25_000_000:
-            raise serializers.ValidationError('La resolución de la fotografía es demasiado alta.')
-        return value
 
     def get_display_code(self, obj) -> str:
         return obj.fm_code or obj.code

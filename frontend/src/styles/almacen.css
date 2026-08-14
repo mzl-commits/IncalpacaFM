@@ -162,7 +162,7 @@
 .respuesta-observacion { color: var(--muted); font-size: 12px; }
 
 /* ─── Upload de foto ─────────────────────────────────────────────────────────── */
-.foto-preview { display: block; width: 100%; max-width: 240px; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; border: 1px solid #e0e0e0; margin: 0 auto 16px; }
+.foto-preview { display: block; width: 100%; max-width: 200px; height: auto; object-fit: contain; border-radius: 6px; border: 1px solid #e0e0e0; margin: 0 auto 16px; }
 
 
 /* ─── Segmented control 2 cols ───────────────────────────────────────────────── */
@@ -560,6 +560,80 @@
     margin-left: auto;
   }
 }
+/* ─── Header de estas tablas: blanco con borde inferior, sin fondo negro global ── */
+.tabla-detalle-mobile thead,
+.tabla-detalle-mobile thead tr {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+.tabla-detalle-mobile thead th,
+.tabla-detalle-mobile th {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-top: 0 !important;
+  border-bottom: 2px solid #000000 !important;
+}
+.tabla-detalle-mobile thead th *,
+.tabla-detalle-mobile th * {
+  color: #000000 !important;
+}
+
+/* ─── Página de Movimientos: mismo espaciado y estilo que Catálogo ──────────── */
+.almacen-movimientos-view .page-heading {
+  margin-bottom: 24px;
+}
+
+.almacen-movimientos-view .alert-banner {
+  margin-bottom: 20px;
+}
+
+/* Tarjetas individuales con espacio entre sí, en vez de una sola caja
+   continua dividida por líneas finas (eso es lo que se sentía apretado). */
+.almacen-movimientos-view .stock-movements-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  background: transparent;
+  border: none;
+  overflow: visible;
+  box-shadow: none;
+  margin-bottom: 28px;
+}
+
+.almacen-movimientos-view .stock-indicator-item {
+  border: 1px solid #000000;
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.almacen-movimientos-view .stock-indicator-item:first-child {
+  border-left: 1px solid #000000;
+}
+
+@media (max-width: 960px) {
+  .almacen-movimientos-view .stock-movements-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .almacen-movimientos-view .stock-indicator-item:nth-child(3),
+  .almacen-movimientos-view .stock-indicator-item:nth-child(4) {
+    border: 1px solid #000000;
+  }
+}
+
+@media (max-width: 600px) {
+  .almacen-movimientos-view .stock-movements-strip {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .almacen-movimientos-view .stock-indicator-item {
+    border: 1px solid #000000;
+    padding: 16px 18px;
+    min-height: 96px;
+  }
+}
+
 /* ─── Header de página responsivo (Catálogo, etc.) ───────────────────────── */
 .page-header-row {
   display: flex;
@@ -588,4 +662,106 @@
   .header-actions { flex-direction: column; }
   .header-actions .btn-secondary,
   .header-actions .btn-primary { width: 100%; }
+}
+
+/* ─── Submenú de navegación dentro de un almacén activo ──────────────────────── */
+.almacen-subnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px 12px; /* padding lateral consistente para primer/último tab */
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e8e8e8;
+  background: #ffffff;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.almacen-subnav::-webkit-scrollbar { display: none; }
+
+/* Botón volver — touch target mínimo 40×40px (WCAG 2.5.5) */
+.almacen-subnav-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.almacen-subnav-back:hover { background: #f3f3f3; color: var(--text); }
+
+.almacen-subnav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--muted);
+  flex-shrink: 0;
+  min-height: 40px; /* touch target vertical */
+}
+.almacen-subnav-item:hover { background: #f6f6f6; color: var(--text); }
+.almacen-subnav-item.is-active {
+  background: var(--primary);
+  color: #ffffff;
+}
+.almacen-subnav-item.is-active svg { color: #ffffff; }
+
+/* Tablet mediano 768-900px: reducir padding horizontal gradualmente */
+@media (max-width: 900px) and (min-width: 769px) {
+  .almacen-subnav { gap: 2px; padding: 8px 10px; }
+  .almacen-subnav-item { padding: 7px 9px; font-size: 12px; gap: 4px; }
+}
+
+/* Tablet angosto 640-768px: padding mínimo antes de colapsar */
+@media (max-width: 768px) and (min-width: 641px) {
+  .almacen-subnav { gap: 1px; padding: 8px 8px; }
+  .almacen-subnav-item { padding: 7px 6px; font-size: 11px; gap: 3px; }
+}
+
+/* Mobile <640px: solo ícono, touch target 40×40px */
+@media (max-width: 640px) {
+  .almacen-subnav { padding: 6px 8px; gap: 2px; }
+  .almacen-subnav-item {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+  .almacen-subnav-item span { display: none; }
+}
+
+/* ─── Espaciado de la página de Catálogo: header → KPIs → panel de datos ────── */
+.page-header-row {
+  margin-bottom: 28px;
+}
+.kpi-grid {
+  margin-bottom: 28px;
+}
+
+/* ─── Quitar marco/tarjeta del panel donde viven los materiales (Catálogo) ──── */
+.catalog-data-panel {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+/* ─── Imágenes responsivas en ficha de material ───────────────────────────────── */
+/* .foto-preview base: max-width 320px, se adapta a la proporción real de la imagen */
+/* En mobile se expande al ancho disponible del card sin recortarse.               */
+@media (max-width: 640px) {
+  .foto-preview {
+    max-width: 100%;
+    width: 100%;
+  }
 }

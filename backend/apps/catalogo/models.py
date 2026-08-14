@@ -1,10 +1,27 @@
 from django.db import models
 
+class Almacen(models.Model):
+    nombre = models.CharField(max_length=150)
+    codigo = models.CharField(max_length=20, unique=True)
+    ubicacion = models.CharField(max_length=200, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name_plural = "Almacenes"
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+    
 class Categoria(models.Model):
-    nombre = models.CharField(max_length=100, unique=True)
+    almacen = models.ForeignKey(
+        Almacen,
+        on_delete=models.PROTECT,
+        related_name="categorias",
+    )
+    nombre = models.CharField(max_length=100)
     prefijo = models.CharField(
         max_length=3,
-        unique=True,
         help_text="Prefijo de letras usado en el código de catálogo (ej. H, G, C)."
     )
     descripcion = models.TextField(blank=True)
@@ -12,7 +29,6 @@ class Categoria(models.Model):
         default=True,
         help_text="Si se desactiva, los materiales de esta categoría dejarán de aparecer en préstamos, inspecciones y demás procesos operativos.",
     )
-
     requiere_inspeccion = models.BooleanField(
         default=False,
         help_text="Si está activo, los materiales de esta categoría pueden ser "
@@ -23,6 +39,7 @@ class Categoria(models.Model):
     class Meta:
         verbose_name_plural = "Categorías"
         ordering = ["nombre"]
+        unique_together = [("almacen", "nombre"), ("almacen", "prefijo")]
 
     def __str__(self):
         return f"{self.nombre} ({self.prefijo})"
@@ -75,42 +92,44 @@ class Material(models.Model):
     ]
 
     UNIDAD_MANEJO_CHOICES = [
-        # ── Por pieza / unidad suelta ──────────────────────
-        ("unidad",   "Por unidad suelta"),
-        # ── Empaques cerrados ─────────────────────────────
-        ("caja",     "Por caja"),
-        ("bolsa",    "Por bolsa"),
-        ("paquete",  "Por paquete"),
-        ("fardo",    "Por fardo"),
-        ("saco",     "Por saco"),
-        ("balde",    "Por balde"),
-        ("cunete",   "Por cuñete"),
-        ("tambor",   "Por tambor / cilindro"),
-        ("bidon",    "Por bidón"),
-        ("frasco",   "Por frasco"),
-        ("blister",  "Por blíster"),
-        # ── Rollos / enrollados ───────────────────────────
-        ("rollo",    "Por rollo"),
-        ("bobina",   "Por bobina"),
-        ("carrete",  "Por carrete"),
-        # ── Medidas de cantidad ───────────────────────────
-        ("millar",   "Por millar"),
-        ("ciento",   "Por ciento"),
-        ("docena",   "Por docena"),
-        # ── Juegos / conjuntos ────────────────────────────
-        ("juego",    "Por juego / kit"),
-        # ── Piezas largas / planas ────────────────────────
-        ("plancha",  "Por plancha / lámina"),
-        ("barra",    "Por barra"),
-        ("hoja",     "Por hoja"),
+        ("Unidad",         "Por Unidad"),
+        ("Paquete",        "Por Paquete"),
+        ("Bolsa",          "Por Bolsa"),
+        ("Blister",        "Por Blíster"),
+        ("Rollo",          "Por Rollo"),
+        ("Docena",         "Por Docena"),
+        ("Millar",         "Por Millar"),
+        ("Litro",          "Por Litro"),
+        ("Mililitro",      "Por Mililitro"),
+        ("Galon",          "Por Galón"),
+        ("Bidon",          "Por Bidón"),
+        ("Kilogramo",      "Por Kilogramo"),
+        ("Gramo",          "Por Gramo"),
+        ("Libra",          "Por Libra"),
+        ("Metro",          "Por Metro"),
+        ("Centimetro",     "Por Centímetro"),
+        ("Milimetro",      "Por Milímetro"),
+        ("MetroCuadrado",  "Por Metro Cuadrado"),
+        ("MetroCubico",    "Por Metro Cúbico"),
     ]
 
 
     subcategoria = models.ForeignKey(
         Subcategoria, on_delete=models.PROTECT, related_name="materiales"
     )
-    codigo = models.CharField(max_length=20, unique=True, blank=True)
+    almacen = models.ForeignKey(
+        Almacen,
+        on_delete=models.PROTECT,
+        related_name="materiales",
+    )
+    codigo = models.CharField(max_length=20, blank=True)
     nombre = models.CharField(max_length=150)
+    codigo_quipu = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Código QUIPU",
+        help_text="Código de referencia manual del sistema QUIPU (opcional).",
+    )
     marca = models.CharField(max_length=100, blank=True)
     modelo = models.CharField(
         max_length=100, blank=True,
@@ -146,7 +165,28 @@ class Material(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Precio de referencia de este material. Para estuches, es el precio del conjunto completo (no de piezas hijas individuales)."
     )
+    MONEDA_CHOICES = [
+        ("PEN", "Soles (PEN)"),
+        ("USD", "Dólares (USD)"),
+    ]
+
+    moneda = models.CharField(
+        max_length=3, choices=MONEDA_CHOICES, blank=True, default="PEN",
+        help_text="Moneda en la que está expresado el precio."
+    )
+    CLASIFICACION_OPERATIVA_CHOICES = [
+        ("CONSUMIBLE", "Consumible (genera costo)"),
+        ("HERRAMIENTA", "Herramienta reutilizable (solo uso)"),
+        ("EPP", "Equipo de protección personal (solo uso)"),
+    ]
+
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
+    clasificacion_operativa = models.CharField(
+        max_length=16,
+        choices=CLASIFICACION_OPERATIVA_CHOICES,
+        default="CONSUMIBLE",
+        help_text="Define el tratamiento en una OT. Solo los consumibles generan costos; herramientas y EPP quedan registrados como uso operativo.",
+    )
     control_individual = models.BooleanField(default=False)
 
     # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).
@@ -156,7 +196,7 @@ class Material(models.Model):
     # de este material se maneja contando unidades sueltas o cajas cerradas.
     # cantidad_total SIEMPRE queda expresado en unidades, sin importar el modo.
     unidad_manejo = models.CharField(
-        max_length=10, choices=UNIDAD_MANEJO_CHOICES, default="unidad",
+        max_length=13, choices=UNIDAD_MANEJO_CHOICES, default="unidad",
         help_text="Cómo se cuenta el stock de este consumible: por unidad suelta o por empaque (caja, bolsa, saco, millar, etc.).",
     )
     unidades_por_caja = models.PositiveIntegerField(
@@ -200,6 +240,7 @@ class Material(models.Model):
 
     class Meta:
         ordering = ["codigo"]
+        unique_together = ("almacen", "codigo")
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"

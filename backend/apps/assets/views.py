@@ -101,25 +101,6 @@ class AssetDetailView(generics.RetrieveUpdateAPIView):
         return queryset
 
 
-class AssetPdfView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, pk):
-        from io import BytesIO
-        from .reporting import build_asset_pdf
-        asset = get_object_or_404(
-            Asset.objects.select_related("taxonomy", "location").prefetch_related("incidents__work_order__technician"),
-            pk=pk
-        )
-        content = build_asset_pdf(asset).getvalue()
-        return FileResponse(
-            BytesIO(content),
-            content_type="application/pdf",
-            as_attachment=True,
-            filename=f"ficha-{asset.fm_code or asset.code}.pdf",
-        )
-
-
 class AssetClassificationView(APIView):
     permission_classes = [IsAdministrator]
 

@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 
 from .serializers import ChangePasswordSerializer, CurrentUserSerializer, LoginSerializer, UserListSerializer, TechnicianSerializer
 from .models import AccountProfile
-from .permissions import IsAdministrator, IsAuthenticatedReadAdministratorWrite
+from .permissions import IsAdministrator
 from apps.notifications.services import queue_notification
 from config.schema import DetailResponseSerializer, ImportResultSerializer
 
@@ -65,8 +65,8 @@ class ChangePasswordView(views.APIView):
 
 
 class UserListView(views.APIView):
-    """Lista todos los usuarios activos. Temporal con AllowAny hasta que exista autenticación en el frontend."""
-    permission_classes = [permissions.AllowAny]
+    """Lista todos los usuarios activos. Requiere autenticación."""
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(responses={200: UserListSerializer(many=True)})
     def get(self, request):
@@ -82,7 +82,7 @@ class UserListView(views.APIView):
 
 
 class TechnicianListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+    permission_classes = [IsAdministrator]
     serializer_class = TechnicianSerializer
 
     def get_queryset(self):
@@ -91,21 +91,7 @@ class TechnicianListCreateView(generics.ListCreateAPIView):
                 AccountProfile.Role.TECHNICIAN,
                 AccountProfile.Role.ALMACENERO,
                 AccountProfile.Role.INSPECTOR,
-                AccountProfile.Role.SUPERVISOR,
-                AccountProfile.Role.ADMIN,
             ]
-        ).order_by('first_name', 'last_name', 'username')
-
-
-class AccountManagementListCreateView(generics.ListCreateAPIView):
-    """Administración centralizada de todas las cuentas de la plataforma."""
-
-    permission_classes = [IsAuthenticatedReadAdministratorWrite]
-    serializer_class = TechnicianSerializer
-
-    def get_queryset(self):
-        return get_user_model().objects.select_related('account_profile').filter(
-            account_profile__isnull=False,
         ).order_by('first_name', 'last_name', 'username')
 
 
@@ -139,10 +125,6 @@ class TechnicianImportView(views.APIView):
                 full_name = str(values.get("nombre") or "").strip()
                 worker_code = str(values.get("codigo_trabajador") or "").strip().upper()
                 dni = "".join(ch for ch in str(values.get("dni") or "") if ch.isdigit())
-                requested_role = str(values.get("rol") or AccountProfile.Role.TECHNICIAN).strip().upper()
-                valid_roles = {choice for choice, _label in AccountProfile.Role.choices}
-                if requested_role not in valid_roles:
-                    raise ValueError("rol no válido")
                 if not full_name or not worker_code or len(dni) != 8:
                     raise ValueError("nombre, codigo_trabajador y DNI de 8 dígitos son obligatorios")
                 with transaction.atomic():
@@ -154,14 +136,13 @@ class TechnicianImportView(views.APIView):
                         existing.specialty = str(values.get("especialidad") or "").strip()
                         existing.position = str(values.get("cargo") or values.get("posicion") or "").strip()
                         existing.hourly_rate = values.get("tarifa_hora") or values.get("cuota_hora") or 0
-                        existing.role = requested_role
-                        existing.save(update_fields=("dni", "specialty", "position", "hourly_rate", "role"))
+                        existing.save(update_fields=("dni", "specialty", "position", "hourly_rate"))
                         result["updated"] += 1
                     else:
                         first_name, _, last_name = full_name.partition(" ")
                         password = str(values.get("contraseña_temporal") or "Importar2026!")
                         user = get_user_model().objects.create_user(username=worker_code.lower(), password=password, first_name=first_name, last_name=last_name, email=str(values.get("correo") or ""), is_active=True)
-                        AccountProfile.objects.create(user=user, worker_code=worker_code, dni=dni, specialty=str(values.get("especialidad") or "").strip(), position=str(values.get("cargo") or values.get("posicion") or "").strip(), hourly_rate=values.get("tarifa_hora") or values.get("cuota_hora") or 0, role=requested_role, must_change_password=True)
+                        AccountProfile.objects.create(user=user, worker_code=worker_code, dni=dni, specialty=str(values.get("especialidad") or "").strip(), position=str(values.get("cargo") or values.get("posicion") or "").strip(), hourly_rate=values.get("tarifa_hora") or values.get("cuota_hora") or 0, role=AccountProfile.Role.TECHNICIAN, must_change_password=True)
                         result["created"] += 1
             except Exception as exc:
                 result["errors"].append({"fila": number, "detalle": str(exc)})
@@ -178,15 +159,6 @@ class TechnicianDetailView(generics.RetrieveUpdateAPIView):
             AccountProfile.Role.INSPECTOR,
         ]
     )
-
-    def get_object(self):
-        return get_object_or_404(self.get_queryset(), account_profile__id=self.kwargs['pk'])
-
-
-class AccountManagementDetailView(generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAdministrator]
-    serializer_class = TechnicianSerializer
-    queryset = get_user_model().objects.select_related('account_profile').filter(account_profile__isnull=False)
 
     def get_object(self):
         return get_object_or_404(self.get_queryset(), account_profile__id=self.kwargs['pk'])
@@ -230,4 +202,19 @@ class TechnicianManualNotificationView(views.APIView):
         return response.Response({'detail': detail}, status=status.HTTP_201_CREATED)
 
 
-__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView", "UserListView", "TechnicianListCreateView", "TechnicianDetailView", "TechnicianManualNotificationView"]
+class AccountManagementListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = TechnicianSerializer
+    queryset = get_user_model().objects.select_related('account_profile').all().order_by('first_name', 'last_name', 'username')
+
+
+class AccountManagementDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = TechnicianSerializer
+    queryset = get_user_model().objects.select_related('account_profile').all()
+
+    def get_object(self):
+        return get_object_or_404(self.get_queryset(), account_profile__id=self.kwargs['pk'])
+
+
+__all__ = ["LoginView", "TokenRefreshView", "CurrentUserView", "ChangePasswordView", "UserListView", "TechnicianListCreateView", "TechnicianDetailView", "TechnicianManualNotificationView", "AccountManagementListCreateView", "AccountManagementDetailView"]

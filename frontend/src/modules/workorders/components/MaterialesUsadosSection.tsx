@@ -6,10 +6,11 @@ import {
   Check,
   Spinner,
 } from "@phosphor-icons/react";
+
 import { useEffect, useState } from "react";
-import { getMaterialesHijas, listMateriales } from "@/modules/almacen/catalogoRepository";
+import { getMaterialesHijas, listAlmacenes, listMateriales } from "@/modules/almacen/catalogoRepository";
 import { Combobox } from "@/modules/almacen/components/shared/Combobox";
-import type { Material } from "@/modules/almacen/types";
+import type { Almacen, Material } from "@/modules/almacen/types";
 import {
   addWorkOrderMaterial,
   deleteWorkOrderMaterial,
@@ -27,6 +28,8 @@ interface Props {
 export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
   const [materiales, setMateriales] = useState<WorkOrderMaterial[]>([]);
   const [catalogo, setCatalogo] = useState<Material[]>([]);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
+  const [almacenId, setAlmacenId] = useState<number | "">("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -40,12 +43,8 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
   // Piezas hijas del material seleccionado (vacío si no es un estuche/contenedor)
   const [hijas, setHijas] = useState<Material[]>([]);
   const [modo, setModo] = useState<"completo" | "piezas">("completo");
-  const [hijaForms, setHijaForms] = useState<
-    Record<
-      number,
-      { cantidad: number; tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE"; porcentajeRequerido: number | "" }
-    >
-  >({});
+  const [hijaForms, setHijaForms] = useState<Record<number, { cantidad: number; tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE"; porcentajeRequerido: number | "" }>>({});
+
   const [savingHijaId, setSavingHijaId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -53,8 +52,25 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
       setMateriales(data);
       setLoading(false);
     });
-    void listMateriales({}).then(setCatalogo);
+    void listAlmacenes().then((data) => {
+      setAlmacenes(data);
+      const primero = data.find((a) => a.activo) ?? data[0];
+      if (primero) setAlmacenId(primero.id);
+    });
   }, [workOrderId]);
+
+  // Recarga el catálogo cada vez que cambia el almacén elegido
+  useEffect(() => {
+    if (!almacenId) {
+      setCatalogo([]);
+      return;
+    }
+    void listMateriales(Number(almacenId)).then(setCatalogo);
+    // El material elegido pertenecía a otro almacén: se limpia la selección
+    setForm((prev) => ({ ...prev, material: "" }));
+    setHijas([]);
+    setModo("completo");
+  }, [almacenId]);
 
   // Cada vez que cambia el material elegido, revisa si tiene piezas hijas
   useEffect(() => {
@@ -88,6 +104,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
         cantidad: form.cantidad,
         tipo: form.tipo,
         porcentajeRequerido: form.tipo === "NECESARIO_NO_BLOQUEANTE" && form.porcentajeRequerido !== "" ? Number(form.porcentajeRequerido) : null,
+        almacen: almacenId ? Number(almacenId) : null,
       });
       setMateriales((prev) => [...prev, added]);
       setForm({ material: "", cantidad: 1, tipo: "USADO", porcentajeRequerido: "" });
@@ -113,6 +130,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
           hijaForm.tipo === "NECESARIO_NO_BLOQUEANTE" && hijaForm.porcentajeRequerido !== ""
             ? Number(hijaForm.porcentajeRequerido)
             : null,
+        almacen: almacenId ? Number(almacenId) : null,
       });
       setMateriales((prev) => [...prev, added]);
       setHijaForms((prev) => ({
@@ -161,6 +179,22 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
     }
   }
 
+  async function handleTipoChange(id: string, tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE") {
+    const item = materiales.find((material) => material.id === id);
+    if (!item) return;
+    try {
+      const updated = await updateWorkOrderMaterial(workOrderId, id, {
+        material: item.material,
+        cantidad: item.cantidad,
+        tipo,
+        porcentajeRequerido: tipo === "NECESARIO_NO_BLOQUEANTE" ? item.porcentajeRequerido : null,
+      });
+      setMateriales((prev) => prev.map((material) => material.id === id ? updated : material));
+    } catch {
+      setError("No se pudo actualizar el uso del material.");
+    }
+  }
+
   const selectedMaterial = catalogo.find((c) => c.id === Number(form.material));
 
   return (
@@ -180,6 +214,22 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
         <div className="form-error" style={{ marginBottom: 12 }}>
           {error}
         </div>
+      )}
+
+      {/* Selector de almacén — filtra qué materiales están disponibles abajo */}
+      {!isOtClosed && (
+        <label className="field" style={{ maxWidth: 320, marginBottom: 14 }}>
+          <span>Almacén</span>
+          <select
+            value={almacenId}
+            onChange={(e) => setAlmacenId(e.target.value ? Number(e.target.value) : "")}
+          >
+            <option value="">Selecciona un almacén…</option>
+            {almacenes.map((a) => (
+              <option key={a.id} value={a.id}>{a.nombre}</option>
+            ))}
+          </select>
+        </label>
       )}
 
       {/* Lista de materiales ya registrados */}
@@ -212,7 +262,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
                 <strong>{m.materialNombre}</strong>
                 <code style={{ fontSize: 11, marginLeft: 6, color: "var(--muted)" }}>{m.materialCodigo}</code>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                  {m.tipoLabel}
+                  {m.clasificacionOperativaLabel || "Material"} · {m.tipoLabel}
                   {m.tipo === "NECESARIO_NO_BLOQUEANTE" && m.porcentajeRequerido !== null && (
                     <span style={{ fontWeight: 600, color: "var(--brand-primary, #0056b3)", marginLeft: 6 }}>
                       (Requerido al {m.porcentajeRequerido}% de avance)
@@ -228,6 +278,17 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
               </div>
 
               {/* Cantidad editable */}
+              {!isOtClosed && (
+                <select
+                  value={m.tipo}
+                  onChange={(event) => void handleTipoChange(m.id, event.target.value as "USADO" | "NECESARIO_NO_BLOQUEANTE")}
+                  aria-label={`Uso de ${m.materialNombre}`}
+                  style={{ fontSize: 12, maxWidth: 155 }}
+                >
+                  <option value="USADO">Usado</option>
+                  <option value="NECESARIO_NO_BLOQUEANTE">Necesario</option>
+                </select>
+              )}
               {!isOtClosed && (
                 <input
                   type="number"
@@ -298,7 +359,13 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
       )}
 
       {/* Formulario para agregar */}
-      {!isOtClosed && (
+      {!isOtClosed && !almacenId && (
+        <p style={{ fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>
+          Selecciona un almacén para ver los materiales disponibles.
+        </p>
+      )}
+
+      {!isOtClosed && almacenId && (
         <form
           onSubmit={(e) => void handleAdd(e)}
           style={{
@@ -320,7 +387,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
               placeholder="Buscar por nombre, código o marca…"
               onChange={(id) => setForm({ ...form, material: id })}
               fetchOptions={async (q) => {
-                const res = await listMateriales({ q });
+                const res = await listMateriales(Number(almacenId), { q });
                 return res.map((c) => ({
                   id: c.id,
                   label: `${c.nombre}${c.marca ? ` · ${c.marca}` : ""}`,

@@ -170,7 +170,6 @@ export function OperatorAvailabilityPanel({
 
   const weekOrders = calendarDates.flatMap((date) => occupiedByDate.get(date) ?? []);
   const weekHours = weekOrders.reduce((total, order) => total + Math.max(1, order.plannedHours || 1), 0);
-  const selectedDayOrders = dates.flatMap((date) => occupiedByDate.get(date) ?? []);
 
   if (!operatorId) {
     return (

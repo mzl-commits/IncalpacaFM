@@ -9,18 +9,19 @@ import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import type { ResultadoInspeccion, TipoInspeccion } from "@/modules/almacen/types";
-
 
 const FILTER_KEYS = ["q", "tipo", "resultado"] as const;
 
 export function InspeccionesPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
+  const { almacenId } = useAlmacenActivo();
 
   const { data: inspecciones = [], isLoading } = useQuery({
-    queryKey: ["inspecciones", values],
+    queryKey: ["inspecciones", almacenId, values],
     queryFn: () =>
-      listInspecciones({
+      listInspecciones(almacenId, {
         q: values.q || undefined,
         tipo: values.tipo ? (values.tipo as TipoInspeccion) : undefined,
         resultado: values.resultado ? (values.resultado as ResultadoInspeccion) : undefined,
@@ -28,8 +29,8 @@ export function InspeccionesPage() {
   });
 
   const { data: vencidas = [] } = useQuery({
-    queryKey: ["inspecciones-vencidas"],
-    queryFn: listVencidas,
+    queryKey: ["inspecciones-vencidas", almacenId],
+    queryFn: () => listVencidas(almacenId),
   });
 
   // Stats
@@ -60,10 +61,10 @@ export function InspeccionesPage() {
           <p>Registro y control de calidad de herramientas y materiales.</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Link to="/almacen/inspecciones/vencidas" className="button button-secondary">
+          <Link to={`/almacen/${almacenId}/inspecciones/vencidas`} className="button button-secondary">
             <WarningCircle size={16} /> Vencidas ({vencidas.length})
           </Link>
-          <Link to="/almacen/inspecciones/nueva" className="button button-primary">
+          <Link to={`/almacen/${almacenId}/inspecciones/nueva`} className="button button-primary">
             <Plus size={16} /> Nueva inspección
           </Link>
         </div>
@@ -82,7 +83,7 @@ export function InspeccionesPage() {
           <div>
             <strong>{vencidas.length} materiales con inspecciones vencidas (+90 días o nunca inspeccionados)</strong>
             <p style={{ margin: "4px 0 0", fontSize: 13 }}>
-              <Link to="/almacen/inspecciones/vencidas" style={{ color: "inherit", fontWeight: 700 }}>
+              <Link to={`/almacen/${almacenId}/inspecciones/vencidas`} style={{ color: "inherit", fontWeight: 700 }}>
                 Ver materiales vencidos →
               </Link>
             </p>
@@ -108,7 +109,7 @@ export function InspeccionesPage() {
         </ListFilterPanel>
 
         <div className="table-scroll">
-          <table>
+          <table className="tabla-detalle-mobile">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -142,7 +143,7 @@ export function InspeccionesPage() {
                   <td><StatusBadge value={insp.resultado_general} /></td>
                   <td style={{ fontSize: 12 }}>{insp.inspector_nombre}</td>
                   <td>
-                    <Link to={`/almacen/inspecciones/${insp.id}`} className="table-action" aria-label="Ver inspección">
+                    <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}`} className="table-action" aria-label="Ver inspección">
                       <ArrowRight size={15} />
                     </Link>
                   </td>

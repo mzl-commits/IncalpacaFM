@@ -10,6 +10,7 @@ import {
 } from "@/modules/almacen/planificacionRepository";
 import { estadoCalculadoLabels, estadoPlanAnualLabels } from "@/modules/almacen/types";
 import type { EstadoCalculado, ProgramacionInspeccion } from "@/modules/almacen/types";
+import { getApiErrorMessage } from "@/utils/httpError";
 
 const ESTADOS: EstadoCalculado[] = ["vencida", "proxima", "pendiente", "realizada"];
 
@@ -22,7 +23,7 @@ export function PlanAnualPage() {
 
   const { data: planes = [], isLoading: cargandoPlanes } = useQuery({
     queryKey: ["planes-anuales"],
-    queryFn: listPlanesAnuales,
+    queryFn: () => listPlanesAnuales(),
   });
 
   // Sin filtro de fecha: trae todas las programaciones para poder contar por plan
@@ -66,10 +67,8 @@ export function PlanAnualPage() {
       queryClient.invalidateQueries({ queryKey: ["planes-anuales"] });
       queryClient.invalidateQueries({ queryKey: ["programaciones-inspeccion-todas"] });
     },
-    onError: (err: any) => {
-      setErrorGenerar(
-        err?.response?.data?.detail ?? "No se pudo generar el plan. Intenta nuevamente.",
-      );
+    onError: (err: unknown) => {
+      setErrorGenerar(getApiErrorMessage(err, "No se pudo generar el plan. Intenta nuevamente."));
     },
   });
 
