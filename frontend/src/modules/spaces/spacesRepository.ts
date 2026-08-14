@@ -306,6 +306,7 @@ export async function getSpaceOptions(
       parentId: node.parentId,
       kind: node.kind,
       nodeType: node.nodeType,
+      codeSegment: node.codeSegment,
       code: node.code,
       name: node.name,
       pathCode: node.pathCode,

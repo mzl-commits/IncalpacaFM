@@ -11,7 +11,7 @@ type SpaceMapCompatibilityPanelProps = {
  * administrator can continue managing its image in the existing map module.
  */
 export function SpaceMapCompatibilityPanel({ node }: SpaceMapCompatibilityPanelProps) {
-  if (node.kind !== "ENVIRONMENT") return null;
+  if (node.kind !== "MODULE") return null;
 
   return (
     <section className="space-map-panel" aria-labelledby="space-map-title">

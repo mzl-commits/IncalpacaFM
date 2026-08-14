@@ -30,7 +30,7 @@ export function SpaceMetricsPanel({ node }: SpaceMetricsPanelProps) {
         <div>
           <dt>Superficie</dt>
           <dd>{areaLabel(node.squareMeters)}</dd>
-          <small>{node.kind === "BUILDING" ? "Total del edificio" : node.kind === "ENVIRONMENT" ? "Área propia del ambiente" : "Medición opcional para este nivel"}</small>
+          <small>{node.kind === "MACRO_AREA" ? "Total del área macro" : node.kind === "MODULE" ? "Área propia del módulo" : "Medición opcional para este nivel"}</small>
         </div>
         <div>
           <dt>Aforo</dt>

@@ -1,7 +1,7 @@
 import { CheckCircle, FloppyDisk, Info, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { useSpaceOptions, useSites } from "../spacesQueries";
-import type { SpaceNode, SpaceNodeInput, SpaceSite, SpaceSiteInput } from "../types";
+import type { SpaceNode, SpaceNodeInput, SpaceSite, SpaceSiteInput, SpaceOption } from "../types";
 import {
   spaceKindCodeHints,
   spaceKindDescriptions,
@@ -140,15 +140,9 @@ const LEVEL_BOXES: Array<{
   title: string;
   description: string;
 }> = [
-  { type: "MACRO_AREA", level: 2, title: "Área macro", description: "Bloque principal u operativo." },
-  { type: "BUILDING", level: 2, title: "Edificio", description: "Edificio o estructura independiente." },
-  { type: "SECTOR", level: 3, title: "Sector", description: "Sub-bloque u organización interna." },
-  { type: "LEVEL", level: 4, title: "Nivel / Piso", description: "Planta, nivel o piso del edificio." },
-  { type: "AREA", level: 5, title: "Área", description: "Área funcional o departamento." },
-  { type: "MODULE", level: 6, title: "Módulo", description: "Estación de trabajo o módulo." },
-  { type: "ENVIRONMENT", level: 7, title: "Ambiente", description: "Oficina, almacén o taller físico." },
-  { type: "SUB_ENVIRONMENT", level: 8, title: "Sub-ambiente", description: "Zona delimitada en un ambiente." },
-  { type: "POINT", level: 9, title: "Punto específico", description: "Estante, bahía o posición final." },
+  { type: "MACRO_AREA", level: 2, title: "Área macro", description: "Inicia con PP, AD, CO, RE o AL." },
+  { type: "AREA", level: 3, title: "Área", description: "Área funcional o departamento." },
+  { type: "MODULE", level: 4, title: "Módulo", description: "Estación de trabajo o módulo." },
 ];
 
 export function SpaceNodeForm({
@@ -171,13 +165,22 @@ export function SpaceNodeForm({
   const [headcount, setHeadcount] = useState(node?.headcount == null ? "" : String(node.headcount));
   const [commonSpace, setCommonSpace] = useState(node?.commonSpace ?? false);
   const [error, setError] = useState("");
+  const [macroPrefix, setMacroPrefix] = useState("AD");
+
+  const MACRO_PREFIXES = [
+    { value: "PP", label: "PP - Planta de producción" },
+    { value: "AD", label: "AD - Sectores administrativos" },
+    { value: "CO", label: "CO - Sectores comerciales" },
+    { value: "RE", label: "RE - Sectores de retail" },
+    { value: "AL", label: "AL - Sectores de almacenamiento" },
+  ];
 
   const sites = useMemo(
     () => (sitesQuery.data ?? optionsQuery.data?.sites ?? []).filter((site) => site.active || site.id === node?.siteId),
     [node?.siteId, optionsQuery.data?.sites, sitesQuery.data],
   );
   const allowedNodeTypes = useMemo(() => optionsQuery.data?.allowedNodeTypes ?? [], [optionsQuery.data?.allowedNodeTypes]);
-  const parentOptions = useMemo(() => optionsQuery.data?.nodes ?? [], [optionsQuery.data?.nodes]);
+  const parentOptions = useMemo(() => optionsQuery.data?.nodes ?? ([] as SpaceOption[]), [optionsQuery.data?.nodes]);
   const selectedType = nodeType;
   const selectedSite = sites.find((site) => site.id === siteId) ?? null;
   const selectedSiteArchived = Boolean(selectedSite && !selectedSite.active);
@@ -193,11 +196,19 @@ export function SpaceNodeForm({
       setHeadcount(node.headcount == null ? "" : String(node.headcount));
       setCommonSpace(node.commonSpace);
       setError("");
+      
+      if (node.nodeType === "MACRO_AREA") {
+        const match = MACRO_PREFIXES.find(p => node.codeSegment.startsWith(p.value));
+        if (match) setMacroPrefix(match.value);
+      }
     }
   }, [node]);
 
   const chosenParent = useMemo(() => parentOptions.find((item) => item.id === parentId) ?? null, [parentId, parentOptions]);
   const currentLevel = spaceKindLevels[selectedType] ?? 2;
+
+  const hasMacroArea = parentOptions.some((p) => p.nodeType === "MACRO_AREA");
+  const hasArea = parentOptions.some((p) => p.nodeType === "AREA");
 
   // Filter parent options by expected prior level for direct selection
   const candidateParents = useMemo(() => {
@@ -220,6 +231,33 @@ export function SpaceNodeForm({
     setNodeType(targetType);
     setError("");
   }
+
+  useEffect(() => {
+    if (node) return; // Solo autogenera en creación
+    if (!name.trim()) {
+      setCodeSegment("");
+      return;
+    }
+
+    const letters = name.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (!letters) return;
+
+    let basePrefix = "";
+    if (selectedType === "MACRO_AREA") {
+      basePrefix = macroPrefix;
+    }
+
+    const siblings = parentOptions.filter((p: any) => p.parentId === parentId && p.nodeType === selectedType);
+    
+    let generated = basePrefix + letters.charAt(0);
+    const isRepeated = (code: string) => siblings.some(s => s.codeSegment === code);
+
+    if (isRepeated(generated) && letters.length > 1) {
+      generated = basePrefix + letters.substring(0, 2);
+    }
+    
+    setCodeSegment(generated);
+  }, [name, macroPrefix, selectedType, parentId, parentOptions, node]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -252,9 +290,17 @@ export function SpaceNodeForm({
     }
     setError("");
     try {
+      if (nodeType === "MACRO_AREA") {
+        const validPrefixes = ["PP", "AD", "CO", "RE", "AL"];
+        if (!validPrefixes.some(p => normalizedCode.startsWith(p))) {
+          setError("El código del Área Macro debe iniciar con PP, AD, CO, RE o AL.");
+          return;
+        }
+      }
+
       await onSubmit({
         siteId,
-        parentId,
+        parentId: chosenParent ? chosenParent.id : null,
         nodeType,
         codeSegment: normalizedCode,
         name: name.trim(),
@@ -323,53 +369,51 @@ export function SpaceNodeForm({
           <p>Selecciona directamente el nivel del espacio. No necesitas entrar nivel por nivel.</p>
         </header>
         <div className="space-level-grid">
-          {LEVEL_BOXES.map((box) => (
-            <button
-              key={box.type}
-              type="button"
-              className={`space-box-card ${nodeType === box.type ? "is-selected" : ""}`}
-              onClick={() => selectLevel(box.type)}
-              disabled={!siteId}
-            >
-              <span className="level-badge">Nivel {box.level}</span>
-              <strong>{box.title}</strong>
-              <small>{box.description}</small>
-            </button>
-          ))}
+          {LEVEL_BOXES.map((box) => {
+            const missingPredecessor = 
+              (box.type === "AREA" && !hasMacroArea) ||
+              (box.type === "MODULE" && !hasArea);
+
+            return (
+              <button
+                key={box.type}
+                type="button"
+                className={`space-box-card ${nodeType === box.type ? "is-selected" : ""}`}
+                onClick={() => selectLevel(box.type)}
+                disabled={!siteId || missingPredecessor}
+                title={missingPredecessor ? `Debes crear al menos un espacio de Nivel ${box.level - 1} primero.` : undefined}
+              >
+                <span className="level-badge">Nivel {box.level}</span>
+                <strong>{box.title}</strong>
+                <small>{box.description}</small>
+              </button>
+            );
+          })}
         </div>
       </section>
 
       {/* Paso 3: Selección del Padre Directo */}
-      <section className="space-form-step">
-        <header>
-          <span>Paso 3</span>
-          <h3>
-            {currentLevel === 2
-              ? "Padre Directo: Raíz de la Sede"
-              : `Selecciona el Padre Directo (Nivel ${currentLevel - 1} o superior)`}
-          </h3>
-          <p>
-            {currentLevel === 2
-              ? "Los espacios de Nivel 2 se ubican directamente en la raíz de la Sede."
-              : `Selecciona el espacio de Nivel ${currentLevel - 1} al que pertenece directamente.`}
-          </p>
-        </header>
-        {currentLevel === 2 ? (
-          <div className="space-form-feedback">
-            <Info weight="duotone" />
-            <span>El espacio se creará directamente en la Sede seleccionada ({selectedSite?.code || "Sede"}).</span>
-          </div>
-        ) : (
+      {currentLevel > 2 && (
+        <section className="space-form-step">
+          <header>
+            <span>Paso 3</span>
+            <h3>
+              Selecciona el Padre Directo (Nivel {currentLevel - 1} o superior)
+            </h3>
+            <p>
+              Selecciona el espacio de Nivel {currentLevel - 1} al que pertenece directamente.
+            </p>
+          </header>
           <div className="space-form-grid">
             <label className="space-form-full">
-              <span>Espacio Padre <b>*</b></span>
+              <span>Pertenece a <b>*</b></span>
               <select
                 value={parentId ?? ""}
                 onChange={(event) => changeParent(event.target.value || null)}
                 disabled={!siteId || optionsQuery.isPending}
                 required
               >
-                <option value="">-- Selecciona el espacio padre --</option>
+                <option value="">-- Selecciona a qué espacio pertenece --</option>
                 {candidateParents.map((parent) => (
                   <option key={parent.id} value={parent.id}>
                     {parent.pathCode} · {parent.name} ({spaceKindLabels[parent.kind] || parent.kind})
@@ -377,35 +421,23 @@ export function SpaceNodeForm({
                 ))}
               </select>
               {chosenParent ? (
-                <small>Padre seleccionado: <b>{chosenParent.name}</b> ({chosenParent.pathCode})</small>
+                <small>Pertenece a: <b>{chosenParent.name}</b> ({chosenParent.pathCode})</small>
               ) : (
                 <small>Selecciona el espacio de nivel superior.</small>
               )}
             </label>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Paso 4: Identidad y Medidas del Espacio */}
       <section className="space-form-step">
         <header>
-          <span>Paso 4</span>
+          <span>Paso {currentLevel > 2 ? 4 : 3}</span>
           <h3>Datos e Identificación del Espacio</h3>
-          <p>Asigna el código de segmento, el nombre legible y sus medidas operativas.</p>
+          <p>Asigna el nombre legible y sus medidas operativas.</p>
         </header>
         <div className="space-form-grid">
-          <label>
-            <span>Segmento de código <b>*</b></span>
-            <input
-              value={codeSegment}
-              onChange={(event) => setCodeSegment(event.target.value.toUpperCase())}
-              placeholder={spaceKindCodeHints[selectedType]}
-              maxLength={16}
-              autoComplete="off"
-              required
-            />
-            <small>Segmento único dentro del mismo nivel.</small>
-          </label>
           <label>
             <span>Nombre del espacio <b>*</b></span>
             <input
@@ -416,6 +448,17 @@ export function SpaceNodeForm({
             />
             <small>Nombre descriptivo legible.</small>
           </label>
+          {selectedType === "MACRO_AREA" && !node && (
+            <label>
+              <span>Tipo de área macro <b>*</b></span>
+              <select value={macroPrefix} onChange={(e) => setMacroPrefix(e.target.value)}>
+                {MACRO_PREFIXES.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+              <small>Clasificador operativo predefinido.</small>
+            </label>
+          )}
           <label>
             <span>Metros cuadrados</span>
             <div className="space-input-unit">
@@ -442,23 +485,11 @@ export function SpaceNodeForm({
                 step="1"
                 value={headcount}
                 onChange={(event) => setHeadcount(event.target.value)}
-                disabled={commonSpace}
                 placeholder="Ej. 12"
               />
               <b>pers.</b>
             </div>
             <small>Referencial; aforo estimado.</small>
-          </label>
-          <label className="space-form-check">
-            <input
-              type="checkbox"
-              checked={commonSpace}
-              onChange={(event) => setCommonSpace(event.target.checked)}
-            />
-            <span>
-              <strong>Espacio común</strong>
-              <small>Permite uso compartido entre diferentes áreas.</small>
-            </span>
           </label>
         </div>
       </section>
