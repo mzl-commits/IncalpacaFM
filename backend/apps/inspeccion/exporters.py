@@ -44,6 +44,7 @@ CONFIG_HOJAS = {
     HOJA_MANUALES: {
         "tipo": "grupal",
         "criterio_data_start": 15,
+        "num_criterios_nativos": 16,   # filas 15-30 en el template Manuales
         "campos": {
             "tipo_herramienta": "C8",
             "responsable": "G8",
@@ -60,6 +61,7 @@ CONFIG_HOJAS = {
     HOJA_INALAMBRICAS: {
         "tipo": "individual",
         "criterio_data_start": 16,
+        "num_criterios_nativos": 20,   # aprox filas 16-35 en Electricas Inalambricas
         "campos": CONFIG_INDIVIDUAL_COMUN["campos"],
         "resultado_row": 37,
         "accion_row": 41,
@@ -68,6 +70,7 @@ CONFIG_HOJAS = {
     HOJA_CON_CABLE: {
         "tipo": "individual",
         "criterio_data_start": 16,
+        "num_criterios_nativos": 18,   # aprox filas 16-33 en Electricas con cable
         "campos": CONFIG_INDIVIDUAL_COMUN["campos"],
         "resultado_row": 35,
         "accion_row": 39,
@@ -88,13 +91,22 @@ def _normalizar(texto):
     return texto.lower()
 
 def _detectar_hoja(plantilla_nombre):
+    """Detecta la hoja del template Excel según el nombre de la plantilla.
+    EPP, escaleras, iluminaria y otros EPP se mapean a Manuales (formato individual genérico).
+    """
     nombre = _normalizar(plantilla_nombre)
+    # Herramientas manuales o genéricas individuales
     if "manual" in nombre:
         return HOJA_MANUALES
+    # Con cable
     if "cable" in nombre:
         return HOJA_CON_CABLE
+    # Inalámbricas / batería
     if "inalambric" in nombre or "bateria" in nombre:
         return HOJA_INALAMBRICAS
+    # EPP, escaleras, iluminaria, electrica sin cable → usar hoja Manuales como base
+    if any(k in nombre for k in ("epp", "proteccion personal", "escalera", "iluminari", "electri", "linterna")):
+        return HOJA_MANUALES
     return None
 
 def _fecha(valor):
@@ -155,10 +167,31 @@ def generar_excel_inspeccion(inspeccion):
         ws[campos["nombre_herramienta"]] = inspeccion.material.nombre
 
     # Criterios: se apoya en el orden del criterio para ubicar la fila correcta.
+    # Para plantillas "prestadas" (EPP, escaleras...) que usan una hoja cuya plantilla
+    # original tiene criterios distintos, primero borramos los textos existentes en el
+    # rango de datos y después escribimos los de la inspección.
     col_valor = {"cumple": "C", "no_cumple": "D", "no_aplica": "E"}
-    fila_base = config["criterio_data_start"] - 1  # criterio orden=1 -> primera fila de datos
-    for resp in inspeccion.respuestas.select_related("criterio").all():
+    fila_base = config["criterio_data_start"] - 1  # criterio orden=1 → primera fila de datos
+
+    respuestas = list(inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"))
+    num_criterios_plantilla_nativa = config.get("num_criterios_nativos", 0)
+    # Si la plantilla tiene más criterios fijos que las respuestas de esta inspección,
+    # limpiamos los excedentes del template para que no queden textos fantasma.
+    max_fila_usada = fila_base + len(respuestas)
+    if num_criterios_plantilla_nativa > len(respuestas):
+        for orden_extra in range(len(respuestas) + 1, num_criterios_plantilla_nativa + 1):
+            fila_extra = fila_base + orden_extra
+            for col_limpiar in ["A", "B", "C", "D", "E", "F"]:
+                ws[f"{col_limpiar}{fila_extra}"] = None
+
+    for resp in respuestas:
         fila = fila_base + resp.criterio.orden
+        # Siempre sobreescribir número y texto del criterio (importante para plantillas no nativas)
+        ws[f"A{fila}"] = resp.criterio.orden
+        ws[f"B{fila}"] = resp.criterio.texto
+        # Limpiar las tres columnas de valor antes de marcar
+        for c in ["C", "D", "E"]:
+            ws[f"{c}{fila}"] = None
         col = col_valor.get(resp.valor)
         if col:
             ws[f"{col}{fila}"] = "X"
