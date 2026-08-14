@@ -47,21 +47,16 @@ export async function printAssetPdf(id: string): Promise<void> {
   const blob = new Blob([response.data], { type: "application/pdf" });
   const blobUrl = URL.createObjectURL(blob);
 
-  const iframe = document.createElement("iframe");
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "0";
-  iframe.src = blobUrl;
+  const newWindow = window.open(blobUrl, "_blank");
+  if (!newWindow) {
+    // Fallback if popup blocker prevents window.open
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
-  document.body.appendChild(iframe);
-
-  iframe.onload = () => {
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    }, 300);
-  };
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 }
