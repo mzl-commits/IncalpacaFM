@@ -213,11 +213,32 @@ export function SpaceNodeForm({
   const hasMacroArea = parentOptions.some((p) => p.nodeType === "MACRO_AREA");
   const hasArea = parentOptions.some((p) => p.nodeType === "AREA");
 
-  // Filter parent options by expected prior level for direct selection
+  // Only show parents of the EXACT preceding level
+  const expectedParentType: Record<string, string> = {
+    AREA: "MACRO_AREA",
+    MODULE: "AREA",
+  };
   const candidateParents = useMemo(() => {
     if (!parentOptions.length) return [];
-    return parentOptions.filter((item) => item.id !== node?.id);
-  }, [node?.id, parentOptions]);
+    const expectedType = expectedParentType[selectedType];
+    return parentOptions.filter(
+      (item) => item.id !== node?.id && (!expectedType || item.nodeType === expectedType),
+    );
+  }, [node?.id, parentOptions, selectedType]);
+
+  // Group MACRO_AREA parents by prefix for intuitive selection
+  const parentsByMacroPrefix = useMemo(() => {
+    if (selectedType !== "AREA") return null;
+    const groups: Record<string, typeof candidateParents> = {};
+    for (const p of MACRO_PREFIXES) groups[p.value] = [];
+    groups["OTHER"] = [];
+    for (const parent of candidateParents) {
+      const match = MACRO_PREFIXES.find(p => parent.codeSegment.startsWith(p.value));
+      if (match) groups[match.value].push(parent);
+      else groups["OTHER"].push(parent);
+    }
+    return groups;
+  }, [candidateParents, selectedType]);
 
   function changeSite(id: string) {
     setSiteId(id);
@@ -406,37 +427,92 @@ export function SpaceNodeForm({
           <header>
             <span>Paso 3</span>
             <h3>
-              Selecciona el Padre Directo (Nivel {currentLevel - 1} o superior)
+              {selectedType === "AREA"
+                ? "Selecciona el Área Macro a la que pertenece"
+                : "Selecciona el Área a la que pertenece"}
             </h3>
             <p>
-              Selecciona el espacio de Nivel {currentLevel - 1} al que pertenece directamente.
+              {selectedType === "AREA"
+                ? "Asigna esta área a una de las áreas macro registradas."
+                : "Asigna este módulo de trabajo al área correspondiente."}
             </p>
           </header>
-          <div className="space-form-grid">
-            <label className="space-form-full">
-              <span>Pertenece a <b>*</b></span>
-              <select
-                value={parentId ?? ""}
-                onChange={(event) => changeParent(event.target.value || null)}
-                disabled={!siteId || optionsQuery.isPending}
-                required
-              >
-                <option value="">-- Selecciona a qué espacio pertenece --</option>
-                {candidateParents.map((parent) => (
-                  <option key={parent.id} value={parent.id}>
-                    {parent.pathCode} · {parent.name} ({spaceKindLabels[parent.kind] || parent.kind})
-                  </option>
-                ))}
-              </select>
-              {chosenParent ? (
-                <small>Pertenece a: <b>{chosenParent.name}</b> ({chosenParent.pathCode})</small>
-              ) : (
-                <small>Selecciona el espacio de nivel superior.</small>
+          {parentsByMacroPrefix ? (
+            // AREA creation: show grouped cards by macro prefix
+            <div className="space-form-parent-groups">
+              {MACRO_PREFIXES.map(({ value, label }) => {
+                const group = parentsByMacroPrefix[value] ?? [];
+                if (!group.length) return null;
+                return (
+                  <div key={value} className="space-parent-group">
+                    <span className="space-parent-group-label">{label}</span>
+                    <div className="space-level-grid">
+                      {group.map((parent) => (
+                        <button
+                          key={parent.id}
+                          type="button"
+                          className={`space-box-card ${parentId === parent.id ? "is-selected" : ""}`}
+                          onClick={() => changeParent(parent.id)}
+                        >
+                          <span className="level-badge">{parent.pathCode}</span>
+                          <strong>{parent.name}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {(parentsByMacroPrefix["OTHER"] ?? []).length > 0 && (
+                <div className="space-parent-group">
+                  <span className="space-parent-group-label">Otros</span>
+                  <div className="space-level-grid">
+                    {parentsByMacroPrefix["OTHER"].map((parent) => (
+                      <button
+                        key={parent.id}
+                        type="button"
+                        className={`space-box-card ${parentId === parent.id ? "is-selected" : ""}`}
+                        onClick={() => changeParent(parent.id)}
+                      >
+                        <span className="level-badge">{parent.pathCode}</span>
+                        <strong>{parent.name}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </label>
-          </div>
+              {!candidateParents.length && (
+                <div className="space-form-feedback is-error">
+                  <WarningCircle weight="fill" />
+                  <span>No existen Áreas Macro registradas. Crea una primero.</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            // MODULE creation: flat card grid of AREA parents
+            <div className="space-level-grid">
+              {candidateParents.map((parent) => (
+                <button
+                  key={parent.id}
+                  type="button"
+                  className={`space-box-card ${parentId === parent.id ? "is-selected" : ""}`}
+                  onClick={() => changeParent(parent.id)}
+                >
+                  <span className="level-badge">{parent.pathCode}</span>
+                  <strong>{parent.name}</strong>
+                  <small>{spaceKindLabels[parent.kind] || parent.kind}</small>
+                </button>
+              ))}
+              {!candidateParents.length && (
+                <div className="space-form-feedback is-error">
+                  <WarningCircle weight="fill" />
+                  <span>No existen Áreas registradas. Crea una primero.</span>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       )}
+
 
       {/* Paso 4: Identidad y Medidas del Espacio */}
       <section className="space-form-step">
