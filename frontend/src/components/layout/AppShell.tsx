@@ -152,7 +152,6 @@ const modules: ModuleGroup[] = [
       { to: "/administracion/taxonomia/codigos", label: "Códigos FM", icon: Barcode },
       { to: "/administracion/modelos", label: "Modelos de bienes", icon: Tag },
       { to: "/administracion/espacios", label: "Espacios y ambientes", icon: Buildings },
-      { to: "/administracion/mapas-ambientes", label: "Mapas de ambientes", icon: MapTrifold },
       { to: "/administracion/tecnicos", label: "Técnicos y horarios", icon: UsersThree },
       { to: "/administracion/usuarios", label: "Usuarios", icon: UserCircle },
       { to: "/administracion/formularios", label: "Formularios de inspección", icon: ListChecks },
@@ -242,7 +241,6 @@ function getRouteContext(pathname: string) {
   if (pathname.startsWith("/administracion/tecnicos")) return ["Administración", "Técnicos"];
   if (pathname.startsWith("/administracion/usuarios")) return ["Administración", "Usuarios"];
   if (pathname.startsWith("/administracion/reportantes")) return ["Administración", "Reportantes"];
-  if (pathname.startsWith("/administracion/mapas-ambientes")) return ["Administración", "Mapas de ambientes"];
   if (pathname.startsWith("/administracion/espacios")) return ["Administración", "Espacios y ambientes"];
   if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
   if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];

@@ -212,9 +212,6 @@ export function AssetMapOverviewPage() {
           <h1>Mapa administrativo</h1>
           <p>Ubicaciones organizadas por la jerarquía de espacios. Las imágenes se usan únicamente como referencia dentro de cada ambiente.</p>
         </div>
-        <Link className="button button-secondary" to="/administracion/mapas-ambientes">
-          Gestionar imágenes <ArrowSquareOut />
-        </Link>
       </div>
 
       {!ready ? (
@@ -335,7 +332,6 @@ export function AssetMapOverviewPage() {
                       <strong>Sin imagen referencial</strong>
                       <p>La ubicación taxonómica sigue disponible. Puedes cargar una imagen desde Administración.</p>
                     </div>
-                    <Link to="/administracion/mapas-ambientes">Agregar imagen</Link>
                   </section>
                 )}
                 <section className="asset-map-location-tabs">
