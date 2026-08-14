@@ -6,7 +6,7 @@ import {
   Play,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -22,6 +22,7 @@ import {
   startWorkOrder,
 } from "@/modules/workorders/workOrderRepository";
 import { MaterialesUsadosSection } from "@/modules/workorders/components/MaterialesUsadosSection";
+import { getApiErrorMessage } from "@/utils/httpError";
 
 function formatMinutesDuration(minutes?: number) {
   if (minutes === undefined || minutes === null || minutes <= 0) return "0 min";
@@ -84,6 +85,8 @@ export function WorkOrderExecutionPage() {
   const [finishPhoto, setFinishPhoto] = useState<File | null>(null);
 
   const [error, setError] = useState("");
+  const [isStartingSession, setIsStartingSession] = useState(false);
+  const savingProgressRef = useRef(false);
 
   useEffect(() => {
     if (!workOrder?.activeWorkSession?.startAt) return undefined;
@@ -92,7 +95,7 @@ export function WorkOrderExecutionPage() {
   }, [workOrder?.activeWorkSession?.startAt]);
 
   async function handleStart() {
-    if (!workOrder) {
+    if (!workOrder || isStartingSession) {
       return;
     }
 
@@ -101,12 +104,25 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    const updated = await startWorkOrder(workOrder.id, startPhoto);
+    setIsStartingSession(true);
+    try {
+      const updated = await startWorkOrder(workOrder.id, startPhoto);
 
-    if (updated) {
-      setWorkOrder(updated);
-      setStartPhoto(null);
-      setError("");
+      if (updated) {
+        setWorkOrder(updated);
+        setStartPhoto(null);
+        setError("");
+      }
+    } catch (startError) {
+      setError(
+        getApiErrorMessage(
+          startError,
+          "No se pudo iniciar la orden. Revisa la foto inicial o el estado actual.",
+          ["startPhoto", "action"],
+        ),
+      );
+    } finally {
+      setIsStartingSession(false);
     }
   }
 
@@ -127,7 +143,7 @@ export function WorkOrderExecutionPage() {
   ) {
     event.preventDefault();
 
-    if (!workOrder || savingProgress) {
+    if (!workOrder || savingProgress || savingProgressRef.current) {
       return;
     }
 
@@ -160,6 +176,7 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
+    savingProgressRef.current = true;
     setSavingProgress(true);
     try {
       const updated =
@@ -189,7 +206,16 @@ export function WorkOrderExecutionPage() {
       navigate(
         `/ordenes-trabajo/${updated.id}`,
       );
+    } catch (progressError) {
+      setError(
+        getApiErrorMessage(
+          progressError,
+          "No se pudo registrar el avance. Intenta nuevamente.",
+          ["percentage", "finishPhoto", "action"],
+        ),
+      );
     } finally {
+      savingProgressRef.current = false;
       setSavingProgress(false);
     }
   }
@@ -397,13 +423,18 @@ export function WorkOrderExecutionPage() {
                 <button
                   className="button button-primary"
                   type="button"
+                  disabled={isStartingSession}
                   onClick={() => void handleStart()}
                 >
                   <Play
                     size={18}
                     weight="fill"
                   />
-                  {workOrder.progressPercentage > 0 ? executionCopy.resumeButton : executionCopy.startButton}
+                  {isStartingSession
+                    ? "Iniciando..."
+                    : workOrder.progressPercentage > 0
+                      ? executionCopy.resumeButton
+                      : executionCopy.startButton}
                 </button>
               </div>
             </article>
