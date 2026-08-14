@@ -28,7 +28,6 @@ import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
 import { ResumenCarrito } from "../components/ResumenCarrito";
 import type { ItemCarrito } from "../components/ResumenCarrito";
-import { useAuth } from "@/modules/accounts/AuthContext";
 
 function Field({
   label,
@@ -390,7 +389,7 @@ export function MovimientoFormPage() {
           tipo: "pieza_suelta",
           id: String(pid),
           piezaId: pid,
-          piezaLabel: p ? p.codigo : `Pieza #${pid}`,
+          piezaLabel: p?.codigo ?? `Pieza #${pid}`,
         });
       }
       // Estuches
