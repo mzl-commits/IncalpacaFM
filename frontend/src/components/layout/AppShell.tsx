@@ -67,11 +67,12 @@ const modules: ModuleGroup[] = [
     label: "Mantenimiento",
     shortLabel: "Mantenimiento",
     icon: Wrench,
-    paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada"],
+    paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada", "/supervision"],
     items: [
-      { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true },
-      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
-      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
+      { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true, roles: ["ADMINISTRADOR", "TECNICO"] },
+      { to: "/", label: "Inicio", icon: SquaresFour, end: true, roles: ["SUPERVISOR"] },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, roles: ["ADMINISTRADOR"] },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, roles: ["ADMINISTRADOR", "TECNICO"] },
       { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
     ],
   },
@@ -113,11 +114,11 @@ const modules: ModuleGroup[] = [
     label: "Equipo",
     shortLabel: "Equipo",
     icon: UsersThree,
-    paths: ["/ordenes-trabajo", "/mi-jornada"],
-    roles: ["ADMINISTRADOR", "SUPERVISOR"],
+    paths: ["/ordenes-trabajo", "/supervision", "/mi-jornada"],
+    roles: ["ADMINISTRADOR"],
     items: [
-      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
-      { to: "/mi-jornada", label: "Agenda semanal", icon: CalendarBlank },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, roles: ["ADMINISTRADOR"] },
+      { to: "/supervision", label: "Órdenes por revisar", icon: Toolbox, roles: ["SUPERVISOR"] },
     ],
   },
   {
@@ -232,12 +233,18 @@ export function AppShell() {
       if (!active) return;
       const visibleOrders = orders.filter((order) => {
         if (user?.role === "TECNICO") return order.operatorId === user.id;
-        if (user?.role === "SUPERVISOR") return order.supervisorId === user.id;
+        if (user?.role === "SUPERVISOR") {
+          return (
+            order.status === "PENDIENTE_DE_SUPERVISION" &&
+            (order.supervisorId === user.id || order.supervisorName === user.fullName)
+          );
+        }
         return true;
       });
       setLiveCounts({
         "/incidencias": requests.filter((request) => !["CERRADA", "CANCELADA", "RESUELTA"].includes(request.status)).length,
         "/ordenes-trabajo": visibleOrders.filter((order) => !["CERRADA", "CANCELADA"].includes(order.status)).length,
+        "/supervision": visibleOrders.length,
       });
     };
     void refreshCounts();
@@ -654,11 +661,13 @@ export function AppShell() {
 }
 
 function itemsForRole(items: NavItem[], user: ReturnType<typeof useAuth>["user"]) {
+  const allowedItems = items.filter((item) => !item.roles || Boolean(user && item.roles.includes(user.role)));
+
   if (user?.role === "TECNICO") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
+    return allowedItems.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
   }
   if (user?.role === "SUPERVISOR") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
+    return allowedItems.filter((item) => item.to === "/");
   }
-  return items;
+  return allowedItems;
 }

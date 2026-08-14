@@ -41,6 +41,7 @@ import {
   listWorkOrders,
   registerWorkOrderProgress,
   scheduleWorkOrderCorrection,
+  superviseWorkOrder,
   startWorkOrder,
   updateServiceOrderStatus,
   updateWorkOrderPlanning,
@@ -198,6 +199,10 @@ function getStringList(data: Record<string, unknown> | undefined, key: string) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [];
 }
 
+function samePersonName(a?: string | null, b?: string | null) {
+  return Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
+}
+
 function getServiceStatusCopy(workOrder: WorkOrder) {
   const serviceStatus = typeof workOrder.administrator_validation?.serviceStatus === "string"
     ? workOrder.administrator_validation.serviceStatus
@@ -234,6 +239,10 @@ export function WorkOrderDetailPage() {
   const [adminComment, setAdminComment] = useState("");
   const [adminError, setAdminError] = useState("");
   const [savingAdminReview, setSavingAdminReview] = useState(false);
+  const [supervisorReviewComment, setSupervisorReviewComment] = useState("");
+  const [supervisorError, setSupervisorError] = useState("");
+  const [savingSupervisorReview, setSavingSupervisorReview] = useState(false);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
   const [correctionDate, setCorrectionDate] = useState(todayKey());
   const [correctionTime, setCorrectionTime] = useState("08:00");
   const [correctionHours, setCorrectionHours] = useState(2);
@@ -309,13 +318,24 @@ export function WorkOrderDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    setIsLoadingOrder(true);
     void getWorkOrderById(id).then(async (order) => {
       setWorkOrder(order);
       setCorrectionDate(order.scheduledDate || todayKey());
       setCorrectionTime(order.scheduledStartTime?.slice(0, 5) || "08:00");
       setCorrectionHours(order.plannedHours || 2);
       setCorrectionNotes(order.administratorNotes || "");
-      setRequest(await getWorkRequestById(order.requestId));
+      if (order.requestId) {
+        try {
+          setRequest(await getWorkRequestById(order.requestId));
+        } catch {
+          setRequest(undefined);
+        }
+      }
+    }).catch(() => {
+      setWorkOrder(undefined);
+    }).finally(() => {
+      setIsLoadingOrder(false);
     });
     void listWorkOrders().then(setOrders);
   }, [id]);
@@ -372,6 +392,27 @@ export function WorkOrderDetailPage() {
       setAdminError("No se pudo registrar la validación administrativa.");
     } finally {
       setSavingAdminReview(false);
+    }
+  }
+
+  async function handleSupervisorReview(approved: boolean) {
+    if (!workOrder) return;
+    if (!approved && supervisorReviewComment.trim().length < 8) {
+      setSupervisorError("Escribe una observación breve antes de devolver la orden.");
+      return;
+    }
+
+    setSavingSupervisorReview(true);
+    setSupervisorError("");
+    try {
+      const updated = await superviseWorkOrder(workOrder.id, approved, supervisorReviewComment.trim());
+      setWorkOrder(updated);
+      setSupervisorReviewComment("");
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail ?? error?.response?.data?.action ?? "No se pudo registrar la revisión del supervisor.";
+      setSupervisorError(Array.isArray(detail) ? detail.join(" ") : String(detail));
+    } finally {
+      setSavingSupervisorReview(false);
     }
   }
 
@@ -441,6 +482,22 @@ export function WorkOrderDetailPage() {
     }
   }
 
+  const backTo = user?.role === "SUPERVISOR" ? "/" : "/ordenes-trabajo";
+
+  if (isLoadingOrder) {
+    return (
+      <section className="wo-detail-wrapper">
+        <div className="page-heading wo-detail-page-heading">
+          <div>
+            <p className="breadcrumb">Mantenimiento / Ordenes operativas / Detalle</p>
+            <h1>Cargando orden</h1>
+            <p className="wo-subtitle">Estamos preparando la información de la orden.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (!workOrder) {
     return (
       <section className="wo-detail-wrapper">
@@ -450,7 +507,7 @@ export function WorkOrderDetailPage() {
             <h1>Orden no encontrada</h1>
             <p className="wo-subtitle">La orden indicada no existe o ya no está disponible.</p>
           </div>
-          <Link className="button button-secondary wo-back-btn" to="/ordenes-trabajo">
+          <Link className="button button-secondary wo-back-btn" to={backTo}>
             <ArrowLeft size={16} weight="bold" />
             Volver
           </Link>
@@ -493,8 +550,13 @@ export function WorkOrderDetailPage() {
   };
 
   const isAdmin = user?.role === "ADMINISTRADOR";
-  const canEditPlanning = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
+  const canEditPlanning = user?.role === "ADMINISTRADOR";
   const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
+  const isAssignedSupervisor = user?.role === "SUPERVISOR" && (
+    user.id === workOrder.supervisorId ||
+    samePersonName(user.fullName, workOrder.supervisorName)
+  );
+  const canSupervisorReview = isAssignedSupervisor && workOrder.status === "PENDIENTE_DE_SUPERVISION";
   const isAssignedTechnician = user?.id === workOrder.operatorId;
   const canRegisterProgress = isAssignedTechnician && !isServiceOrder && !workOrder.correctionWorkOrderId && ![
     "CERRADA",
@@ -572,7 +634,7 @@ export function WorkOrderDetailPage() {
               Iniciar baja
             </Link>
           )}
-          <Link className="button button-secondary wo-back-btn" to="/ordenes-trabajo">
+          <Link className="button button-secondary wo-back-btn" to={backTo}>
             <ArrowLeft size={16} weight="bold" />
             Volver
           </Link>
@@ -797,6 +859,38 @@ export function WorkOrderDetailPage() {
               <p>{returnInfo.comment}</p>
               <small>{returnInfo.nextStep}</small>
             </div>
+          )}
+
+          {canSupervisorReview && (
+            <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleSupervisorReview(true); }}>
+              <label className="field field-wide">
+                <span>Comentario del supervisor</span>
+                <textarea
+                  rows={2}
+                  value={supervisorReviewComment}
+                  onChange={(event) => setSupervisorReviewComment(event.target.value)}
+                  placeholder={isCleaningOrder ? "Ej. Limpieza conforme, evidencia revisada." : "Ej. Trabajo conforme, evidencia revisada."}
+                />
+              </label>
+
+              {supervisorError && <div className="form-error">{supervisorError}</div>}
+
+              <div className="admin-evaluation-actions">
+                <button
+                  className="button button-danger"
+                  type="button"
+                  disabled={savingSupervisorReview}
+                  onClick={() => void handleSupervisorReview(false)}
+                >
+                  <XCircle size={16} weight="bold" />
+                  Enviar observación al admin
+                </button>
+                <button className="button button-primary" disabled={savingSupervisorReview}>
+                  <CheckCircle size={16} weight="bold" />
+                  Aprobar y enviar al admin
+                </button>
+              </div>
+            </form>
           )}
 
           {isAdmin && returnInfo && correctionSchedule && (
