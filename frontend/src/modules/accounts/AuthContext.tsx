@@ -72,45 +72,6 @@ const DEMO_USERS: Record<string, ApiUser> = {
     hourly_rate: 45.0,
     must_change_password: false,
   },
-  supervisor: {
-    id: "demo-supervisor",
-    user_id: 3,
-    worker_code: "supervisor",
-    full_name: "Mariela Quispe",
-    email: "supervisor@incalpaca.com.pe",
-    role: "SUPERVISOR",
-    specialty: "Supervisión Operativa",
-    dni: "45678912",
-    position: "Supervisora FM",
-    hourly_rate: 35.0,
-    must_change_password: false,
-  },
-  tecnico: {
-    id: "demo-tecnico",
-    user_id: 2,
-    worker_code: "tecnico",
-    full_name: "Luis Fernández",
-    email: "tecnico@incalpaca.com.pe",
-    role: "TECNICO",
-    specialty: "Electricidad",
-    dni: "87654321",
-    position: "Técnico Mantenimiento",
-    hourly_rate: 25.0,
-    must_change_password: false,
-  },
-  usuario: {
-    id: "demo-usuario",
-    user_id: 4,
-    worker_code: "usuario",
-    full_name: "Usuario Solicitante",
-    email: "solicitante@incalpaca.com.pe",
-    role: "SOLICITANTE",
-    specialty: "Planta Principal",
-    dni: "78912345",
-    position: "Operador de Planta",
-    hourly_rate: 20.0,
-    must_change_password: false,
-  },
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -137,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return mapped;
     } catch (err) {
       // Fallback a cuenta demo si el backend no está disponible o es credencial demo local
-      const demoMatch = DEMO_USERS[code] || (code.includes("admin") ? DEMO_USERS.admin : code.includes("super") ? DEMO_USERS.supervisor : code.includes("tec") ? DEMO_USERS.tecnico : DEMO_USERS.admin);
+      const demoMatch = DEMO_USERS[code] || DEMO_USERS.admin;
       if (demoMatch) {
         const mapped = mapUser(demoMatch);
         sessionStorage.setItem("sgtb_access_token", "demo-token-" + mapped.role);
