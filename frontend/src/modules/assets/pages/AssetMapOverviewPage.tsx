@@ -49,10 +49,22 @@ function areaLabel(squareMeters: number | null) {
 }
 
 /** Converts the SpaceNode hierarchy (MACRO_AREA → AREA → MODULE) into
- *  the LocationOption shape used by the map UI. Every node is shown,
- *  mapped to the deepest available ancestor for each legacy field. */
+ *  the LocationOption shape used by the map UI.
+ *  Only leaf nodes at each level are shown to avoid duplicates:
+ *  - MACRO_AREA shown only if it has no AREA children
+ *  - AREA shown only if it has no MODULE children
+ *  - MODULE always shown */
 function spaceNodesToLocations(nodes: SpaceNode[]): LocationOption[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
+
+  // Build a set of parent IDs that have children of a "deeper" type
+  const hasAreaChildren = new Set<string>();
+  const hasModuleChildren = new Set<string>();
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    if (node.nodeType === "AREA") hasAreaChildren.add(node.parentId);
+    if (node.nodeType === "MODULE") hasModuleChildren.add(node.parentId);
+  }
 
   function ancestorOfType(node: SpaceNode, type: string): SpaceNode | null {
     let current: SpaceNode | null = node;
@@ -63,40 +75,49 @@ function spaceNodesToLocations(nodes: SpaceNode[]): LocationOption[] {
     return null;
   }
 
-  return nodes.map((node) => {
-    const macro = ancestorOfType(node, "MACRO_AREA");
-    const area = ancestorOfType(node, "AREA");
-    const module = node.nodeType === "MODULE" ? node : null;
+  return nodes
+    .filter((node) => {
+      // Skip MACRO_AREA if it already has AREA children (they will represent it)
+      if (node.nodeType === "MACRO_AREA" && hasAreaChildren.has(node.id)) return false;
+      // Skip AREA if it already has MODULE children (they will represent it)
+      if (node.nodeType === "AREA" && hasModuleChildren.has(node.id)) return false;
+      return true;
+    })
+    .map((node) => {
+      const macro = ancestorOfType(node, "MACRO_AREA");
+      const area = ancestorOfType(node, "AREA");
 
-    // zone = Área Macro, building = Área, area = Módulo label, room = node name
-    const zone = macro?.name ?? "Sin área macro";
-    const building = area?.name ?? macro?.name ?? "Sin área";
-    const locationArea = module ? (area?.name ?? building) : node.name;
-    const room = node.name;
-    const locationCode = node.pathCode ?? node.codeSegment;
+      // zone = Área Macro name
+      // building = Área name (or macro if no area)
+      // area field = node name when it IS the area, or area name when node is module
+      const zone = macro?.name ?? "Sin área macro";
+      const building = area?.name ?? macro?.name ?? "Sin área";
+      const locationArea = node.nodeType === "MODULE" ? (area?.name ?? building) : node.name;
+      const room = node.name;
+      const locationCode = node.pathCode ?? node.codeSegment;
 
-    return {
-      id: node.id,
-      locationCode,
-      sourceCompany: "",
-      sourceVersion: "",
-      requiresReview: false,
-      reviewNotes: "",
-      zone,
-      building,
-      area: locationArea,
-      room,
-      specificLocation: "",
-      headcount: node.headcount,
-      squareMeters: node.squareMeters,
-      buildingSquareMeters: null,
-      commonSpace: node.commonSpace,
-      active: node.active,
-      displayName: `${locationCode} · ${room}`,
-      activeMap: null,
-      assignedUsers: [],
-    } satisfies LocationOption;
-  });
+      return {
+        id: node.id,
+        locationCode,
+        sourceCompany: "",
+        sourceVersion: "",
+        requiresReview: false,
+        reviewNotes: "",
+        zone,
+        building,
+        area: locationArea,
+        room,
+        specificLocation: "",
+        headcount: node.headcount,
+        squareMeters: node.squareMeters,
+        buildingSquareMeters: null,
+        commonSpace: node.commonSpace,
+        active: node.active,
+        displayName: `${locationCode} · ${room}`,
+        activeMap: null,
+        assignedUsers: [],
+      } satisfies LocationOption;
+    });
 }
 
 export function AssetMapOverviewPage() {
