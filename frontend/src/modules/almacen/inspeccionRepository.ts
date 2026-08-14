@@ -135,14 +135,43 @@ export async function createInspeccion(
 
 // ─── Exportación ─────────────────────────────────────────────────────────────
 
-/** Abre el Excel en nueva pestaña. Usa window.open para evitar manejo de blobs. */
-export function exportarExcel(id: number): void {
-  const base = import.meta.env.VITE_API_URL ?? "/api/v1";
-  window.open(`${base}/inspecciones/${id}/exportar-excel/`, "_blank");
+/**
+ * Descarga el Excel de la inspección usando el token JWT en la cabecera.
+ * window.open() no envía el Authorization header, de ahí el 401.
+ * Esta función usa api.get con responseType "blob" y fuerza la descarga.
+ */
+export async function exportarExcel(id: number): Promise<void> {
+  const { data, headers } = await api.get(`/inspecciones/${id}/exportar-excel/`, {
+    responseType: "blob",
+  });
+  const contentDisposition: string = headers["content-disposition"] ?? "";
+  const match = contentDisposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? `inspeccion_${id}.xlsx`;
+  const url = URL.createObjectURL(new Blob([data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-/** Abre el PDF en nueva pestaña. */
-export function exportarPdf(id: number): void {
-  const base = import.meta.env.VITE_API_URL ?? "/api/v1";
-  window.open(`${base}/inspecciones/${id}/exportar-pdf/`, "_blank");
+/**
+ * Descarga el PDF de la inspección usando el token JWT en la cabecera.
+ * Abre el blob en una nueva pestaña para que el navegador lo muestre.
+ */
+export async function exportarPdf(id: number): Promise<void> {
+  const { data, headers } = await api.get(`/inspecciones/${id}/exportar-pdf/`, {
+    responseType: "blob",
+  });
+  const contentDisposition: string = headers["content-disposition"] ?? "";
+  const match = contentDisposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? `inspeccion_${id}.pdf`;
+  const blob = new Blob([data], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  // Abrir en nueva pestaña para que el navegador muestre el PDF inline
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
