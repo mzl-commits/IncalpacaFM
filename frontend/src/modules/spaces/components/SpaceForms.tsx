@@ -165,6 +165,16 @@ export function SpaceNodeForm({
   const [headcount, setHeadcount] = useState(node?.headcount == null ? "" : String(node.headcount));
   const [commonSpace, setCommonSpace] = useState(node?.commonSpace ?? false);
   const [error, setError] = useState("");
+  const [macroPrefix, setMacroPrefix] = useState("AD");
+  const [macroSuffix, setMacroSuffix] = useState("");
+
+  const MACRO_PREFIXES = [
+    { value: "PP", label: "PP – Planta de producción" },
+    { value: "AD", label: "AD – Sectores administrativos" },
+    { value: "CO", label: "CO – Sectores comerciales" },
+    { value: "RE", label: "RE – Sectores de retail" },
+    { value: "AL", label: "AL – Sectores de almacenamiento" },
+  ];
 
   const sites = useMemo(
     () => (sitesQuery.data ?? optionsQuery.data?.sites ?? []).filter((site) => site.active || site.id === node?.siteId),
@@ -187,6 +197,13 @@ export function SpaceNodeForm({
       setHeadcount(node.headcount == null ? "" : String(node.headcount));
       setCommonSpace(node.commonSpace);
       setError("");
+      if (node.nodeType === "MACRO_AREA") {
+        const match = MACRO_PREFIXES.find(p => node.codeSegment.startsWith(p.value));
+        if (match) {
+          setMacroPrefix(match.value);
+          setMacroSuffix(node.codeSegment.slice(match.value.length));
+        }
+      }
     }
   }, [node]);
 
@@ -231,8 +248,10 @@ export function SpaceNodeForm({
     const siblings = parentOptions.filter((p: any) => p.parentId === parentId && p.nodeType === selectedType);
 
     let generated = "";
-    if (selectedType === "MODULE") {
-      // MT + número secuencial basado en cuántos módulos hermanos ya existen
+    if (selectedType === "MACRO_AREA") {
+      // prefix (PP/AD/CO/RE/AL) + suffix written by user
+      generated = macroPrefix + macroSuffix.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    } else if (selectedType === "MODULE") {
       const next = siblings.length + 1;
       generated = "MT" + String(next).padStart(2, "0");
     } else if (selectedType === "AREA") {
@@ -246,7 +265,7 @@ export function SpaceNodeForm({
     }
 
     setCodeSegment(generated);
-  }, [name, selectedType, parentId, parentOptions, node]);
+  }, [name, macroPrefix, macroSuffix, selectedType, parentId, parentOptions, node]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -437,6 +456,28 @@ export function SpaceNodeForm({
             />
             <small>Nombre descriptivo legible.</small>
           </label>
+          {selectedType === "MACRO_AREA" && (
+            <>
+              <label>
+                <span>Tipo de área macro <b>*</b></span>
+                <select value={macroPrefix} onChange={(e) => { setMacroPrefix(e.target.value); }}>
+                  {MACRO_PREFIXES.map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Identificador del área <b>*</b></span>
+                <input
+                  value={macroSuffix}
+                  onChange={(e) => setMacroSuffix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                  placeholder="Ej. C (para Casona)"
+                  maxLength={4}
+                />
+                <small>1-4 caracteres que identifican esta área dentro del tipo. El código final será {macroPrefix}{macroSuffix || "??"}.</small>
+              </label>
+            </>
+          )}
           <label>
             <span>Código <b>*</b></span>
             <input
