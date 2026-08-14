@@ -215,6 +215,7 @@ export function AssignmentWizardPage() {
   const [step, setStep] = useState(0);
   const [type, setType] = useState<"PERSONA" | "AREA" | "ESPACIO_COMUN">("PERSONA");
   const [responsibleQuery, setResponsibleQuery] = useState("");
+  const [assetQuery, setAssetQuery] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<Awaited<ReturnType<typeof deliverAsset>> | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -343,7 +344,7 @@ export function AssignmentWizardPage() {
         </div>
       </section>
     );
-  const assets = catalog?.assets || [],
+  const assets = (catalog?.assets || []).filter((x) => !assetQuery || [x.name, x.brand, x.model, getAssignmentAssetDisplayCode(x)].some(val => val?.toLowerCase().includes(assetQuery.toLowerCase()))),
     responsibles = (catalog?.responsibles || []).filter((x) => x.type === type && (!responsibleQuery || [x.display_name, x.area_name, x.external_reference].some(val => val?.toLowerCase().includes(responsibleQuery.toLowerCase())))),
     locations = catalog?.locations || [];
   return (
@@ -384,31 +385,49 @@ export function AssignmentWizardPage() {
           {step === 0 && (
             <div className="section-gap">
               <label className="field">
-                <span>Bien disponible *</span>
-                <select value={draft.asset_id} onChange={(e) => set("asset_id", e.target.value)}>
-                  <option value="">Seleccionar bien</option>
-                  {assets.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {getAssignmentAssetDisplayCode(x)} — {x.name} ({x.assignment_status})
-                    </option>
-                  ))}
-                </select>
+                <span>Buscar bien disponible *</span>
+                <input
+                  type="search"
+                  placeholder="Buscar por nombre, marca, modelo o código..."
+                  value={assetQuery}
+                  onChange={(e) => setAssetQuery(e.target.value)}
+                  style={{ marginBottom: '16px' }}
+                />
               </label>
-              {draft.asset_id && (
-                <article className="selected-record">
-                  {assets
-                    .filter((x) => x.id === draft.asset_id)
-                    .map((x) => (
-                      <div key={x.id}>
-                        <strong>{getAssignmentAssetDisplayCode(x)}</strong>
-                        <h3>{x.name}</h3>
-                        <p>
-                          {x.brand} {x.model} · Condición {x.condition}
-                        </p>
-                      </div>
-                    ))}
-                </article>
-              )}
+              <div className="responsive-table" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th aria-label="Selección" style={{ width: '40px' }} />
+                      <th>Código</th>
+                      <th>Bien y modelo</th>
+                      <th>Condición y estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assets.length === 0 ? (
+                      <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>No se encontraron bienes disponibles.</td></tr>
+                    ) : (
+                      assets.map((x) => (
+                        <tr key={x.id} style={{ cursor: 'pointer', background: draft.asset_id === x.id ? 'var(--highlight)' : undefined }} onClick={() => set("asset_id", x.id)}>
+                          <td>
+                            <input type="radio" name="asset_selection" checked={draft.asset_id === x.id} readOnly />
+                          </td>
+                          <td><strong>{getAssignmentAssetDisplayCode(x)}</strong></td>
+                          <td>
+                            <strong>{x.name}</strong>
+                            <small>{x.brand} {x.model}</small>
+                          </td>
+                          <td>
+                            <span className="status-badge">{x.assignment_status}</span>
+                            <small>{x.condition}</small>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
           {step === 1 && (
@@ -437,25 +456,37 @@ export function AssignmentWizardPage() {
                   style={{ marginBottom: '16px' }}
                 />
               </div>
-              <div className="responsible-options" style={{ maxHeight: '400px', overflowY: 'auto', alignContent: 'start' }}>
-                {responsibles.length === 0 ? (
-                  <div className="form-alert" style={{ background: '#f8f9fa', color: '#555', border: '1px dashed #ccc' }}>
-                    <p style={{ margin: 0 }}>No hay {type === "PERSONA" ? "personas" : type === "AREA" ? "áreas" : "espacios comunes"} disponibles.</p>
-                  </div>
-                ) : (
-                  responsibles.map((x) => (
-                    <label className={draft.responsible_id === x.id ? "is-selected" : ""} key={x.id}>
-                      <input
-                        type="radio"
-                        name="responsible"
-                        checked={draft.responsible_id === x.id}
-                        onChange={() => set("responsible_id", x.id)}
-                      />
-                      <strong>{x.display_name}</strong>
-                      <small>{x.area_name || x.external_reference}</small>
-                    </label>
-                  ))
-                )}
+              <div className="responsive-table" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th aria-label="Selección" style={{ width: '40px' }} />
+                      <th>Nombre / Identificador</th>
+                      <th>Área / Cargo</th>
+                      <th>Código interno</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {responsibles.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>
+                          No hay {type === "PERSONA" ? "personas" : type === "AREA" ? "áreas" : "espacios comunes"} disponibles.
+                        </td>
+                      </tr>
+                    ) : (
+                      responsibles.map((x) => (
+                        <tr key={x.id} style={{ cursor: 'pointer', background: draft.responsible_id === x.id ? 'var(--highlight)' : undefined }} onClick={() => set("responsible_id", x.id)}>
+                          <td>
+                            <input type="radio" name="responsible" checked={draft.responsible_id === x.id} readOnly />
+                          </td>
+                          <td><strong>{x.display_name}</strong></td>
+                          <td>{x.area_name || "—"}</td>
+                          <td><code>{x.external_reference}</code></td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
               <label className="field">
                 <span>Motivo de la asignación *</span>
