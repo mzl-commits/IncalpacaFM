@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { getWorkRequestById, updateWorkRequest } from "@/modules/incidents/incidentRepository";
 import type { WorkRequest } from "@/modules/incidents/types";
-import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
+import { listManagedUsers, listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { getAssetDisplayCode, type RegisteredAsset } from "@/modules/assets/entryModel";
 import { useLocations } from "@/modules/assets/locationMapQueries";
@@ -38,11 +38,6 @@ interface DirectWorkOrderFormState {
   plannedHours: number;
   administratorNotes: string;
 }
-
-const supervisors = [
-  { id: "USR-SUP-001", name: "Rosa Medina" },
-  { id: "USR-SUP-002", name: "Elena Torres" },
-];
 
 function initialForm(orderType: DirectOrderType): DirectWorkOrderFormState {
   return {
@@ -102,6 +97,7 @@ export function DirectWorkOrderCreatePage() {
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [supervisors, setSupervisors] = useState<Technician[]>([]);
   const [assets, setAssets] = useState<RegisteredAsset[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [linkedRequest, setLinkedRequest] = useState<WorkRequest | null>(null);
@@ -115,6 +111,7 @@ export function DirectWorkOrderCreatePage() {
 
   useEffect(() => {
     void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
+    void listManagedUsers().then((people) => setSupervisors(people.filter((person) => person.active && person.role === "SUPERVISOR")));
     void listRegisteredAssets().then(setAssets);
     void listWorkOrders().then(setOrders);
   }, []);
@@ -396,12 +393,12 @@ export function DirectWorkOrderCreatePage() {
                 onChange={(event) => {
                   const supervisor = supervisors.find((item) => item.id === event.target.value);
                   updateField("supervisorId", supervisor?.id ?? "");
-                  updateField("supervisorName", supervisor?.name ?? "");
+                  updateField("supervisorName", supervisor?.full_name ?? "");
                 }}
               >
                 <option value="">Seleccionar supervisor</option>
                 {supervisors.map((supervisor) => (
-                  <option key={supervisor.id} value={supervisor.id}>{supervisor.name}</option>
+                  <option key={supervisor.id} value={supervisor.id}>{supervisor.full_name}</option>
                 ))}
               </select>
             </label>
