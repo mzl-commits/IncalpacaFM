@@ -316,11 +316,20 @@ class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewS
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        if not forzar and ProgramacionInspeccion.objects.filter(plan__anio=anio, almacen_id=almacen_id).exists():
+        from apps.catalogo.models import Almacen
+        try:
+            almacen_obj = Almacen.objects.get(pk=almacen_id)
+        except Almacen.DoesNotExist:
+            return Response(
+                {"detail": f"No se encontró el almacén con id {almacen_id}."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not forzar and ProgramacionInspeccion.objects.filter(plan__anio=anio, almacen=almacen_obj).exists():
             return Response(
                 {
                     "detail": f"Ya existen programaciones para el año {anio} en este almacén. "
-                              "Envía { \"forzar\": true } para regenerar de todos modos.",
+                              "Activa la opción 'Forzar regeneración' para regenerar de todos modos.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -328,13 +337,13 @@ class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewS
         if forzar:
             # Limpia solo las "pendiente" de ESTE almacén — las "realizada" nunca se tocan.
             ProgramacionInspeccion.objects.filter(
-                plan__anio=anio, almacen_id=almacen_id, estado="pendiente",
+                plan__anio=anio, almacen=almacen_obj, estado="pendiente",
             ).delete()
 
         fecha_inicio = date(anio, 1, 1)
-        materiales_config = construir_materiales_config(almacen_id)
+        materiales_config = construir_materiales_config(almacen_obj)
 
-        plan, creadas = generar_plan_anual(anio, fecha_inicio, materiales_config, almacen_id)
+        plan, creadas = generar_plan_anual(anio, fecha_inicio, materiales_config, almacen_obj)
         return Response(
             {
                 "plan": PlanInspeccionAnualSerializer(plan).data,

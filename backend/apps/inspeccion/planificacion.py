@@ -21,9 +21,14 @@ def construir_materiales_config(almacen):
     recorría todo el catálogo sin distinguir almacén; ahora 'almacen' es
     obligatorio (id o instancia de Almacen).
     Usada por el comando plan_anual y por PlanInspeccionAnualViewSet.generar()."""
-    from apps.catalogo.models import Material, Pieza
+    from apps.catalogo.models import Material, Pieza, Almacen
 
-    base = Material.objects.inspeccionables().filter(almacen=almacen)
+    if isinstance(almacen, Almacen):
+        almacen_obj = almacen
+    else:
+        almacen_obj = Almacen.objects.get(pk=almacen)
+
+    base = Material.objects.inspeccionables().filter(almacen=almacen_obj)
 
     materiales_config = []
     for material in base.filter(control_individual=False):
@@ -47,8 +52,15 @@ def construir_materiales_config(almacen):
 def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
     """materiales_config: lista de dicts con {"material" o "pieza", "periodicidad_dias"}.
     Fase 6: el plan queda scoped por (anio, almacen); 'almacen' es obligatorio."""
+    from apps.catalogo.models import Almacen
+
+    if isinstance(almacen, Almacen):
+        almacen_obj = almacen
+    else:
+        almacen_obj = Almacen.objects.get(pk=almacen)
+
     plan, _ = PlanInspeccionAnual.objects.get_or_create(
-        anio=anio, almacen=almacen,
+        anio=anio, almacen=almacen_obj,
         defaults={"fecha_inicio": fecha_inicio, "fecha_fin": date(anio, 12, 31)},
     )
 
@@ -66,7 +78,7 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
         for item in items:
             ancla = _fecha_ancla(item["material"], item["periodicidad_dias"], False, fecha_inicio)
             creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, material=item["material"], almacen=almacen,
+                plan=plan, material=item["material"], almacen=almacen_obj,
                 periodicidad_dias=item["periodicidad_dias"],
                 fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
             ))
@@ -75,7 +87,7 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
         for item in items:
             ancla = _fecha_ancla(item["pieza"], item["periodicidad_dias"], True, fecha_inicio)
             creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, pieza=item["pieza"], almacen=almacen,
+                plan=plan, pieza=item["pieza"], almacen=almacen_obj,
                 periodicidad_dias=item["periodicidad_dias"],
                 fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
             ))

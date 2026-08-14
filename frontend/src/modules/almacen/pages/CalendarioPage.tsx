@@ -4,8 +4,7 @@ import { useMemo, useState, Fragment } from "react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listProgramaciones } from "@/modules/almacen/planificacionRepository";
-import { listAlmacenes } from "@/modules/almacen/catalogoRepository";
-import { useAuth } from "@/modules/accounts/AuthContext";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import { estadoCalculadoLabels } from "@/modules/almacen/types";
 import type { EstadoCalculado, ProgramacionInspeccion } from "@/modules/almacen/types";
 
@@ -108,23 +107,8 @@ function TablaAgrupada({
 }
 
 export function CalendarioPage() {
-  const { user } = useAuth();
-  // Solo Administrador elige almacén desde un selector: Almacenero/Inspector
-  const esAdministrador = user?.role === "ADMINISTRADOR";
-
-  const { data: almacenes = [] } = useQuery({
-    queryKey: ["almacenes"],
-    queryFn: listAlmacenes,
-    enabled: esAdministrador,
-  });
-
-  const [almacenSeleccionado, setAlmacenSeleccionado] = useState<number | null>(null);
-
-  // Para Administrador: si aún no eligió y ya cargaron los almacenes, cae en
-  // el primero por defecto — evita el estado "todo mezclado" mientras decide.
-  const almacenActivo = esAdministrador
-    ? (almacenSeleccionado ?? almacenes[0]?.id ?? null)
-    : (user?.almacenId ?? null);
+  const { almacenId } = useAlmacenActivo();
+  const almacenActivo = almacenId;
 
   const [mesVisible, setMesVisible] = useState(() => new Date());
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
@@ -139,9 +123,7 @@ export function CalendarioPage() {
   const { data: programaciones = [], isLoading, error } = useQuery({
     queryKey: ["programaciones-inspeccion", desde, hasta, almacenActivo],
     queryFn: () => listProgramaciones({ desde, hasta, almacen: almacenActivo ?? undefined }),
-    // Para Administrador, esperar a que haya un almacén resuelto (evita un primer
-    // fetch sin filtro que traería todo mezclado antes de que cargue la lista).
-    enabled: !esAdministrador || almacenActivo != null,
+    enabled: almacenActivo != null,
   });
 
   const porDia = useMemo(() => {
@@ -202,18 +184,6 @@ export function CalendarioPage() {
           <p>Programaciones de inspección por fecha, según el plan anual vigente.</p>
         </div>
         <div className="flex-row">
-          {esAdministrador && (
-            <select
-              value={almacenActivo ?? ""}
-              onChange={(e) => setAlmacenSeleccionado(Number(e.target.value))}
-              className="button button-secondary"
-              style={{ fontSize: 13 }}
-            >
-              {almacenes.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre}</option>
-              ))}
-            </select>
-          )}
           <button className="button button-secondary" onClick={() => setMesVisible((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label="Mes anterior">
             <CaretLeft size={16} />
           </button>

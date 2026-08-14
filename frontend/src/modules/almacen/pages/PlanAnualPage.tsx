@@ -67,6 +67,7 @@ export function PlanAnualPage() {
       setErrorGenerar(null);
       queryClient.invalidateQueries({ queryKey: ["planes-anuales"] });
       queryClient.invalidateQueries({ queryKey: ["programaciones-inspeccion-todas"] });
+      queryClient.invalidateQueries({ queryKey: ["programaciones-inspeccion"] });
     },
     onError: (err: any) => {
       setErrorGenerar(
