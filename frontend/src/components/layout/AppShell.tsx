@@ -70,12 +70,13 @@ const modules: ModuleGroup[] = [
     label: "Mantenimiento",
     shortLabel: "Mantenimiento",
     icon: Wrench,
-    paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada"],
+    paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada", "/supervision"],
     items: [
-      { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true },
-      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks },
-      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox },
-      { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO", "SUPERVISOR", "ADMINISTRADOR"] },
+      { to: "/", label: "Panel de mantenimiento", icon: SquaresFour, end: true, roles: ["ADMINISTRADOR", "TECNICO"] },
+      { to: "/", label: "Inicio", icon: SquaresFour, end: true, roles: ["SUPERVISOR"] },
+      { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, roles: ["ADMINISTRADOR"] },
+      { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, roles: ["ADMINISTRADOR", "TECNICO"] },
+      { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
     ],
   },
   {
@@ -187,9 +188,11 @@ function countMenuActions(user: SystemUser, requests: WorkRequest[], orders: Wor
 
   if (user.role === "SUPERVISOR") {
     const reviewQueue = orders.filter(
-      (order) => order.supervisorId === user.id && order.status === "PENDIENTE_DE_SUPERVISION",
+      (order) =>
+        order.status === "PENDIENTE_DE_SUPERVISION" &&
+        (order.supervisorId === user.id || order.supervisorName === user.fullName),
     ).length;
-    return withBadge("/ordenes-trabajo", reviewQueue);
+    return withBadge("/", reviewQueue);
   }
 
   if (user.role === "TECNICO") {
@@ -572,11 +575,13 @@ export function AppShell() {
 }
 
 function itemsForRole(items: NavItem[], user: ReturnType<typeof useAuth>["user"]) {
+  const allowedItems = items.filter((item) => !item.roles || Boolean(user && item.roles.includes(user.role)));
+
   if (user?.role === "TECNICO") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
+    return allowedItems.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
   }
   if (user?.role === "SUPERVISOR") {
-    return items.filter((item) => item.to === "/" || item.to === "/ordenes-trabajo" || item.to === "/mi-jornada");
+    return allowedItems.filter((item) => item.to === "/");
   }
-  return items;
+  return allowedItems;
 }

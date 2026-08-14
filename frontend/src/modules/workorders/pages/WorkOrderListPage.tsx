@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
-import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
+import { listManagedUsers, listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { useLocations } from "@/modules/assets/locationMapQueries";
 import {
@@ -268,11 +268,13 @@ function buildRoutineDates(startDate: string, endDate: string, weekdays: number[
 export function WorkOrderListPage() {
   const [allWorkOrders, setAllWorkOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const { user } = useAuth();
+  const isAdministrator = user?.role === "ADMINISTRADOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
 
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [managedUsers, setManagedUsers] = useState<Technician[]>([]);
   const [assets, setAssets] = useState<Awaited<ReturnType<typeof listRegisteredAssets>>>([]);
   const [workOrderModalOpen, setWorkOrderModalOpen] = useState(false);
   const [orderForm, setOrderForm] = useState<WorkOrderFormState>(emptyOrderForm);
@@ -285,31 +287,35 @@ export function WorkOrderListPage() {
 
   async function loadAuxiliaryData() {
     try {
-      const [people, assetList] = await Promise.all([
+      const [people, users, assetList] = await Promise.all([
         listTechnicians().catch(() => []),
+        listManagedUsers().catch(() => []),
         listRegisteredAssets().catch(() => []),
       ]);
       setTechnicians(people);
+      setManagedUsers(users);
       setAssets(assetList);
-      return { people, assetList };
+      return { people, users, assetList };
     } catch {
-      return { people: [], assetList: [] };
+      return { people: [], users: [], assetList: [] };
     }
   }
 
   const supervisors = useMemo(() => {
-    const sups = technicians.filter(
+    const source = managedUsers.length ? managedUsers : technicians;
+    const sups = source.filter(
       (t) => (t.role as string) === "SUPERVISOR" || (t.role as string) === "ADMINISTRADOR"
     );
-    return sups.length ? sups : technicians;
-  }, [technicians]);
+    return sups.length ? sups : [];
+  }, [managedUsers, technicians]);
 
   async function openCreateOrderModal() {
-    const { people } = await loadAuxiliaryData();
+    const { people, users } = await loadAuxiliaryData();
     const activeTechs = people.length ? people : technicians;
     const defaultOperator = activeTechs.find((t) => t.email === user?.email || t.worker_code === user?.workerCode) || activeTechs[0];
-    const sups = activeTechs.filter((t) => (t.role as string) === "SUPERVISOR" || (t.role as string) === "ADMINISTRADOR");
-    const defaultSup = sups.length ? sups[0] : activeTechs[0];
+    const availableUsers = users.length ? users : managedUsers;
+    const sups = availableUsers.filter((t) => (t.role as string) === "SUPERVISOR" || (t.role as string) === "ADMINISTRADOR");
+    const defaultSup = sups[0];
 
     setOrderForm({
       ...emptyOrderForm,
@@ -787,10 +793,12 @@ export function WorkOrderListPage() {
           <h1>Órdenes operativas</h1>
           <p>Consulta programación, responsables, avance y estado de OT, OL y OS generadas.</p>
         </div>
-        <button className="button button-primary" type="button" onClick={openCreateOrderModal}>
-          <Plus size={18} weight="bold" />
-          <span>Agregar orden operativa</span>
-        </button>
+        {isAdministrator && (
+          <button className="button button-primary" type="button" onClick={openCreateOrderModal}>
+            <Plus size={18} weight="bold" />
+            <span>Agregar orden operativa</span>
+          </button>
+        )}
       </div>
 
       {orderSuccess && (

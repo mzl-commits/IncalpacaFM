@@ -16,6 +16,8 @@ export interface LocationOption {
   locationCode: string;
   sourceCompany: string;
   sourceVersion: string;
+  site?: string;
+  level?: string;
   requiresReview: boolean;
   reviewNotes: string;
   zone: string;
