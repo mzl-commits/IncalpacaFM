@@ -460,6 +460,10 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 700px) { .user-create-form .form-section { padding: 18px; }.user-role-options { grid-template-columns: 1fr; }.user-role-summary { align-items: flex-start; } }
 
 @media (max-width: 760px) {
+  .app-frame-overlay {
+    display: block;
+    padding-bottom: 74px; /* Space for the mobile navigation */
+  }
   .technician-sidebar, .supervisor-compact-rail, .two-level-sidebar-overlay { display: none; }
   .content-frame-overlay, .content-frame-overlay.is-technician, .content-frame-overlay.is-supervisor-rail { width: 100%; margin-left: 0; }
 }
@@ -1225,10 +1229,23 @@ tr:hover td { background: var(--surface-muted); }
   .eligibility-panel, .decision-panel, .disposition-summary { position: static; order: -1; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .desktop-navigation { display: none; }
-  .mobile-navigation { display: grid; height: 100%; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; }
-  .mobile-nav-item { display: flex; min-width: 0; min-height: 52px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; border-radius: 4px; padding: 3px 2px; background: transparent; color: #666666; font: inherit; font-size: 9px; text-decoration: none; cursor: pointer; }
+  .mobile-navigation { 
+    position: fixed; 
+    z-index: 50; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    height: 74px; 
+    padding-bottom: env(safe-area-inset-bottom);
+    display: grid; 
+    grid-template-columns: repeat(5, minmax(0, 1fr)); 
+    align-items: stretch; 
+    background: #ffffff;
+    border-top: 1px solid #e5e5e5;
+  }
+  .mobile-nav-item { display: flex; min-width: 0; height: 100%; min-height: 52px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; padding: 3px 2px; background: transparent; color: #666666; font: inherit; font-size: 10px; text-decoration: none; cursor: pointer; transition: color 150ms ease; }
   .mobile-nav-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-nav-item.is-active { background: #f1f1f1; color: #414141; font-weight: 700; }
   .mobile-menu-backdrop { position: fixed; z-index: 50; inset: 0; display: flex; align-items: flex-end; background: rgb(21 21 21 / .48); }

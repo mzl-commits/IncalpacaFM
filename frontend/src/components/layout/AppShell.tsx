@@ -163,9 +163,9 @@ const modules: ModuleGroup[] = [
 
 const mobilePrimary: NavItem[] = [
   { to: "/", label: "Inicio", icon: House, end: true },
-  { to: "/bienes", label: "Bienes", icon: ListDashes, end: true },
-  { to: "/mapa", label: "Mapa", icon: MapTrifold, end: true },
-  { to: "/informes", label: "Informes", icon: ChartBar, end: true },
+  { to: "/bienes", label: "Bienes", icon: Package, end: false },
+  { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText, end: false },
+  { to: "/incidencias", label: "Reportes", icon: ListChecks, end: false },
 ];
 
 const quickActions: NavItem[] = [
