@@ -228,21 +228,23 @@ export function SpaceNodeForm({
     const letters = name.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
     if (!letters) return;
 
-    let basePrefix = "";
-
     const siblings = parentOptions.filter((p: any) => p.parentId === parentId && p.nodeType === selectedType);
-    
-    let generated = basePrefix;
-    if (selectedType === "AREA") {
-      generated += letters.substring(0, 3);
+
+    let generated = "";
+    if (selectedType === "MODULE") {
+      // MT + número secuencial basado en cuántos módulos hermanos ya existen
+      const next = siblings.length + 1;
+      generated = "MT" + String(next).padStart(2, "0");
+    } else if (selectedType === "AREA") {
+      generated = letters.substring(0, 3);
     } else {
-      generated += letters.charAt(0);
+      generated = letters.charAt(0);
       const isRepeated = (code: string) => siblings.some(s => s.codeSegment === code);
       if (isRepeated(generated) && letters.length > 1) {
-        generated = basePrefix + letters.substring(0, 2);
+        generated = letters.substring(0, 2);
       }
     }
-    
+
     setCodeSegment(generated);
   }, [name, selectedType, parentId, parentOptions, node]);
 
