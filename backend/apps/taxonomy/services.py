@@ -78,15 +78,6 @@ def allocate_fm_identifier(taxonomy):
     )
     sequence = TaxonomySequence.objects.select_for_update().get(pk=sequence.pk)
     next_value = sequence.last_value + 1
-    if next_value >= 10**taxonomy.sequence_digits:
-        raise ValidationError(
-            {
-                "taxonomy_id": (
-                    f"La secuencia {taxonomy.prefix} agotó sus "
-                    f"{taxonomy.sequence_digits} dígitos."
-                )
-            }
-        )
     sequence.last_value = next_value
     sequence.save(update_fields=("last_value", "updated_at"))
     return f"{taxonomy.prefix}-{next_value:0{taxonomy.sequence_digits}d}", next_value

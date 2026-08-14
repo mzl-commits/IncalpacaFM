@@ -26,29 +26,59 @@ class UUIDModel(models.Model):
         abstract = True
 
 
+class TaxonomyFamily(UUIDModel):
+    code = models.CharField(
+        max_length=10,
+        unique=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z0-9]+$',
+                message='El código de la familia debe usar solo A-Z y 0-9.',
+            )
+        ],
+    )
+    name = models.CharField(max_length=160)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('code', 'name')
+        verbose_name_plural = 'Taxonomy families'
+
+    def __str__(self):
+        return f'{self.code} - {self.name}'
+
+
 class Taxonomy(UUIDModel):
     class ReviewStatus(models.TextChoices):
         VALIDATED = 'VALIDATED', 'Validada'
         REVIEW = 'REVIEW', 'Revisar'
 
-    prefix = models.CharField(
-        max_length=16,
-        unique=True,
-        null=True,
+    family = models.ForeignKey(TaxonomyFamily, related_name='types', on_delete=models.PROTECT, null=True)
+    type_code = models.CharField(
+        max_length=10,
         blank=True,
+        null=True,
         validators=[
             RegexValidator(
-                regex=r'^[A-Z][A-Z0-9]{0,15}$',
-                message='El prefijo debe iniciar con una letra y usar solo A-Z y 0-9.',
+                regex=r'^[A-Z0-9]+$',
+                message='El código de tipo debe usar solo A-Z y 0-9.',
             )
         ],
     )
+    prefix = models.CharField(
+        max_length=24,
+        unique=True,
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=160, blank=True)
-    asset_type = models.CharField(max_length=100)
-    category = models.CharField(max_length=100)
-    subcategory = models.CharField(max_length=100)
-    specialty = models.CharField(max_length=80)
-    sequence_digits = models.PositiveSmallIntegerField(default=4)
+    asset_type = models.CharField(max_length=100, blank=True)
+    category = models.CharField(max_length=100, blank=True)
+    subcategory = models.CharField(max_length=100, blank=True)
+    specialty = models.CharField(max_length=80, blank=True)
+    sequence_digits = models.PositiveSmallIntegerField(default=2)
     default_criticality = models.CharField(max_length=20, default='Media')
     useful_life_years = models.PositiveSmallIntegerField(null=True, blank=True)
     preventive_frequency_months = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -70,13 +100,22 @@ class Taxonomy(UUIDModel):
         ordering = ('prefix', 'name')
         constraints = [
             models.CheckConstraint(
-                condition=Q(sequence_digits__gte=3, sequence_digits__lte=8),
+                condition=Q(sequence_digits__gte=2, sequence_digits__lte=8),
                 name='ck_taxonomy_sequence_digits',
             ),
+            models.UniqueConstraint(
+                fields=('family', 'type_code'),
+                name='uq_taxonomy_family_type',
+            )
         ]
 
     def save(self, *args, **kwargs):
-        self.prefix = self.prefix.strip().upper() if self.prefix else None
+        if self.family and self.type_code:
+            self.type_code = self.type_code.strip().upper()
+            self.prefix = f"{self.family.code}-{self.type_code}"
+        elif self.prefix:
+            self.prefix = self.prefix.strip().upper()
+            
         self.canonical_prefix = (
             self.canonical_prefix.strip().upper()
             if self.canonical_prefix
@@ -95,6 +134,54 @@ class TaxonomySequence(UUIDModel):
 
     def __str__(self):
         return f'{self.taxonomy.prefix}: {self.last_value}'
+
+
+class TaxonomyPart(UUIDModel):
+    taxonomy = models.ForeignKey(Taxonomy, related_name='parts', on_delete=models.CASCADE)
+    part_code = models.CharField(
+        max_length=10,
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z0-9]+$',
+                message='El código debe usar solo A-Z y 0-9.',
+            )
+        ],
+    )
+    name = models.CharField(max_length=160)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('part_code', 'name')
+        unique_together = ('taxonomy', 'part_code')
+
+    def __str__(self):
+        return f'{self.part_code} - {self.name}'
+
+
+class TaxonomyPiece(UUIDModel):
+    part = models.ForeignKey(TaxonomyPart, related_name='pieces', on_delete=models.CASCADE)
+    piece_code = models.CharField(
+        max_length=10,
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z0-9]+$',
+                message='El código debe usar solo A-Z y 0-9.',
+            )
+        ],
+    )
+    name = models.CharField(max_length=160)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('piece_code', 'name')
+        unique_together = ('part', 'piece_code')
+
+    def __str__(self):
+        return f'{self.piece_code} - {self.name}'
 
 
 class AssetInternalSequence(UUIDModel):
@@ -359,6 +446,14 @@ class Asset(UUIDModel):
                 name='ck_asset_location_marker_y',
             ),
         ]
+
+    @property
+    def full_assignment_code(self):
+        if not self.fm_code:
+            return None
+        if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
+            return f"{self.location.space_node.path_code}-{self.fm_code}"
+        return self.fm_code
 
 
 class FacilityPlan(UUIDModel):

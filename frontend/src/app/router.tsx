@@ -3,7 +3,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProtectedRoute } from "@/modules/accounts/ProtectedRoute";
 import { RoleRoute } from "@/modules/accounts/RoleRoute";
-import { TaxonomyFormPage } from "@/modules/taxonomy/pages/TaxonomyFormPage";
+
 import { FmCodeCatalogPage } from "@/modules/taxonomy/pages/FmCodeCatalogPage";
 import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";
 import { FacilityMapPage } from "@/modules/taxonomy/pages/FacilityMapPage";
@@ -430,14 +430,7 @@ export const router = createBrowserRouter([
         path: "usuarios/:id",
         lazy: lazyRoute(() => import("@/modules/accounts/pages/UserBetaProfilePage"), "UserBetaProfilePage"),
       },
-      {
-        path: "administracion/taxonomia/nueva",
-        element: (
-          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
-            <TaxonomyFormPage />
-          </RoleRoute>
-        ),
-      },
+
       {
         path: "administracion/taxonomia/codigos",
         element: (
@@ -494,14 +487,7 @@ export const router = createBrowserRouter([
           "SpacesCatalogPage",
         ),
       },
-      {
-        path: "administracion/taxonomia/:id/editar",
-        element: (
-          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
-            <TaxonomyFormPage />
-          </RoleRoute>
-        ),
-      },
+
 // ── Almacén ──────────────────────────────────────────────────────────
       {
         path: "almacen",

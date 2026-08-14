@@ -80,7 +80,7 @@ class AssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = ('id', 'code', 'fm_code', 'display_code', 'public_token', 'public_url',
+        fields = ('id', 'code', 'fm_code', 'display_code', 'full_assignment_code', 'public_token', 'public_url',
                   'photo', 'photo_url',
                   'entry_type', 'entry_type_label', 'name',
                   'description', 'brand', 'model', 'serial_number', 'condition', 'criticality', 'administrative_status',
@@ -88,7 +88,7 @@ class AssetSerializer(serializers.ModelSerializer):
                   'location_id', 'location_map_id', 'location_marker_x',
                   'location_marker_y', 'location_detail', 'registered_by_name',
                   'created_at', 'entry_payload')
-        read_only_fields = ('id', 'code', 'display_code', 'public_token', 'public_url', 'photo_url', 'administrative_status',
+        read_only_fields = ('id', 'code', 'display_code', 'full_assignment_code', 'public_token', 'public_url', 'photo_url', 'administrative_status',
                             'operational_status', 'assignment_status', 'registered_by_name', 'created_at')
 
     def get_registered_by_name(self, obj) -> str:
