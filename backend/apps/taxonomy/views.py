@@ -11,12 +11,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdministrator
-from apps.assets.models import Asset, Taxonomy, TaxonomySequence
+from apps.assets.models import Asset, Taxonomy, TaxonomySequence, TaxonomyFamily, TaxonomyPart, TaxonomyPiece
 from apps.audit.services import record_audit
 
 from .permissions import IsAuthenticatedReadAdministratorWrite
 from .selectors import taxonomy_list_queryset
-from .serializers import FMCodeAssetSerializer, TaxonomySerializer
+from .serializers import FMCodeAssetSerializer, TaxonomySerializer, TaxonomyFamilySerializer, TaxonomyPartSerializer, TaxonomyPieceSerializer
 
 AUDITED_FIELDS = (
     "prefix",
@@ -37,6 +37,90 @@ AUDITED_FIELDS = (
     "active",
     "notes",
 )
+
+
+class TaxonomyFamilyListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+    serializer_class = TaxonomyFamilySerializer
+    queryset = TaxonomyFamily.objects.all().order_by('code')
+
+
+class TaxonomyFamilyDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+    serializer_class = TaxonomyFamilySerializer
+    queryset = TaxonomyFamily.objects.all()
+
+
+class TaxonomyPartListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+    serializer_class = TaxonomyPartSerializer
+    queryset = TaxonomyPart.objects.all().order_by('part_code')
+
+
+class TaxonomyPartDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+    serializer_class = TaxonomyPartSerializer
+    queryset = TaxonomyPart.objects.all()
+
+
+class TaxonomyPieceListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+    serializer_class = TaxonomyPieceSerializer
+    queryset = TaxonomyPiece.objects.all().order_by('piece_code')
+
+
+class TaxonomyPieceDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+    serializer_class = TaxonomyPieceSerializer
+    queryset = TaxonomyPiece.objects.all()
+
+
+class TaxonomyTreeView(APIView):
+    permission_classes = [IsAuthenticatedReadAdministratorWrite]
+
+    def get(self, request):
+        families = TaxonomyFamily.objects.filter(active=True).prefetch_related('types__parts__pieces')
+        tree = []
+        for family in families:
+            types = family.types.filter(active=True).order_by('type_code')
+            types_data = []
+            for t in types:
+                parts = t.parts.filter(active=True).order_by('part_code')
+                parts_data = []
+                for p in parts:
+                    pieces = p.pieces.filter(active=True).order_by('piece_code')
+                    pieces_data = []
+                    for piece in pieces:
+                        pieces_data.append({
+                            "id": str(piece.id),
+                            "piece_code": piece.piece_code,
+                            "name": piece.name,
+                            "active": piece.active,
+                        })
+                    parts_data.append({
+                        "id": str(p.id),
+                        "part_code": p.part_code,
+                        "name": p.name,
+                        "active": p.active,
+                        "pieces": pieces_data,
+                    })
+                types_data.append({
+                    "id": str(t.id),
+                    "prefix": t.prefix,
+                    "type_code": t.type_code,
+                    "name": t.name,
+                    "asset_count": t.asset_set.count(),
+                    "active": t.active,
+                    "parts": parts_data,
+                })
+            tree.append({
+                "id": str(family.id),
+                "code": family.code,
+                "name": family.name,
+                "active": family.active,
+                "types": types_data,
+            })
+        return Response(tree)
 
 
 def taxonomy_snapshot(taxonomy):
