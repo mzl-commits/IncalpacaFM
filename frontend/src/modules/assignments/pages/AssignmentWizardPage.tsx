@@ -16,6 +16,7 @@ import {
   type AssignmentCatalog,
   type DeliveryPayload,
 } from "@/modules/assignments/assignmentRepository";
+import { ListFilterPanel, FilterSelect } from "@/components/filters/ListFilterPanel";
 
 const steps = ["Bien", "Responsable", "Ubicación y entrega", "Evidencias y firmas", "Revisión"];
 const empty: DeliveryPayload = {
@@ -384,16 +385,27 @@ export function AssignmentWizardPage() {
           </header>
           {step === 0 && (
             <div className="section-gap">
-              <label className="field">
-                <span>Buscar bien disponible *</span>
-                <input
-                  type="search"
-                  placeholder="Buscar por nombre, marca, modelo o código..."
-                  value={assetQuery}
-                  onChange={(e) => setAssetQuery(e.target.value)}
-                  style={{ marginBottom: '16px' }}
+              <ListFilterPanel
+                title="Bienes disponibles"
+                description="Busca y selecciona el bien que se entregará."
+                searchLabel="Buscar bien operativo"
+                searchPlaceholder="Código, marca, modelo o nombre"
+                searchValue={assetQuery}
+                onSearchChange={setAssetQuery}
+                resultCount={assets.length}
+                totalCount={catalog?.assets?.length || 0}
+                activeFilters={[]}
+                onClear={() => setAssetQuery("")}
+              >
+                <FilterSelect
+                  label="Estado"
+                  value=""
+                  onChange={() => {}}
+                  options={[]}
+                  allLabel="Todos los estados"
+                  disabled
                 />
-              </label>
+              </ListFilterPanel>
               <div className="responsive-table" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 <table>
                   <thead>
@@ -432,30 +444,33 @@ export function AssignmentWizardPage() {
           )}
           {step === 1 && (
             <div className="section-gap">
-              <div className="segmented-control">
-                {(["PERSONA", "AREA", "ESPACIO_COMUN"] as const).map((x) => (
-                  <button
-                    type="button"
-                    className={type === x ? "is-active" : ""}
-                    onClick={() => {
-                      setType(x);
-                      set("responsible_id", "");
-                    }}
-                    key={x}
-                  >
-                    {x === "PERSONA" ? "Persona" : x === "AREA" ? "Área" : "Espacio común"}
-                  </button>
-                ))}
-              </div>
-              <div className="field">
-                <input
-                  type="search"
-                  placeholder="Buscar por nombre, área o código..."
-                  value={responsibleQuery}
-                  onChange={(e) => setResponsibleQuery(e.target.value)}
-                  style={{ marginBottom: '16px' }}
+              <ListFilterPanel
+                title="Directorio de responsables"
+                description="Filtra y selecciona quién recibirá el bien."
+                searchLabel="Buscar responsable"
+                searchPlaceholder="Nombre, área, cargo o código"
+                searchValue={responsibleQuery}
+                onSearchChange={setResponsibleQuery}
+                resultCount={responsibles.length}
+                totalCount={catalog?.responsibles?.length || 0}
+                activeFilters={type !== "PERSONA" ? [{ key: "type", label: "Tipo", value: type === "AREA" ? "Área" : "Espacio común", onRemove: () => setType("PERSONA") }] : []}
+                onClear={() => { setResponsibleQuery(""); setType("PERSONA"); }}
+              >
+                <FilterSelect
+                  label="Tipo de entidad"
+                  value={type}
+                  onChange={(val) => {
+                    setType(val as any);
+                    set("responsible_id", "");
+                  }}
+                  options={[
+                    { value: "PERSONA", label: "Persona" },
+                    { value: "AREA", label: "Área" },
+                    { value: "ESPACIO_COMUN", label: "Espacio común" }
+                  ]}
+                  allLabel="Todos los tipos"
                 />
-              </div>
+              </ListFilterPanel>
               <div className="responsive-table" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 <table>
                   <thead>
