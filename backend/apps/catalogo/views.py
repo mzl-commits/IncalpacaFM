@@ -75,6 +75,22 @@ class AlmacenViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
     almacen_lookup = "pk"  # Almacen.pk ES el almacén
 
+    def get_object(self):
+        """Si el usuario es ALMACENERO/INSPECTOR y el pk solicitado no coincide
+        con su almacén asignado, devolver 403 explícito (no 404 silencioso)."""
+        almacen_forzado = self._almacen_forzado()
+        if almacen_forzado is not None:
+            pk = self.kwargs.get(self.lookup_field)
+            try:
+                pk_int = int(pk)
+            except (TypeError, ValueError):
+                pk_int = pk
+            if pk_int != almacen_forzado:
+                raise PermissionDenied(
+                    "No tienes permiso para acceder a un almacén distinto al asignado a tu cuenta."
+                )
+        return super().get_object()
+
 
 class _CatalogoEditableViewSet(viewsets.ModelViewSet):
     """Base para catálogos editables (unidades de medida, tipos de manejo de
