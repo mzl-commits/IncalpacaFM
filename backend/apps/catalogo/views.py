@@ -283,13 +283,48 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         material = self.get_object()
         nombre = str(material)
         with transaction.atomic():
-            from apps.inspeccion.models import RespuestaCriterio, Inspeccion
-            from apps.inventario.models import Movimiento
+            from apps.inspeccion.models import RespuestaCriterio, Inspeccion, ProgramacionInspeccion
+            from apps.inventario.models import Movimiento, SolicitudMovimiento
+            from apps.workorders.models import WorkOrderMaterial
+
+            # Recopilar todas las piezas (directas + hijas) del material
+            piezas_directas = list(material.piezas.values_list("id", flat=True))
+            from apps.catalogo.models import Pieza
+            piezas_hijas = list(
+                Pieza.objects.filter(padre_id__in=piezas_directas).values_list("id", flat=True)
+            )
+            todas_piezas_ids = piezas_directas + piezas_hijas
+
+            # 1. Respuestas de criterio de inspecciones ligadas al material o sus piezas
             RespuestaCriterio.objects.filter(inspeccion__material=material).delete()
+            RespuestaCriterio.objects.filter(inspeccion__pieza_id__in=todas_piezas_ids).delete()
+
+            # 2. Inspecciones del material y de sus piezas
             Inspeccion.objects.filter(material=material).delete()
+            Inspeccion.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 3. Programaciones de inspección
+            ProgramacionInspeccion.objects.filter(material=material).delete()
+            ProgramacionInspeccion.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 4. Movimientos de inventario
             Movimiento.objects.filter(material=material).delete()
-            material.piezas.all().delete()
+            Movimiento.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 5. Solicitudes de movimiento
+            SolicitudMovimiento.objects.filter(material=material).delete()
+            SolicitudMovimiento.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 6. Materiales de órdenes de trabajo (WorkOrderMaterial)
+            WorkOrderMaterial.objects.filter(material=material).delete()
+
+            # 7. Piezas hijas primero, luego piezas directas
+            Pieza.objects.filter(id__in=piezas_hijas).delete()
+            Pieza.objects.filter(id__in=piezas_directas).delete()
+
+            # 8. Finalmente el material
             material.delete()
+
         return Response(
             {"detail": f"Material '{nombre}' eliminado correctamente junto con todos sus datos."},
             status=status.HTTP_200_OK,
