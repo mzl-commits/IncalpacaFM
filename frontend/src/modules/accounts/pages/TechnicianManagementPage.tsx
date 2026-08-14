@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, FloppyDisk, PencilSimple, Plus, UserGear, UsersThree } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { getApiErrorMessage } from "@/utils/httpError";
 import { createTechnician, listTechnicians, updateTechnician, type Technician, type TechnicianInput } from "@/modules/accounts/technicianRepository";
 import { listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import { listWorkRequests } from "@/modules/incidents/incidentRepository";
@@ -47,15 +48,28 @@ export function TechnicianManagementPage() {
   const [error, setError] = useState("");
 
   async function refresh() {
-    const [people, workOrders, workRequests, warehouses] = await Promise.all([
-      listTechnicians(), listWorkOrders(), listWorkRequests(), listAlmacenes(),
+    setError("");
+    const [peopleRes, workOrdersRes, workRequestsRes, warehousesRes] = await Promise.allSettled([
+      listTechnicians(),
+      listWorkOrders(),
+      listWorkRequests(),
+      listAlmacenes(),
     ]);
-    setTechnicians(people);
-    setOrders(workOrders);
-    setRequests(workRequests);
-    setAlmacenes(warehouses);
+
+    if (peopleRes.status === "fulfilled") {
+      setTechnicians(peopleRes.value);
+    } else {
+      setError(getApiErrorMessage(peopleRes.reason, "No se pudo cargar la lista de personal operativo."));
+    }
+
+    if (workOrdersRes.status === "fulfilled") setOrders(workOrdersRes.value);
+    if (workRequestsRes.status === "fulfilled") setRequests(workRequestsRes.value);
+    if (warehousesRes.status === "fulfilled") setAlmacenes(warehousesRes.value);
   }
-  useEffect(() => { void refresh().catch(() => setError("No se pudo cargar el equipo.")); }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, []);
 
   const range = useMemo(() => {
     const end = new Date(weekStart); end.setDate(end.getDate() + 6);
