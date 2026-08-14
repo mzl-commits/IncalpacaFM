@@ -285,6 +285,7 @@ export async function getSpaceImpact(id: string): Promise<SpaceImpact> {
     childCount: asNumber(record.active_children ?? record.child_count ?? record.children),
     assetCount: asNumber(record.asset_count ?? record.assets),
     assignmentCount: asNumber(record.assignment_count ?? record.assignments),
+    userCount: asNumber(record.user_count ?? record.users),
     mapCount: asNumber(record.active_map_count ?? record.map_count ?? record.maps),
     canArchive: asBoolean(record.can_archive, true),
     reason: asString(record.reason ?? record.detail),

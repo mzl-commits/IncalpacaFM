@@ -116,6 +116,7 @@ export type SpaceImpact = {
   childCount: number;
   assetCount: number;
   assignmentCount: number;
+  userCount: number;
   mapCount: number;
   canArchive: boolean;
   reason: string;

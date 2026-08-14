@@ -139,7 +139,7 @@ export function SpaceInspector({ node, site, treeNode, compact = false, onChange
       </dl>
       {!compact && <SpaceMetricsPanel node={node!} />}
       {!compact && <SpaceMapCompatibilityPanel node={node!} />}
-      {!compact && impact && <dl className="space-impact-summary"><div><dt>Subespacios activos</dt><dd>{impact.childCount}</dd></div><div><dt>Bienes vinculados</dt><dd>{impact.assetCount}</dd></div><div><dt>Asignaciones</dt><dd>{impact.assignmentCount}</dd></div><div><dt>Mapas activos</dt><dd>{impact.mapCount}</dd></div></dl>}
+      {!compact && impact && <dl className="space-impact-summary"><div><dt>Subespacios</dt><dd>{impact.childCount}</dd></div><div><dt>Bienes</dt><dd>{impact.assetCount}</dd></div><div><dt>Usuarios</dt><dd>{impact.userCount}</dd></div><div><dt>Mapas</dt><dd>{impact.mapCount}</dd></div></dl>}
       {impactMessage && <p className="space-inspector-note"><WarningCircle weight="fill" />{impactMessage}</p>}
       <div className="space-inspector-actions">
         <Link className="button button-secondary" to={`${detailUrl}/editar`}><PencilSimple />Editar</Link>

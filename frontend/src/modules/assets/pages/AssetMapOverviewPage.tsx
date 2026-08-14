@@ -89,10 +89,10 @@ function spaceNodesToLocations(nodes: SpaceNode[]): LocationOption[] {
 
       // zone = Área Macro name
       // building = Área name (or macro if no area)
-      // area field = node name when it IS the area, or area name when node is module
+      // area field is not used because SpaceNode has 3 levels, not 4.
       const zone = macro?.name ?? "Sin área macro";
       const building = area?.name ?? macro?.name ?? "Sin área";
-      const locationArea = node.nodeType === "MODULE" ? (area?.name ?? building) : node.name;
+      const locationArea = "";
       const room = node.name;
       const locationCode = node.pathCode ?? node.codeSegment;
 
@@ -262,9 +262,8 @@ export function AssetMapOverviewPage() {
               <><CaretRight /><button type="button" onClick={() => openZone(zone)} aria-current={!building ? "page" : undefined}>{zone}</button></>
             )}
             {!searchMode && building && (
-              <><CaretRight /><button type="button" onClick={() => openBuilding(building)} aria-current={!area ? "page" : undefined}>{building}</button></>
+              <><CaretRight /><span>{building}</span></>
             )}
-            {!searchMode && area && <><CaretRight /><span>{area}</span></>}
             {searchMode && <><CaretRight /><span>Búsqueda global</span></>}
           </nav>
 
@@ -277,10 +276,8 @@ export function AssetMapOverviewPage() {
                 </div>
                 <span>{environmentLabel(scopedLocations.length)}</span>
               </header>
-              {searchMode || area
+              {searchMode || building
                 ? <EnvironmentGrid locations={scopedLocations} assetsByLocation={assetsByLocation} selectedId={selectedLocationId} onSelect={setSelectedLocationId} />
-                : building
-                ? <GroupGrid values={unique(scopedLocations.map((item) => item.area))} locations={scopedLocations} assetsByLocation={assetsByLocation} label="área" onOpen={openArea} />
                 : zone
                 ? <GroupGrid values={unique(scopedLocations.map((item) => item.building))} locations={scopedLocations} assetsByLocation={assetsByLocation} label="edificio" onOpen={openBuilding} />
                 : <GroupGrid values={unique(scopedLocations.map((item) => item.zone))} locations={scopedLocations} assetsByLocation={assetsByLocation} label="zona" onOpen={openZone} />}
@@ -450,7 +447,7 @@ function EnvironmentGrid({
                 <small>{location.locationCode || "Código pendiente"}</small>
               </span>
             </span>
-            <span className="asset-map-environment-path">{location.building} · {location.area}</span>
+            <span className="asset-map-environment-path">{location.building}</span>
             <span className="asset-map-environment-meta">
               <b><Package /> {count} {count === 1 ? "bien" : "bienes"}</b>
               <em>{areaLabel(location.squareMeters)}</em>
