@@ -49,6 +49,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
+      - ./backend:/app
       - incalpaca_media:/app/media
       - incalpaca_private_media:/app/private_media
     depends_on:
@@ -73,6 +74,7 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     command: celery -A config worker --loglevel=INFO --concurrency=2
     volumes:
+      - ./backend:/app
       - incalpaca_media:/app/media
       - incalpaca_private_media:/app/private_media
     depends_on:
@@ -98,6 +100,8 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     command: celery -A config beat --loglevel=INFO --schedule /tmp/celerybeat-schedule
+    volumes:
+      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,6 +123,8 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     command: python manage.py migrate --noinput
+    volumes:
+      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
