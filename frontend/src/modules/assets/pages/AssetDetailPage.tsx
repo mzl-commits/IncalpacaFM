@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import {
@@ -550,7 +551,7 @@ export function AssetDetailPage() {
       )}
 
       {/* EDIT ASSET MODAL */}
-      {editing && (
+      {editing && createPortal(
         <div className="asset-edit-backdrop" role="presentation">
           <section
             className="asset-edit-dialog"
@@ -694,7 +695,7 @@ export function AssetDetailPage() {
             </form>
           </section>
         </div>
-      )}
+      , document.body)}
 
       {/* ADD NEW RESPONSIBLE MODAL */}
       {addingResponsible && (
