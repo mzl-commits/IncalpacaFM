@@ -136,6 +136,7 @@ export function getIncalpacaReportCSS(): string {
       margin-top: 28px;
       margin-bottom: 12px;
       page-break-after: avoid;
+      break-after: avoid;
     }
 
     .section-heading.level2 {
@@ -145,6 +146,8 @@ export function getIncalpacaReportCSS(): string {
       border-bottom: 1px solid #888888;
       letter-spacing: 0;
       margin-top: 20px;
+      page-break-after: avoid;
+      break-after: avoid;
     }
 
     /* ── Grilla de 2 columnas ── */
@@ -216,9 +219,24 @@ export function getIncalpacaReportCSS(): string {
       page-break-inside: auto;
     }
 
+    table.report-table thead {
+      display: table-header-group;
+    }
+
+    table.report-table tfoot {
+      display: table-footer-group;
+    }
+
+    table.report-table tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
     table.report-table thead tr {
-      background: #111111;
-      color: #ffffff;
+      background: #111111 !important;
+      color: #ffffff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     table.report-table th {
@@ -329,6 +347,7 @@ export function getIncalpacaReportCSS(): string {
       width: 100%;
       text-align: center;
       page-break-inside: avoid;
+      break-inside: avoid;
     }
 
     .sig-cell {
