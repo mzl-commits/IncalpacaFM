@@ -84,15 +84,9 @@ class SpaceNode(models.Model):
     """
 
     class Type(models.TextChoices):
-        MACRO_AREA = "MACRO_AREA", "Macroárea"
-        SECTOR = "SECTOR", "Sector"
-        BUILDING = "BUILDING", "Edificio"
-        LEVEL = "LEVEL", "Nivel"
+        MACRO_AREA = "MACRO_AREA", "Área Macro"
         AREA = "AREA", "Área"
-        MODULE = "MODULE", "Módulo"
-        ENVIRONMENT = "ENVIRONMENT", "Ambiente"
-        SUB_ENVIRONMENT = "SUB_ENVIRONMENT", "Sub-ambiente o Zona"
-        POINT = "POINT", "Punto o ubicación específica"
+        MODULE = "MODULE", "Módulo de trabajo"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     site = models.ForeignKey(
@@ -160,6 +154,11 @@ class SpaceNode(models.Model):
             raise ValidationError({"name": "Ingresa el nombre del espacio."})
         if self.parent_id and self.parent.site_id != self.site_id:
             raise ValidationError({"parent": "El padre debe pertenecer a la misma sede."})
+        
+        if self.node_type == self.Type.MACRO_AREA:
+            valid_prefixes = ("PP", "AD", "CO", "RE", "AL")
+            if not any(self.code_segment.startswith(p) for p in valid_prefixes):
+                raise ValidationError({"code_segment": "El código del Área Macro debe iniciar con PP, AD, CO, RE o AL."})
         expected_path = (
             f"{self.parent.path_code}-{self.code_segment}"
             if self.parent_id

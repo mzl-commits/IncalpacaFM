@@ -61,7 +61,7 @@ export function SpacesCatalogPage() {
 
   const activeSites = sitesQuery.data ?? [];
   const totalSpaces = allTreeNodes.filter((node) => node.entityType === "node").length;
-  const environments = allTreeNodes.filter((node) => node.kind === "ENVIRONMENT").length;
+  const modules = allTreeNodes.filter((node) => node.kind === "MODULE").length;
   const commonSpaces = allTreeNodes.filter((node) => node.entityType === "node" && node.commonSpace).length;
   const archived = allTreeNodes.filter((node) => !node.active).length;
 
@@ -96,7 +96,7 @@ export function SpacesCatalogPage() {
       <dl className="spaces-summary" aria-label="Resumen de espacios">
         <div><dt>Sedes</dt><dd>{activeSites.length}</dd><small>Raíces configuradas</small></div>
         <div><dt>Espacios</dt><dd>{totalSpaces}</dd><small>Nodos de infraestructura</small></div>
-        <div><dt>Ambientes</dt><dd>{environments}</dd><small>Destinos de bienes</small></div>
+        <div><dt>Módulos</dt><dd>{modules}</dd><small>Destinos de bienes</small></div>
         <div><dt>Espacios comunes</dt><dd>{commonSpaces}</dd><small>Aforo informativo</small></div>
         <div><dt>Archivados</dt><dd>{archived}</dd><small>Con historial conservado</small></div>
       </dl>

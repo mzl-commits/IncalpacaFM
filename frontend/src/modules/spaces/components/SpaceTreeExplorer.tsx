@@ -71,7 +71,7 @@ export function SpaceTreeExplorer({ nodes, selectedId, onSelect, visibleIds }: S
             aria-current={node.id === selectedId ? "true" : undefined}
             onClick={() => onSelect(node.id)}
           >
-            {node.kind === "ENVIRONMENT" ? <MapPin weight="duotone" /> : node.kind === "SITE" ? <Buildings weight="duotone" /> : <SquaresFour weight="duotone" />}
+            {node.kind === "MODULE" ? <MapPin weight="duotone" /> : node.kind === "SITE" ? <Buildings weight="duotone" /> : <SquaresFour weight="duotone" />}
             <span>
               <strong>{node.name}</strong>
               <small>{node.code || spaceKindLabels[node.kind]}{node.usage.assetCount ? ` · ${node.usage.assetCount} bienes` : ""}</small>

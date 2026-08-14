@@ -13,64 +13,16 @@ from .models import FacilitySite, SpaceNode, normalize_segment_code, normalize_s
 
 ROOT_TYPES = {
     SpaceNode.Type.MACRO_AREA,
-    SpaceNode.Type.BUILDING,
-    SpaceNode.Type.AREA,
 }
 
-# No se impone una sola secuencia porque la sede puede estar organizada por
-# macroárea/sector/módulo o por edificio/nivel/área. Estas reglas impiden
-# rutas sin sentido (por ejemplo, un ambiente como padre de un edificio) sin
-# bloquear las dos estructuras institucionales conocidas.
 ALLOWED_CHILD_TYPES = {
     SpaceNode.Type.MACRO_AREA: {
-        SpaceNode.Type.SECTOR,
-        SpaceNode.Type.BUILDING,
-        SpaceNode.Type.LEVEL,
         SpaceNode.Type.AREA,
-        SpaceNode.Type.MODULE,
-        SpaceNode.Type.ENVIRONMENT,
-        SpaceNode.Type.SUB_ENVIRONMENT,
-    },
-    SpaceNode.Type.SECTOR: {
-        SpaceNode.Type.BUILDING,
-        SpaceNode.Type.LEVEL,
-        SpaceNode.Type.AREA,
-        SpaceNode.Type.MODULE,
-        SpaceNode.Type.ENVIRONMENT,
-        SpaceNode.Type.SUB_ENVIRONMENT,
-    },
-    SpaceNode.Type.BUILDING: {
-        SpaceNode.Type.LEVEL,
-        SpaceNode.Type.AREA,
-        SpaceNode.Type.MODULE,
-        SpaceNode.Type.ENVIRONMENT,
-        SpaceNode.Type.SUB_ENVIRONMENT,
-    },
-    SpaceNode.Type.LEVEL: {
-        SpaceNode.Type.AREA,
-        SpaceNode.Type.MODULE,
-        SpaceNode.Type.ENVIRONMENT,
-        SpaceNode.Type.SUB_ENVIRONMENT,
     },
     SpaceNode.Type.AREA: {
         SpaceNode.Type.MODULE,
-        SpaceNode.Type.ENVIRONMENT,
-        SpaceNode.Type.SUB_ENVIRONMENT,
-        SpaceNode.Type.POINT,
     },
-    SpaceNode.Type.MODULE: {
-        SpaceNode.Type.ENVIRONMENT,
-        SpaceNode.Type.SUB_ENVIRONMENT,
-        SpaceNode.Type.POINT,
-    },
-    SpaceNode.Type.ENVIRONMENT: {
-        SpaceNode.Type.SUB_ENVIRONMENT,
-        SpaceNode.Type.POINT,
-    },
-    SpaceNode.Type.SUB_ENVIRONMENT: {
-        SpaceNode.Type.POINT,
-    },
-    SpaceNode.Type.POINT: set(),
+    SpaceNode.Type.MODULE: set(),
 }
 
 
