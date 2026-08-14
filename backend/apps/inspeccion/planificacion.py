@@ -49,13 +49,23 @@ def construir_materiales_config(almacen):
     return materiales_config
 
 def _es_dia_laborable(d: date) -> bool:
-    """Evita domingos (weekday == 6)."""
-    return d.weekday() != 6
+    """Solo días de Lunes a Viernes (0 a 4). Sábados (5) y Domingos (6) son días libres."""
+    return d.weekday() < 5
 
 def _ajustar_dia_laborable(d: date) -> date:
     while not _es_dia_laborable(d):
         d += timedelta(days=1)
     return d
+
+def sumar_dias_laborables(fecha_base: date, dias_laborables: int) -> date:
+    """Avanza 'dias_laborables' días hábiles (Lunes a Viernes) a partir de fecha_base."""
+    actual = fecha_base
+    agregados = 0
+    while agregados < dias_laborables:
+        actual += timedelta(days=1)
+        if _es_dia_laborable(actual):
+            agregados += 1
+    return actual
 
 def _obtener_ultima_inspeccion_fecha(objetivo, es_pieza: bool):
     filtro = {"pieza": objetivo} if es_pieza else {"material": objetivo}
@@ -68,8 +78,8 @@ def _obtener_ultima_inspeccion_fecha(objetivo, es_pieza: bool):
 def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
     """materiales_config: lista de dicts con {"material" o "pieza", "periodicidad_dias"}.
     Fase 6: el plan queda scoped por (anio, almacen); 'almacen' es obligatorio.
-    Distribuye y escalona las fechas a lo largo de los ciclos de periodicidad para evitar
-    saturar la jornada del inspector en un solo día, excluyendo domingos."""
+    Distribuye y escalona las fechas a lo largo de los días laborables (Lunes a Viernes)
+    para evitar saturar la jornada del inspector, dejando libres los fines de semana."""
     from apps.catalogo.models import Almacen
 
     if isinstance(almacen, Almacen):
@@ -92,18 +102,21 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
     creadas = []
     for periodicidad_dias, items in por_periodicidad.items():
         n = len(items)
+        # Equivalente aproximado de días laborables en el ciclo de periodicidad (5 de cada 7 días)
+        max_dias_lab = max(1, round(periodicidad_dias * 5 / 7))
+
         for i, item in enumerate(items):
             es_pieza = "pieza" in item
             objetivo = item["pieza"] if es_pieza else item["material"]
 
-            # Si ya tiene una inspección previa registrada, respetar su fecha real
+            # Si ya tiene una inspección previa registrada, calcular a partir de su última fecha
             ultima_fecha = _obtener_ultima_inspeccion_fecha(objetivo, es_pieza)
             if ultima_fecha:
                 fecha_prog = _ajustar_dia_laborable(ultima_fecha + timedelta(days=periodicidad_dias))
             else:
-                # Escalonar uniformemente en el intervalo [1, periodicidad_dias]
-                dias_offset = 1 + int(round(i * (periodicidad_dias - 1) / max(n - 1, 1)))
-                fecha_prog = _ajustar_dia_laborable(fecha_base + timedelta(days=dias_offset))
+                # Escalonar uniformemente en los días laborables hábiles
+                offset_lab = 1 + int(round(i * (max_dias_lab - 1) / max(n - 1, 1)))
+                fecha_prog = sumar_dias_laborables(fecha_base, offset_lab)
 
             creadas.append(ProgramacionInspeccion.objects.create(
                 plan=plan,
@@ -133,11 +146,13 @@ def registrar_inspeccion_completada(programacion, inspeccion, generar_siguiente=
         objetivo, programacion.periodicidad_dias,
         desde=programacion.fecha_programada, es_pieza=es_pieza,
     )
+    fecha_base_sig = inspeccion.fecha.date() if hasattr(inspeccion.fecha, 'date') else inspeccion.fecha
+    fecha_prog_sig = _ajustar_dia_laborable(fecha_base_sig + timedelta(days=nueva_periodicidad))
     ProgramacionInspeccion.objects.create(
         plan=programacion.plan, material=programacion.material, pieza=programacion.pieza,
         almacen=programacion.almacen,  # NUEVO Fase 6: se hereda de la programación que se cierra
         periodicidad_dias=nueva_periodicidad,
-        fecha_programada=inspeccion.fecha + timedelta(days=nueva_periodicidad),
+        fecha_programada=fecha_prog_sig,
     )
 
 def _fecha_ancla(objetivo, periodicidad_dias, es_pieza, fecha_inicio):
@@ -164,8 +179,9 @@ def asegurar_programacion_inicial(material=None, pieza=None):
         defaults={"fecha_inicio": date(date.today().year, 1, 1), "fecha_fin": date(date.today().year, 12, 31)},
     )
     periodicidad = (pieza.material if pieza else material).periodicidad_inspeccion_dias
+    fecha_prog = _ajustar_dia_laborable(date.today() + timedelta(days=periodicidad))
     return ProgramacionInspeccion.objects.create(
         plan=plan_actual, material=material, pieza=pieza, almacen=almacen,
         periodicidad_dias=periodicidad,
-        fecha_programada=date.today() + timedelta(days=periodicidad),
+        fecha_programada=fecha_prog,
     )
