@@ -1815,7 +1815,7 @@ td { padding: 13px 14px; }
 .public-privacy span { margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.45; }
 
 .public-asset-photo { display: grid; width: 100%; min-height: clamp(190px, 38vw, 320px); margin: 24px 0 0; overflow: hidden; padding: clamp(8px, 2vw, 14px); place-items: center; border: 1px solid #dfdfdf; border-radius: 10px; background: #f6f6f6; }
-.public-asset-photo img { display: block; width: 100%; height: auto; max-height: min(58svh, 520px); object-fit: contain; border-radius: 6px; background: #fff; }
+.public-asset-photo img { display: block; max-width: 100%; width: auto; height: auto; max-height: min(58svh, 520px); object-fit: contain; border-radius: 6px; background: #fff; }
 .public-asset-photo > div { display: grid; width: 100%; height: 100%; min-height: 172px; place-items: center; align-content: center; gap: 8px; color: var(--muted); text-align: center; }
 .public-actions { display: grid; justify-items: start; gap: 8px; margin: 20px 0; }
 .public-actions small { color: var(--muted); line-height: 1.45; }
