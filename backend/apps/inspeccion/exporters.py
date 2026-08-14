@@ -223,6 +223,15 @@ def generar_excel_inspeccion(inspeccion):
     if inspeccion.observaciones:
         ws[config["observaciones_generales"]] = inspeccion.observaciones
 
+    # Insertar 5 filas de espacio en blanco antes de los cargos para que haya amplio espacio de firma manuscrita
+    for r in range(1, ws.max_row + 1):
+        val = str(ws.cell(row=r, column=1).value or "").upper()
+        if "FIRMAS DE CONFORMIDAD" in val:
+            ws.insert_rows(r + 1, 5)
+            for empty_r in range(r + 1, r + 6):
+                ws.row_dimensions[empty_r].height = 20
+            break
+
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
@@ -273,6 +282,8 @@ def _generar_excel_simple(inspeccion):
     ws.append(["Observaciones generales:", inspeccion.observaciones])
     ws.append([])
     ws.append(["FIRMAS DE CONFORMIDAD"])
+    for _ in range(5):
+        ws.append([])
     ws.append(["Inspector", "", "Supervisor SST / Mantenimiento", "", "Responsable de Area"])
     ws.append(["Fecha: ____________", "", "Fecha: ____________", "", "Fecha: ____________"])
 
@@ -528,7 +539,7 @@ def generar_pdf_inspeccion(inspeccion):
     )
     firmas = Table(
         [
-            ["", "", ""],  # espacio en blanco para la firma manuscrita
+            ["", "", ""],  # espacio amplio (5 renglones) para la firma manuscrita y sello
             [Paragraph("Inspector", firma_label_style),
              Paragraph("Supervisor SST / Mantenimiento", firma_label_style),
              Paragraph("Responsable del Área", firma_label_style)],
@@ -540,7 +551,7 @@ def generar_pdf_inspeccion(inspeccion):
              Paragraph("Fecha: ____ / ____ / ______", firma_dato_style)],
         ],
         colWidths=[6 * cm, 6 * cm, 6 * cm],
-        rowHeights=[0.9 * cm, None, None, None],
+        rowHeights=[1.8 * cm, None, None, None],
     )
     firmas.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
