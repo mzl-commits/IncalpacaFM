@@ -627,6 +627,7 @@ def calculate_node_impact(node: SpaceNode) -> dict:
         "legacy_location_count": locations.count(),
         "asset_count": Asset.objects.filter(location__in=locations).count(),
         "assignment_count": AssetAssignment.objects.filter(location__in=locations).count(),
+        "user_count": AssetAssignment.objects.filter(location__in=locations, status='ACTIVA').values("responsible").distinct().count(),
         "active_map_count": LocationMap.objects.filter(location__in=locations, active=True).count(),
         "can_archive": not SpaceNode.objects.filter(parent=node, active=True).exists(),
     }

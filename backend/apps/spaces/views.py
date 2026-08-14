@@ -90,6 +90,7 @@ IMPACT_RESPONSE = inline_serializer(
         "legacy_location_count": serializers.IntegerField(),
         "asset_count": serializers.IntegerField(),
         "assignment_count": serializers.IntegerField(),
+        "user_count": serializers.IntegerField(),
         "active_map_count": serializers.IntegerField(),
         "can_archive": serializers.BooleanField(),
     },
