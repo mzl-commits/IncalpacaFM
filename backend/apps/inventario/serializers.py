@@ -16,6 +16,9 @@ User = get_user_model()
 class MovimientoSerializer(serializers.ModelSerializer):
     material_codigo = serializers.CharField(source="material.codigo", read_only=True)
     material_nombre = serializers.CharField(source="material.nombre", read_only=True)
+    material_ubicacion = serializers.CharField(source="material.ubicacion_fisica", read_only=True, default="")
+    material_stock_minimo = serializers.IntegerField(source="material.stock_minimo", read_only=True, default=0)
+    material_cantidad_total = serializers.IntegerField(source="material.cantidad_total", read_only=True, default=0)
     pieza_codigo = serializers.CharField(source="pieza.codigo", read_only=True, default=None)
     responsable_nombre = serializers.SerializerMethodField()
     tipo_display = serializers.CharField(source="get_tipo_display", read_only=True)
@@ -25,6 +28,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
         model = Movimiento
         fields = [
             "id", "material", "material_codigo", "material_nombre",
+            "material_ubicacion", "material_stock_minimo", "material_cantidad_total",
             "pieza", "pieza_codigo", "tipo", "tipo_display", "cantidad",
             "cantidad_cajas",
             "fecha", "responsable", "responsable_nombre", "referencia_externa",

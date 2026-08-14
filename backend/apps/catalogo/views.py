@@ -4,7 +4,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.db.models import Q, Exists, OuterRef
+from django.db.models import Q, Exists, OuterRef, F
 
 from rest_framework.exceptions import PermissionDenied
 
@@ -256,16 +256,30 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
             qs = qs.filter(almacen_id=almacen_id)
 
         if busqueda:
-            qs = qs.filter(
+            q_filtro = (
                 Q(nombre__icontains=busqueda)
                 | Q(codigo__icontains=busqueda)
                 | Q(marca__icontains=busqueda)
                 | Q(modelo__icontains=busqueda)
+                | Q(ubicacion_fisica__icontains=busqueda)
+                | Q(subcategoria__nombre__icontains=busqueda)
+                | Q(subcategoria__categoria__nombre__icontains=busqueda)
                 | Q(piezas__codigo__icontains=busqueda)
                 | Q(piezas__detalle__icontains=busqueda)
                 | Q(piezas__piezas_hijas__codigo__icontains=busqueda)
                 | Q(piezas__piezas_hijas__detalle__icontains=busqueda)
-            ).distinct()
+            )
+            # Búsqueda numérica para cantidad o stock mínimo
+            if busqueda.strip().isdigit():
+                num = int(busqueda.strip())
+                q_filtro |= Q(cantidad_total=num) | Q(stock_minimo=num)
+
+            # Búsqueda semántica para términos de stock crítico o bajo
+            busq_norm = busqueda.strip().lower()
+            if busq_norm in ("critico", "crítico", "stock critico", "stock crítico", "bajo", "stock bajo"):
+                q_filtro |= (Q(stock_minimo__gt=0) & Q(cantidad_total__lte=F("stock_minimo")))
+
+            qs = qs.filter(q_filtro).distinct()
         return qs
 
     def destroy(self, request, *args, **kwargs):

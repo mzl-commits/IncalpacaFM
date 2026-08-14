@@ -46,22 +46,69 @@ export function MovimientosPage() {
     enabled: esAdmin,
   });
 
-  // La API no soporta búsqueda por texto en el backend, así que filtramos en el cliente.
+  // Filtro de búsqueda integral: código, material, ubicación, cantidad, stock crítico, responsable y OT.
   const lista = useMemo(() => {
     const base = movimientos ?? [];
     if (!q.trim()) return base;
 
     const term = q.trim().toLowerCase();
+    const esNumero = !isNaN(Number(term));
+    const numTerm = Number(term);
+
     return base.filter((mov: any) => {
       const campos = [
         mov.material_codigo,
         mov.material_nombre,
+        mov.material_ubicacion,
         mov.pieza_codigo,
         mov.pieza_nombre,
         mov.referencia_externa,
         mov.work_order_code,
+        mov.responsable_nombre,
+        mov.observaciones,
       ];
-      return campos.some((campo) => campo?.toString().toLowerCase().includes(term));
+
+      // Coincidencia textual en campos
+      if (campos.some((campo) => campo?.toString().toLowerCase().includes(term))) {
+        return true;
+      }
+
+      // Coincidencia en cantidad
+      if (
+        mov.cantidad?.toString().includes(term) ||
+        mov.cantidad_cajas?.toString().includes(term)
+      ) {
+        return true;
+      }
+
+      // Búsqueda por término de stock crítico / bajo
+      if (
+        term === "critico" ||
+        term === "crítico" ||
+        term === "stock critico" ||
+        term === "stock crítico" ||
+        term === "bajo" ||
+        term === "stock bajo"
+      ) {
+        if (
+          mov.material_stock_minimo > 0 &&
+          mov.material_cantidad_total <= mov.material_stock_minimo
+        ) {
+          return true;
+        }
+      }
+
+      // Coincidencia numérica con cantidad o stock crítico
+      if (
+        esNumero &&
+        (mov.cantidad === numTerm ||
+          mov.material_stock_minimo === numTerm ||
+          mov.material_cantidad_total === numTerm)
+      ) {
+        return true;
+      }
+
+      return false;
     });
   }, [movimientos, q]);
 
@@ -123,7 +170,7 @@ export function MovimientosPage() {
           <input
             type="search"
             className="input-search"
-            placeholder="Buscar por código, material o referencia..."
+            placeholder="Buscar por código, material, ubicación, cantidad, stock crítico u OT..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ paddingLeft: 36, width: "100%" }}
@@ -189,7 +236,7 @@ export function MovimientosPage() {
                 return (
                   <tr key={mov.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
-                      {mov.creado_at ? new Date(mov.creado_at).toLocaleString() : "—"}
+                      {mov.fecha ? new Date(mov.fecha).toLocaleString("es-PE") : "—"}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
                       <span
@@ -211,6 +258,11 @@ export function MovimientosPage() {
                       <div style={{ fontSize: 12, color: "var(--muted)" }}>
                         {mov.material_nombre || mov.pieza_nombre || "—"}
                       </div>
+                      {mov.material_ubicacion && (
+                        <div style={{ fontSize: 11, color: "var(--primary, #2563eb)", marginTop: 2 }}>
+                          📍 {mov.material_ubicacion}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: "12px 16px", fontWeight: 600 }}>
                       {mov.cantidad_cajas

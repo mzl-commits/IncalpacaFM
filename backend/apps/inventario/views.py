@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -74,8 +75,34 @@ class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(lote_id=lote_id)
         if responsable_id:
             qs = qs.filter(responsable_id=responsable_id)
-        if almacen_id and self._almacen_forzado() is None:
-            qs = qs.filter(almacen_id=almacen_id)
+        busqueda = self.request.query_params.get("q")
+        if busqueda:
+            q_filtro = (
+                Q(material__nombre__icontains=busqueda)
+                | Q(material__codigo__icontains=busqueda)
+                | Q(material__ubicacion_fisica__icontains=busqueda)
+                | Q(pieza__codigo__icontains=busqueda)
+                | Q(pieza__detalle__icontains=busqueda)
+                | Q(responsable__username__icontains=busqueda)
+                | Q(responsable__first_name__icontains=busqueda)
+                | Q(responsable__last_name__icontains=busqueda)
+                | Q(referencia_externa__icontains=busqueda)
+                | Q(observaciones__icontains=busqueda)
+            )
+            if busqueda.strip().isdigit():
+                num = int(busqueda.strip())
+                q_filtro |= (
+                    Q(cantidad=num)
+                    | Q(cantidad_cajas=num)
+                    | Q(material__stock_minimo=num)
+                    | Q(material__cantidad_total=num)
+                )
+            busq_norm = busqueda.strip().lower()
+            if busq_norm in ("critico", "crítico", "stock critico", "stock crítico", "bajo", "stock bajo"):
+                q_filtro |= (Q(material__stock_minimo__gt=0) & Q(material__cantidad_total__lte=F("material__stock_minimo")))
+
+            qs = qs.filter(q_filtro)
+
         return qs
 
     # ── Acciones con flujo de aprobación para ALMACENERO ──────────────────────

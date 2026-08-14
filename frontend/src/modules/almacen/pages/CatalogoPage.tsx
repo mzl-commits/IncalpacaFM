@@ -260,7 +260,7 @@ export function CatalogoPage() {
           </div>
           <div>
             <div className="kpi-number">{totalActivos}</div>
-            <div className="kpi-label">Materiales activos</div>
+            <div className="kpi-label">Total de Materiales</div>
           </div>
         </article>
 
@@ -316,7 +316,7 @@ export function CatalogoPage() {
               className="search-input"
               value={values.q}
               onChange={(e) => setValue("q", e.target.value)}
-              placeholder="Buscar por código, nombre, marca o categoría"
+              placeholder="Buscar por código, nombre, ubicación, cantidad o stock crítico..."
             />
           </div>
           <button
