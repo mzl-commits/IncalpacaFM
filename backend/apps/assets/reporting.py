@@ -32,14 +32,14 @@ def _get_logo_image():
 def build_asset_pdf(asset):
     output = BytesIO()
 
-    # 1. Configuración de página A4 con márgenes APA (2.0 cm laterales y verticales)
+    # 1. Configuración de página A4 con márgenes APA 7 (2.54 cm laterales y verticales)
     doc = SimpleDocTemplate(
         output,
         pagesize=A4,
-        rightMargin=2.0 * cm,
-        leftMargin=2.0 * cm,
-        topMargin=2.2 * cm,
-        bottomMargin=2.2 * cm,
+        rightMargin=2.54 * cm,
+        leftMargin=2.54 * cm,
+        topMargin=2.54 * cm,
+        bottomMargin=2.54 * cm,
     )
 
     # 2. Estilos Tipográficos Formales Institucionales (Times-Roman / Times-Bold)
@@ -73,6 +73,7 @@ def build_asset_pdf(asset):
         textColor=colors.HexColor("#000000"),
         spaceBefore=16,
         spaceAfter=8,
+        keepWithNext=True,
     )
 
     cell_bold = ParagraphStyle(
@@ -107,21 +108,21 @@ def build_asset_pdf(asset):
         doc_header_title
     )
 
-    now_str = timezone.localtime().strftime('%d/%m/%Y %H:%M')
+    now_str = timezone.localtime().strftime('%d/%m/%Y<br/>%H:%M')
     display_code = asset.fm_code or asset.code
     technical_id = asset.code
 
     meta_text = Paragraph(
+        f"<b>Fecha de Emisión:</b> {now_str}<br/>"
         f"<b>Código FM:</b> {display_code}<br/>"
-        f"<b>ID Técnico:</b> {technical_id}<br/>"
-        f"<b>Fecha Emisión:</b> {now_str}",
+        f"<b>ID Técnico:</b> {technical_id}",
         doc_header_right
     )
 
     if logo_img:
-        header_table = Table([[logo_img, brand_text, meta_text]], colWidths=[2.2 * cm, 9.3 * cm, 5.5 * cm])
+        header_table = Table([[logo_img, brand_text, meta_text]], colWidths=[2.0 * cm, 8.9 * cm, 5.0 * cm])
     else:
-        header_table = Table([[brand_text, meta_text]], colWidths=[11.5 * cm, 5.5 * cm])
+        header_table = Table([[brand_text, meta_text]], colWidths=[10.9 * cm, 5.0 * cm])
 
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -181,16 +182,16 @@ def build_asset_pdf(asset):
         ],
     ]
 
-    t_sec1 = Table(sec1_data, colWidths=[3.6 * cm, 4.9 * cm, 3.6 * cm, 4.9 * cm])
+    t_sec1 = Table(sec1_data, colWidths=[3.2 * cm, 4.7 * cm, 3.3 * cm, 4.7 * cm])
     t_sec1.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F4F4F4")),
         ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F4F4F4")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 7),
+        ("PADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(t_sec1)
-    story.append(Spacer(1, 0.65 * cm))
+    story.append(Spacer(1, 0.5 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 2: SITUACIÓN Y UBICACIÓN FÍSICA ACTUAL
@@ -227,16 +228,16 @@ def build_asset_pdf(asset):
         ],
     ]
 
-    t_sec2 = Table(sec2_data, colWidths=[3.6 * cm, 4.9 * cm, 3.6 * cm, 4.9 * cm])
+    t_sec2 = Table(sec2_data, colWidths=[3.2 * cm, 4.7 * cm, 3.3 * cm, 4.7 * cm])
     t_sec2.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F4F4F4")),
         ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F4F4F4")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 7),
+        ("PADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(t_sec2)
-    story.append(Spacer(1, 0.65 * cm))
+    story.append(Spacer(1, 0.5 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 3: DESCRIPCIÓN Y OBSERVACIONES TÉCNICAS
@@ -244,14 +245,14 @@ def build_asset_pdf(asset):
     story.append(Paragraph("3. DESCRIPCIÓN TÉCNICA DEL ACTIVO", section_heading))
     desc_text = asset.description or "Sin descripción técnica adicional registrada."
 
-    t_desc = Table([[Paragraph(f"<b>Detalle del Bien:</b><br/>{desc_text}", cell_normal)]], colWidths=[17.0 * cm])
+    t_desc = Table([[Paragraph(f"<b>Detalle del Bien:</b><br/>{desc_text}", cell_normal)]], colWidths=[15.9 * cm])
     t_desc.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#FFFFFF")),
         ("BOX", (0, 0), (0, 0), 0.5, colors.HexColor("#A0A0A0")),
-        ("PADDING", (0, 0), (0, 0), 10),
+        ("PADDING", (0, 0), (0, 0), 8),
     ]))
     story.append(t_desc)
-    story.append(Spacer(1, 0.65 * cm))
+    story.append(Spacer(1, 0.6 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 4: HISTORIAL DE MANTENIMIENTO Y ATENCIONES
@@ -294,15 +295,15 @@ def build_asset_pdf(asset):
             Paragraph("Sin atenciones registradas", cell_normal),
         ])
 
-    t_maint = Table(maint_rows, colWidths=[3.2 * cm, 2.5 * cm, 3.8 * cm, 4.5 * cm, 3.0 * cm])
+    t_maint = Table(maint_rows, colWidths=[2.8 * cm, 2.4 * cm, 3.8 * cm, 4.2 * cm, 2.7 * cm])
     t_maint.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#000000")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 7),
+        ("PADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(t_maint)
-    story.append(Spacer(1, 1.2 * cm))
+    story.append(Spacer(1, 1.0 * cm))
 
     # ---------------------------------------------------------
     # SECCIÓN 5: VALIDACIÓN Y CONTROL PATRIMONIAL
@@ -310,11 +311,11 @@ def build_asset_pdf(asset):
     sig_block = []
     sig_data = [
         [
-            Paragraph("<br/><br/><br/><br/>________________________________________<br/><b>Responsable del Activo / Custodio</b><br/>" + resp_name, ParagraphStyle("S1Asset", parent=cell_normal, alignment=1)),
-            Paragraph("<br/><br/><br/><br/>________________________________________<br/><b>V°B° Control Patrimonial & FM</b><br/>Administración de Activos", ParagraphStyle("S2Asset", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>________________________________________<br/><b>Responsable del Activo / Custodio</b><br/>" + resp_name, ParagraphStyle("S1Asset", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>________________________________________<br/><b>V°B° Control Patrimonial & FM</b><br/>Administración de Activos", ParagraphStyle("S2Asset", parent=cell_normal, alignment=1)),
         ]
     ]
-    t_sig = Table(sig_data, colWidths=[8.5 * cm, 8.5 * cm])
+    t_sig = Table(sig_data, colWidths=[7.95 * cm, 7.95 * cm])
     t_sig.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -323,17 +324,17 @@ def build_asset_pdf(asset):
     story.append(KeepTogether(sig_block))
 
     # ---------------------------------------------------------
-    # 3. Pie de página institucional formal
+    # Pie de página institucional formal
     # ---------------------------------------------------------
     def add_footer(canvas, doc):
         canvas.saveState()
         canvas.setFont("Times-Roman", 8.5)
         canvas.setFillColor(colors.HexColor("#555555"))
-        canvas.drawString(2.0 * cm, 1.1 * cm, "INCALPACA FM S.A. — Documento Técnico Oficial de Control Patrimonial")
-        canvas.drawRightString(21.0 * cm - 2.0 * cm, 1.1 * cm, f"Página {doc.page}")
+        canvas.drawString(2.54 * cm, 1.2 * cm, "INCALPACA FM S.A. — Documento Técnico Oficial de Control Patrimonial")
+        canvas.drawRightString(21.0 * cm - 2.54 * cm, 1.2 * cm, f"Página {doc.page}")
         canvas.setStrokeColor(colors.HexColor("#000000"))
         canvas.setLineWidth(0.5)
-        canvas.line(2.0 * cm, 1.4 * cm, 21.0 * cm - 2.0 * cm, 1.4 * cm)
+        canvas.line(2.54 * cm, 1.5 * cm, 21.0 * cm - 2.54 * cm, 1.5 * cm)
         canvas.restoreState()
 
     doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
