@@ -150,6 +150,10 @@ export async function updateTaxonomy(id: string, input: TaxonomyInput): Promise<
   return mapTaxonomy(data);
 }
 
+export async function deleteTaxonomy(id: string): Promise<void> {
+  await api.delete(`/taxonomies/${id}/`);
+}
+
 // Familia
 export async function createTaxonomyFamily(input: any): Promise<any> {
   const { data } = await api.post("/taxonomies/families/", { code: input.code.trim().toUpperCase(), name: input.name.trim(), active: input.active });
@@ -159,6 +163,10 @@ export async function createTaxonomyFamily(input: any): Promise<any> {
 export async function updateTaxonomyFamily(id: string, input: any): Promise<any> {
   const { data } = await api.patch(`/taxonomies/families/${id}/`, { code: input.code.trim().toUpperCase(), name: input.name.trim(), active: input.active });
   return data;
+}
+
+export async function deleteTaxonomyFamily(id: string): Promise<void> {
+  await api.delete(`/taxonomies/families/${id}/`);
 }
 
 // Parte
@@ -172,6 +180,10 @@ export async function updateTaxonomyPart(id: string, input: any): Promise<any> {
   return data;
 }
 
+export async function deleteTaxonomyPart(id: string): Promise<void> {
+  await api.delete(`/taxonomies/parts/${id}/`);
+}
+
 // Pieza
 export async function createTaxonomyPiece(input: any): Promise<any> {
   const { data } = await api.post("/taxonomies/pieces/", { part: input.partId, piece_code: input.pieceCode.trim().toUpperCase(), name: input.name.trim(), active: input.active });
@@ -181,6 +193,10 @@ export async function createTaxonomyPiece(input: any): Promise<any> {
 export async function updateTaxonomyPiece(id: string, input: any): Promise<any> {
   const { data } = await api.patch(`/taxonomies/pieces/${id}/`, { part: input.partId, piece_code: input.pieceCode.trim().toUpperCase(), name: input.name.trim(), active: input.active });
   return data;
+}
+
+export async function deleteTaxonomyPiece(id: string): Promise<void> {
+  await api.delete(`/taxonomies/pieces/${id}/`);
 }
 
 export async function activateTaxonomy(id: string): Promise<TaxonomyRecord> {
