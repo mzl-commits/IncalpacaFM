@@ -32,14 +32,14 @@ def _get_logo_image():
 def build_asset_pdf(asset):
     output = BytesIO()
 
-    # 1. Configuración de página A4 con márgenes APA 7 (2.54 cm laterales y verticales)
+    # 1. Configuración de página A4 con márgenes de 12mm y 15mm
     doc = SimpleDocTemplate(
         output,
         pagesize=A4,
-        rightMargin=2.54 * cm,
-        leftMargin=2.54 * cm,
-        topMargin=2.54 * cm,
-        bottomMargin=2.54 * cm,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
     )
 
     # 2. Estilos Tipográficos Formales Institucionales (Times-Roman / Times-Bold)
@@ -71,8 +71,8 @@ def build_asset_pdf(asset):
         fontSize=11,
         leading=16,
         textColor=colors.HexColor("#000000"),
-        spaceBefore=16,
-        spaceAfter=8,
+        spaceBefore=34,
+        spaceAfter=10,
         keepWithNext=True,
     )
 
@@ -306,37 +306,62 @@ def build_asset_pdf(asset):
     story.append(Spacer(1, 1.0 * cm))
 
     # ---------------------------------------------------------
-    # SECCIÓN 5: VALIDACIÓN Y CONTROL PATRIMONIAL
+    # SECCIÓN 5: EVIDENCIAS
+    # ---------------------------------------------------------
+    story.append(Paragraph("5. EVIDENCIAS Y REGISTRO FOTOGRÁFICO", section_heading))
+    
+    empty_photo_style = ParagraphStyle(
+        "EmptyPhoto",
+        parent=cell_normal,
+        fontName="Times-Italic",
+        textColor=colors.HexColor("#808080"),
+        alignment=1, # Center
+    )
+    photo_title_style = ParagraphStyle(
+        "PhotoTitle",
+        parent=cell_bold,
+        alignment=1,
+    )
+    
+    photo_data = [
+        [
+            Paragraph("ESTADO INICIAL (ANTES)", photo_title_style),
+            Paragraph("ESTADO FINAL (DESPUÉS)", photo_title_style)
+        ],
+        [
+            Paragraph("Sin registro fotográfico adjunto", empty_photo_style),
+            Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
+        ]
+    ]
+    t_photo = Table(photo_data, colWidths=[8.5 * cm, 8.5 * cm], rowHeights=[None, 4 * cm])
+    t_photo.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("BOX", (0, 1), (0, 1), 0.5, colors.HexColor("#A0A0A0")),
+        ("BOX", (1, 1), (1, 1), 0.5, colors.HexColor("#A0A0A0")),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F4F4F4")),
+    ]))
+    story.append(t_photo)
+
+    # ---------------------------------------------------------
+    # SECCIÓN 6: VALIDACIÓN Y CONTROL PATRIMONIAL
     # ---------------------------------------------------------
     sig_block = []
     sig_data = [
         [
-            Paragraph("<br/><br/>________________________________________<br/><b>Responsable del Activo / Custodio</b><br/>" + resp_name, ParagraphStyle("S1Asset", parent=cell_normal, alignment=1)),
-            Paragraph("<br/><br/>________________________________________<br/><b>V°B° Control Patrimonial & FM</b><br/>Administración de Activos", ParagraphStyle("S2Asset", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>___________________________________<br/><b>Técnico Responsable</b><br/>" + resp_name, ParagraphStyle("S1Asset", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>___________________________________<br/><b>V°B° Supervisor / Administración</b><br/>Control Patrimonial & FM", ParagraphStyle("S2Asset", parent=cell_normal, alignment=1)),
         ]
     ]
-    t_sig = Table(sig_data, colWidths=[7.95 * cm, 7.95 * cm])
+    t_sig = Table(sig_data, colWidths=[8.5 * cm, 8.5 * cm])
     t_sig.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
+    sig_block.append(Spacer(1, 30))
     sig_block.append(t_sig)
     story.append(KeepTogether(sig_block))
 
-    # ---------------------------------------------------------
-    # Pie de página institucional formal
-    # ---------------------------------------------------------
-    def add_footer(canvas, doc):
-        canvas.saveState()
-        canvas.setFont("Times-Roman", 8.5)
-        canvas.setFillColor(colors.HexColor("#555555"))
-        canvas.drawString(2.54 * cm, 1.2 * cm, "INCALPACA FM S.A. — Documento Técnico Oficial de Control Patrimonial")
-        canvas.drawRightString(21.0 * cm - 2.54 * cm, 1.2 * cm, f"Página {doc.page}")
-        canvas.setStrokeColor(colors.HexColor("#000000"))
-        canvas.setLineWidth(0.5)
-        canvas.line(2.54 * cm, 1.5 * cm, 21.0 * cm - 2.54 * cm, 1.5 * cm)
-        canvas.restoreState()
-
-    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
+    doc.build(story)
     output.seek(0)
     return output
