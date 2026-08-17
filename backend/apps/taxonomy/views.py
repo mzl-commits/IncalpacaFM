@@ -17,6 +17,12 @@ from apps.audit.services import record_audit
 from .permissions import IsAuthenticatedReadAdministratorWrite
 from .selectors import taxonomy_list_queryset
 from .serializers import FMCodeAssetSerializer, TaxonomySerializer, TaxonomyFamilySerializer, TaxonomyPartSerializer, TaxonomyPieceSerializer
+from .services import (
+    delete_taxonomy_family,
+    delete_taxonomy_part,
+    delete_taxonomy_piece,
+    delete_taxonomy,
+)
 
 AUDITED_FIELDS = (
     "prefix",
@@ -50,6 +56,12 @@ class TaxonomyFamilyDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = TaxonomyFamilySerializer
     queryset = TaxonomyFamily.objects.all()
 
+    @extend_schema(summary="Borra una familia de taxonomía")
+    def delete(self, request, *args, **kwargs):
+        family = self.get_object()
+        delete_taxonomy_family(family)
+        return Response(status=204)
+
 
 class TaxonomyPartListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
@@ -62,6 +74,12 @@ class TaxonomyPartDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = TaxonomyPartSerializer
     queryset = TaxonomyPart.objects.all()
 
+    @extend_schema(summary="Borra una parte de taxonomía")
+    def delete(self, request, *args, **kwargs):
+        part = self.get_object()
+        delete_taxonomy_part(part)
+        return Response(status=204)
+
 
 class TaxonomyPieceListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
@@ -73,6 +91,12 @@ class TaxonomyPieceDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticatedReadAdministratorWrite]
     serializer_class = TaxonomyPieceSerializer
     queryset = TaxonomyPiece.objects.all()
+
+    @extend_schema(summary="Borra una pieza de taxonomía")
+    def delete(self, request, *args, **kwargs):
+        piece = self.get_object()
+        delete_taxonomy_piece(piece)
+        return Response(status=204)
 
 
 class TaxonomyTreeView(APIView):
@@ -151,6 +175,12 @@ class TaxonomyDetailView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return taxonomy_list_queryset()
+
+    @extend_schema(summary="Borra un tipo de taxonomía")
+    def delete(self, request, *args, **kwargs):
+        taxonomy = self.get_object()
+        delete_taxonomy(taxonomy)
+        return Response(status=204)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)

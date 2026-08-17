@@ -8,6 +8,9 @@ from apps.assets.models import (
     Asset,
     AssetInternalSequence,
     Taxonomy,
+    TaxonomyFamily,
+    TaxonomyPart,
+    TaxonomyPiece,
     TaxonomySequence,
 )
 
@@ -163,3 +166,31 @@ def sync_taxonomy_catalog():
         review_status=Taxonomy.ReviewStatus.REVIEW,
     )
     return seeded
+
+
+@transaction.atomic
+def delete_taxonomy_family(family: TaxonomyFamily):
+    if family.types.exists():
+        raise ValidationError({"detail": "No se puede borrar la familia porque contiene tipos de bienes registrados."})
+    family.delete()
+
+
+@transaction.atomic
+def delete_taxonomy(taxonomy: Taxonomy):
+    if taxonomy.parts.exists():
+        raise ValidationError({"detail": "No se puede borrar el tipo porque contiene partes registradas."})
+    if Asset.objects.filter(taxonomy=taxonomy).exists():
+        raise ValidationError({"detail": "No se puede borrar el tipo porque existen bienes que lo utilizan."})
+    taxonomy.delete()
+
+
+@transaction.atomic
+def delete_taxonomy_part(part: TaxonomyPart):
+    if part.pieces.exists():
+        raise ValidationError({"detail": "No se puede borrar la parte porque contiene piezas registradas."})
+    part.delete()
+
+
+@transaction.atomic
+def delete_taxonomy_piece(piece: TaxonomyPiece):
+    piece.delete()
