@@ -249,8 +249,12 @@ export async function createSite(input: SpaceSiteInput): Promise<SpaceSite> {
 }
 
 export async function updateSite(id: string, input: SpaceSiteInput): Promise<SpaceSite> {
-  const { data } = await api.patch<ApiRecord>(`/spaces/sites/${id}/`, sitePayload(input));
+  const { data } = await api.patch(`/spaces/sites/${id}/`, sitePayload(input));
   return mapSite(data);
+}
+
+export async function deleteSite(id: string): Promise<void> {
+  await api.delete(`/spaces/sites/${id}/`);
 }
 
 export async function createSpaceNode(input: SpaceNodeInput): Promise<SpaceNode> {
@@ -261,6 +265,10 @@ export async function createSpaceNode(input: SpaceNodeInput): Promise<SpaceNode>
 export async function updateSpaceNode(id: string, input: SpaceNodeInput): Promise<SpaceNode> {
   const { data } = await api.patch<ApiRecord>(`/spaces/nodes/${id}/`, nodePayload(input));
   return mapNode(data);
+}
+
+export async function deleteSpaceNode(id: string): Promise<void> {
+  await api.delete(`/spaces/nodes/${id}/`);
 }
 
 /** The API keeps `active` read-only and applies these audit-friendly actions. */

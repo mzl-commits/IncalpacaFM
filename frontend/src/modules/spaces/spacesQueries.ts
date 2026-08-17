@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createSite,
   createSpaceNode,
+  deleteSite,
+  deleteSpaceNode,
   getSite,
   getSpaceImpact,
   getSpaceNode,
@@ -125,6 +127,22 @@ export function useSetSiteActive() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) => setSiteActive(id, active),
+    onSuccess: () => invalidateSpaceQueries(queryClient),
+  });
+}
+
+export function useDeleteSite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteSite(id),
+    onSuccess: () => invalidateSpaceQueries(queryClient),
+  });
+}
+
+export function useDeleteSpaceNode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteSpaceNode(id),
     onSuccess: () => invalidateSpaceQueries(queryClient),
   });
 }
