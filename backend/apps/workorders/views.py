@@ -191,7 +191,7 @@ class WorkOrderCostListCreateView(generics.ListCreateAPIView):
 
 
 class WorkOrderReportView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [IsWorkOrderParticipant]
 
     def get_order(self, pk):
         return get_object_or_404(
@@ -223,7 +223,7 @@ class WorkOrderReportView(APIView):
 
 
 class WorkOrderReportDownloadView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [IsWorkOrderParticipant]
 
     @extend_schema(responses={(200, "application/pdf"): OpenApiTypes.BINARY})
     def get(self, request, pk, report_id):
