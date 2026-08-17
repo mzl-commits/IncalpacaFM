@@ -75,7 +75,7 @@ export async function generateWorkOrderApaPdf({
             <td style="font-weight:700;">${formatHours(mins)}</td>
           </tr>`;
       }).join("")
-    : `<tr><td colspan="4" class="td-empty">Tiempo acumulado total: ${formatHours(totalWorkedMinutes)}</td></tr>`;
+    : `<tr><td colspan="4" class="td-empty text-center" style="font-style:italic; color:#808080;">Tiempo acumulado total: ${formatHours(totalWorkedMinutes)}</td></tr>`;
 
   // Rows de costos
   const costRows = costs.length > 0
@@ -83,21 +83,40 @@ export async function generateWorkOrderApaPdf({
         <tr>
           <td><strong>${item.categoryLabel}</strong></td>
           <td>${item.description}</td>
-          <td style="text-align:center;">1</td>
-          <td style="text-align:right; font-weight:700;">S/ ${Number(item.amount || 0).toFixed(2)}</td>
+          <td class="text-center">1</td>
+          <td class="text-right">S/ ${Number(item.amount || 0).toFixed(2)}</td>
         </tr>`).join("")
-    : `<tr><td colspan="4" class="td-empty">Sin costos registrados en esta orden de trabajo.</td></tr>`;
+    : `<tr><td colspan="4" class="td-empty text-center" style="font-style:italic; color:#808080;">Sin costos registrados en esta orden de trabajo.</td></tr>`;
 
   // Rows de materiales
   const materialRows = materials.length > 0
     ? materials.map(m => `
         <tr>
           <td><strong>${m.name || m.description || "—"}</strong></td>
-          <td style="text-align:center;">${m.quantity ?? 1}</td>
+          <td class="text-center">${m.quantity ?? 1}</td>
           <td>${m.unit || "Unid."}</td>
           <td>${m.notes || "—"}</td>
         </tr>`).join("")
-    : `<tr><td colspan="4" class="td-empty">Sin materiales registrados.</td></tr>`;
+    : `<tr><td colspan="4" class="td-empty text-center" style="font-style:italic; color:#808080;">Sin materiales registrados.</td></tr>`;
+
+  // Work orders don't always have photos directly mapped as 'photo_url' like assets do in this mockup,
+  // but if they do, we'd place it. Assuming none for now, but keeping the structure.
+  const photoEvidenceHtml = `
+      <div class="photo-grid">
+        <div class="photo-col">
+          <div class="photo-title">ESTADO INICIAL (ANTES)</div>
+          <div class="photo-frame">
+            <span class="photo-empty">Sin registro fotográfico adjunto</span>
+          </div>
+        </div>
+        <div class="photo-col">
+          <div class="photo-title">ESTADO FINAL (DESPUÉS)</div>
+          <div class="photo-frame">
+            <span class="photo-empty">Sin registro fotográfico adjunto</span>
+          </div>
+        </div>
+      </div>
+  `;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="es">
@@ -110,6 +129,7 @@ export async function generateWorkOrderApaPdf({
   </style>
 </head>
 <body>
+<div class="main-report">
 
   <!-- 1. ENCABEZADO INSTITUCIONAL -->
   <div class="page-header">
@@ -155,9 +175,23 @@ export async function generateWorkOrderApaPdf({
     </table>
   </div>
 
-  <!-- 3. JORNADAS -->
+  <!-- 3. DESCRIPCIÓN -->
   <div class="section-block">
-    <div class="section-heading">2. PROGRAMACIÓN Y REGISTRO DE CRONOGRAMA</div>
+    <div class="section-heading">2. DESCRIPCIÓN Y FALLA REPORTADA</div>
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <td class="value" style="width:100%;">
+            ${order.description || "Sin descripción registrada."}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 4. JORNADAS -->
+  <div class="section-block">
+    <div class="section-heading">3. PROGRAMACIÓN Y REGISTRO DE CRONOGRAMA</div>
     <table class="data-table">
       <tbody>
         <tr>
@@ -184,23 +218,15 @@ export async function generateWorkOrderApaPdf({
     </table>
   </div>
 
-  <!-- 4. DESCRIPCIÓN -->
-  <div class="section-block">
-    <div class="section-heading">3. DESCRIPCIÓN Y FALLA REPORTADA</div>
-    <table class="data-table">
-      <tbody>
-        <tr>
-          <td class="value" style="width:100%; padding: 10pt;">
-            ${order.description || "Sin descripción registrada."}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- 5. EVIDENCIAS -->
+  <div class="section-block" style="page-break-inside: avoid; break-inside: avoid;">
+    <div class="section-heading">4. EVIDENCIAS Y REGISTRO FOTOGRÁFICO</div>
+    ${photoEvidenceHtml}
   </div>
 
-  <!-- 5. MATERIALES -->
+  <!-- 6. MATERIALES -->
   <div class="section-block">
-    <div class="section-heading">4. MATERIALES E INSUMOS UTILIZADOS</div>
+    <div class="section-heading">5. MATERIALES E INSUMOS UTILIZADOS</div>
     <table class="records-table">
       <thead>
         <tr>
@@ -216,9 +242,9 @@ export async function generateWorkOrderApaPdf({
     </table>
   </div>
 
-  <!-- 6. COSTOS -->
+  <!-- 7. COSTOS -->
   <div class="section-block">
-    <div class="section-heading">5. CONSOLIDADO DE COSTOS OPERATIVOS</div>
+    <div class="section-heading">6. CONSOLIDADO DE COSTOS OPERATIVOS</div>
     <table class="records-table">
       <thead>
         <tr>
@@ -239,9 +265,9 @@ export async function generateWorkOrderApaPdf({
     </table>
   </div>
 
-  <!-- 7. QR Y TRAZABILIDAD -->
+  <!-- 8. QR Y TRAZABILIDAD -->
   <div class="section-block">
-    <div class="section-heading">6. CÓDIGO DE VERIFICACIÓN Y TRAZABILIDAD</div>
+    <div class="section-heading">7. CÓDIGO DE VERIFICACIÓN Y TRAZABILIDAD</div>
     <div class="qr-block">
       <div class="qr-cell">
         <img src="${qrDataUrl}" alt="QR">
@@ -268,21 +294,18 @@ export async function generateWorkOrderApaPdf({
   <div class="signatures-block">
     <div class="sig-cell">
       <div class="sig-line"></div>
-      <div class="sig-role">Técnico / Responsable</div>
-      <div class="sig-name">${order.operatorName || "_________________"}</div>
+      <div class="sig-role">Técnico Responsable</div>
+      <div class="sig-name">${order.operatorName || "_______________"}</div>
     </div>
     <div class="sig-cell">
       <div class="sig-line"></div>
-      <div class="sig-role">Supervisor / Administración</div>
-      <div class="sig-name">V°B° Control FM Incalpaca</div>
+      <div class="sig-role">V°B° Supervisor / Administración</div>
+      <div class="sig-name">Control FM Incalpaca</div>
     </div>
   </div>
 
-  <!-- 10. PIE DE PÁGINA -->
-  <div class="page-footer">
-    <span>INCALPACA FM S.A. — Documento Técnico Oficial</span>
-    <span>Página 1</span>
-  </div>
+
+</div>
 
   <script>
     if (${action === "print"}) {

@@ -33,7 +33,7 @@ def _image(photo):
             fontName="Times-Italic",
             fontSize=9.5,
             leading=14,
-            textColor=colors.HexColor("#666666"),
+            textColor=colors.HexColor("#808080"),
             alignment=1,
         )
         return Paragraph("<br/><br/><i>Sin registro fotográfico adjunto</i><br/><br/>", style)
@@ -49,7 +49,7 @@ def _image(photo):
             fontName="Times-Italic",
             fontSize=9.5,
             leading=14,
-            textColor=colors.HexColor("#666666"),
+            textColor=colors.HexColor("#808080"),
             alignment=1,
         )
         return Paragraph("<br/><br/><i>No fue posible renderizar la imagen</i><br/><br/>", style)
@@ -68,14 +68,14 @@ def _effective_minutes(order):
 def build_work_order_pdf(order):
     output = BytesIO()
 
-    # 1. Configuración de página A4 con márgenes APA 7 (2.54 cm)
+    # 1. Configuración de página A4 con márgenes de 12mm y 15mm
     doc = SimpleDocTemplate(
         output,
         pagesize=A4,
-        rightMargin=2.54 * cm,
-        leftMargin=2.54 * cm,
-        topMargin=2.54 * cm,
-        bottomMargin=2.54 * cm,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
     )
 
     # 2. Estilos Tipográficos Formales
@@ -107,8 +107,8 @@ def build_work_order_pdf(order):
         fontSize=11,
         leading=16,
         textColor=colors.HexColor("#000000"),
-        spaceBefore=16,
-        spaceAfter=8,
+        spaceBefore=34,
+        spaceAfter=10,
         keepWithNext=True,
     )
 
@@ -385,32 +385,19 @@ def build_work_order_pdf(order):
     sig_block = []
     sig_data = [
         [
-            Paragraph("<br/><br/>________________________________________<br/><b>Firma del Técnico Responsable</b><br/>" + tech_main, ParagraphStyle("S1ASpaced", parent=cell_normal, alignment=1)),
-            Paragraph("<br/><br/>________________________________________<br/><b>V°B° Supervisor / Administración</b><br/>" + supervisor_name, ParagraphStyle("S2ASpaced", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>___________________________________<br/><b>Técnico Responsable</b><br/>" + tech_main, ParagraphStyle("S1ASpaced", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>___________________________________<br/><b>V°B° Supervisor / Administración</b><br/>" + supervisor_name, ParagraphStyle("S2ASpaced", parent=cell_normal, alignment=1)),
         ]
     ]
-    t_sig = Table(sig_data, colWidths=[7.95 * cm, 7.95 * cm])
+    t_sig = Table(sig_data, colWidths=[8.5 * cm, 8.5 * cm])
     t_sig.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
+    sig_block.append(Spacer(1, 30))
     sig_block.append(t_sig)
     story.append(KeepTogether(sig_block))
 
-    # ---------------------------------------------------------
-    # Pie de página institucional formal
-    # ---------------------------------------------------------
-    def add_footer(canvas, doc):
-        canvas.saveState()
-        canvas.setFont("Times-Roman", 8.5)
-        canvas.setFillColor(colors.HexColor("#555555"))
-        canvas.drawString(2.54 * cm, 1.2 * cm, "INCALPACA FM S.A. — Documento Técnico Oficial de Gestión de Infraestructura")
-        canvas.drawRightString(21.0 * cm - 2.54 * cm, 1.2 * cm, f"Página {doc.page}")
-        canvas.setStrokeColor(colors.HexColor("#000000"))
-        canvas.setLineWidth(0.5)
-        canvas.line(2.54 * cm, 1.5 * cm, 21.0 * cm - 2.54 * cm, 1.5 * cm)
-        canvas.restoreState()
-
-    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
+    doc.build(story)
     output.seek(0)
     return output
