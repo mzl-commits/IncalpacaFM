@@ -1,7 +1,7 @@
 /**
  * incalpacaReportStyles.ts
- * Estilos CSS compartidos para todos los reportes institucionales de Incalpaca FM.
- * Formato APA 7 — Documento corporativo oficial.
+ * PLANTILLA MAESTRA - Estilos CSS compartidos para todos los reportes PDF institucionales de Incalpaca FM.
+ * Basado en formato APA 7 y diseño corporativo formal.
  */
 
 export const INCALPACA_LOGO_SVG = `
@@ -11,14 +11,16 @@ export const INCALPACA_LOGO_SVG = `
   <rect x="70" y="70" width="35" height="35" fill="#000000" />
 </svg>`;
 
-/** CSS base compartido para todos los reportes APA 7 corporativos de Incalpaca */
 export function getIncalpacaReportCSS(): string {
   return `
-    @import url('https://fonts.googleapis.com/css2?family=Calibri&display=swap');
+    /* ==========================================================================
+       PLANTILLA MAESTRA SGTB INCALPACA FM S.A.
+       Formato Institucional de Reportes (A4, Márgenes 25.4mm)
+       ========================================================================== */
 
     @page {
       size: A4 portrait;
-      margin: 25.4mm 25.4mm 25.4mm 25.4mm; /* APA 7: márgenes de 2.54 cm */
+      margin: 25.4mm;
     }
 
     * {
@@ -28,28 +30,28 @@ export function getIncalpacaReportCSS(): string {
     }
 
     body {
-      font-family: "Calibri", "Arial", "Times New Roman", serif;
-      font-size: 11pt;
-      line-height: 2;           /* APA 7: interlineado doble */
+      font-family: "Times New Roman", Times, serif;
+      font-size: 10pt;
       color: #111111;
       background: #ffffff;
-      text-align: left;         /* APA 7: alineado a la izquierda */
+      text-align: left;
+      line-height: 1.5;
     }
 
-    /* ── Encabezado de página (running head APA) ── */
+    /* ── 1. ENCABEZADO INSTITUCIONAL ── */
     .page-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      border-bottom: 2.5px solid #111111;
-      padding-bottom: 10px;
-      margin-bottom: 24px;
+      align-items: flex-start;
+      border-bottom: 2px solid #000000;
+      padding-bottom: 14pt;
+      margin-bottom: 18pt; /* Línea -> primera sección */
     }
 
     .logo-area {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
     .logo-area svg {
@@ -57,338 +59,297 @@ export function getIncalpacaReportCSS(): string {
     }
 
     .company-block .company-name {
-      font-size: 15pt;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: 13pt;
+      font-weight: bold;
+      color: #000000;
       line-height: 1.2;
-      color: #111111;
     }
 
     .company-block .company-subtitle {
-      font-size: 8.5pt;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
+      font-size: 9.5pt;
       color: #555555;
-      line-height: 1.4;
+      line-height: 1.3;
+      margin-top: 2px;
+    }
+
+    .company-block .report-name {
+      font-size: 13pt;
+      font-weight: bold;
+      color: #000000;
+      margin-top: 6px;
+      text-transform: uppercase;
     }
 
     .header-right {
       text-align: right;
-      font-size: 9pt;
-      color: #444444;
-      line-height: 1.5;
+      font-size: 9.5pt;
+      color: #111111;
+      line-height: 1.4;
     }
 
     .header-right .doc-code {
-      font-size: 12pt;
-      font-weight: 700;
-      color: #111111;
+      font-size: 11pt;
+      font-weight: bold;
+      color: #000000;
       display: block;
+      margin-bottom: 4px;
     }
 
-    /* ── Número de página (esquina superior derecha APA) ── */
-    .page-number {
-      position: running(page-number);
-      text-align: right;
-      font-size: 9pt;
-    }
-
-    @page {
-      @top-right {
-        content: counter(page);
-        font-family: "Calibri", "Arial", serif;
-        font-size: 9pt;
-      }
-    }
-
-    /* ── Título principal del documento ── */
-    .doc-title-block {
-      text-align: center;
-      margin: 0 0 28px 0;
-      padding: 18px 0;
-      border-bottom: 1px solid #cccccc;
-    }
-
-    .doc-title-block h1 {
-      font-size: 14pt;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin: 0 0 6px 0;
-      line-height: 1.3;
-    }
-
-    .doc-title-block .doc-meta {
-      font-size: 9.5pt;
-      color: #555555;
-      line-height: 1.8;
-    }
-
-    /* ── Secciones / Títulos APA ── */
+    /* ── 2. SECCIONES Y TÍTULOS ── */
     .section-heading {
-      font-size: 12pt;
-      font-weight: 700;
+      font-size: 11pt;
+      font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
-      border-bottom: 1.5px solid #111111;
-      padding-bottom: 4px;
-      margin-top: 28px;
-      margin-bottom: 12px;
+      color: #000000;
+      margin-bottom: 10pt; /* Título -> contenido */
       page-break-after: avoid;
       break-after: avoid;
     }
 
-    .section-heading.level2 {
-      font-size: 11pt;
-      font-weight: 700;
-      text-transform: none;
-      border-bottom: 1px solid #888888;
-      letter-spacing: 0;
-      margin-top: 20px;
-      page-break-after: avoid;
-      break-after: avoid;
+    .section-block {
+      margin-bottom: 18pt; /* Entre bloques */
     }
 
-    /* ── Grilla de 2 columnas ── */
-    .grid-2 {
-      display: table;
-      width: 100%;
-      margin-bottom: 14px;
-      border-spacing: 10px 0;
-    }
-
-    .grid-col {
-      display: table-cell;
-      width: 50%;
-      vertical-align: top;
-      padding-right: 10px;
-    }
-
-    .grid-col:last-child {
-      padding-right: 0;
-      padding-left: 10px;
-    }
-
-    /* ── Ficha de dato ── */
-    .fact-card {
-      border: 1px solid #dedede;
-      padding: 9px 12px;
-      margin-bottom: 10px;
-      page-break-inside: avoid;
-      background: #fafafa;
-    }
-
-    .fact-card dt {
-      font-size: 8pt;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: #666666;
-      letter-spacing: 0.5px;
-      line-height: 1.4;
-    }
-
-    .fact-card dd {
-      font-size: 11pt;
-      font-weight: 700;
-      color: #111111;
-      margin: 3px 0 0 0;
-      line-height: 1.4;
-    }
-
-    .fact-card dd.normal {
-      font-weight: 400;
+    .sub-heading {
       font-size: 10.5pt;
+      font-weight: bold;
+      color: #000000;
+      margin-bottom: 6pt;
+      page-break-after: avoid;
+      break-after: avoid;
     }
 
-    /* ── Bloque de descripción (con sangría APA) ── */
-    .description-block {
-      text-indent: 1.27cm;   /* APA 7: sangría de primera línea */
-      margin-bottom: 14px;
-      font-size: 11pt;
-      color: #333333;
-      line-height: 2;
+    /* ── 3. TIPOGRAFÍA GENERAL ── */
+    p.description-text {
+      font-size: 10pt;
+      margin-bottom: 8pt; /* Entre párrafos */
+      text-align: justify;
     }
 
-    /* ── Tablas ── */
-    table.report-table {
+    .note-text {
+      font-size: 9pt;
+      font-style: italic;
+      color: #777777;
+    }
+
+    /* ── 4. TABLAS MAESTRAS ── */
+    table {
       width: 100%;
       border-collapse: collapse;
-      margin: 10px 0 18px 0;
-      font-size: 10pt;
       page-break-inside: auto;
+      margin-bottom: 8pt;
     }
 
-    table.report-table thead {
+    thead {
       display: table-header-group;
     }
 
-    table.report-table tfoot {
-      display: table-footer-group;
-    }
-
-    table.report-table tr {
+    tr {
       page-break-inside: avoid;
       break-inside: avoid;
     }
 
-    table.report-table thead tr {
-      background: #111111 !important;
-      color: #ffffff !important;
+    /* ESTILO A: TABLA DE DATOS (Identificación e Info General) */
+    table.data-table {
+      border: 1px solid #A0A0A0;
+    }
+
+    table.data-table td {
+      border: 1px solid #A0A0A0;
+      padding: 7pt;
+      vertical-align: middle;
+      font-size: 9.5pt;
+    }
+
+    table.data-table td.label {
+      background-color: #F4F4F4;
+      font-weight: bold;
+      width: 20%;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    table.report-table th {
-      padding: 7px 10px;
+    table.data-table td.value {
+      background-color: #FFFFFF;
+      width: 30%;
+    }
+
+    /* ESTILO B: TABLA DE REGISTROS / COSTOS (Desarrollo, Costos, Materiales) */
+    table.records-table {
+      border-bottom: 2px solid #000000;
+    }
+
+    table.records-table th {
+      background-color: #000000;
+      color: #FFFFFF;
+      font-weight: bold;
+      font-size: 9.5pt;
+      padding: 7pt;
       text-align: left;
-      font-size: 9pt;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+      border: 1px solid #000000;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
-    table.report-table td {
-      padding: 7px 10px;
-      border-bottom: 1px solid #e8e8e8;
+    table.records-table td {
+      border-bottom: 1px solid #A0A0A0;
+      border-left: 1px solid #A0A0A0;
+      border-right: 1px solid #A0A0A0;
+      padding: 7pt;
+      font-size: 9.5pt;
       vertical-align: top;
-      line-height: 1.5;
     }
 
-    table.report-table tbody tr:nth-child(even) {
-      background: #f7f7f7;
+    table.records-table tr:nth-child(even) td {
+      background-color: #F8F8F8;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
-    table.report-table tbody tr:last-child td {
-      border-bottom: 2px solid #111111;
+    table.records-table .text-right {
+      text-align: right;
     }
 
-    table.report-table .td-empty {
+    table.records-table .text-center {
       text-align: center;
-      color: #888888;
-      font-style: italic;
-      padding: 14px;
     }
 
-    /* ── Bloque de total / resumen financiero ── */
-    .total-row {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 20px;
-      background: #111111;
-      color: #ffffff;
-      padding: 8px 14px;
-      font-size: 11pt;
-      font-weight: 700;
-      margin-bottom: 22px;
+    table.records-table tr.total-row td {
+      background-color: #E0E0E0;
+      font-weight: bold;
+      border-top: 1px solid #000000;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
-    /* ── Hero de bien (foto + datos) ── */
-    .hero-block {
+    /* ── 5. EVIDENCIAS FOTOGRÁFICAS ── */
+    .photo-grid {
       display: table;
       width: 100%;
-      margin-bottom: 22px;
-      border: 1px solid #dedede;
-      background: #f8f8f8;
+      table-layout: fixed;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
-
-    .hero-main {
+    
+    .photo-col {
       display: table-cell;
-      padding: 16px;
+      width: 50%;
+      padding: 0 10pt;
+      text-align: center;
       vertical-align: top;
     }
 
-    .hero-qr {
-      display: table-cell;
-      width: 145px;
-      text-align: center;
-      padding: 14px;
-      vertical-align: middle;
-      border-left: 1px solid #dedede;
-      background: #ffffff;
+    .photo-title {
+      font-size: 10pt;
+      font-weight: bold;
+      margin-bottom: 8pt;
     }
 
-    .hero-qr img {
+    .photo-frame {
+      width: 100%;
+      height: 200px;
+      border: 1px solid #A0A0A0;
+      background-color: #F4F4F4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .photo-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ── 6. QR ── */
+    .qr-block {
+      display: table;
+      width: 100%;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      margin-top: 8pt;
+    }
+    
+    .qr-cell {
+      display: table-cell;
+      width: 140px;
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .qr-info {
+      display: table-cell;
+      vertical-align: middle;
+      padding-left: 14pt;
+    }
+
+    .qr-cell img {
       width: 110px;
       height: 110px;
       display: block;
-      margin: 0 auto 6px;
+      margin: 0 auto 4pt;
+      border: 1px solid #A0A0A0;
+      background: #FFFFFF;
     }
 
-    .hero-qr small {
-      font-size: 8pt;
-      color: #777777;
-      display: block;
-      line-height: 1.3;
+    .qr-cell span {
+      font-size: 8.5pt;
+      color: #555555;
     }
 
-    .code-badge {
-      display: inline-block;
-      background: #111111;
-      color: #ffffff;
-      font-family: "Courier New", monospace;
-      font-size: 10.5pt;
-      padding: 2px 10px;
-      margin-bottom: 8px;
-    }
-
-    .asset-name {
-      font-size: 16pt;
-      font-weight: 700;
-      margin: 0 0 8px 0;
-      line-height: 1.2;
-    }
-
-    /* ── Firmas ── */
+    /* ── 7. FIRMAS (Reutilizable) ── */
     .signatures-block {
-      margin-top: 52px;
+      margin-top: 40pt; /* Antes de firmas: 30-50 pt */
       display: table;
       width: 100%;
-      text-align: center;
+      table-layout: fixed;
       page-break-inside: avoid;
       break-inside: avoid;
     }
 
     .sig-cell {
       display: table-cell;
-      width: 50%;
-      padding: 0 20px;
+      padding: 0 20pt;
+      text-align: center;
       vertical-align: bottom;
     }
 
     .sig-line {
-      border-top: 1px solid #111111;
-      width: 75%;
-      margin: 0 auto 8px auto;
-    }
-
-    .sig-name {
-      font-size: 10.5pt;
-      font-weight: 700;
+      border-top: 1px solid #000000;
+      width: 80%;
+      margin: 0 auto 6pt auto;
     }
 
     .sig-role {
-      font-size: 8.5pt;
-      color: #666666;
-      margin-top: 2px;
+      font-size: 10pt;
+      font-weight: bold;
+      color: #000000;
+      margin-bottom: 2pt;
     }
 
-    /* ── Pie de página ── */
+    .sig-name {
+      font-size: 9.5pt;
+      color: #111111;
+    }
+
+    /* ── 8. PIE DE PÁGINA INSTITUCIONAL ── */
     .page-footer {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      border-top: 1px solid #cccccc;
-      padding-top: 6px;
+      border-top: 1px solid #A0A0A0;
+      padding-top: 4pt;
       display: flex;
       justify-content: space-between;
-      font-size: 8pt;
-      color: #777777;
+      font-size: 8.5pt;
+      color: #555555;
     }
 
-    /* ── Print ── */
+    /* ── PRINT MEDIA QUERIES ── */
     @media print {
       body {
         -webkit-print-color-adjust: exact;

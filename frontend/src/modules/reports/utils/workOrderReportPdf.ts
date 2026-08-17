@@ -111,169 +111,177 @@ export async function generateWorkOrderApaPdf({
 </head>
 <body>
 
-  <!-- ENCABEZADO INSTITUCIONAL -->
+  <!-- 1. ENCABEZADO INSTITUCIONAL -->
   <div class="page-header">
     <div class="logo-area">
       ${INCALPACA_LOGO_SVG}
       <div class="company-block">
-        <div class="company-name">Incalpaca FM S.A.</div>
-        <div class="company-subtitle">Sistema de Gestión Técnica y Bienes</div>
-        <div class="company-subtitle" style="letter-spacing:0.5px; margin-top:2px;">Facilidades y Mantenimiento Corporativo</div>
+        <div class="company-name">INCALPACA FM S.A.</div>
+        <div class="company-subtitle">Sistema de Gestión Técnica y Facility Management</div>
+        <div class="report-name">INFORME TÉCNICO DE ORDEN N° ${order.code}</div>
       </div>
     </div>
     <div class="header-right">
-      <span class="doc-code">${order.code}</span>
-      <span>Emitido: ${nowStr}</span><br/>
-      <span>Estado: <strong>${order.status || "—"}</strong></span><br/>
-      <span>Tipo: ${order.orderTypeLabel || "Correctivo"}</span>
+      <span>Fecha de Emisión: ${nowStr}</span><br/>
+      <span>Estado de Orden: <strong>${order.status || "—"}</strong></span><br/>
+      <span>Tipo: ${order.orderTypeLabel || "MANTENIMIENTO"}</span>
     </div>
   </div>
 
-  <!-- TÍTULO DEL DOCUMENTO -->
-  <div class="doc-title-block">
-    <h1>Informe Técnico de Orden de Trabajo</h1>
-    <div class="doc-meta">
-      Orden N.° <strong>${order.code}</strong> &nbsp;·&nbsp;
-      Fecha de registro: <strong>${formatDateLong(order.createdAt)}</strong> &nbsp;·&nbsp;
-      Técnico responsable: <strong>${order.operatorName || "Sin asignar"}</strong>
+  <!-- 2. IDENTIFICACIÓN DEL DOCUMENTO -->
+  <div class="section-block">
+    <div class="section-heading">1. DATOS DE IDENTIFICACIÓN Y UBICACIÓN DEL BIEN</div>
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <td class="label">Código de Orden:</td>
+          <td class="value">${order.code}</td>
+          <td class="label">Solicitud Origen:</td>
+          <td class="value">${order.incidentCode || "Directa"}</td>
+        </tr>
+        <tr>
+          <td class="label">Bien / Activo:</td>
+          <td class="value">${order.assetDisplayCode || order.assetCode || "Sin bien asignado"}</td>
+          <td class="label">Ubicación Física:</td>
+          <td class="value">${order.specificLocation || order.zone || "Planta Incalpaca"}</td>
+        </tr>
+        <tr>
+          <td class="label">Técnico Responsable:</td>
+          <td class="value">${order.operatorName || "Sin asignar"}</td>
+          <td class="label">Supervisor Asignado:</td>
+          <td class="value">Área de Mantenimiento FM</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 3. JORNADAS -->
+  <div class="section-block">
+    <div class="section-heading">2. PROGRAMACIÓN Y REGISTRO DE CRONOGRAMA</div>
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <td class="label">Inicio Registrado:</td>
+          <td class="value">${formatDateLong(order.createdAt)}</td>
+          <td class="label">Horas Efectivas Totales:</td>
+          <td class="value">${formatHours(totalWorkedMinutes)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <br>
+    <table class="records-table">
+      <thead>
+        <tr>
+          <th>Sesión / Tramo</th>
+          <th>Inicio de Jornada</th>
+          <th>Fin / Cierre de Jornada</th>
+          <th>Duración</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sessionRows}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 4. DESCRIPCIÓN -->
+  <div class="section-block">
+    <div class="section-heading">3. DESCRIPCIÓN Y FALLA REPORTADA</div>
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <td class="value" style="width:100%; padding: 10pt;">
+            ${order.description || "Sin descripción registrada."}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 5. MATERIALES -->
+  <div class="section-block">
+    <div class="section-heading">4. MATERIALES E INSUMOS UTILIZADOS</div>
+    <table class="records-table">
+      <thead>
+        <tr>
+          <th>Material / Insumo</th>
+          <th class="text-center">Cantidad</th>
+          <th>Unidad</th>
+          <th>Observaciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${materialRows}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 6. COSTOS -->
+  <div class="section-block">
+    <div class="section-heading">5. CONSOLIDADO DE COSTOS OPERATIVOS</div>
+    <table class="records-table">
+      <thead>
+        <tr>
+          <th>Categoría</th>
+          <th>Descripción del Concepto / Insumo</th>
+          <th class="text-center">Cant.</th>
+          <th class="text-right">Monto (S/)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${costRows}
+        ${costs.length > 0 ? `
+        <tr class="total-row">
+          <td colspan="3" class="text-right">TOTAL GENERAL</td>
+          <td class="text-right">S/ ${totalCost.toFixed(2)}</td>
+        </tr>` : ""}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 7. QR Y TRAZABILIDAD -->
+  <div class="section-block">
+    <div class="section-heading">6. CÓDIGO DE VERIFICACIÓN Y TRAZABILIDAD</div>
+    <div class="qr-block">
+      <div class="qr-cell">
+        <img src="${qrDataUrl}" alt="QR">
+        <span>Escanear para verificar</span>
+      </div>
+      <div class="qr-info">
+        <table class="data-table">
+          <tbody>
+            <tr>
+              <td class="label" style="width:30%">URL Pública:</td>
+              <td class="value">${publicUrl}</td>
+            </tr>
+            <tr>
+              <td class="label" style="width:30%">Normas:</td>
+              <td class="value">APA 7 · ISO 55000 · EN 13460</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
-  <!-- SECCIÓN 1: IDENTIFICACIÓN -->
-  <div class="section-heading">1. Identificación del Trabajo y Activo Atendido</div>
-  <div class="grid-2">
-    <div class="grid-col">
-      <div class="fact-card">
-        <dt>Bien / Activo Afectado</dt>
-        <dd>${order.assetDisplayCode || order.assetCode || "Sin bien asignado"}</dd>
-      </div>
-      <div class="fact-card">
-        <dt>Ubicación / Área de Trabajo</dt>
-        <dd>${order.specificLocation || order.zone || "Planta Principal Incalpaca"}</dd>
-      </div>
-      <div class="fact-card">
-        <dt>Tipo de Mantenimiento</dt>
-        <dd>${order.orderTypeLabel || "Correctivo"}</dd>
-      </div>
-    </div>
-    <div class="grid-col">
-      <div class="fact-card">
-        <dt>Técnico Principal Ejecutor</dt>
-        <dd>${order.operatorName || "Sin asignar"}</dd>
-      </div>
-      <div class="fact-card">
-        <dt>Fecha de Inicio</dt>
-        <dd>${formatDateLong(order.createdAt)}</dd>
-      </div>
-      <div class="fact-card">
-        <dt>Horas Efectivas Totales</dt>
-        <dd>${formatHours(totalWorkedMinutes)}</dd>
-      </div>
-    </div>
-  </div>
-
-  <!-- SECCIÓN 2: DESCRIPCIÓN / FALLA -->
-  <div class="section-heading">2. Descripción del Requerimiento y Falla Reportada</div>
-  <div class="description-block">
-    ${order.description || "Sin descripción registrada para esta orden de trabajo."}
-  </div>
-
-  <!-- SECCIÓN 3: JORNADAS -->
-  <div class="section-heading">3. Trazabilidad de Jornadas y Horas Efectivas</div>
-  <table class="report-table">
-    <thead>
-      <tr>
-        <th>Sesión / Tramo</th>
-        <th>Inicio de Jornada</th>
-        <th>Fin / Cierre de Jornada</th>
-        <th>Duración</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${sessionRows}
-    </tbody>
-    <tfoot>
-      <tr style="background:#eeeeee;">
-        <td colspan="3" style="text-align:right; font-weight:700; padding:7px 10px;">Total horas efectivas acumuladas:</td>
-        <td style="font-weight:700; padding:7px 10px;">${formatHours(totalWorkedMinutes)}</td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <!-- SECCIÓN 4: MATERIALES -->
-  <div class="section-heading">4. Materiales e Insumos Utilizados</div>
-  <table class="report-table">
-    <thead>
-      <tr>
-        <th>Material / Insumo</th>
-        <th style="text-align:center;">Cantidad</th>
-        <th>Unidad</th>
-        <th>Observaciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${materialRows}
-    </tbody>
-  </table>
-
-  <!-- SECCIÓN 5: COSTOS -->
-  <div class="section-heading">5. Consolidado de Costos Operativos</div>
-  <table class="report-table">
-    <thead>
-      <tr>
-        <th>Categoría</th>
-        <th>Descripción</th>
-        <th style="text-align:center;">Cant.</th>
-        <th style="text-align:right;">Importe (S/)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${costRows}
-    </tbody>
-  </table>
-  ${costs.length > 0 ? `
-  <div class="total-row">
-    <span>Costo Total Acumulado de la Orden:</span>
-    <span>S/ ${totalCost.toFixed(2)}</span>
-  </div>` : ""}
-
-  <!-- SECCIÓN 6: QR Y VERIFICACIÓN -->
-  <div class="section-heading">6. Código de Verificación y Trazabilidad</div>
-  <div style="display:table; width:100%; margin-bottom:10px;">
-    <div style="display:table-cell; vertical-align:middle; width:130px; text-align:center;">
-      <img src="${qrDataUrl}" alt="Código QR de verificación" style="width:110px;height:110px;display:block;margin:0 auto 4px;border:1px solid #dedede;"/>
-      <span style="font-size:8pt;color:#777777;">Escanear para verificar</span>
-    </div>
-    <div style="display:table-cell; vertical-align:middle; padding-left:20px;">
-      <div class="fact-card" style="margin-bottom:6px;">
-        <dt>URL de Verificación Pública</dt>
-        <dd class="normal" style="font-size:9.5pt; word-break:break-all;">${publicUrl}</dd>
-      </div>
-      <div class="fact-card">
-        <dt>Normas de Referencia</dt>
-        <dd class="normal" style="font-size:9.5pt;">APA 7 · ISO 55000 · EN 13460 · DS 005-2012-TR</dd>
-      </div>
-    </div>
-  </div>
-
-  <!-- FIRMAS -->
+  <!-- 9. FIRMAS -->
   <div class="signatures-block">
     <div class="sig-cell">
       <div class="sig-line"></div>
-      <div class="sig-name">${order.operatorName || "Técnico Responsable"}</div>
-      <div class="sig-role">Firma del Técnico Ejecutor</div>
+      <div class="sig-role">Técnico / Responsable</div>
+      <div class="sig-name">${order.operatorName || "_________________"}</div>
     </div>
     <div class="sig-cell">
       <div class="sig-line"></div>
-      <div class="sig-name">Control Operativo FM</div>
-      <div class="sig-role">V°B° Supervisión — Incalpaca FM S.A.</div>
+      <div class="sig-role">Supervisor / Administración</div>
+      <div class="sig-name">V°B° Control FM Incalpaca</div>
     </div>
   </div>
 
-  <!-- PIE DE PÁGINA -->
+  <!-- 10. PIE DE PÁGINA -->
   <div class="page-footer">
-    <span>SGTB Incalpaca FM — Documento Técnico Oficial · ${nowStr}</span>
-    <span>Página 1 de 1</span>
+    <span>INCALPACA FM S.A. — Documento Técnico Oficial</span>
+    <span>Página 1</span>
   </div>
 
   <script>
