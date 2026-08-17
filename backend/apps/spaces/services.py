@@ -611,6 +611,39 @@ def restore_site(site: FacilitySite) -> FacilitySite:
     return site
 
 
+@transaction.atomic
+def delete_site(site: FacilitySite) -> None:
+    site = FacilitySite.objects.select_for_update().get(pk=site.pk)
+    if SpaceNode.objects.filter(site=site).exists():
+        raise SpatialValidationError({"detail": "No se puede borrar la sede porque contiene espacios registrados."})
+    site.delete()
+
+
+@transaction.atomic
+def delete_space_node(node: SpaceNode) -> None:
+    node = SpaceNode.objects.select_for_update().get(pk=node.pk)
+    impact = calculate_node_impact(node)
+    
+    if impact["descendant_count"] > 0:
+        raise SpatialValidationError({"detail": "No se puede borrar porque tiene subespacios."})
+    if impact["asset_count"] > 0:
+        raise SpatialValidationError({"detail": "No se puede borrar porque existen bienes asignados a este espacio."})
+    if impact["active_map_count"] > 0:
+        raise SpatialValidationError({"detail": "No se puede borrar porque tiene mapas activos."})
+    
+    # Si la validación pasa y tiene un legacy_location, se limpia (o elimina) primero.
+    # Dado que models.PROTECT impide borrar el nodo si Location lo referencia.
+    if hasattr(node, "legacy_location") and node.legacy_location:
+        # Check if legacy location has any other references
+        loc = node.legacy_location
+        if not (loc.asset_set.exists() or loc.assetassignment_set.exists() or loc.reference_maps.exists()):
+            loc.delete()
+        else:
+            raise SpatialValidationError({"detail": "No se puede borrar porque el registro histórico de ubicación tiene dependencias."})
+    
+    node.delete()
+
+
 def calculate_node_impact(node: SpaceNode) -> dict:
     """Expone dependencias antes de archivar o reordenar un espacio."""
 

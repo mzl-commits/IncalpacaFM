@@ -24,6 +24,8 @@ from .services import (
     archive_site,
     archive_space_node,
     calculate_node_impact,
+    delete_site,
+    delete_space_node,
     node_snapshot,
     restore_site,
     restore_space_node,
@@ -133,7 +135,7 @@ class FacilitySiteDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsAdministrator]
     serializer_class = FacilitySiteSerializer
     queryset = FacilitySite.objects.all()
-    http_method_names = ["get", "patch", "put", "options", "head"]
+    http_method_names = ["get", "patch", "put", "delete", "options", "head"]
 
     def perform_update(self, serializer):
         before = site_snapshot(serializer.instance)
@@ -146,6 +148,25 @@ class FacilitySiteDetailView(generics.RetrieveUpdateAPIView):
             before=before,
             after=site_snapshot(site),
         )
+
+    @extend_schema(summary="Borra físicamente una sede vacía")
+    def delete(self, request, *args, **kwargs):
+        site = self.get_object()
+        before = site_snapshot(site)
+        try:
+            delete_site(site)
+        except SpatialValidationError as exc:
+            raise ValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
+        
+        record_audit(
+            request=self.request,
+            action="FACILITY_SITE_DELETED",
+            entity="FacilitySite",
+            entity_id=before["id"],
+            before=before,
+            after=None,
+        )
+        return Response(status=204)
 
 
 class FacilitySiteArchiveView(SpatialAdminAPIView):
@@ -230,7 +251,7 @@ class SpaceNodeDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsAdministrator]
     serializer_class = SpaceNodeSerializer
     queryset = SpaceNode.objects.select_related("site", "parent")
-    http_method_names = ["get", "patch", "put", "options", "head"]
+    http_method_names = ["get", "patch", "put", "delete", "options", "head"]
 
     def perform_update(self, serializer):
         before = node_snapshot(serializer.instance)
@@ -243,6 +264,25 @@ class SpaceNodeDetailView(generics.RetrieveUpdateAPIView):
             before=before,
             after=node_snapshot(node),
         )
+
+    @extend_schema(summary="Borra físicamente un espacio vacío")
+    def delete(self, request, *args, **kwargs):
+        node = self.get_object()
+        before = node_snapshot(node)
+        try:
+            delete_space_node(node)
+        except SpatialValidationError as exc:
+            raise ValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
+        
+        record_audit(
+            request=self.request,
+            action="SPACE_NODE_DELETED",
+            entity="SpaceNode",
+            entity_id=before["id"],
+            before=before,
+            after=None,
+        )
+        return Response(status=204)
 
 
 class SpaceNodeArchiveView(SpatialAdminAPIView):

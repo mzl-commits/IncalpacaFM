@@ -8,12 +8,20 @@ import {
   MapPin,
   PencilSimple,
   Plus,
+  Trash,
   WarningCircle,
 } from "@phosphor-icons/react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "@/utils/httpError";
-import { useSetSiteActive, useSetSpaceNodeActive, useSpaceImpact, useSpaceOptions } from "../spacesQueries";
+import { 
+  useSetSiteActive, 
+  useSetSpaceNodeActive, 
+  useDeleteSite, 
+  useDeleteSpaceNode, 
+  useSpaceImpact, 
+  useSpaceOptions 
+} from "../spacesQueries";
 import type { SpaceNode, SpaceSite, SpaceTreeNode } from "../types";
 import { spaceKindLabels } from "../types";
 import { SpaceMapCompatibilityPanel } from "./SpaceMapCompatibilityPanel";
@@ -33,7 +41,7 @@ function addressLabel(site: SpaceSite) {
     .join(" · ");
 }
 
-function EntityStateAction({
+function EntityActions({
   entity,
   id,
   active,
@@ -48,36 +56,90 @@ function EntityStateAction({
 }) {
   const nodeState = useSetSpaceNodeActive();
   const siteState = useSetSiteActive();
-  const [confirming, setConfirming] = useState(false);
+  const deleteSite = useDeleteSite();
+  const deleteNode = useDeleteSpaceNode();
+  
+  const [actionType, setActionType] = useState<"toggle" | "delete" | null>(null);
   const [error, setError] = useState("");
-  const mutation = entity === "site" ? siteState : nodeState;
-  const noun = entity === "site" ? "sede" : "espacio";
+  const navigate = useNavigate();
 
-  async function changeState() {
+  const toggleMutation = entity === "site" ? siteState : nodeState;
+  const deleteMutation = entity === "site" ? deleteSite : deleteNode;
+  const noun = entity === "site" ? "sede" : "espacio";
+  const isPending = toggleMutation.isPending || deleteMutation.isPending;
+
+  async function handleToggle() {
     setError("");
     try {
-      await mutation.mutateAsync({ id, active: !active });
-      setConfirming(false);
+      await toggleMutation.mutateAsync({ id, active: !active });
+      setActionType(null);
       onChanged?.();
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, `No se pudo actualizar la ${noun}.`));
     }
   }
 
-  if (confirming) {
+  async function handleDelete() {
+    setError("");
+    try {
+      await deleteMutation.mutateAsync(id);
+      setActionType(null);
+      navigate("/administracion/espacios", { replace: true });
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, `No se pudo borrar la ${noun}.`));
+    }
+  }
+
+  if (actionType === "toggle") {
     return (
       <div className="space-state-confirm" role="alert">
-        <p>{active ? `¿Archivar esta ${noun}? Se conservará su historial y el sistema validará dependencias.` : `¿Restaurar esta ${noun}? Volverá a estar disponible para nuevos registros.`}</p>
+        <p>{active ? `¿Marcar esta ${noun} como No operativa? Se conservará su historial y el sistema validará dependencias.` : `¿Marcar esta ${noun} como Operativa? Volverá a estar disponible para nuevos registros.`}</p>
         {error && <small><WarningCircle weight="fill" />{error}</small>}
-        <div><button type="button" className="button button-secondary" onClick={() => setConfirming(false)}>Cancelar</button><button type="button" className="button button-primary" onClick={() => void changeState()} disabled={mutation.isPending}>{mutation.isPending ? "Procesando…" : active ? "Confirmar archivo" : "Confirmar restauración"}</button></div>
+        <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+          <button type="button" className="button button-secondary" onClick={() => setActionType(null)}>Cancelar</button>
+          <button type="button" className="button button-primary" onClick={() => void handleToggle()} disabled={isPending}>
+            {isPending ? "Procesando…" : active ? "Confirmar inactividad" : "Confirmar activación"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (actionType === "delete") {
+    return (
+      <div className="space-state-confirm" role="alert" style={{ borderLeftColor: "var(--error, #dc2626)", backgroundColor: "var(--error-bg, #fef2f2)" }}>
+        <p style={{ color: "var(--error, #dc2626)" }}>¿Borrar permanentemente esta {noun}? Esta acción no se puede deshacer.</p>
+        {error && <small style={{ color: "var(--error, #dc2626)" }}><WarningCircle weight="fill" />{error}</small>}
+        <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+          <button type="button" className="button button-secondary" onClick={() => setActionType(null)}>Cancelar</button>
+          <button type="button" className="button button-primary" style={{ backgroundColor: "var(--error, #dc2626)", borderColor: "var(--error, #dc2626)", color: "white" }} onClick={() => void handleDelete()} disabled={isPending}>
+            {isPending ? "Borrando…" : "Sí, borrar permanentemente"}
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <button className="button button-secondary" type="button" onClick={() => setConfirming(true)} disabled={disabled || mutation.isPending}>
-      {active ? <Archive /> : <ArrowCounterClockwise />}{active ? "Archivar" : "Restaurar"}
-    </button>
+    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+      <button 
+        className="button button-secondary" 
+        type="button" 
+        onClick={() => setActionType("toggle")} 
+        disabled={disabled || isPending}
+      >
+        {active ? <Archive /> : <ArrowCounterClockwise />}{active ? "No operativo" : "Operativo"}
+      </button>
+      <button 
+        className="button button-secondary" 
+        type="button" 
+        onClick={() => setActionType("delete")} 
+        disabled={disabled || isPending}
+        style={{ color: "var(--error, #dc2626)", borderColor: "var(--error-border, #fca5a5)" }}
+      >
+        <Trash /> Borrar
+      </button>
+    </div>
   );
 }
 
@@ -112,7 +174,7 @@ export function SpaceInspector({ node, site, treeNode, compact = false, onChange
         <div className="space-inspector-actions">
           <Link className="button button-secondary" to={siteEditUrl}><PencilSimple />Editar sede</Link>
           {site.active && <Link className="button button-primary" to={`/administracion/espacios/nuevo?sede=${site.id}`}><Plus />Crear primer nivel</Link>}
-          <EntityStateAction entity="site" id={site.id} active={site.active} disabled={siteTree.length > 0} onChanged={onChanged} />
+          <EntityActions entity="site" id={site.id} active={site.active} disabled={siteTree.length > 0} onChanged={onChanged} />
         </div>
         {siteTree.length > 0 && <p className="space-inspector-note"><InfoCircle />Archiva los nodos activos antes de archivar la sede.</p>}
       </section>
@@ -144,7 +206,7 @@ export function SpaceInspector({ node, site, treeNode, compact = false, onChange
       <div className="space-inspector-actions">
         <Link className="button button-secondary" to={`${detailUrl}/editar`}><PencilSimple />Editar</Link>
         {node!.active && canAddChild && <Link className="button button-primary" to={`/administracion/espacios/nuevo?sede=${node!.siteId}&padre=${node!.id}`}><Plus />Crear hijo</Link>}
-        <EntityStateAction entity="node" id={node!.id} active={node!.active} disabled={Boolean(impact && !impact.canArchive)} onChanged={onChanged} />
+        <EntityActions entity="node" id={node!.id} active={node!.active} disabled={Boolean(impact && !impact.canArchive)} onChanged={onChanged} />
         {compact && <Link className="button button-link" to={detailUrl}>Ver detalle <CaretRight /></Link>}
       </div>
       {node!.active && !compact && <Link className="space-inspector-detail-link" to={detailUrl}>Abrir ficha completa <ArrowSquareOut /></Link>}
