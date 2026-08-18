@@ -8,6 +8,11 @@ import { listMovimientos, listGruposSolicitud, descargarExcelMovimientos } from 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { TipoMovimiento } from "@/modules/almacen/types";
 
+const MESES_ES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
 export function MovimientosPage() {
   const { almacenId } = useAlmacenActivo();
   const { user } = useAuth();
@@ -46,7 +51,7 @@ export function MovimientosPage() {
     enabled: esAdmin,
   });
 
-  // Filtro de búsqueda integral: código, material, ubicación, cantidad, stock crítico, responsable y OT.
+  // Filtro de búsqueda integral: código, material, ubicación, fecha, cantidad, stock crítico, responsable y OT.
   const lista = useMemo(() => {
     const base = movimientos ?? [];
     if (!q.trim()) return base;
@@ -71,6 +76,34 @@ export function MovimientosPage() {
       // Coincidencia textual en campos
       if (campos.some((campo) => campo?.toString().toLowerCase().includes(term))) {
         return true;
+      }
+
+      // Coincidencia en fecha (DD/MM/YYYY, D/M/YYYY, nombre de mes, año)
+      if (mov.fecha) {
+        const d = new Date(mov.fecha);
+        if (!isNaN(d.getTime())) {
+          const dia = d.getDate();
+          const mes = d.getMonth() + 1;
+          const anio = d.getFullYear();
+          const diaStr = String(dia).padStart(2, "0");
+          const mesStr = String(mes).padStart(2, "0");
+          const nombreMes = MESES_ES[d.getMonth()] ?? "";
+
+          const formatosFecha = [
+            `${diaStr}/${mesStr}/${anio}`,
+            `${dia}/${mes}/${anio}`,
+            `${diaStr}/${mesStr}`,
+            `${dia}/${mes}`,
+            `${dia} de ${nombreMes}`,
+            nombreMes,
+            String(anio),
+            d.toLocaleDateString("es-PE"),
+          ];
+
+          if (formatosFecha.some((f) => f.toLowerCase().includes(term))) {
+            return true;
+          }
+        }
       }
 
       // Coincidencia en cantidad
@@ -170,7 +203,7 @@ export function MovimientosPage() {
           <input
             type="search"
             className="input-search"
-            placeholder="Buscar por código, material, ubicación, cantidad, stock crítico u OT..."
+            placeholder="Buscar por código, material, ubicación, fecha, cantidad, stock crítico u OT..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ paddingLeft: 36, width: "100%" }}

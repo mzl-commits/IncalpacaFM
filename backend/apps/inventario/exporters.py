@@ -1,34 +1,43 @@
 """
 Exportadores Excel para el módulo de Inventario/Movimientos.
-Patrón: Workbook() desde cero con openpyxl, igual que generar_excel_inspeccion
-en apps/inspeccion/exporters.py.
+Genera reportes profesionales con diseño institucional oscuro, gráficos y tablas de resumen.
 """
 import io
 from collections import defaultdict
-from datetime import date as date_type
 
 from django.utils import timezone
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.chart import BarChart, Reference
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from apps.inventario.models import Movimiento
 
-# ─── Estilo institucional ─────────────────────────────────────────────────────
-COLOR_HEADER = "2D2D2D"     # Gris oscuro institucional
+# ─── Paleta de colores profesional (tonos oscuros y sobrios) ───────────────────
+COLOR_HEADER = "1E293B"         # Carbón / Slate oscuro institucional
 COLOR_HEADER_FONT = "FFFFFF"
-COLOR_SUBHEADER = "E8E8E8"
-COLOR_SALIDA = "FFF3CD"
-COLOR_BAJA = "F8D7DA"
-COLOR_ENTRADA = "D4EDDA"
+COLOR_SUBHEADER = "334155"      # Slate medio oscuro
+COLOR_SUBHEADER_FONT = "FFFFFF"
+COLOR_ACCENT = "0EA5E9"         # Azul cyan moderno para destaques
+COLOR_ROW_ALT = "F8FAFC"        # Fondo suave para filas alternadas
+COLOR_ROW_BASE = "FFFFFF"
+COLOR_BORDER = "CBD5E1"         # Borde gris sutil
+
+# Colores de estado / tipo de movimiento
+COLOR_SALIDA_BG = "E0F2FE"      # Azul suave
+COLOR_SALIDA_TXT = "0369A1"
+COLOR_BAJA_BG = "FEE2E2"        # Rojo suave
+COLOR_BAJA_TXT = "B91C1C"
+COLOR_ENTRADA_BG = "DCFCE7"     # Verde suave
+COLOR_ENTRADA_TXT = "15803D"
 
 
-def _header_font(bold=True, color=COLOR_HEADER_FONT, size=11):
+def _header_font(bold=True, color=COLOR_HEADER_FONT, size=10):
     return Font(bold=bold, color=color, size=size, name="Calibri")
 
 
-def _normal_font(bold=False, size=10):
-    return Font(bold=bold, size=size, name="Calibri")
+def _normal_font(bold=False, size=10, color="000000"):
+    return Font(bold=bold, size=size, color=color, name="Calibri")
 
 
 def _fill(hex_color):
@@ -36,14 +45,15 @@ def _fill(hex_color):
 
 
 def _thin_border():
-    thin = Side(style="thin", color="CCCCCC")
+    thin = Side(style="thin", color=COLOR_BORDER)
     return Border(left=thin, right=thin, top=thin, bottom=thin)
 
 
 def _write_header_row(ws, row, columns, bg_color=COLOR_HEADER, font_color=COLOR_HEADER_FONT):
-    """Escribe una fila de encabezados con fondo y fuente de color."""
+    """Escribe una fila de encabezados con fondo oscuro y texto blanco."""
     fill = _fill(bg_color)
-    font = Font(bold=True, color=font_color, size=10, name="Calibri")
+    font = _header_font(bold=True, color=font_color, size=10)
+    ws.row_dimensions[row].height = 24
     for col_idx, text in enumerate(columns, start=1):
         cell = ws.cell(row=row, column=col_idx, value=text)
         cell.fill = fill
@@ -52,15 +62,19 @@ def _write_header_row(ws, row, columns, bg_color=COLOR_HEADER, font_color=COLOR_
         cell.border = _thin_border()
 
 
-def _write_data_row(ws, row, values, row_fill=None):
-    """Escribe una fila de datos con borde fino y relleno opcional."""
+def _write_data_row(ws, row, values, row_fill=None, is_alt=False, alignments=None):
+    """Escribe una fila de datos con bordes sutiles, zebra striping y alineación."""
+    bg = row_fill or (COLOR_ROW_ALT if is_alt else COLOR_ROW_BASE)
+    fill = _fill(bg) if bg else None
+    ws.row_dimensions[row].height = 19
     for col_idx, value in enumerate(values, start=1):
         cell = ws.cell(row=row, column=col_idx, value=value)
         cell.font = _normal_font()
         cell.border = _thin_border()
-        cell.alignment = Alignment(vertical="center", wrap_text=False)
-        if row_fill:
-            cell.fill = _fill(row_fill)
+        if fill:
+            cell.fill = fill
+        align = alignments.get(col_idx, "left") if alignments else "left"
+        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=False)
 
 
 def _set_col_widths(ws, widths):
@@ -78,18 +92,147 @@ MESES_ES = [
 ]
 
 
-# ─── Exportación general (por día/mes/año) ────────────────────────────────────
+# ─── Exportación general (Top 15 + Frecuencias por día/mes/año) ────────────────
+
+def _hoja_top_materiales(wb, movimientos):
+    """
+    Hoja 1: Resumen con KPI Cards (material con más/menos movimientos) y Top 15 con BarChart.
+    """
+    ws = wb.create_sheet("Top 15 Materiales")
+
+    # Contabilizar movimientos por material
+    stats = defaultdict(lambda: {
+        "codigo": "", "nombre": "", "total_movs": 0, "entradas": 0, "salidas": 0, "bajas": 0
+    })
+
+    for mov in movimientos:
+        mid = mov.material_id
+        if not mid:
+            continue
+        st = stats[mid]
+        st["codigo"] = mov.material.codigo if mov.material else str(mid)
+        st["nombre"] = mov.material.nombre if mov.material else "—"
+        st["total_movs"] += 1
+        if mov.tipo == "entrada":
+            st["entradas"] += (mov.cantidad or 1)
+        elif mov.tipo == "salida":
+            st["salidas"] += (mov.cantidad or 1)
+        elif mov.tipo == "baja":
+            st["bajas"] += (mov.cantidad or 1)
+
+    sorted_mats = sorted(stats.values(), key=lambda x: x["total_movs"], reverse=True)
+
+    # 1. Título General
+    ws.merge_cells("A1:G1")
+    title_cell = ws["A1"]
+    title_cell.value = "INCALPACA TOPS S.A. — REPORTE GENERAL DE MOVIMIENTOS DE ALMACÉN"
+    title_cell.font = Font(bold=True, size=13, color="FFFFFF", name="Calibri")
+    title_cell.fill = _fill(COLOR_HEADER)
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
+
+    # 2. Tarjetas de Resumen (Más / Menos movimientos)
+    max_mat = sorted_mats[0] if sorted_mats else {"codigo": "—", "nombre": "Sin datos", "total_movs": 0}
+    min_mat = sorted_mats[-1] if sorted_mats else {"codigo": "—", "nombre": "Sin datos", "total_movs": 0}
+
+    # Tarjeta 1: Más movimientos (A3:C4)
+    ws.merge_cells("A3:C3")
+    card1_title = ws["A3"]
+    card1_title.value = "MATERIAL CON MÁS MOVIMIENTOS"
+    card1_title.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    card1_title.fill = _fill("0F766E")  # Teal oscuro
+    card1_title.alignment = Alignment(horizontal="center", vertical="center")
+
+    ws.merge_cells("A4:C4")
+    card1_val = ws["A4"]
+    card1_val.value = f"{max_mat['codigo']} — {max_mat['nombre']} ({max_mat['total_movs']} movs.)"
+    card1_val.font = Font(bold=True, size=10, color="0F172A", name="Calibri")
+    card1_val.fill = _fill("CCFBF1")
+    card1_val.alignment = Alignment(horizontal="center", vertical="center")
+    card1_val.border = _thin_border()
+
+    # Tarjeta 2: Menos movimientos (E3:G3)
+    ws.merge_cells("E3:G3")
+    card2_title = ws["E3"]
+    card2_title.value = "MATERIAL CON MENOS MOVIMIENTOS"
+    card2_title.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    card2_title.fill = _fill("B45309")  # Ámbar oscuro
+    card2_title.alignment = Alignment(horizontal="center", vertical="center")
+
+    ws.merge_cells("E4:G4")
+    card2_val = ws["E4"]
+    card2_val.value = f"{min_mat['codigo']} — {min_mat['nombre']} ({min_mat['total_movs']} movs.)"
+    card2_val.font = Font(bold=True, size=10, color="0F172A", name="Calibri")
+    card2_val.fill = _fill("FEF3C7")
+    card2_val.alignment = Alignment(horizontal="center", vertical="center")
+    card2_val.border = _thin_border()
+
+    ws.row_dimensions[3].height = 20
+    ws.row_dimensions[4].height = 24
+
+    # 3. Tabla Top 15 (Filas 6 en adelante)
+    top_15 = sorted_mats[:15]
+    cols = ["Puesto", "Código", "Material", "Movimientos", "Entradas (u.)", "Salidas (u.)", "Bajas (u.)"]
+    widths = [8, 14, 38, 14, 14, 14, 14]
+    _write_header_row(ws, 6, cols, bg_color=COLOR_HEADER)
+    _set_col_widths(ws, widths)
+
+    alignments = {1: "center", 2: "center", 3: "left", 4: "center", 5: "center", 6: "center", 7: "center"}
+
+    for idx, mat in enumerate(top_15, start=1):
+        row_num = 6 + idx
+        _write_data_row(ws, row_num, [
+            idx,
+            mat["codigo"],
+            mat["nombre"],
+            mat["total_movs"],
+            mat["entradas"],
+            mat["salidas"],
+            mat["bajas"],
+        ], is_alt=(idx % 2 == 0), alignments=alignments)
+
+    # 4. Insertar Gráfico de Barras
+    if top_15:
+        chart = BarChart()
+        chart.type = "col"
+        chart.style = 10
+        chart.title = "Top 15 Materiales con Más Movimientos"
+        chart.y_axis.title = "Cantidad de Movimientos"
+        chart.x_axis.title = "Material"
+        chart.legend = None
+        chart.width = 20
+        chart.height = 13
+
+        data = Reference(ws, min_col=4, min_row=6, max_row=6 + len(top_15))
+        cats = Reference(ws, min_col=3, min_row=7, max_row=6 + len(top_15))
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+
+        ws.add_chart(chart, "I6")
+
+
+def _obtener_ot_code(mov):
+    """Extrae el código de OT del movimiento (desde referencia_externa o atributo work_order)."""
+    if hasattr(mov, "work_order") and mov.work_order:
+        return mov.work_order.code
+    ref = (mov.referencia_externa or "").strip()
+    if ref and ("OT" in ref.upper() or "-" in ref):
+        return ref
+    elif ref:
+        return ref
+    return None
+
 
 def _construir_frecuencia_general(movimientos):
     """
-    Devuelve 3 diccionarios:
-      por_dia:  {(fecha, material_id) -> {nombre, codigo, entrada, salida, baja}}
+    Devuelve 3 diccionarios agrupados con órdenes de trabajo asociadas:
+      por_dia:  {(fecha, material_id) -> {nombre, codigo, entrada, salida, baja, ots: set()}}
       por_mes:  {(anio, mes, material_id) -> {...}}
       por_anio: {(anio, material_id) -> {...}}
     """
-    por_dia = defaultdict(lambda: {"nombre": "", "codigo": "", "entrada": 0, "salida": 0, "baja": 0})
-    por_mes = defaultdict(lambda: {"nombre": "", "codigo": "", "entrada": 0, "salida": 0, "baja": 0})
-    por_anio = defaultdict(lambda: {"nombre": "", "codigo": "", "entrada": 0, "salida": 0, "baja": 0})
+    por_dia = defaultdict(lambda: {"nombre": "", "codigo": "", "entrada": 0, "salida": 0, "baja": 0, "ots": set()})
+    por_mes = defaultdict(lambda: {"nombre": "", "codigo": "", "entrada": 0, "salida": 0, "baja": 0, "ots": set()})
+    por_anio = defaultdict(lambda: {"nombre": "", "codigo": "", "entrada": 0, "salida": 0, "baja": 0, "ots": set()})
 
     for mov in movimientos:
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
@@ -98,6 +241,7 @@ def _construir_frecuencia_general(movimientos):
         nombre = mov.material.nombre if mov.material else "—"
         codigo = mov.material.codigo if mov.material else "—"
         cantidad = mov.cantidad or 1
+        ot_code = _obtener_ot_code(mov)
 
         key_d = (fecha, mid)
         key_m = (anio, mes, mid)
@@ -106,6 +250,8 @@ def _construir_frecuencia_general(movimientos):
         for d in [por_dia[key_d], por_mes[key_m], por_anio[key_a]]:
             d["nombre"] = nombre
             d["codigo"] = codigo
+            if ot_code:
+                d["ots"].add(ot_code)
 
         por_dia[key_d][mov.tipo] += cantidad
         por_mes[key_m][mov.tipo] += cantidad
@@ -116,72 +262,92 @@ def _construir_frecuencia_general(movimientos):
 
 def _hoja_por_dia(wb, por_dia):
     ws = wb.create_sheet("Por Día")
-    cols = ["Fecha", "Código", "Material", "Entradas", "Salidas", "Bajas", "Total"]
-    widths = [14, 14, 40, 10, 10, 10, 10]
+    cols = ["Fecha", "Código", "Material", "Entradas", "Salidas", "Bajas", "Total", "Órdenes de Trabajo asociadas"]
+    widths = [14, 14, 38, 10, 10, 10, 10, 32]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
+
+    alignments = {1: "center", 2: "center", 3: "left", 4: "center", 5: "center", 6: "center", 7: "center", 8: "left"}
 
     rows = sorted(por_dia.items(), key=lambda x: (x[0][0], -sum([x[1]["entrada"], x[1]["salida"], x[1]["baja"]])))
     for r_idx, ((fecha, _), d) in enumerate(rows, start=2):
         total = d["entrada"] + d["salida"] + d["baja"]
-        row_fill = COLOR_BAJA if d["baja"] > 0 and d["salida"] == 0 else None
+        ots_str = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r_idx, [
             fecha.strftime("%d/%m/%Y"),
             d["codigo"], d["nombre"],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total,
-        ], row_fill=row_fill)
-    ws.auto_filter.ref = f"A1:G{max(2, len(rows) + 1)}"
+            ots_str,
+        ], is_alt=(r_idx % 2 == 0), alignments=alignments)
+    ws.auto_filter.ref = f"A1:H{max(2, len(rows) + 1)}"
 
 
 def _hoja_por_mes(wb, por_mes):
     ws = wb.create_sheet("Por Mes")
-    cols = ["Año", "Mes", "Código", "Material", "Entradas", "Salidas", "Bajas", "Total"]
-    widths = [8, 8, 14, 40, 10, 10, 10, 10]
+    cols = ["Año", "Mes", "Código", "Material", "Entradas", "Salidas", "Bajas", "Total", "Órdenes de Trabajo asociadas"]
+    widths = [8, 8, 14, 38, 10, 10, 10, 10, 32]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
+
+    alignments = {1: "center", 2: "center", 3: "center", 4: "left", 5: "center", 6: "center", 7: "center", 8: "center", 9: "left"}
 
     rows = sorted(por_mes.items(), key=lambda x: (x[0][0], x[0][1], -sum([x[1]["entrada"], x[1]["salida"], x[1]["baja"]])))
     for r_idx, ((anio, mes, _), d) in enumerate(rows, start=2):
         total = d["entrada"] + d["salida"] + d["baja"]
+        ots_str = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r_idx, [
             anio, MESES_ES[mes],
             d["codigo"], d["nombre"],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total,
-        ])
-    ws.auto_filter.ref = f"A1:H{max(2, len(rows) + 1)}"
+            ots_str,
+        ], is_alt=(r_idx % 2 == 0), alignments=alignments)
+    ws.auto_filter.ref = f"A1:I{max(2, len(rows) + 1)}"
 
 
 def _hoja_por_anio(wb, por_anio):
     ws = wb.create_sheet("Por Año")
-    cols = ["Año", "Código", "Material", "Entradas", "Salidas", "Bajas", "Total"]
-    widths = [8, 14, 40, 10, 10, 10, 10]
+    cols = ["Año", "Código", "Material", "Entradas", "Salidas", "Bajas", "Total", "Órdenes de Trabajo asociadas"]
+    widths = [8, 14, 38, 10, 10, 10, 10, 32]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
 
+    alignments = {1: "center", 2: "center", 3: "left", 4: "center", 5: "center", 6: "center", 7: "center", 8: "left"}
+
     rows = sorted(por_anio.items(), key=lambda x: (x[0][0], -sum([x[1]["entrada"], x[1]["salida"], x[1]["baja"]])))
     for r_idx, ((anio, _), d) in enumerate(rows, start=2):
         total = d["entrada"] + d["salida"] + d["baja"]
+        ots_str = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r_idx, [
             anio, d["codigo"], d["nombre"],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total,
-        ])
-    ws.auto_filter.ref = f"A1:G{max(2, len(rows) + 1)}"
+            ots_str,
+        ], is_alt=(r_idx % 2 == 0), alignments=alignments)
+    ws.auto_filter.ref = f"A1:H{max(2, len(rows) + 1)}"
 
 
 # ─── Exportación por material (historial + resumen) ───────────────────────────
 
 def _hoja_historial_material(wb, movimientos, material):
     ws = wb.create_sheet("Historial")
-    cols = ["Fecha", "Hora", "Tipo", "Cantidad", "Empaques", "Responsable", "Referencia", "Observaciones"]
-    widths = [14, 10, 12, 10, 10, 28, 20, 40]
+    cols = ["Fecha", "Hora", "Tipo", "Cantidad", "Empaques", "Responsable", "Referencia", "Orden de Trabajo", "Observaciones"]
+    widths = [14, 10, 12, 10, 10, 26, 18, 18, 38]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
 
-    tipo_fills = {"salida": COLOR_SALIDA, "baja": COLOR_BAJA, "entrada": COLOR_ENTRADA}
+    tipo_fills = {
+        "salida": COLOR_SALIDA_BG,
+        "baja": COLOR_BAJA_BG,
+        "entrada": COLOR_ENTRADA_BG,
+    }
+
+    alignments = {
+        1: "center", 2: "center", 3: "center", 4: "center", 5: "center",
+        6: "left", 7: "center", 8: "center", 9: "left",
+    }
 
     for r_idx, mov in enumerate(movimientos, start=2):
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
@@ -191,65 +357,90 @@ def _hoja_historial_material(wb, movimientos, material):
             if mov.responsable else "N/A"
         )
         row_fill = tipo_fills.get(mov.tipo)
+        ot_code = _obtener_ot_code(mov) or "—"
+
         _write_data_row(ws, r_idx, [
             fecha.strftime("%d/%m/%Y"), hora,
             mov.get_tipo_display(),
             mov.cantidad, mov.cantidad_cajas or "",
             responsable,
-            mov.referencia_externa or "",
-            mov.observaciones or "",
-        ], row_fill=row_fill)
+            mov.referencia_externa or "—",
+            ot_code,
+            mov.observaciones or "—",
+        ], row_fill=row_fill, is_alt=(r_idx % 2 == 0), alignments=alignments)
+
+    ws.auto_filter.ref = f"A1:I{max(2, len(movimientos) + 1)}"
 
 
 def _hoja_resumen_dia_material(wb, movimientos):
     ws = wb.create_sheet("Resumen por Día")
-    cols = ["Fecha", "Entradas", "Salidas", "Bajas", "Total"]
-    widths = [14, 12, 12, 12, 12]
+    cols = ["Fecha", "Entradas", "Salidas", "Bajas", "Total", "Órdenes de Trabajo asociadas"]
+    widths = [14, 12, 12, 12, 12, 30]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
 
-    por_dia = defaultdict(lambda: {"entrada": 0, "salida": 0, "baja": 0})
+    alignments = {1: "center", 2: "center", 3: "center", 4: "center", 5: "center", 6: "left"}
+
+    por_dia = defaultdict(lambda: {"entrada": 0, "salida": 0, "baja": 0, "ots": set()})
     for mov in movimientos:
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
         por_dia[fecha][mov.tipo] += mov.cantidad or 1
+        ot_code = _obtener_ot_code(mov)
+        if ot_code:
+            por_dia[fecha]["ots"].add(ot_code)
 
-    for r_idx, (fecha, d) in enumerate(sorted(por_dia.items()), start=2):
+    rows = sorted(por_dia.items())
+    for r_idx, (fecha, d) in enumerate(rows, start=2):
         total = d["entrada"] + d["salida"] + d["baja"]
+        ots_str = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r_idx, [
             fecha.strftime("%d/%m/%Y"),
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total,
-        ])
+            ots_str,
+        ], is_alt=(r_idx % 2 == 0), alignments=alignments)
+
+    ws.auto_filter.ref = f"A1:F{max(2, len(rows) + 1)}"
 
 
 def _hoja_resumen_mes_material(wb, movimientos):
     ws = wb.create_sheet("Resumen por Mes")
-    cols = ["Año", "Mes", "Entradas", "Salidas", "Bajas", "Total"]
-    widths = [8, 8, 12, 12, 12, 12]
+    cols = ["Año", "Mes", "Entradas", "Salidas", "Bajas", "Total", "Órdenes de Trabajo asociadas"]
+    widths = [8, 8, 12, 12, 12, 12, 30]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
 
-    por_mes = defaultdict(lambda: {"entrada": 0, "salida": 0, "baja": 0})
+    alignments = {1: "center", 2: "center", 3: "center", 4: "center", 5: "center", 6: "center", 7: "left"}
+
+    por_mes = defaultdict(lambda: {"entrada": 0, "salida": 0, "baja": 0, "ots": set()})
     for mov in movimientos:
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
         por_mes[(fecha.year, fecha.month)][mov.tipo] += mov.cantidad or 1
+        ot_code = _obtener_ot_code(mov)
+        if ot_code:
+            por_mes[(fecha.year, fecha.month)]["ots"].add(ot_code)
 
-    for r_idx, ((anio, mes), d) in enumerate(sorted(por_mes.items()), start=2):
+    rows = sorted(por_mes.items())
+    for r_idx, ((anio, mes), d) in enumerate(rows, start=2):
         total = d["entrada"] + d["salida"] + d["baja"]
+        ots_str = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r_idx, [
             anio, MESES_ES[mes],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total,
-        ])
+            ots_str,
+        ], is_alt=(r_idx % 2 == 0), alignments=alignments)
+
+    ws.auto_filter.ref = f"A1:G{max(2, len(rows) + 1)}"
 
 
 # ─── Punto de entrada principal ───────────────────────────────────────────────
 
 def generar_excel_movimientos(material_id=None):
     """
-    Genera el Excel de movimientos.
-    - Sin material_id: 3 hojas de frecuencia general (Por Día, Por Mes, Por Año).
-    - Con material_id: 3 hojas del historial de ese material (Historial, Resumen por Día, Resumen por Mes).
+    Genera el Excel de movimientos con diseño profesional y tonalidades oscuras.
+    - Sin material_id: Hoja de Top 15 + KPI cards con gráfico y 3 hojas de frecuencia general (Por Día, Por Mes, Por Año).
+    - Con material_id: 3 hojas del historial de ese material (Historial, Resumen por Día, Resumen por Mes) con columna OT.
     Devuelve (buffer, filename).
     """
     from apps.catalogo.models import Material as MaterialModel
@@ -263,7 +454,7 @@ def generar_excel_movimientos(material_id=None):
     if material_id:
         qs = Movimiento.objects.filter(
             material_id=material_id
-        ).select_related("material", "responsable").order_by("-fecha")
+        ).select_related("material", "responsable", "pieza").order_by("-fecha")
 
         material = None
         try:
@@ -281,10 +472,11 @@ def generar_excel_movimientos(material_id=None):
         filename = f"historial_{codigo}_{nombre}_{hoy.isoformat()}.xlsx"
 
     else:
-        qs = Movimiento.objects.select_related("material", "responsable").order_by("-fecha")
+        qs = Movimiento.objects.select_related("material", "responsable", "pieza").order_by("-fecha")
         movimientos = list(qs)
         por_dia, por_mes, por_anio = _construir_frecuencia_general(movimientos)
 
+        _hoja_top_materiales(wb, movimientos)
         _hoja_por_dia(wb, por_dia)
         _hoja_por_mes(wb, por_mes)
         _hoja_por_anio(wb, por_anio)
