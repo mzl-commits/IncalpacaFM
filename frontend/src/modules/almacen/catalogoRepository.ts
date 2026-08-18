@@ -398,6 +398,7 @@ export interface UpdatePiezaPayload {
  * "detalle" (nombre/nota personalizada de esa unidad específica).
  * El backend acepta este campo vía PATCH en /piezas/{id}/.
  */
+
 export async function updatePieza(
   id: number,
   payload: UpdatePiezaPayload,
@@ -421,4 +422,19 @@ export async function updateAlmacen(
 
 export async function deleteAlmacen(id: number): Promise<void> {
   await api.delete(`/almacenes/${id}/`);
+}
+
+export async function getAlmacen(id: number): Promise<Almacen> {
+  const { data } = await api.get<Almacen>(`/almacenes/${id}/`);
+  return data;
+}
+
+export async function updateAlmacenCroquis(id: number, formData: FormData): Promise<Almacen> {
+  const { data } = await api.patch<Almacen>(`/almacenes/${id}/`, formData);
+  return data;
+}
+
+export async function eliminarAlmacenCroquis(id: number): Promise<Almacen> {
+  const { data } = await api.delete<Almacen>(`/almacenes/${id}/croquis/`);
+  return data;
 }

@@ -5,6 +5,12 @@ class Almacen(models.Model):
     codigo = models.CharField(max_length=20, unique=True)
     ubicacion = models.CharField(max_length=200, blank=True)
     activo = models.BooleanField(default=True)
+    croquis = models.ImageField(
+        upload_to="croquis/",
+        blank=True,
+        null=True,
+        help_text="Plano/croquis del almacén, editable por Almacenero y Administrador.",
+    )
 
     class Meta:
         ordering = ["nombre"]
@@ -167,7 +173,6 @@ class Material(models.Model):
         ("retornable", "Retornable"),
         ("no_retornable", "No retornable"),
     ]
-
 
     subcategoria = models.ForeignKey(
         Subcategoria, on_delete=models.PROTECT, related_name="materiales"

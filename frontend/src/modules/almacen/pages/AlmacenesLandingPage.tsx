@@ -21,6 +21,7 @@ function esRolAlmacenFijo(role: string | undefined): role is RolAlmacenFijo {
 
 export function AlmacenesLandingPage() {
   const { user } = useAuth();
+<<<<<<< HEAD
   const navigate = useNavigate();
 
   // ── Redirección temprana para ALMACENERO / INSPECTOR ──────────────────────
@@ -75,7 +76,6 @@ export function AlmacenesLandingPage() {
 /** Vista completa con listado y CRUD de almacenes, solo para ADMIN/SUPERVISOR. */
 function AlmacenesAdminView() {
   const { user } = useAuth();
-  // Solo ADMINISTRADOR puede crear/editar/eliminar almacenes
   const puedeAdministrar = user?.role === "ADMINISTRADOR";
   const queryClient = useQueryClient();
 

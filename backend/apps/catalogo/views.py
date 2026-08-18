@@ -35,7 +35,6 @@ from apps.catalogo.serializers import (
     TipoManejoStockSerializer,
 )
 
-
 class AlmacenScopedMixin:
     """Fuerza almacén del perfil para Almacenero/Inspector, ignorando ?almacen=.
     Cada ViewSet define `almacen_lookup` (path ORM hasta Almacen)."""
@@ -68,12 +67,40 @@ class AlmacenScopedMixin:
                 "No tienes permiso para operar sobre un almacén distinto al asignado a tu cuenta."
             )
 
-
-class AlmacenViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
+class AlmacenViewSet(viewsets.ModelViewSet):
     queryset = Almacen.objects.all()
     serializer_class = AlmacenSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
-    almacen_lookup = "pk"  # Almacen.pk ES el almacén
+
+    CAMPOS_EDITABLES_ALMACENERO = {"croquis"}
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        perfil = getattr(self.request.user, "account_profile", None)
+        if perfil and perfil.role in (AccountProfile.Role.ALMACENERO, AccountProfile.Role.INSPECTOR):
+            qs = qs.filter(id=perfil.almacen_id)
+        return qs
+
+    def perform_update(self, serializer):
+        perfil = getattr(self.request.user, "account_profile", None)
+        if perfil and perfil.role == AccountProfile.Role.ALMACENERO:
+            if serializer.instance.id != perfil.almacen_id:
+                raise PermissionDenied(
+                    "Solo puedes editar el almacén asignado a tu cuenta."
+                )
+            campos_no_permitidos = set(serializer.validated_data.keys()) - self.CAMPOS_EDITABLES_ALMACENERO
+            if campos_no_permitidos:
+                raise PermissionDenied(
+                    "Como Almacenero solo puedes actualizar el croquis; "
+                    "nombre, código, ubicación y estado los administra un Administrador."
+                )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        perfil = getattr(self.request.user, "account_profile", None)
+        if perfil and perfil.role == AccountProfile.Role.ALMACENERO:
+            raise PermissionDenied("Solo un Administrador puede eliminar un almacén.")
+        instance.delete()
 
     def get_object(self):
         """Si el usuario es ALMACENERO/INSPECTOR y el pk solicitado no coincide
@@ -244,14 +271,7 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         if activo is not None:
             qs = qs.filter(activo=activo.lower() == "true")
         if inspeccionable is not None and inspeccionable.lower() == "true":
-            qs = qs.filter(
-                activo=True,
-                subcategoria__activo=True,
-                subcategoria__categoria__activo=True,
-                subcategoria__categoria__requiere_inspeccion=True,
-                subcategoria__plantilla_inspeccion__isnull=False,
-                tipo_control="retornable",
-            )
+            qs = qs.inspeccionables()
         if almacen_id and self._almacen_forzado() is None:
             qs = qs.filter(almacen_id=almacen_id)
 

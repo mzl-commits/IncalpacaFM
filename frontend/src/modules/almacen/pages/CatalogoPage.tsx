@@ -20,19 +20,25 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
-import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
+import {
+  listCategorias,
+  listMateriales,
+  listSubcategorias,
+  eliminarAlmacenCroquis,
+} from "@/modules/almacen/catalogoRepository";
+
+import { CroquisUploader } from "@/modules/almacen/components/CroquisUploader";
+
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
 import { GestionUnidadesPanel } from "@/modules/almacen/components/GestionUnidadesPanel";
-import { CroquisCarrusel } from "@/modules/almacen/components/CroquisCarrusel";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import type { Material } from "@/modules/almacen/types";
@@ -40,7 +46,8 @@ import type { Material } from "@/modules/almacen/types";
 const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
 
 export function CatalogoPage() {
-  const { almacenId } = useAlmacenActivo();
+  const { almacenId, almacen, puedeEditarCroquis } = useAlmacenActivo();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const isTechnician = user?.role === "TECNICO";
   const isInspector = user?.role === "INSPECTOR";
@@ -172,24 +179,28 @@ export function CatalogoPage() {
           <p className="page-description">Ficha maestra de herramientas y materiales del almacén.</p>
         </div>
         <div className="header-actions">
-          {!isTechnician && <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setMostrarGestionCat((v) => !v)}
-            title="Administrar categorías y subcategorías"
-          >
-            <FolderPlus size={18} />
-            <span>Categorías</span>
-          </button>}
-          {!isTechnician && <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setMostrarGestionUnidades((v) => !v)}
-            title="Administrar unidades de medida y tipos de manejo de stock"
-          >
-            <Ruler size={18} />
-            <span>Unidades</span>
-          </button>}
+          {!isTechnician && (
+            <>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setMostrarGestionCat((v) => !v)}
+                title="Administrar categorías y subcategorías"
+              >
+                <FolderPlus size={18} />
+                <span>Categorías</span>
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setMostrarGestionUnidades((v) => !v)}
+                title="Administrar unidades de medida y tipos de manejo de stock"
+              >
+                <Ruler size={18} />
+                <span>Unidades</span>
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="btn-secondary"
@@ -244,10 +255,17 @@ export function CatalogoPage() {
           </div>
           <div style={{ background: "#f8fafc" }}>
             <img
-              src="/croquis_almacen.png"
-              alt="Croquis del almacén: plano en planta, vista isométrica y leyenda de inventario"
+              src={almacen?.croquis || "/croquis_almacen.png"}
+              alt={`Croquis del almacén ${almacen?.nombre ?? ""}`}
               style={{ width: "100%", maxHeight: 640, objectFit: "contain", display: "block" }}
             />
+            {puedeEditarCroquis && (
+              <CroquisUploader
+                almacen={almacen}
+                almacenId={almacenId}
+                onUpdated={() => queryClient.invalidateQueries({ queryKey: ["almacen-detalle", almacenId] })}
+              />
+            )}
           </div>
         </div>
       )}

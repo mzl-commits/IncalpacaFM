@@ -476,4 +476,4 @@ class MaterialFrecuenciaInspeccionSerializer(serializers.ModelSerializer):
 class AlmacenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Almacen
-        fields = ["id", "nombre", "codigo", "ubicacion", "activo"]
+        fields = ["id", "nombre", "codigo", "ubicacion", "activo","croquis"]
