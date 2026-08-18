@@ -71,9 +71,9 @@ class ActiveChecksTests(TestCase):
         fechas = [p.fecha_programada for p in creadas]
         # No deben ser todas la misma fecha
         self.assertGreater(len(set(fechas)), 1)
-        # Ninguna debe caer en domingo
+        # Ninguna debe caer en sábado (5) ni domingo (6)
         for f in fechas:
-            self.assertNotEqual(f.weekday(), 6)
+            self.assertNotIn(f.weekday(), [5, 6])
 
     def test_vencidas_active_elements_appear(self):
         """Un material con todo activo debe aparecer en las alertas de vencidas."""

@@ -334,7 +334,7 @@ export function MaterialDetailPage() {
               <div><dt className="dt-label">Tipo de control</dt><dd className="dd-value">{tipoControlLabels[material.tipo_control]}</dd></div>
               <div><dt className="dt-label">Control individual</dt><dd className="dd-value">{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt className="dt-label">Ubicación física</dt><dd className="dd-value">{material.ubicacion_fisica || "—"}</dd></div>
-              <div><dt className="dt-label">Código QUIPU</dt><dd className="dd-value">{material.codigo_quipu || "—"}</dd></div>
+              <div><dt className="dt-label">Código Ekipu</dt><dd className="dd-value">{material.codigo_quipu || "—"}</dd></div>
               {material.es_inspeccionable && (
                 <div>
                   <dt className="dt-label">Frecuencia de inspección</dt>

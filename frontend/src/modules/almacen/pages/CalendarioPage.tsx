@@ -153,8 +153,8 @@ export function CalendarioPage() {
   const { data: programacionesUrgentes = [] } = useQuery({
     queryKey: ["programaciones-inspeccion-urgentes", hastaProximas, almacenActivo],
     queryFn: () => listProgramaciones({ hasta: hastaProximas, almacen: almacenActivo ?? undefined }),
-    enabled: !esAdministrador || almacenActivo != null,
-  });
+    enabled: almacenActivo != null,
+});
 
   const vencidas = useMemo(() => {
     return programacionesUrgentes
