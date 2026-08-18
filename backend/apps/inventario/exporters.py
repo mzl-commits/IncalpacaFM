@@ -191,17 +191,24 @@ def _hoja_top_materiales(wb, movimientos):
             mat["bajas"],
         ], is_alt=(idx % 2 == 0), alignments=alignments)
 
-    # 4. Insertar Gráfico de Barras
+    # 4. Insertar Gráfico de Barras con nombres de material claros y etiquetas de valor
     if top_15:
+        from openpyxl.chart.label import DataLabelList
+
         chart = BarChart()
         chart.type = "col"
         chart.style = 10
         chart.title = "Top 15 Materiales con Más Movimientos"
-        chart.y_axis.title = "Cantidad de Movimientos"
-        chart.x_axis.title = "Material"
+        chart.y_axis.title = "Total Movimientos"
+        chart.x_axis.tickLblPos = "low"
+        chart.x_axis.tickLblSkip = 1
         chart.legend = None
-        chart.width = 20
-        chart.height = 13
+        chart.width = 22
+        chart.height = 14
+
+        # Etiquetas con valor numérico sobre cada barra
+        chart.dataLabels = DataLabelList()
+        chart.dataLabels.showVal = True
 
         data = Reference(ws, min_col=4, min_row=6, max_row=6 + len(top_15))
         cats = Reference(ws, min_col=3, min_row=7, max_row=6 + len(top_15))
