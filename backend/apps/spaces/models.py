@@ -156,9 +156,9 @@ class SpaceNode(models.Model):
             raise ValidationError({"parent": "El padre debe pertenecer a la misma sede."})
         
         if self.node_type == self.Type.MACRO_AREA:
-            valid_prefixes = ("PP", "AD", "CO", "RE", "AL")
+            valid_prefixes = ("PR", "PP", "AD", "CO", "RE", "AL")
             if not any(self.code_segment.startswith(p) for p in valid_prefixes):
-                raise ValidationError({"code_segment": "El código del Área Macro debe iniciar con PP, AD, CO, RE o AL."})
+                raise ValidationError({"code_segment": "El código del Área Macro debe iniciar con PR, AD, CO, RE o AL."})
         expected_path = (
             f"{self.parent.path_code}-{self.code_segment}"
             if self.parent_id

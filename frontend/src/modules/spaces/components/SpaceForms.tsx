@@ -140,7 +140,7 @@ const LEVEL_BOXES: Array<{
   title: string;
   description: string;
 }> = [
-  { type: "MACRO_AREA", level: 2, title: "Área macro", description: "Inicia con PP, AD, CO, RE o AL." },
+  { type: "MACRO_AREA", level: 2, title: "Área macro", description: "Inicia con PR, AD, CO, RE o AL (Nivel 2)." },
   { type: "AREA", level: 3, title: "Área", description: "Área funcional o departamento." },
   { type: "MODULE", level: 4, title: "Módulo", description: "Estación de trabajo o módulo." },
 ];
@@ -169,7 +169,7 @@ export function SpaceNodeForm({
   const [macroSuffix, setMacroSuffix] = useState("");
 
   const MACRO_PREFIXES = [
-    { value: "PP", label: "PP – Planta de producción" },
+    { value: "PR", label: "PR – Planta de producción" },
     { value: "AD", label: "AD – Sectores administrativos" },
     { value: "CO", label: "CO – Sectores comerciales" },
     { value: "RE", label: "RE – Sectores de retail" },
@@ -320,9 +320,9 @@ export function SpaceNodeForm({
     setError("");
     try {
       if (nodeType === "MACRO_AREA") {
-        const validPrefixes = ["PP", "AD", "CO", "RE", "AL"];
+        const validPrefixes = ["PR", "PP", "AD", "CO", "RE", "AL"];
         if (!validPrefixes.some(p => normalizedCode.startsWith(p))) {
-          setError("El código del Área Macro debe iniciar con PP, AD, CO, RE o AL.");
+          setError("El código del Área Macro debe iniciar con PR, AD, CO, RE o AL.");
           return;
         }
       }
