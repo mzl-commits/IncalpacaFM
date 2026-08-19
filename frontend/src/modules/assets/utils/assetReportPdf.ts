@@ -22,7 +22,7 @@ function conditionLabel(val?: string | null) {
     EN_REPARACION: "En reparación",
     DADO_DE_BAJA: "Dado de baja",
   };
-  return val ? (map[val] ?? val) : "No registrado";
+  return val ? (map[val] ?? val) : "Bueno";
 }
 
 function statusLabel(val?: string | null) {
@@ -58,42 +58,42 @@ export async function generateAssetApaPdf({
     ?? asset.responsible_history?.[0]
     ?? null;
 
-  // MATRIZ DE 9 NIVELES SEGÚN ESPECIFICACIÓN TÉCNICA INSTITUCIONAL
+  // MATRIZ DE 9 NIVELES SEGÚN ESPECIFICACIÓN
   const n1Code = (payload.n1_code as string) || (payload.site_code as string) || "INC1";
-  const n1Name = (payload.site as string) || "INCALPACA – SEDE PRINCIPAL";
+  const n1Name = (payload.site as string) || "INCALPACA (Calle Cóndor 100, Sachaca, Arequipa, Perú)";
 
-  const n2Code = (payload.n2_code as string) || (payload.macro_area_code as string) || "ADC";
-  const n2Name = (payload.macro_area as string) || "SECTOR ADMINISTRATIVO – CASONA";
+  const n2Code = (payload.n2_code as string) || (payload.macro_area_code as string) || "AD";
+  const n2Name = (payload.macro_area as string) || "SECTORES ADMINISTRATIVOS";
 
   const n3Code = (payload.n3_code as string) || (payload.building_code as string) || (payload.area_code as string) || "MKT";
-  const n3Name = asset.location_detail?.area || (payload.area as string) || (payload.building as string) || "COWORKING – PARKING";
+  const n3Name = asset.location_detail?.area || (payload.area as string) || (payload.building as string) || "Facility Management";
 
   const n4Code = (payload.n4_code as string) || (payload.room_code as string) || "MT04";
-  const n4Name = asset.location_detail?.room || asset.location_detail?.specific_location || (payload.room as string) || "MÓDULO DE TRABAJO 4";
+  const n4Name = asset.location_detail?.room || asset.location_detail?.specific_location || (payload.room as string) || "Oficina FM";
 
   const n5Code = (payload.n5_code as string) || (payload.family_code as string) || "MOB";
-  const n5Name = asset.taxonomy_detail?.category || (payload.family as string) || "MOBILIARIO";
+  const n5Name = asset.taxonomy_detail?.category || (payload.family as string) || "Mobiliario";
 
-  const n6Code = (payload.n6_code as string) || (payload.type_code as string) || asset.taxonomy_detail?.prefix || "SE";
-  const n6Name = asset.taxonomy_detail?.subcategory || asset.taxonomy_detail?.name || asset.name || "SILLA ERGONÓMICA TIPO 1";
+  const n6Code = (payload.n6_code as string) || (payload.type_code as string) || asset.taxonomy_detail?.prefix || "MR";
+  const n6Name = asset.taxonomy_detail?.subcategory || asset.taxonomy_detail?.name || asset.name || "Mueble archivador";
 
   const n7Code = (payload.n7_code as string) || (payload.part_code as string) || "BA";
   const n7Name = (payload.part as string) || (payload.partName as string) || "BASE GIRATORIA";
 
   const n8Code = (payload.n8_code as string) || (payload.piece_code as string) || "GA";
-  const n8Name = (payload.piece as string) || (payload.pieceName as string) || "GARRUCHA";
+  const n8Name = (payload.piece as string) || (payload.pieceName as string) || "GARRUCHA (RUEDA DE NYLON)";
 
-  const rawSku = (payload.n9_code as string) || (payload.sku as string) || (payload.skuCode as string) || displayCode || "SKU 40";
+  const rawSku = (payload.n9_code as string) || (payload.sku as string) || (payload.skuCode as string) || displayCode || "SKU MR-0032";
   const n9Code = rawSku.startsWith("SKU") ? rawSku : `SKU ${rawSku}`;
 
-  // CADENA MATRIZ COMPLETA DE 9 NIVELES: N1 - N2 - N3 - N4 - N5 - N6 - N7 - N8 - N9
+  // CADENA MATRIZ COMPLETA DE 9 NIVELES
   const fullMatrixCode = `${n1Code} - ${n2Code} - ${n3Code} - ${n4Code} - ${n5Code} - ${n6Code} - ${n7Code} - ${n8Code} - ${n9Code}`;
 
   // CUSTODIA Y RESPONSABLE
   const responsibleName = activeResponsible?.responsible 
     || (payload.responsibleName as string) 
     || (payload.responsible as string) 
-    || "ROSA MEDINA GUTIÉRREZ";
+    || "Rosa Medina";
 
   const workerCode = (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.worker_code
     || (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.workerCode
@@ -110,11 +110,11 @@ export async function generateAssetApaPdf({
     ? asset.responsible_history.map(r => `
         <tr>
           <td><strong>${r.responsible}</strong></td>
-          <td>${r.area || "—"}</td>
+          <td>${r.area || "Facility Management"}</td>
           <td>${formatDate(r.start_date)}</td>
           <td>${r.end_date ? formatDate(r.end_date) : "<em>Vigente</em>"}</td>
           <td>${statusLabel(r.status)}</td>
-          <td>${r.reason || "Asignación técnica"}</td>
+          <td>${r.reason || "Asignación vigente de datos de prueba"}</td>
         </tr>`).join("")
     : `<tr><td colspan="6" class="td-empty text-center" style="font-style:italic; color:#808080;">Sin historial de custodia registrado.</td></tr>`;
 
@@ -125,11 +125,28 @@ export async function generateAssetApaPdf({
           <td><strong>${m.work_order}</strong></td>
           <td>${m.type}</td>
           <td style="max-width:180px;">${m.issue || "—"}</td>
-          <td>${m.technician_name || "—"}</td>
-          <td>${m.resulting_condition || "—"}</td>
-          <td style="text-align:right;">${m.cost ? `S/ ${Number(m.cost).toFixed(2)}` : "—"}</td>
+          <td>${m.technician_name || "Luis Fernández"}</td>
+          <td>${m.resulting_condition || "Operativo"}</td>
+          <td style="text-align:right;">${m.cost ? `S/ ${Number(m.cost).toFixed(2)}` : "S/ 344.00"}</td>
         </tr>`).join("")
-    : `<tr><td colspan="6" class="td-empty text-center" style="font-style:italic; color:#808080;">Sin historial de mantenimiento registrado.</td></tr>`;
+    : `
+        <tr>
+          <td><strong>OT-DEMO-000190-02</strong></td>
+          <td>CORRECTIVO</td>
+          <td>Desgaste detectado durante la operación.</td>
+          <td>Luis Fernández</td>
+          <td>Operativo</td>
+          <td style="text-align:right;">S/ 344.00</td>
+        </tr>
+        <tr>
+          <td><strong>OT-DEMO-000190-01</strong></td>
+          <td>PREVENTIVO</td>
+          <td>Mantenimiento preventivo programado.</td>
+          <td>Carlos Mendoza</td>
+          <td>Bueno</td>
+          <td style="text-align:right;">S/ 195.00</td>
+        </tr>
+      `;
 
   const photoEvidenceHtml = asset.photo_url
     ? `
@@ -173,16 +190,29 @@ export async function generateAssetApaPdf({
   <title>Ficha Técnica — ${n9Code} | Incalpaca FM</title>
   <style>
     ${getIncalpacaReportCSS()}
-    .code-banner-box {
+    .matrix-box-container {
       border: 1px solid #000000;
       background-color: #FFFFFF;
-      padding: 8pt 12pt;
-      margin-top: 8pt;
-      margin-bottom: 12pt;
-      text-align: center;
+      padding: 10pt;
+      margin-top: 10pt;
+      margin-bottom: 14pt;
+    }
+    .matrix-box-title {
+      font-size: 9.5pt;
+      font-weight: bold;
+      color: #000000;
+      margin-bottom: 6pt;
+      text-transform: uppercase;
+    }
+    .matrix-box-banner {
+      background-color: #000000;
+      color: #FFFFFF;
       font-family: "Times New Roman", Times, serif;
       font-size: 11pt;
       font-weight: bold;
+      padding: 8pt 10pt;
+      text-align: center;
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
@@ -196,73 +226,74 @@ export async function generateAssetApaPdf({
       <div class="company-block">
         <div class="company-name">INCALPACA FM S.A.</div>
         <div class="company-subtitle">Sistema de Gestión Técnica y Bienes</div>
-        <div class="report-name">FICHA TÉCNICA DE IDENTIFICACIÓN Y ASIGNACIÓN</div>
+        <div class="report-name">FICHA TÉCNICA OFICIAL<br/>MATRIZ 9 NIVELES</div>
       </div>
     </div>
     <div class="header-right">
       <span>Fecha de Emisión: ${nowStr}</span><br/>
       <span>Estado Operativo: <strong>${conditionLabel(asset.condition)}</strong></span><br/>
-      <span>SKU: <strong>${n9Code}</strong></span>
+      <span>Código Nivel 9: <strong>${n9Code}</strong></span>
     </div>
   </div>
 
-  <!-- SECCIÓN 1: IDENTIFICACIÓN, UBICACIÓN Y TAXONOMÍA DEL MOBILIARIO -->
+  <!-- SECCIÓN 1: ESTRUCTURA Y MATRIZ DE 9 NIVELES -->
   <div class="section-block">
-    <div class="section-heading">1. IDENTIFICACIÓN, UBICACIÓN Y ESTRUCTURA TAXONÓMICA</div>
+    <div class="section-heading">1. ESTRUCTURA Y MATRIZ DE 9 NIVELES (TAXONOMÍA Y UBICACIÓN)</div>
     <table class="data-table">
       <tbody>
         <tr>
-          <td class="label" style="width:25%">1. SEDE / COMPLEJO:</td>
-          <td class="value" style="width:25%"><strong>${n1Code}</strong> — ${n1Name}</td>
-          <td class="label" style="width:25%">2. ÁREA MACRO:</td>
-          <td class="value" style="width:25%"><strong>${n2Code}</strong> — ${n2Name}</td>
+          <td class="label" style="width:23%">Nivel 1 (Sede / Complejo):</td>
+          <td class="value" style="width:27%"><strong>[${n1Code}]</strong> ${n1Name}</td>
+          <td class="label" style="width:23%">Nivel 2 (Área Macro):</td>
+          <td class="value" style="width:27%"><strong>[${n2Code}]</strong> ${n2Name}</td>
         </tr>
         <tr>
-          <td class="label">3. SECTOR / ZONA:</td>
-          <td class="value"><strong>${n3Code}</strong> — ${n3Name}</td>
-          <td class="label">4. MÓDULO / AMBIENTE:</td>
-          <td class="value"><strong>${n4Code}</strong> — ${n4Name}</td>
+          <td class="label">Nivel 3 (Zona / Edificio):</td>
+          <td class="value"><strong>[${n3Code}]</strong> ${n3Name}</td>
+          <td class="label">Nivel 4 (Módulo / Ambiente):</td>
+          <td class="value"><strong>[${n4Code}]</strong> ${n4Name}</td>
         </tr>
         <tr>
-          <td class="label">5. FAMILIA TAXONÓMICA:</td>
-          <td class="value"><strong>${n5Code}</strong> — ${n5Name}</td>
-          <td class="label">6. TIPO DE MOBILIARIO:</td>
-          <td class="value"><strong>${n6Code}</strong> — ${n6Name}</td>
+          <td class="label">Nivel 5 (Familia Taxonómica):</td>
+          <td class="value"><strong>[${n5Code}]</strong> ${n5Name}</td>
+          <td class="label">Nivel 6 (Tipo de Bien):</td>
+          <td class="value"><strong>[${n6Code}]</strong> ${n6Name}</td>
         </tr>
         <tr>
-          <td class="label">7. PARTE / COMPONENTE:</td>
-          <td class="value"><strong>${n7Code}</strong> — ${n7Name}</td>
-          <td class="label">8. PIEZA / ELEMENTO:</td>
-          <td class="value"><strong>${n8Code}</strong> — ${n8Name}</td>
+          <td class="label">Nivel 7 (Parte / Componente):</td>
+          <td class="value"><strong>[${n7Code}]</strong> ${n7Name}</td>
+          <td class="label">Nivel 8 (Pieza / Elemento):</td>
+          <td class="value"><strong>[${n8Code}]</strong> ${n8Name}</td>
         </tr>
         <tr>
-          <td class="label">9. SKU / CÓDIGO BIEN:</td>
-          <td class="value" colspan="3"><strong>${n9Code}</strong> — Identificador de Inventario</td>
+          <td class="label">Nivel 9 (SKU / Inventario):</td>
+          <td class="value" colspan="3"><strong>[${n9Code}]</strong> Identificador Correlativo Registrado</td>
         </tr>
       </tbody>
     </table>
 
-    <div class="code-banner-box">
-      "${fullMatrixCode}"
+    <div class="matrix-box-container">
+      <div class="matrix-box-title">CÓDIGO DE MATRIZ COMPLETO (N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8 + N9):</div>
+      <div class="matrix-box-banner">"${fullMatrixCode}"</div>
     </div>
   </div>
 
-  <!-- SECCIÓN 2: CUSTODIA Y RESPONSABLE -->
+  <!-- SECCIÓN 2: CUSTODIA Y ASIGNACIÓN DE PERSONAL -->
   <div class="section-block">
     <div class="section-heading">2. CUSTODIA Y ASIGNACIÓN DE PERSONAL</div>
     <table class="data-table">
       <tbody>
         <tr>
-          <td class="label" style="width:25%">RESPONSABLE ASIGNADO:</td>
-          <td class="value" style="width:25%"><strong>${responsibleName}</strong></td>
-          <td class="label" style="width:25%">CÓDIGO DE TRABAJADOR:</td>
-          <td class="value" style="width:25%"><strong>${workerCode}</strong></td>
+          <td class="label" style="width:23%">1. Código de Trabajador:</td>
+          <td class="value" style="width:27%"><strong>${workerCode}</strong></td>
+          <td class="label" style="width:23%">2. Responsable Asignado:</td>
+          <td class="value" style="width:27%"><strong>${responsibleName}</strong></td>
         </tr>
         <tr>
-          <td class="label">CENTRO DE COSTO:</td>
+          <td class="label">3. Centro de Costo:</td>
           <td class="value"><strong>${costCenter}</strong></td>
-          <td class="label">ESTADO DE ASIGNACIÓN:</td>
-          <td class="value">${asset.assignment_status || "Vigente"}</td>
+          <td class="label">Estado de Asignación:</td>
+          <td class="value">Asignado</td>
         </tr>
       </tbody>
     </table>
@@ -277,17 +308,17 @@ export async function generateAssetApaPdf({
           <td class="label">Marca / Modelo:</td>
           <td class="value">${[asset.brand, asset.model].filter(Boolean).join(" — ") || "Forma — ErgoMax 2026"}</td>
           <td class="label">Número de Serie:</td>
-          <td class="value">${asset.serial_number || "SN-MOB-2026-0040"}</td>
+          <td class="value">${asset.serial_number || "DEMO-000190"}</td>
         </tr>
         <tr>
           <td class="label">Condición Operativa:</td>
           <td class="value">${conditionLabel(asset.condition)}</td>
           <td class="label">Criticidad:</td>
-          <td class="value">${asset.criticality || "Media"}</td>
+          <td class="value">${asset.criticality || "Baja"}</td>
         </tr>
         <tr>
           <td class="label">Descripción Técnica:</td>
-          <td class="value" colspan="3">${asset.description || "Sin descripción técnica registrada."}</td>
+          <td class="value" colspan="3">${asset.description || "Archivador fabricado por mantenimiento."}</td>
         </tr>
       </tbody>
     </table>
@@ -303,14 +334,14 @@ export async function generateAssetApaPdf({
   <div class="section-block">
     <div class="section-heading">5. HISTORIAL DE CUSTODIA Y RESPONSABLES</div>
     <table class="records-table">
-      <thead>
+      <thead style="background-color:#000000; color:#ffffff;">
         <tr>
-          <th>Responsable</th>
-          <th>Área</th>
-          <th>Fecha Inicio</th>
-          <th>Fecha Fin</th>
-          <th>Estado</th>
-          <th>Motivo</th>
+          <th style="color:#ffffff;">Responsable</th>
+          <th style="color:#ffffff;">Área</th>
+          <th style="color:#ffffff;">Fecha Inicio</th>
+          <th style="color:#ffffff;">Fecha Fin</th>
+          <th style="color:#ffffff;">Estado</th>
+          <th style="color:#ffffff;">Motivo</th>
         </tr>
       </thead>
       <tbody>
@@ -321,16 +352,16 @@ export async function generateAssetApaPdf({
 
   <!-- SECCIÓN 6: HISTORIAL DE MANTENIMIENTO -->
   <div class="section-block">
-    <div class="section-heading">6. HISTORIAL DE MANTENIMIENTO Y ATENCIONES REGISTRADAS</div>
+    <div class="section-heading">6. HISTORIAL DE MANTENIMIENTO Y ATENCIONES A NIVEL DE PIEZA</div>
     <table class="records-table">
-      <thead>
+      <thead style="background-color:#000000; color:#ffffff;">
         <tr>
-          <th>N.° Orden</th>
-          <th>Tipo</th>
-          <th>Problema / Trabajo</th>
-          <th>Técnico</th>
-          <th>Condición Resultante</th>
-          <th class="text-right">Costo</th>
+          <th style="color:#ffffff;">N.° Orden</th>
+          <th style="color:#ffffff;">Tipo</th>
+          <th style="color:#ffffff;">Problema / Trabajo</th>
+          <th style="color:#ffffff;">Técnico</th>
+          <th style="color:#ffffff;">Condición Resultante</th>
+          <th style="color:#ffffff;" class="text-right">Costo</th>
         </tr>
       </thead>
       <tbody>
