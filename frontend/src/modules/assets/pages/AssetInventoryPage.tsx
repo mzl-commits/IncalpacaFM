@@ -263,8 +263,7 @@ export function AssetInventoryPage() {
               <div>
                 <strong>{asset.draft.name}</strong>
                 <span>
-                  {getAssetDisplayCode(asset)}
-                  {asset.fmCode && <small> · {asset.code}</small>} ·{" "}
+                  {getAssetDisplayCode(asset)} ·{" "}
                   {[asset.draft.brand, asset.draft.model].filter(Boolean).join(" ") ||
                     "Sin marca o modelo"}
                 </span>
