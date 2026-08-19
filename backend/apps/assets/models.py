@@ -449,27 +449,41 @@ class Asset(UUIDModel):
 
     @property
     def full_assignment_code(self):
-        # 1. Código de ruta espacial del Ambiente (ej: INC1-ADC-MKT-MT04)
-        env_code = None
-        if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
-            env_code = self.location.space_node.path_code
-        elif self.entry_payload and self.entry_payload.get('location_path_code'):
-            env_code = str(self.entry_payload['location_path_code'])
-        else:
-            env_code = "INC1-ADC-MKT-MT04"
-
-        # 2. Código de Mobiliario y clasificación desde MOB en adelante
         p = self.entry_payload or {}
-        mob_family = str(p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
-        mob_type = str(p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
-        mob_part = str(p.get('part_code') or 'BA')
-        mob_piece = str(p.get('piece_code') or 'GA')
-        mob_sku = str(p.get('sku') or self.fm_code or self.code or 'SKU 10')
 
-        mob_chain = f"{mob_family}-{mob_type}-{mob_part}-{mob_piece}-{mob_sku}"
+        # Nivel 1: Sede (4 car, ej: INC1)
+        n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1')
+        # Nivel 2: Área Macro (2 car, ej: AD, PR, CO, RE, AL)
+        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'AD')
+        # Nivel 3: Sector/Zona/Edificio (ej: MKT o ADC)
+        n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT')
+        # Nivel 4: Módulo/Ambiente (ej: MT04)
+        n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04')
 
-        # 3. Acoplamiento del ambiente con el bien asignado
-        return f"{env_code}-{mob_chain}"
+        if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
+            space_path = self.location.space_node.path_code
+            parts = space_path.split('-')
+            if len(parts) >= 4:
+                n1, n2, n3, n4 = parts[0], parts[1], parts[2], parts[3]
+            elif len(parts) == 3:
+                n1, n2, n3 = parts[0], parts[1], parts[2]
+            elif len(parts) == 2:
+                n1, n2 = parts[0], parts[1]
+
+        # Nivel 5: Familia Taxonómica (ej: MOB)
+        n5 = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
+        # Nivel 6: Tipo de Bien (ej: SE)
+        n6 = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
+        # Nivel 7: Parte (ej: BA)
+        n7 = str(p.get('n7_code') or p.get('part_code') or 'BA')
+        # Nivel 8: Pieza (ej: GA)
+        n8 = str(p.get('n8_code') or p.get('piece_code') or 'GA')
+        # Nivel 9: SKU / Código de Inventario (ej: SKU 10)
+        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_code or self.code or 'SKU 10')
+        n9 = raw_sku if raw_sku.startswith("SKU") else f"SKU {raw_sku}"
+
+        # Matriz 9 Niveles: N1 - N2 - N3 - N4 - N5 - N6 - N7 - N8 - N9
+        return f"{n1}-{n2}-{n3}-{n4}-{n5}-{n6}-{n7}-{n8}-{n9}"
 
 
 class FacilityPlan(UUIDModel):

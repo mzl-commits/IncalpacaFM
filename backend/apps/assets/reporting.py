@@ -32,7 +32,7 @@ def _get_logo_image():
 def build_asset_pdf(asset):
     output = BytesIO()
 
-    # 1. Configuración de página A4 con márgenes institucionales (12mm y 15mm)
+    # 1. Configuración A4 institucional (12mm y 15mm)
     doc = SimpleDocTemplate(
         output,
         pagesize=A4,
@@ -42,7 +42,6 @@ def build_asset_pdf(asset):
         bottomMargin=1.2 * cm,
     )
 
-    # 2. Estilos Tipográficos Formales Institucionales (Times-Roman / Times-Bold)
     styles = getSampleStyleSheet()
 
     doc_header_title = ParagraphStyle(
@@ -71,7 +70,7 @@ def build_asset_pdf(asset):
         fontSize=11,
         leading=16,
         textColor=colors.HexColor("#000000"),
-        spaceBefore=24,
+        spaceBefore=22,
         spaceAfter=10,
         keepWithNext=True,
     )
@@ -94,13 +93,14 @@ def build_asset_pdf(asset):
         textColor=colors.HexColor("#111111"),
     )
 
-    chain_style = ParagraphStyle(
-        "ChainStyleAsset",
+    banner_style = ParagraphStyle(
+        "BannerStyleAsset",
         parent=styles["Normal"],
         fontName="Times-Bold",
-        fontSize=9,
-        leading=13,
-        textColor=colors.HexColor("#111111"),
+        fontSize=10,
+        leading=14,
+        alignment=1,
+        textColor=colors.HexColor("#FFFFFF"),
     )
 
     story = []
@@ -113,7 +113,7 @@ def build_asset_pdf(asset):
     brand_text = Paragraph(
         "<b>INCALPACA FM S.A.</b><br/>"
         "<font color='#555555' size='8.5'>SISTEMA DE GESTIÓN TÉCNICA DE ACTIVOS E INFRAESTRUCTURA</font><br/>"
-        "<b>FICHA TÉCNICA INSTITUCIONAL DE BIEN / MOBILIARIO</b>",
+        "<b>FICHA TÉCNICA INSTITUCIONAL MATRIZ 9 NIVELES</b>",
         doc_header_title
     )
 
@@ -124,7 +124,7 @@ def build_asset_pdf(asset):
 
     meta_text = Paragraph(
         f"<b>Fecha de Emisión:</b> {now_str}<br/>"
-        f"<b>Código FM:</b> {display_code}<br/>"
+        f"<b>Código Matriz:</b> {asset.full_assignment_code}<br/>"
         f"<b>ID Técnico:</b> {technical_id}",
         doc_header_right
     )
@@ -140,22 +140,40 @@ def build_asset_pdf(asset):
     ]))
 
     story.append(header_table)
-    story.append(Spacer(1, 0.4 * cm))
-    story.append(HRFlowable(width="100%", thickness=1.0, color=colors.HexColor("#000000"), spaceBefore=4, spaceAfter=12))
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(HRFlowable(width="100%", thickness=1.0, color=colors.HexColor("#000000"), spaceBefore=4, spaceAfter=10))
 
-    # Extracción de campos jerárquicos y de custodia de la imagen de referencia
-    site_str = str(payload.get("site") or "INCALPACA – SEDE PRINCIPAL")
+    # MATRIZ 9 NIVELES
+    n1_code = str(payload.get("n1_code") or payload.get("site_code") or "INC1")
+    n1_name = str(payload.get("site") or "INCALPACA (Calle Cóndor 100, Sachaca, Arequipa, Perú)")
+
+    n2_code = str(payload.get("n2_code") or payload.get("macro_area_code") or "AD")
+    n2_name = str(payload.get("macro_area") or "SECTORES ADMINISTRATIVOS")
+
     location = getattr(asset, "location", None)
-    building_str = (location.building if location else None) or str(payload.get("building") or payload.get("zone") or "SECTOR ADMINISTRATIVO – CASONA")
-    area_str = (location.area if location else None) or str(payload.get("area") or "COWORKING MARKETING")
-    room_str = (location.room if location else None) or (location.specific_location if location else None) or str(payload.get("room") or "MÓDULO DE TRABAJO 4")
+    n3_code = str(payload.get("n3_code") or payload.get("building_code") or payload.get("area_code") or "MKT")
+    n3_name = (location.area if location else None) or str(payload.get("area") or payload.get("building") or "COWORKING MARKETING")
+
+    n4_code = str(payload.get("n4_code") or payload.get("room_code") or "MT04")
+    n4_name = (location.room if location else None) or (location.specific_location if location else None) or str(payload.get("room") or "MÓDULO DE TRABAJO 4")
 
     taxonomy = getattr(asset, "taxonomy", None)
-    family_str = (taxonomy.category if taxonomy else None) or str(payload.get("family") or payload.get("assetType") or "MOBILIARIO")
-    type_str = (taxonomy.subcategory if taxonomy else None) or (taxonomy.name if taxonomy else None) or asset.name or "SILLA ERGONÓMICA TIPO 1"
-    part_str = str(payload.get("part") or payload.get("partName") or "BASE GIRATORIA")
-    piece_str = str(payload.get("piece") or payload.get("pieceName") or "GARRUCHA")
-    sku_str = str(payload.get("sku") or payload.get("skuCode") or display_code or "SKU 40")
+    n5_code = str(payload.get("n5_code") or payload.get("family_code") or (taxonomy.category if taxonomy else None) or "MOB")
+    n5_name = (taxonomy.category if taxonomy else None) or str(payload.get("family") or "MOBILIARIO")
+
+    n6_code = str(payload.get("n6_code") or payload.get("type_code") or (taxonomy.prefix if taxonomy else None) or "SE")
+    n6_name = (taxonomy.subcategory if taxonomy else None) or (taxonomy.name if taxonomy else None) or asset.name or "SILLA ERGONÓMICA TIPO 1"
+
+    n7_code = str(payload.get("n7_code") or payload.get("part_code") or "BA")
+    n7_name = str(payload.get("part") or payload.get("partName") or "BASE GIRATORIA")
+
+    n8_code = str(payload.get("n8_code") or payload.get("piece_code") or "GA")
+    n8_name = str(payload.get("piece") or payload.get("pieceName") or "GARRUCHA (RUEDA DE NYLON)")
+
+    raw_sku = str(payload.get("n9_code") or payload.get("sku") or payload.get("skuCode") or display_code or "SKU 10")
+    n9_code = raw_sku if raw_sku.startswith("SKU") else f"SKU {raw_sku}"
+
+    full_matrix_code = f"{n1_code} - {n2_code} - {n3_code} - {n4_code} - {n5_code} - {n6_code} - {n7_code} - {n8_code} - {n9_code}"
 
     active_assignment = asset.assignments.filter(status='ACTIVA').select_related('responsible').first() if hasattr(asset, 'assignments') else None
     resp_obj = active_assignment.responsible if active_assignment else None
@@ -164,51 +182,51 @@ def build_asset_pdf(asset):
     worker_code = (getattr(resp_obj, 'external_reference', None) if resp_obj else None) or str(payload.get("workerCode") or "TRAB-4082")
     cost_center = (getattr(resp_obj, 'area_name', None) if resp_obj else None) or str(payload.get("costCenter") or "CC-1040 (ADMINISTRACIÓN & MKT)")
 
-    brand_name = getattr(asset, "brand", None) or payload.get("brand") or "No especificada"
-    model_name = getattr(asset, "model", None) or payload.get("model") or "No especificado"
-    serial_num = getattr(asset, "serial_number", None) or payload.get("serialNumber") or "S/N"
+    brand_name = getattr(asset, "brand", None) or payload.get("brand") or "Forma"
+    model_name = getattr(asset, "model", None) or payload.get("model") or "ErgoMax 2026"
+    serial_num = getattr(asset, "serial_number", None) or payload.get("serialNumber") or "SN-MOB-2026-0040"
     cond_name = getattr(asset, "condition", None) or payload.get("condition") or "Bueno"
     crit_name = getattr(asset, "criticality", None) or payload.get("criticality") or "Media"
 
     # ---------------------------------------------------------
-    # SECCIÓN 1: DATOS DE IDENTIFICACIÓN Y ESPECIFICACIONES DE CLASIFICACIÓN
+    # SECCIÓN 1: MATRIZ DE 9 NIVELES HASTA PIEZA / SKU
     # ---------------------------------------------------------
-    story.append(Paragraph("1. DATOS DE IDENTIFICACIÓN Y CLASIFICACIÓN DEL BIEN", section_heading))
+    story.append(Paragraph("1. ESTRUCTURA Y MATRIZ DE 9 NIVELES (TAXONOMÍA Y UBICACIÓN)", section_heading))
 
     sec1_data = [
         [
-            Paragraph("<b>Nombre del Bien:</b>", cell_bold),
-            Paragraph(asset.name, cell_normal),
-            Paragraph("<b>Código FM / SKU:</b>", cell_bold),
-            Paragraph(f"{display_code} ({sku_str})", cell_normal),
+            Paragraph("<b>Nivel 1 (Sede / Complejo):</b>", cell_bold),
+            Paragraph(f"<b>[{n1_code}]</b> {n1_name}", cell_normal),
+            Paragraph("<b>Nivel 2 (Área Macro):</b>", cell_bold),
+            Paragraph(f"<b>[{n2_code}]</b> {n2_name}", cell_normal),
         ],
         [
-            Paragraph("<b>Familia Taxonómica:</b>", cell_bold),
-            Paragraph(family_str, cell_normal),
-            Paragraph("<b>Tipo de Bien:</b>", cell_bold),
-            Paragraph(type_str, cell_normal),
+            Paragraph("<b>Nivel 3 (Zona / Edificio):</b>", cell_bold),
+            Paragraph(f"<b>[{n3_code}]</b> {n3_name}", cell_normal),
+            Paragraph("<b>Nivel 4 (Módulo / Ambiente):</b>", cell_bold),
+            Paragraph(f"<b>[{n4_code}]</b> {n4_name}", cell_normal),
         ],
         [
-            Paragraph("<b>Parte / Componente:</b>", cell_bold),
-            Paragraph(part_str, cell_normal),
-            Paragraph("<b>Pieza / Elemento:</b>", cell_bold),
-            Paragraph(piece_str, cell_normal),
+            Paragraph("<b>Nivel 5 (Familia Taxonómica):</b>", cell_bold),
+            Paragraph(f"<b>[{n5_code}]</b> {n5_name}", cell_normal),
+            Paragraph("<b>Nivel 6 (Tipo de Bien):</b>", cell_bold),
+            Paragraph(f"<b>[{n6_code}]</b> {n6_name}", cell_normal),
         ],
         [
-            Paragraph("<b>Marca / Modelo:</b>", cell_bold),
-            Paragraph(f"{brand_name} / {model_name}", cell_normal),
-            Paragraph("<b>Número de Serie:</b>", cell_bold),
-            Paragraph(serial_num, cell_normal),
+            Paragraph("<b>Nivel 7 (Parte / Componente):</b>", cell_bold),
+            Paragraph(f"<b>[{n7_code}]</b> {n7_name}", cell_normal),
+            Paragraph("<b>Nivel 8 (Pieza / Elemento):</b>", cell_bold),
+            Paragraph(f"<b>[{n8_code}]</b> {n8_name}", cell_normal),
         ],
         [
+            Paragraph("<b>Nivel 9 (SKU / Inventario):</b>", cell_bold),
+            Paragraph(f"<b>[{n9_code}]</b> Identificador Correlativo Registrado", cell_normal),
             Paragraph("<b>Condición Operativa:</b>", cell_bold),
             Paragraph(str(cond_name).capitalize(), cell_normal),
-            Paragraph("<b>Criticidad:</b>", cell_bold),
-            Paragraph(str(crit_name).capitalize(), cell_normal),
         ],
     ]
 
-    t_sec1 = Table(sec1_data, colWidths=[3.2 * cm, 4.7 * cm, 3.3 * cm, 4.7 * cm])
+    t_sec1 = Table(sec1_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
     t_sec1.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F4F4F4")),
         ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F4F4F4")),
@@ -217,43 +235,41 @@ def build_asset_pdf(asset):
         ("PADDING", (0, 0), (-1, -1), 5),
     ]))
     story.append(t_sec1)
+    story.append(Spacer(1, 0.2 * cm))
+
+    # Banner del Código Completo N1-N9
+    banner_text = f"CÓDIGO DE MATRIZ COMPLETO (N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8 + N9):<br/>\"{full_matrix_code}\""
+    t_banner = Table([[Paragraph(banner_text, banner_style)]], colWidths=[15.9 * cm])
+    t_banner.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#000000")),
+        ("PADDING", (0, 0), (0, 0), 6),
+    ]))
+    story.append(t_banner)
     story.append(Spacer(1, 0.4 * cm))
 
     # ---------------------------------------------------------
-    # SECCIÓN 2: UBICACIÓN ESPACIAL Y ASIGNACIÓN DE CUSTODIA
+    # SECCIÓN 2: CUSTODIA Y RESPONSABLE
     # ---------------------------------------------------------
-    story.append(Paragraph("2. UBICACIÓN ESPACIAL Y ASIGNACIÓN DE CUSTODIA", section_heading))
+    story.append(Paragraph("2. CUSTODIA Y ASIGNACIÓN DE PERSONAL", section_heading))
 
     assign_status = getattr(asset, "assignment_status", "Vigente")
 
     sec2_data = [
         [
-            Paragraph("<b>Sede Principal:</b>", cell_bold),
-            Paragraph(site_str, cell_normal),
-            Paragraph("<b>Sector / Edificio:</b>", cell_bold),
-            Paragraph(building_str, cell_normal),
-        ],
-        [
-            Paragraph("<b>Área / Zona:</b>", cell_bold),
-            Paragraph(area_str, cell_normal),
-            Paragraph("<b>Ambiente / Módulo:</b>", cell_bold),
-            Paragraph(room_str, cell_normal),
-        ],
-        [
-            Paragraph("<b>Responsable Asignado:</b>", cell_bold),
-            Paragraph(resp_name, cell_normal),
-            Paragraph("<b>Código Trabajador:</b>", cell_bold),
+            Paragraph("<b>1. Código de Trabajador:</b>", cell_bold),
             Paragraph(worker_code, cell_normal),
+            Paragraph("<b>2. Responsable Asignado:</b>", cell_bold),
+            Paragraph(resp_name, cell_normal),
         ],
         [
-            Paragraph("<b>Centro de Costo:</b>", cell_bold),
+            Paragraph("<b>3. Centro de Costo:</b>", cell_bold),
             Paragraph(cost_center, cell_normal),
-            Paragraph("<b>Estado Asignación:</b>", cell_bold),
+            Paragraph("<b>Estado de Asignación:</b>", cell_bold),
             Paragraph(assign_status, cell_normal),
         ],
     ]
 
-    t_sec2 = Table(sec2_data, colWidths=[3.2 * cm, 4.7 * cm, 3.3 * cm, 4.7 * cm])
+    t_sec2 = Table(sec2_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
     t_sec2.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F4F4F4")),
         ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F4F4F4")),
@@ -262,39 +278,44 @@ def build_asset_pdf(asset):
         ("PADDING", (0, 0), (-1, -1), 5),
     ]))
     story.append(t_sec2)
-    story.append(Spacer(1, 0.3 * cm))
-
-    # Box de Cadena Estructural Integrada de Trazabilidad
-    structural_chain_text = f"<b>CADENA ESTRUCTURAL Y TRAZABILIDAD INTEGRADA:</b><br/>{site_str} › {building_str} › {area_str} › {room_str} › {family_str} › {type_str} › {part_str} › {piece_str} › {sku_str}"
-    t_chain = Table([[Paragraph(structural_chain_text, chain_style)]], colWidths=[15.9 * cm])
-    t_chain.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#F8F9FA")),
-        ("BOX", (0, 0), (0, 0), 0.5, colors.HexColor("#A0A0A0")),
-        ("LINELEFT", (0, 0), (0, 0), 2.5, colors.HexColor("#000000")),
-        ("PADDING", (0, 0), (0, 0), 6),
-    ]))
-    story.append(t_chain)
     story.append(Spacer(1, 0.4 * cm))
 
     # ---------------------------------------------------------
-    # SECCIÓN 3: DESCRIPCIÓN TÉCNICA Y OBSERVACIONES
+    # SECCIÓN 3: ESPECIFICACIONES TÉCNICAS Y DESCRIPCIÓN
     # ---------------------------------------------------------
-    story.append(Paragraph("3. DESCRIPCIÓN TÉCNICA DEL ACTIVO", section_heading))
+    story.append(Paragraph("3. ESPECIFICACIONES TÉCNICAS DEL ACTIVO", section_heading))
     desc_text = asset.description or "Sin descripción técnica adicional registrada."
 
-    t_desc = Table([[Paragraph(f"<b>Detalle del Bien:</b><br/>{desc_text}", cell_normal)]], colWidths=[15.9 * cm])
-    t_desc.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#FFFFFF")),
-        ("BOX", (0, 0), (0, 0), 0.5, colors.HexColor("#A0A0A0")),
-        ("PADDING", (0, 0), (0, 0), 8),
+    sec3_data = [
+        [
+            Paragraph("<b>Marca / Modelo:</b>", cell_bold),
+            Paragraph(f"{brand_name} / {model_name}", cell_normal),
+            Paragraph("<b>Número de Serie:</b>", cell_bold),
+            Paragraph(serial_num, cell_normal),
+        ],
+        [
+            Paragraph("<b>Criticidad:</b>", cell_bold),
+            Paragraph(str(crit_name).capitalize(), cell_normal),
+            Paragraph("<b>Detalle Técnico:</b>", cell_bold),
+            Paragraph(desc_text, cell_normal),
+        ],
+    ]
+
+    t_sec3 = Table(sec3_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
+    t_sec3.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#FFFFFF")),
+        ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#FFFFFF")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("PADDING", (0, 0), (-1, -1), 5),
     ]))
-    story.append(t_desc)
-    story.append(Spacer(1, 0.5 * cm))
+    story.append(t_sec3)
+    story.append(Spacer(1, 0.4 * cm))
 
     # ---------------------------------------------------------
-    # SECCIÓN 4: HISTORIAL DE MANTENIMIENTO Y ÓRDENES VINCULADAS
+    # SECCIÓN 4: HISTORIAL DE MANTENIMIENTO Y REPARACIONES
     # ---------------------------------------------------------
-    story.append(Paragraph("4. HISTORIAL DE MANTENIMIENTO Y ÓRDENES VINCULADAS", section_heading))
+    story.append(Paragraph("4. HISTORIAL DE MANTENIMIENTO Y ATENCIONES A NIVEL DE PIEZA", section_heading))
 
     incidents = list(asset.incidents.all()[:6]) if hasattr(asset, 'incidents') else []
     maint_rows = [
@@ -340,12 +361,12 @@ def build_asset_pdf(asset):
         ("PADDING", (0, 0), (-1, -1), 5),
     ]))
     story.append(t_maint)
-    story.append(Spacer(1, 0.5 * cm))
+    story.append(Spacer(1, 0.4 * cm))
 
     # ---------------------------------------------------------
-    # SECCIÓN 5: EVIDENCIAS Y REGISTRO FOTOGRÁFICO
+    # SECCIÓN 5: EVIDENCIAS
     # ---------------------------------------------------------
-    story.append(Paragraph("5. EVIDENCIAS Y REGISTRO FOTOGRÁFICO", section_heading))
+    story.append(Paragraph("5. EVIDENCIAS Y REGISTRO FOTOGRÁFICO DE CAMPO", section_heading))
 
     empty_photo_style = ParagraphStyle(
         "EmptyPhotoAsset",
@@ -370,7 +391,7 @@ def build_asset_pdf(asset):
             Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
         ]
     ]
-    t_photo = Table(photo_data, colWidths=[7.95 * cm, 7.95 * cm], rowHeights=[None, 3.5 * cm])
+    t_photo = Table(photo_data, colWidths=[7.95 * cm, 7.95 * cm], rowHeights=[None, 3.2 * cm])
     t_photo.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -395,7 +416,7 @@ def build_asset_pdf(asset):
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
-    sig_block.append(Spacer(1, 20))
+    sig_block.append(Spacer(1, 15))
     sig_block.append(t_sig)
     story.append(KeepTogether(sig_block))
 
