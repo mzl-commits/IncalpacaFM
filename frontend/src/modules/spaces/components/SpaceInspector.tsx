@@ -126,7 +126,11 @@ function EntityActions({
         className="button button-secondary" 
         type="button" 
         onClick={() => setActionType("toggle")} 
-        disabled={disabled || isPending}
+      <button 
+        className="button button-secondary" 
+        type="button" 
+        onClick={() => setActionType("toggle")} 
+        disabled={isPending}
       >
         {active ? <Archive /> : <ArrowCounterClockwise />}{active ? "No operativo" : "Operativo"}
       </button>
@@ -134,7 +138,7 @@ function EntityActions({
         className="button button-secondary" 
         type="button" 
         onClick={() => setActionType("delete")} 
-        disabled={disabled || isPending}
+        disabled={isPending}
         style={{ color: "var(--error, #dc2626)", borderColor: "var(--error-border, #fca5a5)" }}
       >
         <Trash /> Borrar
@@ -174,7 +178,7 @@ export function SpaceInspector({ node, site, treeNode, compact = false, onChange
         <div className="space-inspector-actions">
           <Link className="button button-secondary" to={siteEditUrl}><PencilSimple />Editar sede</Link>
           {site.active && <Link className="button button-primary" to={`/administracion/espacios/nuevo?sede=${site.id}`}><Plus />Crear primer nivel</Link>}
-          <EntityActions entity="site" id={site.id} active={site.active} disabled={siteTree.length > 0} onChanged={onChanged} />
+          <EntityActions entity="site" id={site.id} active={site.active} onChanged={onChanged} />
         </div>
         {siteTree.length > 0 && <p className="space-inspector-note"><InfoCircle />Archiva los nodos activos antes de archivar la sede.</p>}
       </section>
@@ -206,7 +210,7 @@ export function SpaceInspector({ node, site, treeNode, compact = false, onChange
       <div className="space-inspector-actions">
         <Link className="button button-secondary" to={`${detailUrl}/editar`}><PencilSimple />Editar</Link>
         {node!.active && canAddChild && <Link className="button button-primary" to={`/administracion/espacios/nuevo?sede=${node!.siteId}&padre=${node!.id}`}><Plus />Crear hijo</Link>}
-        <EntityActions entity="node" id={node!.id} active={node!.active} disabled={Boolean(impact && !impact.canArchive)} onChanged={onChanged} />
+        <EntityActions entity="node" id={node!.id} active={node!.active} onChanged={onChanged} />
         {compact && <Link className="button button-link" to={detailUrl}>Ver detalle <CaretRight /></Link>}
       </div>
       {node!.active && !compact && <Link className="space-inspector-detail-link" to={detailUrl}>Abrir ficha completa <ArrowSquareOut /></Link>}

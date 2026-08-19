@@ -134,7 +134,7 @@ function TaxonomyEntityActions({
         className="button button-secondary" 
         type="button" 
         onClick={() => setActionType("toggle")} 
-        disabled={disabled || isPending}
+        disabled={isPending}
       >
         {node.active ? <Archive /> : <ArrowCounterClockwise />}{node.active ? "No operativo" : "Operativo"}
       </button>
@@ -142,7 +142,7 @@ function TaxonomyEntityActions({
         className="button button-secondary" 
         type="button" 
         onClick={() => setActionType("delete")} 
-        disabled={disabled || isPending}
+        disabled={isPending}
         style={{ color: "var(--error, #dc2626)", borderColor: "var(--error-border, #fca5a5)" }}
       >
         <Trash /> Borrar
