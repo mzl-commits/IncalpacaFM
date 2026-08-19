@@ -242,7 +242,7 @@ function AlmacenesAdminView() {
             />
             <input
               type="search"
-              placeholder="Buscar por código, código EKIPU, nombre o marca — en todos los almacenes…"
+              placeholder="Buscar por código, marca, código EKIPU o nombre."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               style={{ width: "100%", paddingLeft: 38 }}

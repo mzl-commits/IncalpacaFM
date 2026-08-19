@@ -379,7 +379,6 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.nombre}
                   onChange={(e) => set("nombre", e.target.value)}
-                  placeholder="Ej. Taladro percutor eléctrico"
                 />
               </Field>
               <Field label="Código EKIPU" hint="Código interno del equipo, si aplica" error={errors.codigo_ekipu}>
@@ -387,7 +386,6 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.codigo_ekipu ?? ""}
                   onChange={(e) => set("codigo_ekipu", e.target.value)}
-                  placeholder="Ej. EK-00123"
                 />
               </Field>
               <Field label="Marca" error={errors.marca}>
@@ -395,7 +393,7 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.marca}
                   onChange={(e) => set("marca", e.target.value)}
-                  placeholder="Ej. Bosch"
+                  placeholder="Bosch"
                 />
               </Field>
               <Field label="Modelo" error={errors.modelo}>
@@ -403,7 +401,7 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.modelo}
                   onChange={(e) => set("modelo", e.target.value)}
-                  placeholder="Ej. GSB 550"
+                  placeholder="GSB 550"
                 />
               </Field>
               <Field label="Medida" hint='Solo si aplica (ej. 5/16" o M8)' error={errors.medida}>
@@ -449,7 +447,6 @@ export function MaterialFormPage() {
                   min="0"
                   value={form.precio ?? ""}
                   onChange={(e) => set("precio", e.target.value)}
-                  placeholder="Ej. 150.00"
                 />
               </Field>
               <Field label="Moneda" error={errors.moneda}>
@@ -461,12 +458,11 @@ export function MaterialFormPage() {
                   <option value="USD">Dólares (USD)</option>
                 </select>
               </Field>
-              <Field label="Ubicación física" hint="Ej. A1, Estante 3, Caja de brocas" error={errors.ubicacion_fisica} wide>
+              <Field label="Ubicación física" error={errors.ubicacion_fisica} wide>
                 <input
                   type="text"
                   value={form.ubicacion_fisica}
                   onChange={(e) => set("ubicacion_fisica", e.target.value)}
-                  placeholder="Ej. A1, B2, Estante-3…"
                 />
               </Field>
 
@@ -519,7 +515,7 @@ export function MaterialFormPage() {
                 <strong>Control por pieza individual</strong>
                 <small>
                   Activa si cada unidad tiene código propio (herramientas, equipos).
-                  Desactiva para consumibles (tornillos, tuercas).
+                  Desactiva para consumibles (tornillos, tuercas,etc).
                 </small>
               </label>
             </div>
@@ -740,8 +736,7 @@ export function MaterialFormPage() {
         <div className="help-panel">
           <h2>Sobre el código</h2>
           <p>
-            El código se genera automáticamente según la categoría (ej. <code>H0013</code>
-            para Herramientas). No es necesario ingresarlo.
+            El código se genera automáticamente según la categoría. No es necesario ingresarlo.
           </p>
           <hr style={{ margin: "16px 0", borderColor: "#dfe6ef" }} />
           <h2>Control individual</h2>

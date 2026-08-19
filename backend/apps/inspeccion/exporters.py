@@ -590,20 +590,25 @@ ACCION_LABELS_HISTORIAL = {
 def _filas_historial_material(material):
     """Devuelve las inspecciones del material, ordenadas de más reciente a más
     antigua, junto con los valores ya formateados para las columnas del reporte."""
-    inspecciones = (
+    # Ordenamos de forma cronológica ASCENDENTE primero, solo para poder asignar
+    # el número secuencial (#1, #2, #3...) según el orden real en que se hicieron
+    # las inspecciones DE ESTE MATERIAL. Usar insp.id aquí sería incorrecto porque
+    # el id es un correlativo global de toda la tabla de inspecciones (compartido
+    # entre todos los materiales), no un contador propio del material.
+    inspecciones = list(
         material.inspecciones
         .select_related("pieza", "inspector")
-        .order_by("-fecha")
+        .order_by("fecha", "id")
     )
     filas = []
-    for insp in inspecciones:
+    for idx, insp in enumerate(inspecciones, start=1):
         inspector_nombre = (
             (insp.inspector.get_full_name() or insp.inspector.username)
             if insp.inspector else "—"
         )
         filas.append({
             "fecha": _fecha(insp.fecha),
-            "numero": f"#{insp.id}",
+            "numero": f"#{idx}",
             "tipo": "Individual" if insp.tipo == "individual" else "Grupal",
             "pieza": insp.pieza.codigo if insp.pieza else "—",
             "responsable": inspector_nombre,
@@ -612,6 +617,10 @@ def _filas_historial_material(material):
             "proxima": _fecha(insp.proxima_inspeccion),
             "observaciones": insp.observaciones or "",
         })
+    # El reporte se muestra de más reciente a más antigua (igual que antes,
+    # que ordenaba por "-fecha"); como ya numeramos en orden ascendente,
+    # simplemente invertimos la lista para la presentación.
+    filas.reverse()
     return filas
 
 def generar_excel_historial_material(material):

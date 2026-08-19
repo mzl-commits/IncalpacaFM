@@ -53,11 +53,21 @@ export function InspeccionDetailPage() {
 
   // Historial de inspecciones de ESTE material específico, para poder
   // mostrar "Inspección #N" relativo al material (no el ID global de la tabla).
-  const { data: historialMaterial = [] } = useQuery({
+  const { data: historialMaterialRaw = [] } = useQuery({
     queryKey: ["inspecciones-material", almacenId, inspeccion?.material],
     queryFn: () => listInspecciones(almacenId, { material: inspeccion!.material }),
     enabled: !!inspeccion,
   });
+
+  // Filtro defensivo en el cliente: si el backend llegara a ignorar el
+  // parámetro "material" (o devolviera de más), esto evita que la numeración
+  // se mezcle entre materiales distintos (p. ej. que la 1ª inspección de un
+  // segundo material salga como "#2" solo por existir una inspección previa
+  // de OTRO material en la respuesta).
+  const historialMaterial = useMemo(
+    () => historialMaterialRaw.filter((i) => i.material === inspeccion?.material),
+    [historialMaterialRaw, inspeccion],
+  );
 
   const numeroSecuencial = useMemo(() => {
     if (!inspeccion || historialMaterial.length === 0) return null;
@@ -146,15 +156,8 @@ export function InspeccionDetailPage() {
           <ArrowLeft size={16} /> Inspecciones
         </Link>
         <div>
-          <p className="breadcrumb">Almacén / Inspecciones / #{inspeccion.id}</p>
-          <h1>
-            Inspección {numeroSecuencial ? `#${numeroSecuencial}` : `#${inspeccion.id}`}
-            {numeroSecuencial && (
-              <span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)", marginLeft: 8 }}>
-                (ID #{inspeccion.id})
-              </span>
-            )}
-          </h1>
+          <p className="breadcrumb">Almacén / Inspecciones{numeroSecuencial ? ` / #${numeroSecuencial}` : ""}</p>
+          <h1>Inspección {numeroSecuencial ? `#${numeroSecuencial}` : ""}</h1>
           <p>{inspeccion.material_nombre} · {inspeccion.plantilla_nombre}</p>
         </div>
         <div className="export-actions">
