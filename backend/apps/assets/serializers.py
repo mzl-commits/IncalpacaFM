@@ -108,7 +108,7 @@ class AssetSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(path) if request else path
 
     def get_display_code(self, obj) -> str:
-        return obj.fm_code or obj.code
+        return obj.full_assignment_code or obj.fm_code or obj.code
 
     def get_taxonomy_detail(self, obj) -> dict | None:
         if not obj.taxonomy:

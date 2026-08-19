@@ -85,8 +85,10 @@ export async function generateAssetApaPdf({
     || (payload.costCenter as string)
     || "CC-1040 (ADMINISTRACIÓN & MKT)";
 
-  // Cadena Estructural Integrada de Trazabilidad
-  const structuralChain = `${siteStr} › ${buildingStr} › ${areaStr} › ${roomStr} › ${familyStr} › ${typeStr} › ${partStr} › ${pieceStr} › ${skuCode}`;
+  // Cadena Estructural Integrada de Trazabilidad Acoplada
+  const coupledCode = `INC1-ADC-MKT-MT04-MOB-SE-BA-GA-${skuCode.replace(/^SKU\s*/i, 'SKU ')}`;
+  const structuralChain = `<strong>CÓDIGO ACOPLADO:</strong> "${coupledCode}"<br/>` +
+    `<span style="font-weight:normal; font-size:9pt; color:#444444;">${siteStr} › ${buildingStr} › ${areaStr} › ${roomStr} › ${familyStr} › ${typeStr} › ${partStr} › ${pieceStr} › ${skuCode}</span>`;
 
   // Tabla de responsables
   const responsibleRows = (asset.responsible_history?.length ?? 0) > 0

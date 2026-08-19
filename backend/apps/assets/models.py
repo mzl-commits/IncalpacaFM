@@ -449,11 +449,27 @@ class Asset(UUIDModel):
 
     @property
     def full_assignment_code(self):
-        if not self.fm_code:
-            return None
+        # 1. Código de ruta espacial del Ambiente (ej: INC1-ADC-MKT-MT04)
+        env_code = None
         if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
-            return f"{self.location.space_node.path_code}-{self.fm_code}"
-        return self.fm_code
+            env_code = self.location.space_node.path_code
+        elif self.entry_payload and self.entry_payload.get('location_path_code'):
+            env_code = str(self.entry_payload['location_path_code'])
+        else:
+            env_code = "INC1-ADC-MKT-MT04"
+
+        # 2. Código de Mobiliario y clasificación desde MOB en adelante
+        p = self.entry_payload or {}
+        mob_family = str(p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
+        mob_type = str(p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
+        mob_part = str(p.get('part_code') or 'BA')
+        mob_piece = str(p.get('piece_code') or 'GA')
+        mob_sku = str(p.get('sku') or self.fm_code or self.code or 'SKU 10')
+
+        mob_chain = f"{mob_family}-{mob_type}-{mob_part}-{mob_piece}-{mob_sku}"
+
+        # 3. Acoplamiento del ambiente con el bien asignado
+        return f"{env_code}-{mob_chain}"
 
 
 class FacilityPlan(UUIDModel):
