@@ -451,15 +451,15 @@ class Asset(UUIDModel):
     def full_assignment_code(self):
         p = self.entry_payload or {}
 
-        # 1. Si self.code ya es el código completo asignado (ej: INC1-ADC-MKT-MT04-MOB-SE-BA-GA-SKU 10), usarlo directamente
-        if self.code and self.code.startswith("INC1-"):
+        # 1. Si self.code ya es el código de trazabilidad completo asignado (ej: INC1-ADC-MKT-MT04-MOB-SE-BA-GA-SKU 10)
+        if self.code and self.code.startswith("INC1-") and "SKU" in self.code and self.code.count("INC1-") == 1:
             return self.code
 
-        # 2. De lo contrario, derivar los 9 niveles sin duplicar cadenas
-        n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1')
-        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'ADC')
-        n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT')
-        n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04')
+        # 2. Extraer N1 a N4 (Ubicación Espacial)
+        n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1').upper()
+        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'ADC').upper()
+        n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT').upper()
+        n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04').upper()
 
         if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
             space_path = self.location.space_node.path_code
@@ -471,20 +471,39 @@ class Asset(UUIDModel):
             elif len(parts) == 2:
                 n1, n2 = parts[0], parts[1]
 
-        n5 = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
-        n6 = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
-        n7 = str(p.get('n7_code') or p.get('part_code') or 'BA')
-        n8 = str(p.get('n8_code') or p.get('piece_code') or 'GA')
+        # 3. Extraer N5 (Familia Taxonómica - 3 letras)
+        fam_raw = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
+        fam_map = {
+            'MOBILIARIO': 'MOB',
+            'EQUIPOS DE CÓMPUTO': 'EQC',
+            'EQUIPOS DE COMPUTO': 'EQC',
+            'HERRAMIENTA ELÉCTRICA': 'HRE',
+            'HERRAMIENTA ELECTRICA': 'HRE',
+            'PERIFÉRICOS': 'PER',
+            'PERIFERICOS': 'PER',
+            'EQUIPOS FM': 'EQF',
+            'EQUIPO INDUSTRIAL': 'EQI',
+        }
+        n5 = fam_map.get(fam_raw.upper(), fam_raw[:3].upper() if len(fam_raw) >= 3 else 'MOB')
 
+        # 4. Extraer N6 (Tipo de Bien - 2 o 3 letras)
+        type_raw = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
+        n6 = type_raw.split('-')[0].strip().upper()[:3] if type_raw else 'SE'
+
+        # 5. Extraer N7 (Parte - 2 letras)
+        n7 = str(p.get('n7_code') or p.get('part_code') or 'BA').strip().upper()[:3]
+
+        # 6. Extraer N8 (Pieza - 2 letras)
+        n8 = str(p.get('n8_code') or p.get('piece_code') or 'GA').strip().upper()[:3]
+
+        # 7. Extraer N9 (SKU Correlativo)
         raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_code or 'SKU 10')
-        if "-" in raw_sku and "SKU" in raw_sku.upper():
-            sku_parts = raw_sku.split("-")
-            clean_sku = sku_parts[-1]
-            n9 = clean_sku if clean_sku.upper().startswith("SKU") else f"SKU {clean_sku}"
-        elif raw_sku.upper().startswith("SKU"):
-            n9 = raw_sku
+        if '-' in raw_sku:
+            sku_num = raw_sku.split('-')[-1].strip()
         else:
-            n9 = f"SKU {raw_sku}"
+            sku_num = raw_sku.replace('SKU', '').replace('sku', '').strip()
+
+        n9 = f"SKU {sku_num}" if sku_num else "SKU 10"
 
         return f"{n1}-{n2}-{n3}-{n4}-{n5}-{n6}-{n7}-{n8}-{n9}"
 
