@@ -126,10 +126,6 @@ function EntityActions({
         className="button button-secondary" 
         type="button" 
         onClick={() => setActionType("toggle")} 
-      <button 
-        className="button button-secondary" 
-        type="button" 
-        onClick={() => setActionType("toggle")} 
         disabled={isPending}
       >
         {active ? <Archive /> : <ArrowCounterClockwise />}{active ? "No operativo" : "Operativo"}
