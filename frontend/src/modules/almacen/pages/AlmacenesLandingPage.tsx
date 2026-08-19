@@ -21,7 +21,6 @@ function esRolAlmacenFijo(role: string | undefined): role is RolAlmacenFijo {
 
 export function AlmacenesLandingPage() {
   const { user } = useAuth();
-
   const navigate = useNavigate();
 
   // ── Redirección temprana para ALMACENERO / INSPECTOR ──────────────────────
