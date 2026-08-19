@@ -58,7 +58,7 @@ export async function generateAssetApaPdf({
     ?? asset.responsible_history?.[0]
     ?? null;
 
-  // MATRIZ DE 9 NIVELES SEGÚN ESPECIFICACIÓN TÉCNICA
+  // MATRIZ DE 9 NIVELES SEGÚN ESPECIFICACIÓN TÉCNICA INSTITUCIONAL
   const n1Code = (payload.n1_code as string) || (payload.site_code as string) || "INC1";
   const n1Name = (payload.site as string) || "INCALPACA (Calle Cóndor 100, Sachaca, Arequipa, Perú)";
 
@@ -170,33 +170,54 @@ export async function generateAssetApaPdf({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ficha Técnica — ${n9Code} | Incalpaca FM</title>
+  <title>Informe Matriz 9 Niveles — ${n9Code} | Incalpaca FM</title>
   <style>
     ${getIncalpacaReportCSS()}
-    .matrix-box {
-      background-color: #F8F9FA;
-      border: 1px solid #000000;
-      padding: 10pt;
+    .matrix-card {
+      border: 1.5px solid #000000;
       margin-top: 10pt;
       margin-bottom: 14pt;
+      background-color: #FFFFFF;
     }
-    .matrix-title {
-      font-size: 10pt;
-      font-weight: bold;
-      color: #000000;
-      margin-bottom: 6pt;
-      text-transform: uppercase;
-    }
-    .matrix-code-banner {
+    .matrix-header {
       background-color: #000000;
       color: #FFFFFF;
-      font-family: "Times New Roman", Times, serif;
-      font-size: 12pt;
+      font-size: 11pt;
       font-weight: bold;
       padding: 6pt 10pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .matrix-code-banner {
+      background-color: #F4F4F4;
+      border-top: 1px solid #000000;
+      border-bottom: 1.5px solid #000000;
+      color: #000000;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11.5pt;
+      font-weight: bold;
+      padding: 8pt 10pt;
       text-align: center;
-      letter-spacing: 1px;
-      margin-top: 6pt;
+      letter-spacing: 0.8px;
+    }
+    .level-badge {
+      display: inline-block;
+      background: #000000;
+      color: #FFFFFF;
+      font-weight: bold;
+      font-size: 9pt;
+      padding: 1pt 5pt;
+      border-radius: 2px;
+      margin-right: 4pt;
+    }
+    .code-tag {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: #000000;
+      background-color: #EFEFEF;
+      padding: 2pt 6pt;
+      border: 1px solid #A0A0A0;
     }
   </style>
 </head>
@@ -209,8 +230,8 @@ export async function generateAssetApaPdf({
       ${INCALPACA_LOGO_SVG}
       <div class="company-block">
         <div class="company-name">INCALPACA FM S.A.</div>
-        <div class="company-subtitle">Sistema de Gestión Técnica y Bienes</div>
-        <div class="report-name">FICHA TÉCNICA OFICIAL MATRIZ 9 NIVELES</div>
+        <div class="company-subtitle">Sistema de Gestión Técnica de Activos e Infraestructura</div>
+        <div class="report-name">INFORME TÉCNICO MATRIZ ESTRUCTURAL DE 9 NIVELES</div>
       </div>
     </div>
     <div class="header-right">
@@ -220,63 +241,98 @@ export async function generateAssetApaPdf({
     </div>
   </div>
 
-  <!-- MATRIZ DE 9 NIVELES HASTA PIEZA / SKU -->
+  <!-- SECCIÓN 1: MATRIZ DE 9 NIVELES CON TODOS SUS CÓDIGOS -->
   <div class="section-block">
-    <div class="section-heading">1. ESTRUCTURA Y MATRIZ DE 9 NIVELES (TAXONOMÍA Y UBICACIÓN)</div>
-    <table class="data-table">
+    <div class="section-heading">1. MATRIZ ESTRUCTURAL DE 9 NIVELES (CON TODOS SUS CÓDIGOS)</div>
+    
+    <table class="records-table">
+      <thead>
+        <tr>
+          <th style="width: 14%;">Nivel</th>
+          <th style="width: 32%;">Entidad / Descripción de Matriz</th>
+          <th style="width: 16%; text-align: center;">Código Fijo</th>
+          <th style="width: 38%;">Valor / Registro Oficial</th>
+        </tr>
+      </thead>
       <tbody>
         <tr>
-          <td class="label">Nivel 1 (Sede / Complejo):</td>
-          <td class="value"><strong>[${n1Code}]</strong> ${n1Name}</td>
-          <td class="label">Nivel 2 (Área Macro):</td>
-          <td class="value"><strong>[${n2Code}]</strong> ${n2Name}</td>
+          <td><span class="level-badge">NIVEL 1</span></td>
+          <td>Sede / Complejo Principal</td>
+          <td class="text-center"><span class="code-tag">${n1Code}</span></td>
+          <td>${n1Name}</td>
         </tr>
         <tr>
-          <td class="label">Nivel 3 (Zona / Edificio):</td>
-          <td class="value"><strong>[${n3Code}]</strong> ${n3Name}</td>
-          <td class="label">Nivel 4 (Módulo / Ambiente):</td>
-          <td class="value"><strong>[${n4Code}]</strong> ${n4Name}</td>
+          <td><span class="level-badge">NIVEL 2</span></td>
+          <td>Área Macro</td>
+          <td class="text-center"><span class="code-tag">${n2Code}</span></td>
+          <td>${n2Name}</td>
         </tr>
         <tr>
-          <td class="label">Nivel 5 (Familia Taxonómica):</td>
-          <td class="value"><strong>[${n5Code}]</strong> ${n5Name}</td>
-          <td class="label">Nivel 6 (Tipo de Bien):</td>
-          <td class="value"><strong>[${n6Code}]</strong> ${n6Name}</td>
+          <td><span class="level-badge">NIVEL 3</span></td>
+          <td>Zona / Edificio / Sector</td>
+          <td class="text-center"><span class="code-tag">${n3Code}</span></td>
+          <td>${n3Name}</td>
         </tr>
         <tr>
-          <td class="label">Nivel 7 (Parte / Componente):</td>
-          <td class="value"><strong>[${n7Code}]</strong> ${n7Name}</td>
-          <td class="label">Nivel 8 (Pieza / Elemento):</td>
-          <td class="value"><strong>[${n8Code}]</strong> ${n8Name}</td>
+          <td><span class="level-badge">NIVEL 4</span></td>
+          <td>Módulo / Ambiente / Subespacio</td>
+          <td class="text-center"><span class="code-tag">${n4Code}</span></td>
+          <td>${n4Name}</td>
         </tr>
         <tr>
-          <td class="label">Nivel 9 (SKU / Inventario):</td>
-          <td class="value" colspan="3"><strong>[${n9Code}]</strong> Identificador Correlativo Registrado</td>
+          <td><span class="level-badge">NIVEL 5</span></td>
+          <td>Familia Taxonómica</td>
+          <td class="text-center"><span class="code-tag">${n5Code}</span></td>
+          <td>${n5Name}</td>
+        </tr>
+        <tr>
+          <td><span class="level-badge">NIVEL 6</span></td>
+          <td>Tipo de Bien / Taxonomía</td>
+          <td class="text-center"><span class="code-tag">${n6Code}</span></td>
+          <td>${n6Name}</td>
+        </tr>
+        <tr>
+          <td><span class="level-badge">NIVEL 7</span></td>
+          <td>Parte / Componente</td>
+          <td class="text-center"><span class="code-tag">${n7Code}</span></td>
+          <td>${n7Name}</td>
+        </tr>
+        <tr>
+          <td><span class="level-badge">NIVEL 8</span></td>
+          <td>Pieza / Elemento</td>
+          <td class="text-center"><span class="code-tag">${n8Code}</span></td>
+          <td>${n8Name}</td>
+        </tr>
+        <tr style="background-color: #F8F9FA;">
+          <td><span class="level-badge" style="background:#000000;">NIVEL 9</span></td>
+          <td><strong>SKU / Código de Inventario</strong></td>
+          <td class="text-center"><span class="code-tag" style="background:#000000; color:#FFFFFF;">${n9Code}</span></td>
+          <td><strong>Identificador Único Correlativo</strong></td>
         </tr>
       </tbody>
     </table>
 
-    <div class="matrix-box">
-      <div class="matrix-title">CÓDIGO DE MATRIZ COMPLETO (N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8 + N9):</div>
+    <div class="matrix-card">
+      <div class="matrix-header">FÓRMULA CÓDIGO MATRIZ INTEGRADO (N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8 + N9):</div>
       <div class="matrix-code-banner">"${fullMatrixCode}"</div>
     </div>
   </div>
 
-  <!-- SECCIÓN 2: CUSTODIA Y RESPONSABLE -->
+  <!-- SECCIÓN 2: CUSTODIA Y ASIGNACIÓN DE PERSONAL -->
   <div class="section-block">
     <div class="section-heading">2. CUSTODIA Y ASIGNACIÓN DE PERSONAL</div>
     <table class="data-table">
       <tbody>
         <tr>
-          <td class="label">1. Código de Trabajador:</td>
+          <td class="label">1. CÓDIGO DE TRABAJADOR:</td>
           <td class="value"><strong>${workerCode}</strong></td>
-          <td class="label">2. Responsable Asignado:</td>
+          <td class="label">2. RESPONSABLE ASIGNADO:</td>
           <td class="value"><strong>${responsibleName}</strong></td>
         </tr>
         <tr>
-          <td class="label">3. Centro de Costo:</td>
+          <td class="label">3. CENTRO DE COSTO:</td>
           <td class="value"><strong>${costCenter}</strong></td>
-          <td class="label">Estado de Asignación:</td>
+          <td class="label">ESTADO ASIGNACIÓN:</td>
           <td class="value">${asset.assignment_status || "Vigente"}</td>
         </tr>
       </tbody>
@@ -336,7 +392,7 @@ export async function generateAssetApaPdf({
 
   <!-- SECCIÓN 6: HISTORIAL DE MANTENIMIENTO -->
   <div class="section-block">
-    <div class="section-heading">6. HISTORIAL DE MANTENIMIENTO Y ATENCIONES A NIVEL DE PIEZA</div>
+    <div class="section-heading">6. HISTORIAL DE MANTENIMIENTO Y ATENCIONES REGISTRADAS</div>
     <table class="records-table">
       <thead>
         <tr>
