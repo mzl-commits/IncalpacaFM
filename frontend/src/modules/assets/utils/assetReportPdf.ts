@@ -193,30 +193,6 @@ export async function generateAssetApaPdf({
   <title>Ficha Técnica — ${technicalId} | Incalpaca FM</title>
   <style>
     ${getIncalpacaReportCSS()}
-    .matrix-box-container {
-      border: 1pt solid #000000;
-      background-color: #FFFFFF;
-      padding: 10pt;
-      margin-top: 10pt;
-      margin-bottom: 14pt;
-    }
-    .matrix-box-title {
-      font-size: 9.5pt;
-      font-weight: bold;
-      color: #000000;
-      margin-bottom: 6pt;
-      text-transform: uppercase;
-    }
-    .matrix-box-banner {
-      background-color: #000000;
-      color: #FFFFFF;
-      font-family: "Times New Roman", Times, serif;
-      font-size: 11pt;
-      font-weight: bold;
-      padding: 8pt 10pt;
-      text-align: center;
-      letter-spacing: 0.5px;
-    }
   </style>
 </head>
 <body>
@@ -229,7 +205,7 @@ export async function generateAssetApaPdf({
       <div class="company-block">
         <div class="company-name">INCALPACA FM S.A.</div>
         <div class="company-subtitle">Sistema de Gestión Técnica y Bienes</div>
-        <div class="report-name">FICHA TÉCNICA OFICIAL<br/>MATRIZ 9 NIVELES</div>
+        <div class="report-name">FICHA TÉCNICA DE BIEN</div>
       </div>
     </div>
     <div class="header-right">
@@ -273,13 +249,14 @@ export async function generateAssetApaPdf({
           <td class="label">Nivel 9 (SKU):</td>
           <td class="value" colspan="3"><strong>[${n9Code}]</strong> Identificador Correlativo Registrado</td>
         </tr>
+        <tr>
+          <td class="label">Código Taxonomía Completo:</td>
+          <td class="value" colspan="3" style="font-family:'Courier New', monospace; font-weight:bold; font-size:10pt; background-color:#FAFAFA; color:#000000;">
+            ${fullMatrixCode}
+          </td>
+        </tr>
       </tbody>
     </table>
-
-    <div class="matrix-box-container">
-      <div class="matrix-box-title">CÓDIGO DE TAXONOMÍA CONCATENADO (N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8 + N9):</div>
-      <div class="matrix-box-banner">"${fullMatrixCode}"</div>
-    </div>
   </div>
 
   <!-- SECCIÓN 2: CUSTODIA Y ASIGNACIÓN DE PERSONAL -->
@@ -338,14 +315,14 @@ export async function generateAssetApaPdf({
   <div class="section-block">
     <div class="section-heading">5. HISTORIAL DE CUSTODIA Y RESPONSABLES</div>
     <table class="records-table">
-      <thead style="background-color:#000000; color:#ffffff;">
+      <thead>
         <tr>
-          <th style="color:#ffffff;">Responsable</th>
-          <th style="color:#ffffff;">Área</th>
-          <th style="color:#ffffff;">Fecha Inicio</th>
-          <th style="color:#ffffff;">Fecha Fin</th>
-          <th style="color:#ffffff;">Estado</th>
-          <th style="color:#ffffff;">Motivo</th>
+          <th>Responsable</th>
+          <th>Área</th>
+          <th>Fecha Inicio</th>
+          <th>Fecha Fin</th>
+          <th>Estado</th>
+          <th>Motivo</th>
         </tr>
       </thead>
       <tbody>
@@ -358,14 +335,14 @@ export async function generateAssetApaPdf({
   <div class="section-block">
     <div class="section-heading">6. HISTORIAL DE MANTENIMIENTO Y ATENCIONES A NIVEL DE PIEZA</div>
     <table class="records-table">
-      <thead style="background-color:#000000; color:#ffffff;">
+      <thead>
         <tr>
-          <th style="color:#ffffff;">N.° Orden</th>
-          <th style="color:#ffffff;">Tipo</th>
-          <th style="color:#ffffff;">Problema / Trabajo</th>
-          <th style="color:#ffffff;">Técnico</th>
-          <th style="color:#ffffff;">Condición Resultante</th>
-          <th style="color:#ffffff;" class="text-right">Costo</th>
+          <th>N.° Orden</th>
+          <th>Tipo</th>
+          <th>Problema / Trabajo</th>
+          <th>Técnico</th>
+          <th>Condición Resultante</th>
+          <th class="text-right">Costo</th>
         </tr>
       </thead>
       <tbody>
