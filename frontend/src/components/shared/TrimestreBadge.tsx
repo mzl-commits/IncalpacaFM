@@ -55,10 +55,10 @@ export function TrimestreBadge({ fecha, periodicidadDias, showLabel = false }: T
 
   const detalle =
     estado === "vencida"
-      ? `Vencida hace ${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) === 1 ? "" : "s"}`
+      ? `PENDIENTE: faltan ${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) === 1 ? "" : "s"}`
       : estado === "proxima"
         ? `Próxima a vencer en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"}`
-        : "Al día con su inspección";
+        : "EJECUTADO";
 
   return (
     <span

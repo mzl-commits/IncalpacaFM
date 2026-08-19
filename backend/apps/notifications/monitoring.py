@@ -11,6 +11,7 @@ from apps.workorders.models import WorkOrder
 
 from .services import queue_for_administrators, queue_notification
 
+
 FINAL_STATUSES = {WorkOrder.Status.CLOSED, WorkOrder.Status.CANCELLED}
 MISSED_DAY_STATUSES = {
     WorkOrder.Status.SCHEDULED,

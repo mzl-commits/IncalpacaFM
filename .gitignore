@@ -30,8 +30,6 @@ backend/staticfiles/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
-frontend/test-results/
-frontend/playwright-report/
 
 # Archivos generados por la plataforma
 runtime/

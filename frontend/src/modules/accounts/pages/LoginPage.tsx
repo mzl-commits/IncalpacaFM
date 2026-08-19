@@ -9,8 +9,8 @@ export function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [workerCode, setWorkerCode] = useState("");
-  const [password, setPassword] = useState("");
+  const [workerCode, setWorkerCode] = useState("admin");
+  const [password, setPassword] = useState("Montescoli3");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -93,6 +93,13 @@ export function LoginPage() {
           <p className="login-privacy-copy">
             Al ingresar, el sistema registra el acceso para proteger los bienes y la trazabilidad del servicio. Consulta el aviso de privacidad y ejerce tus derechos ARCO en <a href="/privacidad">Privacidad</a>.
           </p>
+          <aside className="login-demo-accounts">
+            <strong>Accesos de demostración</strong>
+            <span>Administrador: admin / Montescoli3</span>
+            <span>Operario: tecnico / Montescoli3</span>
+            <span>Supervisor: supervisor / 12345</span>
+            <span>Usuario (Solicitante): usuario / Montescoli3</span>
+          </aside>
         </form>
       </section>
     </main>

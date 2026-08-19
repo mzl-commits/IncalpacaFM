@@ -7,10 +7,10 @@ from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.utils import timezone
 
-from .inspeccion_monitoring import evaluate_all_inspection_alerts
 from .models import Notification
 from .monitoring import evaluate_all_work_order_alerts
 from .operational_monitoring import evaluate_operational_health
+from .inspeccion_monitoring import evaluate_all_inspection_alerts
 
 
 def deliver_notification(notification_id):

@@ -3,59 +3,14 @@ export type TaxonomyReviewStatus = (typeof TAXONOMY_REVIEW_STATUSES)[number];
 
 export type TaxonomyCriticality = "Baja" | "Media" | "Alta" | "Crítica";
 
-export interface TaxonomyFamily {
-  id: string;
-  code: string;
-  name: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TaxonomyTreePiece {
-  id: string;
-  pieceCode: string;
-  name: string;
-  active: boolean;
-}
-
-export interface TaxonomyTreePart {
-  id: string;
-  partCode: string;
-  name: string;
-  active: boolean;
-  pieces: TaxonomyTreePiece[];
-}
-
-export interface TaxonomyTreeType {
-  id: string;
-  prefix: string;
-  typeCode: string;
-  name: string;
-  assetCount: number;
-  active: boolean;
-  parts: TaxonomyTreePart[];
-}
-
-export interface TaxonomyTreeFamily {
-  id: string;
-  code: string;
-  name: string;
-  active: boolean;
-  types: TaxonomyTreeType[];
-}
-
 export interface TaxonomyOption {
   id: string;
-  familyId: string;
-  familyDetail?: TaxonomyFamily;
-  typeCode: string;
   prefix: string;
   name: string;
-  assetType?: string;
-  category?: string;
-  subcategory?: string;
-  specialty?: string;
+  assetType: string;
+  category: string;
+  subcategory: string;
+  specialty: string;
   sequenceDigits: number;
   defaultCriticality: TaxonomyCriticality;
   usefulLifeYears: number | null;
@@ -80,13 +35,12 @@ export interface TaxonomyRecord extends TaxonomyOption {
 }
 
 export interface TaxonomyInput {
-  familyId: string;
-  typeCode: string;
+  prefix: string;
   name: string;
-  assetType?: string;
-  category?: string;
-  subcategory?: string;
-  specialty?: string;
+  assetType: string;
+  category: string;
+  subcategory: string;
+  specialty: string;
   sequenceDigits: number;
   defaultCriticality: TaxonomyCriticality;
   usefulLifeYears: number | null;
@@ -97,26 +51,6 @@ export interface TaxonomyInput {
   reviewStatus: TaxonomyReviewStatus;
   aliases: string[];
   notes: string;
-  active: boolean;
-}
-
-export interface TaxonomyFamilyInput {
-  code: string;
-  name: string;
-  active: boolean;
-}
-
-export interface TaxonomyPartInput {
-  typeId: string;
-  partCode: string;
-  name: string;
-  active: boolean;
-}
-
-export interface TaxonomyPieceInput {
-  partId: string;
-  pieceCode: string;
-  name: string;
   active: boolean;
 }
 

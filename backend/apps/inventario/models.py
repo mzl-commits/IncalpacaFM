@@ -27,6 +27,20 @@ class Movimiento(models.Model):
         help_text="Si el material se maneja por empaque, número de empaques que originaron este "
                    "movimiento. 'cantidad' sigue siendo el total en unidades (empaques × unidades/empaque).",
     )
+    unidad_movimiento = models.ForeignKey(
+        "catalogo.UnidadMedida",
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name="movimientos",
+        help_text="Si el material permite elegir unidad (ej. Rollo), unidad en la que el "
+                   "almacenero registró la cantidad (ej. metros), distinta de la unidad base "
+                   "del material (ej. centímetros) en la que 'cantidad' queda guardada.",
+    )
+    cantidad_en_unidad_movimiento = models.DecimalField(
+        max_digits=12, decimal_places=3, null=True, blank=True,
+        help_text="Cantidad tal como la ingresó el almacenero, en 'unidad_movimiento' (antes de "
+                   "convertir a la unidad base del material). Solo trazabilidad/legibilidad.",
+    )
     fecha = models.DateTimeField(auto_now_add=True)
     responsable = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="movimientos_realizados"

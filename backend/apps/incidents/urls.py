@@ -4,8 +4,8 @@ from .views import (
     IncidentDetailView,
     IncidentListCreateView,
     PublicAssetIncidentCreateView,
-    PublicIncidentConformityView,
     PublicIncidentTrackingView,
+    PublicIncidentConformityView,
     PublicLocationListView,
     PublicWorkRequestCreateView,
 )

@@ -93,7 +93,6 @@ export interface RegisteredAsset {
   id: string;
   code: string;
   fmCode: string | null;
-  fullAssignmentCode: string | null;
   publicToken: string;
   publicUrl: string;
   photoUrl: string | null;
@@ -115,9 +114,8 @@ export interface RegisteredAsset {
   draft: AssetEntryDraft;
 }
 
-
-export function getAssetDisplayCode(asset: Pick<RegisteredAsset, "code" | "fmCode" | "fullAssignmentCode">) {
-  return asset.fullAssignmentCode || asset.fmCode || asset.code;
+export function getAssetDisplayCode(asset: Pick<RegisteredAsset, "code" | "fmCode">) {
+  return asset.fmCode || asset.code;
 }
 
 const today = new Date().toISOString().slice(0, 10);

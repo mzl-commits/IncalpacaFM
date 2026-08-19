@@ -2,9 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { getWorkRequestById, updateWorkRequest } from "@/modules/incidents/incidentRepository";
-import type { WorkRequest } from "@/modules/incidents/types";
-import { listManagedUsers, listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
+import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { getAssetDisplayCode, type RegisteredAsset } from "@/modules/assets/entryModel";
 import { useLocations } from "@/modules/assets/locationMapQueries";
@@ -38,6 +36,11 @@ interface DirectWorkOrderFormState {
   plannedHours: number;
   administratorNotes: string;
 }
+
+const supervisors = [
+  { id: "USR-SUP-001", name: "Rosa Medina" },
+  { id: "USR-SUP-002", name: "Elena Torres" },
+];
 
 function initialForm(orderType: DirectOrderType): DirectWorkOrderFormState {
   return {
@@ -74,8 +77,6 @@ function hasCleaningSpecialty(person: Technician) {
 export function DirectWorkOrderCreatePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const linkedRequestId = new URLSearchParams(location.search).get("request");
-  const backPath = linkedRequestId ? `/incidencias/${linkedRequestId}` : "/ordenes-trabajo";
   const orderType: DirectOrderType = location.pathname.endsWith("/ol") ? "OL" : "OT";
   const isCleaningOrder = orderType === "OL";
   const orderName = isCleaningOrder ? "OL" : "OT";
@@ -97,10 +98,8 @@ export function DirectWorkOrderCreatePage() {
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [supervisors, setSupervisors] = useState<Technician[]>([]);
   const [assets, setAssets] = useState<RegisteredAsset[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
-  const [linkedRequest, setLinkedRequest] = useState<WorkRequest | null>(null);
   const [form, setForm] = useState<DirectWorkOrderFormState>(() => initialForm(orderType));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -111,40 +110,9 @@ export function DirectWorkOrderCreatePage() {
 
   useEffect(() => {
     void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
-    void listManagedUsers().then((people) => setSupervisors(people.filter((person) => person.active && person.role === "SUPERVISOR")));
     void listRegisteredAssets().then(setAssets);
     void listWorkOrders().then(setOrders);
   }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    if (!linkedRequestId) {
-      setLinkedRequest(null);
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    void getWorkRequestById(linkedRequestId)
-      .then((request) => {
-        if (!isMounted) return;
-        setLinkedRequest(request);
-        setForm((current) => ({
-          ...current,
-          description: current.description || request.description,
-          assetId: request.assetId || current.assetId,
-          locationId: request.locationId || current.locationId,
-          adminPriority: request.requesterPriority === "NORMAL" ? current.adminPriority : "ALTA",
-        }));
-      })
-      .catch(() => {
-        if (isMounted) setError("No se pudo cargar la solicitud vinculada.");
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [linkedRequestId]);
 
   const selectedAsset = assets.find((asset) => asset.id === form.assetId) ?? null;
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
@@ -213,11 +181,9 @@ export function DirectWorkOrderCreatePage() {
     setError("");
     try {
       const workOrder = await createWorkOrder({
-        requestId: linkedRequest?.id,
-        requestCode: linkedRequest?.code,
         orderType,
         directRequestDescription: form.description.trim(),
-        directRequestType: linkedRequest ? `${orderName} desde solicitud` : isCleaningOrder ? "OL directa" : "OT directa",
+        directRequestType: isCleaningOrder ? "OL directa" : "OT directa",
         directAssetId: form.assetId || null,
         directLocationId: form.locationId,
         operatorId: form.operatorId,
@@ -235,12 +201,6 @@ export function DirectWorkOrderCreatePage() {
         administratorNotes: form.administratorNotes.trim(),
         progressPercentage: 0,
       });
-      if (linkedRequest) {
-        await updateWorkRequest(linkedRequest.id, {
-          status: "CONVERTIDA_EN_OT",
-          workOrderId: workOrder.id,
-        });
-      }
       navigate(`/ordenes-trabajo/${workOrder.id}`);
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
@@ -258,7 +218,7 @@ export function DirectWorkOrderCreatePage() {
           <h1>Crear {orderName} directa</h1>
           <p>{isCleaningOrder ? "Registra una limpieza puntual sin crear una solicitud manual previa." : "Registra una orden sin pedirle al administrador crear y aprobar una solicitud manualmente."}</p>
         </div>
-        <Link className="button button-secondary" to={backPath}>
+        <Link className="button button-secondary" to="/órdenes-trabajo/nueva">
           <ArrowLeft size={18} />
           Volver
         </Link>
@@ -393,12 +353,12 @@ export function DirectWorkOrderCreatePage() {
                 onChange={(event) => {
                   const supervisor = supervisors.find((item) => item.id === event.target.value);
                   updateField("supervisorId", supervisor?.id ?? "");
-                  updateField("supervisorName", supervisor?.full_name ?? "");
+                  updateField("supervisorName", supervisor?.name ?? "");
                 }}
               >
                 <option value="">Seleccionar supervisor</option>
                 {supervisors.map((supervisor) => (
-                  <option key={supervisor.id} value={supervisor.id}>{supervisor.full_name}</option>
+                  <option key={supervisor.id} value={supervisor.id}>{supervisor.name}</option>
                 ))}
               </select>
             </label>
@@ -449,7 +409,7 @@ export function DirectWorkOrderCreatePage() {
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-actions">
-          <Link className="button button-secondary" to={backPath}>Cancelar</Link>
+          <Link className="button button-secondary" to="/órdenes-trabajo/nueva">Cancelar</Link>
           <button className="button button-primary" type="submit" disabled={saving}>
             <FloppyDisk size={18} weight="bold" />
             {saving ? "Generando..." : `Generar ${orderName}`}

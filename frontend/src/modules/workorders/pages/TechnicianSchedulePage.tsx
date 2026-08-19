@@ -196,8 +196,6 @@ export function TechnicianSchedulePage() {
         hourly_rate: 0,
         active: true,
         role: "TECNICO",
-        almacen: null,
-        almacen_nombre: null,
       });
     });
     return [...catalog.values()].sort((left, right) => left.full_name.localeCompare(right.full_name));
@@ -206,6 +204,7 @@ export function TechnicianSchedulePage() {
     if (!isTeamSchedule || selectedTechnicianId || !technicianOptions.length) return;
     setSelectedTechnicianId(technicianOptions[0].id);
   }, [isTeamSchedule, selectedTechnicianId, technicianOptions]);
+  const selectedTechnician = technicianOptions.find((person) => person.id === selectedTechnicianId);
   const technicianOrders = isTeamSchedule
     ? allTechnicianOrders.filter((order) => order.operatorId === selectedTechnicianId)
     : allTechnicianOrders;

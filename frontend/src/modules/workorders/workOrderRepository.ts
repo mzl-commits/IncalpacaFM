@@ -18,14 +18,14 @@ export async function listWorkOrders(): Promise<WorkOrder[]> {
 }
 
 export type WorkOrderCreatePayload = Partial<Omit<WorkOrder, "id" | "code" | "createdAt" | "updatedAt">> & {
-  title?: string;
   description?: string;
+  title?: string;
+  assetName?: string;
   type?: string;
   priority?: string;
-  assetName?: string;
   technicianWorkerCode?: string;
-  technicianWorkerCodes?: string[];
   supervisorWorkerCode?: string;
+  technicianWorkerCodes?: string[];
   directRequestDescription?: string;
   directRequestType?: string;
   directAssetId?: string | null;
@@ -48,6 +48,15 @@ export async function createWorkOrder(
 
 export async function getWorkOrderById(id: string): Promise<WorkOrder> {
   const { data } = await api.get<WorkOrder>(`/work-orders/${id}/`);
+  return data;
+}
+
+export async function updateWorkOrderPlanning(
+  id: string,
+  payload: Partial<Pick<WorkOrder, "specialty" | "adminPriority" | "status" | "scheduledDate" | "scheduledStartTime" | "plannedHours" | "administratorNotes" | "operatorId" | "supervisorId">>,
+): Promise<WorkOrder> {
+  const { data } = await api.patch<WorkOrder>(`/work-orders/${id}/planning/`, payload);
+  notifyChanges();
   return data;
 }
 
@@ -100,6 +109,38 @@ export async function registerWorkOrderProgress(
     ? { headers: { "Content-Type": "multipart/form-data" } }
     : undefined,
   );
+  notifyChanges();
+  return data;
+}
+
+export async function updateWorkOrderPhoto(
+  id: string,
+  stage: "START" | "FINISH",
+  photoFile: File,
+): Promise<WorkOrder> {
+  const payload = new FormData();
+  payload.append("action", "UPDATE_PHOTO");
+  payload.append("observation", stage);
+  if (stage === "START") {
+    payload.append("startPhoto", photoFile);
+  } else {
+    payload.append("finishPhoto", photoFile);
+  }
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, payload, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  notifyChanges();
+  return data;
+}
+
+export async function deleteWorkOrderPhoto(
+  id: string,
+  stage: "START" | "FINISH",
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {
+    action: "DELETE_PHOTO",
+    observation: stage,
+  });
   notifyChanges();
   return data;
 }
@@ -177,5 +218,44 @@ export async function scheduleWorkOrderCorrection(
     payload: input,
   });
   notifyChanges();
+  return data;
+}
+
+// ─── Almaceneros autorizados (visibilidad de la OT en Almacén) ────────────────
+// Nota: este endpoint vive en el módulo de inventario (backend/apps/inventario)
+// porque es quien lo consume para poblar el selector de OTs en movimientos,
+// pero su gestión (solo ADMINISTRADOR) se expone aquí junto al resto de
+// acciones administrativas sobre la OT.
+
+export interface AlmaceneroAutorizadoUsuario {
+  id: number;
+  worker_code: string;
+  full_name: string;
+  role: string;
+  role_display: string;
+}
+
+export interface AlmacenerosAutorizadosResponse {
+  work_order_id: string;
+  work_order_code: string;
+  autorizados: AlmaceneroAutorizadoUsuario[];
+  disponibles: AlmaceneroAutorizadoUsuario[];
+}
+
+export async function getAlmacenerosAutorizados(workOrderId: string): Promise<AlmacenerosAutorizadosResponse> {
+  const { data } = await api.get<AlmacenerosAutorizadosResponse>(
+    `/ots/${workOrderId}/almaceneros-autorizados/`,
+  );
+  return data;
+}
+
+export async function setAlmacenerosAutorizados(
+  workOrderId: string,
+  almaceneroIds: number[],
+): Promise<Pick<AlmacenerosAutorizadosResponse, "work_order_id" | "work_order_code" | "autorizados">> {
+  const { data } = await api.put<Pick<AlmacenerosAutorizadosResponse, "work_order_id" | "work_order_code" | "autorizados">>(
+    `/ots/${workOrderId}/almaceneros-autorizados/`,
+    { almacenero_ids: almaceneroIds },
+  );
   return data;
 }

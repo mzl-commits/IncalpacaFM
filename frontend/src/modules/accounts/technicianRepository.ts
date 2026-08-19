@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import type { UserRole } from "./types";
+import type { UserRole } from "@/modules/accounts/types";
 
 export type Technician = {
   id: string;
@@ -23,23 +23,23 @@ export async function listTechnicians() {
   return data;
 }
 
-export async function createTechnician(input: TechnicianInput) {
-  const { data } = await api.post<Technician>("/technicians/", input);
-  return data;
-}
-
-export async function updateTechnician(id: string, input: Partial<TechnicianInput>) {
-  const { data } = await api.patch<Technician>(`/technicians/${id}/`, input);
-  return data;
-}
-
 export async function listManagedUsers() {
   const { data } = await api.get<Technician[]>("/users/manage/");
   return data;
 }
 
+export async function createTechnician(input: TechnicianInput) {
+  const { data } = await api.post<Technician>("/technicians/", input);
+  return data;
+}
+
 export async function createManagedUser(input: TechnicianInput) {
   const { data } = await api.post<Technician>("/users/manage/", input);
+  return data;
+}
+
+export async function updateTechnician(id: string, input: Partial<TechnicianInput>) {
+  const { data } = await api.patch<Technician>(`/technicians/${id}/`, input);
   return data;
 }
 

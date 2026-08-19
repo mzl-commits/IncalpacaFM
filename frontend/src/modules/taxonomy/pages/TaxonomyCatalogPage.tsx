@@ -1,270 +1,489 @@
 import {
-  Funnel,
-  MagnifyingGlass,
+  ArrowsClockwise,
+  Barcode,
+  CaretRight,
+  CheckCircle,
+  PencilSimple,
   Plus,
+  Power,
+  Tag,
   WarningCircle,
-  Folder
+  X,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  FilterSelect,
+  ListFilterPanel,
+  type ActiveFilter,
+} from "@/components/filters/ListFilterPanel";
+import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { TaxonomySectionNav } from "../components/TaxonomySectionNav";
-import { TaxonomyTreeExplorer } from "../components/TaxonomyTreeExplorer";
-import { TaxonomyInspector } from "../components/TaxonomyInspector";
-import {
-  TaxonomyFamilyForm,
-  TaxonomyTypeForm,
-  TaxonomyPartForm,
-  TaxonomyPieceForm
-} from "../components/TaxonomyForms";
-import {
-  useTaxonomyTree,
-  useCreateTaxonomyFamily,
-  useUpdateTaxonomyFamily,
-  useCreateTaxonomy,
-  useUpdateTaxonomy,
-  useCreateTaxonomyPart,
-  useUpdateTaxonomyPart,
-  useCreateTaxonomyPiece,
-  useUpdateTaxonomyPiece
-} from "../taxonomyQueries";
-import type { TaxonomyTreeFamily, TaxonomyTreeType, TaxonomyTreePart, TaxonomyTreePiece } from "../types";
+import { useSetTaxonomyActive, useTaxonomyCatalog } from "../taxonomyQueries";
+import { taxonomyReviewLabels, type TaxonomyRecord, type TaxonomyReviewStatus } from "../types";
 
-type EntityType = "FAMILY" | "TYPE" | "PART" | "PIECE";
-type Selection = { entity: EntityType; id: string } | null;
-type ViewMode = "INSPECT" | "EDIT" | "ADD_CHILD" | "ADD_ROOT";
-
-function flattenTree(families: TaxonomyTreeFamily[]) {
-  const nodes: { id: string; entity: EntityType; data: any }[] = [];
-  for (const family of families) {
-    nodes.push({ id: family.id, entity: "FAMILY", data: family });
-    for (const type of family.types || []) {
-      nodes.push({ id: type.id, entity: "TYPE", data: type });
-      for (const part of type.parts || []) {
-        nodes.push({ id: part.id, entity: "PART", data: part });
-        for (const piece of part.pieces || []) {
-          nodes.push({ id: piece.id, entity: "PIECE", data: piece });
-        }
-      }
-    }
-  }
-  return nodes;
-}
+const FILTER_KEYS = [
+  "q",
+  "status",
+  "review",
+  "type",
+  "category",
+  "specialty",
+  "maintenance",
+] as const;
+const EMPTY_CATALOG: TaxonomyRecord[] = [];
 
 export function TaxonomyCatalogPage() {
-  const [query, setQuery] = useState("");
-  const treeQuery = useTaxonomyTree();
-  const families = useMemo(() => treeQuery.data ?? [], [treeQuery.data]);
-  const allNodes = useMemo(() => flattenTree(families), [families]);
+  const location = useLocation();
+  const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
+  const catalogQuery = useTaxonomyCatalog({});
+  const activation = useSetTaxonomyActive();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [target, setTarget] = useState<TaxonomyRecord | null>(null);
+  const [actionError, setActionError] = useState("");
+  const catalog = catalogQuery.data ?? EMPTY_CATALOG;
+  const successMessage = (location.state as { message?: string } | null)?.message;
 
-  const [selection, setSelection] = useState<Selection>(null);
-  const [mode, setMode] = useState<ViewMode>("INSPECT");
-
-  const normalizedQuery = query.trim().toLocaleLowerCase("es-PE");
-  const visibleIds = useMemo(() => {
-    if (!normalizedQuery) return new Set(allNodes.map(n => n.id));
-    const ids = new Set<string>();
-    for (const node of allNodes) {
-      const match = node.data.name?.toLocaleLowerCase("es-PE").includes(normalizedQuery) ||
-                    node.data.code?.toLocaleLowerCase("es-PE").includes(normalizedQuery) ||
-                    node.data.prefix?.toLocaleLowerCase("es-PE").includes(normalizedQuery) ||
-                    node.data.partCode?.toLocaleLowerCase("es-PE").includes(normalizedQuery) ||
-                    node.data.pieceCode?.toLocaleLowerCase("es-PE").includes(normalizedQuery);
-      if (match) {
-        ids.add(node.id);
-        // Include parents
-        if (node.entity === "TYPE") {
-          const family = families.find(f => f.types?.some(t => t.id === node.id));
-          if (family) ids.add(family.id);
-        } else if (node.entity === "PART") {
-          families.forEach(f => f.types?.forEach(t => {
-            if (t.parts?.some(p => p.id === node.id)) { ids.add(t.id); ids.add(f.id); }
-          }));
-        } else if (node.entity === "PIECE") {
-          families.forEach(f => f.types?.forEach(t => t.parts?.forEach(p => {
-            if (p.pieces?.some(pc => pc.id === node.id)) { ids.add(p.id); ids.add(t.id); ids.add(f.id); }
-          })));
-        }
-      }
-    }
-    return ids;
-  }, [allNodes, families, normalizedQuery]);
-
-  useEffect(() => {
-    if (!selection && families.length > 0 && mode === "INSPECT") {
-      setSelection({ entity: "FAMILY", id: families[0].id });
-    }
-  }, [selection, families, mode]);
-
-  const selectedNodeData = selection ? allNodes.find(n => n.id === selection.id && n.entity === selection.entity)?.data : null;
-
-  // Mutations
-  const createFamily = useCreateTaxonomyFamily();
-  const updateFamily = useUpdateTaxonomyFamily(selection?.id ?? "");
-  const createType = useCreateTaxonomy();
-  const updateType = useUpdateTaxonomy(selection?.id ?? "");
-  const createPart = useCreateTaxonomyPart();
-  const updatePart = useUpdateTaxonomyPart(selection?.id ?? "");
-  const createPiece = useCreateTaxonomyPiece();
-  const updatePiece = useUpdateTaxonomyPiece(selection?.id ?? "");
-
-  const busy =
-    createFamily.isPending || updateFamily.isPending ||
-    createType.isPending || updateType.isPending ||
-    createPart.isPending || updatePart.isPending ||
-    createPiece.isPending || updatePiece.isPending;
-
-  function selectNode(id: string, entityType: EntityType) {
-    setSelection({ entity: entityType, id });
-    setMode("INSPECT");
-  }
-
-  function handleAddChild(parentId: string, parentType: EntityType) {
-    setSelection({ entity: parentType, id: parentId });
-    setMode("ADD_CHILD");
-  }
-
-  async function handleSubmit(input: any) {
-    if (mode === "ADD_ROOT") {
-      const created = await createFamily.mutateAsync(input);
-      setSelection({ entity: "FAMILY", id: created.id });
-      setMode("INSPECT");
-      return;
-    }
-
-    if (mode === "EDIT" && selection) {
-      if (selection.entity === "FAMILY") await updateFamily.mutateAsync(input);
-      else if (selection.entity === "TYPE") await updateType.mutateAsync(input);
-      else if (selection.entity === "PART") await updatePart.mutateAsync(input);
-      else if (selection.entity === "PIECE") await updatePiece.mutateAsync(input);
-      setMode("INSPECT");
-      return;
-    }
-
-    if (mode === "ADD_CHILD" && selection) {
-      if (selection.entity === "FAMILY") {
-        const created = await createType.mutateAsync(input);
-        setSelection({ entity: "TYPE", id: created.id });
-      } else if (selection.entity === "TYPE") {
-        const created = await createPart.mutateAsync(input);
-        setSelection({ entity: "PART", id: created.id });
-      } else if (selection.entity === "PART") {
-        const created = await createPiece.mutateAsync(input);
-        setSelection({ entity: "PIECE", id: created.id });
-      }
-      setMode("INSPECT");
-      return;
-    }
-  }
-
-  function renderRightPane() {
-    if (mode === "ADD_ROOT") {
+  const filtered = useMemo(() => {
+    const query = values.q.trim().toLocaleLowerCase("es-PE");
+    return catalog.filter((item) => {
+      const searchable = [
+        item.prefix,
+        item.name,
+        item.assetType,
+        item.category,
+        item.subcategory,
+        item.specialty,
+        ...item.aliases,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("es-PE");
       return (
-        <div className="space-inspector-pane-content">
-          <TaxonomyFamilyForm busy={busy} submitLabel="Crear Familia" onSubmit={handleSubmit} />
-        </div>
+        (!query || searchable.includes(query)) &&
+        (!values.status || item.active === (values.status === "active")) &&
+        (!values.review || item.reviewStatus === values.review) &&
+        (!values.type || item.assetType === values.type) &&
+        (!values.category || item.category === values.category) &&
+        (!values.specialty || item.specialty === values.specialty) &&
+        (!values.maintenance || item.requiresMaintenance === (values.maintenance === "true"))
+      );
+    });
+  }, [catalog, values]);
+
+  const activeFilters: ActiveFilter[] = [];
+  const addFilter = (key: (typeof FILTER_KEYS)[number], label: string, value: string) => {
+    if (!value) return;
+    activeFilters.push({ key, label, value, onRemove: () => setValue(key, "") });
+  };
+  addFilter("q", "Búsqueda", values.q);
+  addFilter(
+    "status",
+    "Estado",
+    values.status === "active" ? "Activa" : values.status === "inactive" ? "Inactiva" : "",
+  );
+  addFilter(
+    "review",
+    "Validación",
+    values.review ? taxonomyReviewLabels[values.review as TaxonomyReviewStatus] : "",
+  );
+  addFilter("type", "Tipo", values.type);
+  addFilter("category", "Categoría", values.category);
+  addFilter("specialty", "Especialidad", values.specialty);
+  addFilter(
+    "maintenance",
+    "Mantenimiento",
+    values.maintenance === "true"
+      ? "Requerido"
+      : values.maintenance === "false"
+        ? "No requerido"
+        : "",
+  );
+
+  const activeCount = catalog.filter((item) => item.active).length;
+  const reviewCount = catalog.filter((item) => item.reviewStatus === "REVIEW").length;
+  const inactiveCount = catalog.filter((item) => !item.active).length;
+  const blockedCount = catalog.filter((item) => !item.issuanceEnabled).length;
+  const typeOptions = buildFilterOptions(catalog.map((item) => item.assetType));
+  const categoryOptions = buildFilterOptions(catalog.map((item) => item.category));
+  const specialtyOptions = buildFilterOptions(catalog.map((item) => item.specialty));
+
+  function askForStateChange(item: TaxonomyRecord) {
+    setTarget(item);
+    setActionError("");
+    dialogRef.current?.showModal();
+  }
+
+  async function confirmStateChange() {
+    if (!target) return;
+    setActionError("");
+    try {
+      await activation.mutateAsync({ id: target.id, active: !target.active });
+      dialogRef.current?.close();
+    } catch {
+      setActionError(
+        "No se pudo actualizar el estado. Verifica la conexión e inténtalo nuevamente.",
       );
     }
-
-    if (mode === "ADD_CHILD" && selection) {
-      if (selection.entity === "FAMILY") {
-        return <div className="space-inspector-pane-content"><TaxonomyTypeForm familyId={selection.id} busy={busy} submitLabel="Crear Tipo" onSubmit={handleSubmit} /></div>;
-      }
-      if (selection.entity === "TYPE") {
-        return <div className="space-inspector-pane-content"><TaxonomyPartForm typeId={selection.id} busy={busy} submitLabel="Crear Parte" onSubmit={handleSubmit} /></div>;
-      }
-      if (selection.entity === "PART") {
-        return <div className="space-inspector-pane-content"><TaxonomyPieceForm partId={selection.id} busy={busy} submitLabel="Crear Pieza" onSubmit={handleSubmit} /></div>;
-      }
-    }
-
-    if (mode === "EDIT" && selection && selectedNodeData) {
-      if (selection.entity === "FAMILY") {
-        return <div className="space-inspector-pane-content"><TaxonomyFamilyForm initialData={selectedNodeData} busy={busy} submitLabel="Guardar Cambios" onSubmit={handleSubmit} /></div>;
-      }
-      if (selection.entity === "TYPE") {
-        // Need to fetch full detail if missing fields? Assuming initialData from tree has enough, or we need to handle it.
-        // For type, tree has partial. Let's use it or wait. We might need a separate query for Type detail.
-        return <div className="space-inspector-pane-content"><TaxonomyTypeForm familyId={(selectedNodeData as any).familyId ?? ""} initialData={selectedNodeData} busy={busy} submitLabel="Guardar Cambios" onSubmit={handleSubmit} /></div>;
-      }
-      if (selection.entity === "PART") {
-        return <div className="space-inspector-pane-content"><TaxonomyPartForm typeId={(selectedNodeData as any).typeId ?? ""} initialData={selectedNodeData} busy={busy} submitLabel="Guardar Cambios" onSubmit={handleSubmit} /></div>;
-      }
-      if (selection.entity === "PIECE") {
-        return <div className="space-inspector-pane-content"><TaxonomyPieceForm partId={(selectedNodeData as any).partId ?? ""} initialData={selectedNodeData} busy={busy} submitLabel="Guardar Cambios" onSubmit={handleSubmit} /></div>;
-      }
-    }
-
-    return (
-      <div className="space-inspector-pane-content">
-        <TaxonomyInspector
-          node={selectedNodeData}
-          nodeType={selection?.entity}
-          onEdit={() => setMode("EDIT")}
-          onAddChild={() => handleAddChild(selection!.id, selection!.entity)}
-        />
-      </div>
-    );
   }
 
-  const totalFamilies = families.length;
-  const totalTypes = families.reduce((acc, f) => acc + (f.types?.length || 0), 0);
-  const totalParts = families.reduce((acc, f) => acc + (f.types?.reduce((tAcc, t) => tAcc + (t.parts?.length || 0), 0) || 0), 0);
-  const totalPieces = families.reduce((acc, f) => acc + (f.types?.reduce((tAcc, t) => tAcc + (t.parts?.reduce((pAcc, p) => pAcc + (p.pieces?.length || 0), 0) || 0), 0) || 0), 0);
-
   return (
-    <section className="spaces-page taxonomy-page">
-      <div className="page-heading spaces-page-heading">
+    <section className="taxonomy-page">
+      <div className="page-heading">
         <div>
           <p className="breadcrumb">Administración / Taxonomía</p>
           <h1>Taxonomía de bienes</h1>
-          <p>Organiza la jerarquía de los bienes (Familia, Tipo, Parte, Pieza).</p>
+          <p>Gobierna prefijos, clasificación y reglas para los nuevos códigos FM.</p>
         </div>
-        <div className="spaces-page-actions">
-          <button className="button button-primary" onClick={() => setMode("ADD_ROOT")}>
-            <Plus />Nueva familia
-          </button>
-        </div>
+        <Link className="button button-primary" to="/administracion/taxonomia/nueva">
+          <Plus /> Nueva taxonomía
+        </Link>
       </div>
 
       <TaxonomySectionNav />
 
-      <dl className="spaces-summary taxonomy-summary" aria-label="Resumen del catálogo">
-        <div><dt>Familias</dt><dd>{totalFamilies}</dd><small>Raíces</small></div>
-        <div><dt>Tipos</dt><dd>{totalTypes}</dd><small>Clasificación</small></div>
-        <div><dt>Partes</dt><dd>{totalParts}</dd><small>Componentes</small></div>
-        <div><dt>Piezas</dt><dd>{totalPieces}</dd><small>Repuestos</small></div>
+      {successMessage && (
+        <div className="taxonomy-page-message is-success" role="status">
+          <CheckCircle size={20} weight="fill" /> {successMessage}
+        </div>
+      )}
+
+      <dl className="taxonomy-summary" aria-label="Resumen del catálogo">
+        <div>
+          <dt>Activas</dt>
+          <dd>{activeCount}</dd>
+        </div>
+        <div>
+          <dt>En revisión</dt>
+          <dd>{reviewCount}</dd>
+        </div>
+        <div>
+          <dt>Inactivas</dt>
+          <dd>{inactiveCount}</dd>
+        </div>
+        <div>
+          <dt>Emisión bloqueada</dt>
+          <dd>{blockedCount}</dd>
+        </div>
       </dl>
 
-      <section className="spaces-workspace" aria-label="Administrador taxonómico">
-        <aside className="spaces-explorer">
-          <header>
-            <div><Funnel weight="duotone" /><strong>Estructura</strong></div>
-            <span>{visibleIds.size} coincidencia{visibleIds.size === 1 ? "" : "s"}</span>
-          </header>
-          <div className="spaces-explorer-filters">
-            <label className="spaces-search">
-              <MagnifyingGlass />
-              <span className="sr-only">Buscar</span>
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Código o nombre..." />
-            </label>
+      <div className="data-panel taxonomy-data-panel">
+        {catalogQuery.isPending ? (
+          <div className="taxonomy-table-loading" aria-busy="true">
+            {Array.from({ length: 6 }, (_, index) => (
+              <span key={index} />
+            ))}
+            <span className="sr-only">Cargando catálogo de taxonomía</span>
           </div>
-          {treeQuery.isPending ? <div className="spaces-tree-loading">Cargando estructura…</div>
-          : treeQuery.isError ? <div className="spaces-tree-error" role="alert"><WarningCircle weight="fill" /><strong>Error: {treeQuery.error?.message || "Desconocido"}</strong><button type="button" onClick={() => void treeQuery.refetch()}>Reintentar</button></div>
-          : <SpaceTreeExplorerWrapper families={families} selectedId={selection?.id ?? ""} onSelect={selectNode} onAddChild={handleAddChild} visibleIds={visibleIds} />}
-        </aside>
+        ) : catalogQuery.isError ? (
+          <div className="taxonomy-state-panel" role="alert">
+            <WarningCircle size={32} weight="duotone" />
+            <strong>No se pudo cargar la taxonomía</strong>
+            <p>El catálogo no está disponible. Los datos existentes no fueron modificados.</p>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => catalogQuery.refetch()}
+            >
+              <ArrowsClockwise /> Reintentar
+            </button>
+          </div>
+        ) : !catalog.length ? (
+          <div className="taxonomy-state-panel">
+            <Tag size={32} weight="duotone" />
+            <strong>Aún no existe una taxonomía operativa</strong>
+            <p>
+              Crea el primer prefijo para habilitar la clasificación y generación de códigos FM.
+            </p>
+            <Link className="button button-primary" to="/administracion/taxonomia/nueva">
+              <Plus /> Crear primera taxonomía
+            </Link>
+          </div>
+        ) : (
+          <>
+            <ListFilterPanel
+              title="Explorar taxonomía"
+              description="Filtra por jerarquía, validación y disponibilidad para nuevos códigos."
+              searchLabel="Buscar prefijo o clasificación"
+              searchPlaceholder="AAP, aire acondicionado, especialidad o alias"
+              searchValue={values.q}
+              onSearchChange={(value) => setValue("q", value)}
+              resultCount={filtered.length}
+              totalCount={catalog.length}
+              activeFilters={activeFilters}
+              onClear={clearFilters}
+              quickFilters={[
+                {
+                  key: "active",
+                  label: "Activas",
+                  count: activeCount,
+                  active: values.status === "active",
+                  onSelect: () => setValue("status", values.status === "active" ? "" : "active"),
+                },
+                {
+                  key: "review",
+                  label: "Requieren revisión",
+                  count: reviewCount,
+                  active: values.review === "REVIEW",
+                  onSelect: () => setValue("review", values.review === "REVIEW" ? "" : "REVIEW"),
+                },
+                {
+                  key: "inactive",
+                  label: "Inactivas",
+                  count: inactiveCount,
+                  active: values.status === "inactive",
+                  onSelect: () =>
+                    setValue("status", values.status === "inactive" ? "" : "inactive"),
+                },
+              ]}
+            >
+              <FilterSelect
+                label="Estado"
+                value={values.status}
+                onChange={(value) => setValue("status", value)}
+                options={[
+                  { value: "active", label: "Activa", count: activeCount },
+                  { value: "inactive", label: "Inactiva", count: inactiveCount },
+                ]}
+                allLabel="Cualquier estado"
+              />
+              <FilterSelect
+                label="Validación"
+                value={values.review}
+                onChange={(value) => setValue("review", value)}
+                options={[
+                  { value: "VALIDATED", label: "Validada" },
+                  { value: "REVIEW", label: "Requiere revisión" },
+                ]}
+                allLabel="Cualquier validación"
+              />
+              <FilterSelect
+                label="Tipo de bien"
+                value={values.type}
+                onChange={(value) => setValue("type", value)}
+                options={typeOptions}
+                allLabel="Todos los tipos"
+              />
+              <FilterSelect
+                label="Categoría"
+                value={values.category}
+                onChange={(value) => setValue("category", value)}
+                options={categoryOptions}
+                allLabel="Todas las categorías"
+              />
+              <FilterSelect
+                label="Especialidad"
+                value={values.specialty}
+                onChange={(value) => setValue("specialty", value)}
+                options={specialtyOptions}
+                allLabel="Todas las especialidades"
+              />
+              <FilterSelect
+                label="Mantenimiento"
+                value={values.maintenance}
+                onChange={(value) => setValue("maintenance", value)}
+                options={[
+                  { value: "true", label: "Requerido" },
+                  { value: "false", label: "No requerido" },
+                ]}
+                allLabel="Cualquier regla"
+              />
+            </ListFilterPanel>
 
-        <main className="spaces-inspector-pane">
-          {renderRightPane()}
-        </main>
-      </section>
+            <div className="table-scroll taxonomy-table-wrap">
+              <table className="taxonomy-table">
+                <thead>
+                  <tr>
+                    <th>Prefijo</th>
+                    <th>Nombre y jerarquía</th>
+                    <th>Especialidad</th>
+                    <th>Secuencia</th>
+                    <th>Uso</th>
+                    <th>Estado</th>
+                    <th>
+                      <span className="sr-only">Acciones</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <code className="taxonomy-prefix-code">{item.prefix}</code>
+                      </td>
+                      <td>
+                        <strong>{item.name}</strong>
+                        <small>
+                          {item.assetType} / {item.category} / {item.subcategory}
+                        </small>
+                      </td>
+                      <td>{item.specialty}</td>
+                      <td>
+                        <strong>
+                          {item.prefix}-{"0".repeat(item.sequenceDigits)}
+                        </strong>
+                        <small>
+                          Último:{" "}
+                          {item.lastSequence
+                            ? `${item.prefix}-${String(item.lastSequence).padStart(item.sequenceDigits, "0")}`
+                            : "Sin emisiones"}
+                        </small>
+                      </td>
+                      <td>
+                        <strong>{item.assetCount}</strong>
+                        <small>bienes</small>
+                      </td>
+                      <td>
+                        <span
+                          className={`status ${!item.active ? "status-neutral" : item.reviewStatus === "REVIEW" || !item.issuanceEnabled ? "status-warning" : "status-success"}`}
+                        >
+                          {!item.active
+                            ? "Inactiva"
+                            : !item.issuanceEnabled
+                              ? "Emisión bloqueada"
+                              : taxonomyReviewLabels[item.reviewStatus]}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="taxonomy-row-actions">
+                          <Link
+                            to={`/administracion/taxonomia/codigos?taxonomy=${encodeURIComponent(item.id)}`}
+                            aria-label={`Ver códigos de ${item.prefix}`}
+                          >
+                            <Barcode />
+                          </Link>
+                          <Link
+                            to={`/administracion/taxonomia/${item.id}/editar`}
+                            aria-label={`Editar ${item.prefix}`}
+                          >
+                            <PencilSimple />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => askForStateChange(item)}
+                            aria-label={`${item.active ? "Desactivar" : "Activar"} ${item.prefix}`}
+                          >
+                            <Power />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="taxonomy-mobile-list">
+              {filtered.map((item) => (
+                <article className="taxonomy-classification-card" key={item.id}>
+                  <header>
+                    <code>{item.prefix}</code>
+                    <span className={`status ${item.active ? "status-success" : "status-neutral"}`}>
+                      {item.active ? "Activa" : "Inactiva"}
+                    </span>
+                  </header>
+                  <h2>{item.name}</h2>
+                  <p>
+                    {item.assetType} / {item.category}
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Formato</dt>
+                      <dd>
+                        {item.prefix}-{"0".repeat(item.sequenceDigits)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Bienes</dt>
+                      <dd>{item.assetCount}</dd>
+                    </div>
+                  </dl>
+                  <div className="taxonomy-mobile-actions">
+                    <Link
+                      to={`/administracion/taxonomia/codigos?taxonomy=${encodeURIComponent(item.id)}`}
+                      aria-label={`Ver códigos de ${item.prefix}`}
+                    >
+                      <Barcode /> Códigos
+                    </Link>
+                    <Link
+                      to={`/administracion/taxonomia/${item.id}/editar`}
+                      aria-label={`Editar ${item.prefix}`}
+                    >
+                      Editar <CaretRight />
+                    </Link>
+                    <button type="button" onClick={() => askForStateChange(item)}>
+                      <Power /> {item.active ? "Desactivar" : "Activar"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {!filtered.length && (
+              <div className="taxonomy-filter-empty">
+                <Tag size={26} />
+                <strong>No hay coincidencias</strong>
+                <p>Ajusta o restablece los filtros para ampliar la búsqueda.</p>
+                <button type="button" onClick={clearFilters}>
+                  Restablecer filtros
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <dialog
+        ref={dialogRef}
+        className="taxonomy-action-dialog"
+        aria-labelledby="taxonomy-action-title"
+        onClose={() => setTarget(null)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) dialogRef.current?.close();
+        }}
+      >
+        {target && (
+          <section>
+            <header>
+              <div>
+                <span>{target.active ? "Desactivar taxonomía" : "Activar taxonomía"}</span>
+                <h2 id="taxonomy-action-title">
+                  {target.prefix} — {target.name}
+                </h2>
+              </div>
+              <button type="button" onClick={() => dialogRef.current?.close()} aria-label="Cerrar">
+                <X />
+              </button>
+            </header>
+            <p>
+              {target.active
+                ? `Dejará de estar disponible para nuevos registros. Los ${target.assetCount} bienes existentes conservarán su código e historial.`
+                : "Volverá a estar disponible para clasificar bienes y emitir nuevos códigos FM."}
+            </p>
+            {actionError && (
+              <div className="taxonomy-dialog-error" role="alert">
+                <WarningCircle /> {actionError}
+              </div>
+            )}
+            <footer>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => dialogRef.current?.close()}
+              >
+                Cancelar
+              </button>
+              <button
+                className={`button ${target.active ? "button-danger" : "button-primary"}`}
+                type="button"
+                disabled={activation.isPending}
+                onClick={confirmStateChange}
+              >
+                {activation.isPending ? "Guardando…" : target.active ? "Desactivar" : "Activar"}
+              </button>
+            </footer>
+          </section>
+        )}
+      </dialog>
     </section>
-  );
-}
-
-// Wrapper for css styling reused from spaces
-function SpaceTreeExplorerWrapper(props: any) {
-  return (
-    <div className="space-tree-wrapper taxonomy-tree-wrapper">
-      <TaxonomyTreeExplorer {...props} />
-    </div>
   );
 }

@@ -16,7 +16,6 @@ import {
   type AssignmentCatalog,
   type DeliveryPayload,
 } from "@/modules/assignments/assignmentRepository";
-import { ListFilterPanel, FilterSelect } from "@/components/filters/ListFilterPanel";
 
 const steps = ["Bien", "Responsable", "Ubicación y entrega", "Evidencias y firmas", "Revisión"];
 const empty: DeliveryPayload = {
@@ -215,8 +214,6 @@ export function AssignmentWizardPage() {
   const [draft, setDraft] = useState(empty);
   const [step, setStep] = useState(0);
   const [type, setType] = useState<"PERSONA" | "AREA" | "ESPACIO_COMUN">("PERSONA");
-  const [responsibleQuery, setResponsibleQuery] = useState("");
-  const [assetQuery, setAssetQuery] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<Awaited<ReturnType<typeof deliverAsset>> | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -345,8 +342,8 @@ export function AssignmentWizardPage() {
         </div>
       </section>
     );
-  const assets = (catalog?.assets || []).filter((x) => !assetQuery || [x.name, x.brand, x.model, getAssignmentAssetDisplayCode(x)].some(val => val?.toLowerCase().includes(assetQuery.toLowerCase()))),
-    responsibles = (catalog?.responsibles || []).filter((x) => x.type === type && (!responsibleQuery || [x.display_name, x.area_name, x.external_reference].some(val => val?.toLowerCase().includes(responsibleQuery.toLowerCase())))),
+  const assets = catalog?.assets || [],
+    responsibles = (catalog?.responsibles || []).filter((x) => x.type === type),
     locations = catalog?.locations || [];
   return (
     <section className="assignment-wizard">
@@ -385,123 +382,64 @@ export function AssignmentWizardPage() {
           </header>
           {step === 0 && (
             <div className="section-gap">
-              <ListFilterPanel
-                title="Bienes disponibles"
-                description="Busca y selecciona el bien que se entregará."
-                searchLabel="Buscar bien operativo"
-                searchPlaceholder="Código, marca, modelo o nombre"
-                searchValue={assetQuery}
-                onSearchChange={setAssetQuery}
-                resultCount={assets.length}
-                totalCount={catalog?.assets?.length || 0}
-                activeFilters={[]}
-                onClear={() => setAssetQuery("")}
-              >
-                <FilterSelect
-                  label="Estado"
-                  value=""
-                  onChange={() => {}}
-                  options={[]}
-                  allLabel="Todos los estados"
-                  disabled
-                />
-              </ListFilterPanel>
-              <div className="responsive-table" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th aria-label="Selección" style={{ width: '40px' }} />
-                      <th>Código</th>
-                      <th>Bien y modelo</th>
-                      <th>Condición y estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assets.length === 0 ? (
-                      <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>No se encontraron bienes disponibles.</td></tr>
-                    ) : (
-                      assets.map((x) => (
-                        <tr key={x.id} style={{ cursor: 'pointer', background: draft.asset_id === x.id ? 'var(--highlight)' : undefined }} onClick={() => set("asset_id", x.id)}>
-                          <td>
-                            <input type="radio" name="asset_selection" checked={draft.asset_id === x.id} readOnly />
-                          </td>
-                          <td><strong>{getAssignmentAssetDisplayCode(x)}</strong></td>
-                          <td>
-                            <strong>{x.name}</strong>
-                            <small>{x.brand} {x.model}</small>
-                          </td>
-                          <td>
-                            <span className="status-badge">{x.assignment_status}</span>
-                            <small>{x.condition}</small>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <label className="field">
+                <span>Bien disponible *</span>
+                <select value={draft.asset_id} onChange={(e) => set("asset_id", e.target.value)}>
+                  <option value="">Seleccionar bien</option>
+                  {assets.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {getAssignmentAssetDisplayCode(x)} — {x.name} ({x.assignment_status})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {draft.asset_id && (
+                <article className="selected-record">
+                  {assets
+                    .filter((x) => x.id === draft.asset_id)
+                    .map((x) => (
+                      <div key={x.id}>
+                        <strong>{getAssignmentAssetDisplayCode(x)}</strong>
+                        <h3>{x.name}</h3>
+                        <p>
+                          {x.brand} {x.model} · Condición {x.condition}
+                        </p>
+                      </div>
+                    ))}
+                </article>
+              )}
             </div>
           )}
           {step === 1 && (
             <div className="section-gap">
-              <ListFilterPanel
-                title="Directorio de responsables"
-                description="Filtra y selecciona quién recibirá el bien."
-                searchLabel="Buscar responsable"
-                searchPlaceholder="Nombre, área, cargo o código"
-                searchValue={responsibleQuery}
-                onSearchChange={setResponsibleQuery}
-                resultCount={responsibles.length}
-                totalCount={catalog?.responsibles?.length || 0}
-                activeFilters={type !== "PERSONA" ? [{ key: "type", label: "Tipo", value: type === "AREA" ? "Área" : "Espacio común", onRemove: () => setType("PERSONA") }] : []}
-                onClear={() => { setResponsibleQuery(""); setType("PERSONA"); }}
-              >
-                <FilterSelect
-                  label="Tipo de entidad"
-                  value={type}
-                  onChange={(val) => {
-                    setType(val as any);
-                    set("responsible_id", "");
-                  }}
-                  options={[
-                    { value: "PERSONA", label: "Persona" },
-                    { value: "AREA", label: "Área" },
-                    { value: "ESPACIO_COMUN", label: "Espacio común" }
-                  ]}
-                  allLabel="Todos los tipos"
-                />
-              </ListFilterPanel>
-              <div className="responsive-table" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th aria-label="Selección" style={{ width: '40px' }} />
-                      <th>Nombre / Identificador</th>
-                      <th>Área / Cargo</th>
-                      <th>Código interno</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {responsibles.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>
-                          No hay {type === "PERSONA" ? "personas" : type === "AREA" ? "áreas" : "espacios comunes"} disponibles.
-                        </td>
-                      </tr>
-                    ) : (
-                      responsibles.map((x) => (
-                        <tr key={x.id} style={{ cursor: 'pointer', background: draft.responsible_id === x.id ? 'var(--highlight)' : undefined }} onClick={() => set("responsible_id", x.id)}>
-                          <td>
-                            <input type="radio" name="responsible" checked={draft.responsible_id === x.id} readOnly />
-                          </td>
-                          <td><strong>{x.display_name}</strong></td>
-                          <td>{x.area_name || "—"}</td>
-                          <td><code>{x.external_reference}</code></td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+              <div className="segmented-control">
+                {(["PERSONA", "AREA", "ESPACIO_COMUN"] as const).map((x) => (
+                  <button
+                    type="button"
+                    className={type === x ? "is-active" : ""}
+                    onClick={() => {
+                      setType(x);
+                      set("responsible_id", "");
+                    }}
+                    key={x}
+                  >
+                    {x === "PERSONA" ? "Persona" : x === "AREA" ? "Área" : "Espacio común"}
+                  </button>
+                ))}
+              </div>
+              <div className="responsible-options">
+                {responsibles.map((x) => (
+                  <label className={draft.responsible_id === x.id ? "is-selected" : ""} key={x.id}>
+                    <input
+                      type="radio"
+                      name="responsible"
+                      checked={draft.responsible_id === x.id}
+                      onChange={() => set("responsible_id", x.id)}
+                    />
+                    <strong>{x.display_name}</strong>
+                    <small>{x.area_name || x.external_reference}</small>
+                  </label>
+                ))}
               </div>
               <label className="field">
                 <span>Motivo de la asignación *</span>

@@ -1,16 +1,35 @@
-import { Plus, MagnifyingGlass, Funnel, ArrowClockwise } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, Funnel, ArrowClockwise, FileXls, ClipboardText } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
-import { listMovimientos } from "@/modules/almacen/inventarioRepository";
+import { listMovimientos, listGruposSolicitud, descargarExcelMovimientos } from "@/modules/almacen/inventarioRepository";
+import { useAuth } from "@/modules/accounts/AuthContext";
 import type { TipoMovimiento } from "@/modules/almacen/types";
+
+const MESES_ES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
 
 export function MovimientosPage() {
   const { almacenId } = useAlmacenActivo();
+  const { user } = useAuth();
   const [q, setQ] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimiento | "todos">("todos");
+  const [exportando, setExportando] = useState(false);
+
+  const esAdmin = user?.role === "ADMINISTRADOR";
+
+  async function handleExportarExcel() {
+    setExportando(true);
+    try {
+      await descargarExcelMovimientos();
+    } finally {
+      setExportando(false);
+    }
+  }
 
   const {
     data: movimientos,
@@ -26,22 +45,103 @@ export function MovimientosPage() {
     enabled: !!almacenId,
   });
 
-  // La API no soporta búsqueda por texto en el backend, así que filtramos en el cliente.
+  const { data: gruposPendientes = [] } = useQuery({
+    queryKey: ["grupos-solicitud", "pendiente"],
+    queryFn: () => listGruposSolicitud({ estado: "pendiente" }),
+    enabled: esAdmin,
+  });
+
+  // Filtro de búsqueda integral: código, material, ubicación, fecha, cantidad, stock crítico, responsable y OT.
   const lista = useMemo(() => {
     const base = movimientos ?? [];
     if (!q.trim()) return base;
 
     const term = q.trim().toLowerCase();
+    const esNumero = !isNaN(Number(term));
+    const numTerm = Number(term);
+
     return base.filter((mov: any) => {
       const campos = [
         mov.material_codigo,
         mov.material_nombre,
+        mov.material_ubicacion,
         mov.pieza_codigo,
         mov.pieza_nombre,
         mov.referencia_externa,
         mov.work_order_code,
+        mov.responsable_nombre,
+        mov.observaciones,
       ];
-      return campos.some((campo) => campo?.toString().toLowerCase().includes(term));
+
+      // Coincidencia textual en campos
+      if (campos.some((campo) => campo?.toString().toLowerCase().includes(term))) {
+        return true;
+      }
+
+      // Coincidencia en fecha (DD/MM/YYYY, D/M/YYYY, nombre de mes, año)
+      if (mov.fecha) {
+        const d = new Date(mov.fecha);
+        if (!isNaN(d.getTime())) {
+          const dia = d.getDate();
+          const mes = d.getMonth() + 1;
+          const anio = d.getFullYear();
+          const diaStr = String(dia).padStart(2, "0");
+          const mesStr = String(mes).padStart(2, "0");
+          const nombreMes = MESES_ES[d.getMonth()] ?? "";
+
+          const formatosFecha = [
+            `${diaStr}/${mesStr}/${anio}`,
+            `${dia}/${mes}/${anio}`,
+            `${diaStr}/${mesStr}`,
+            `${dia}/${mes}`,
+            `${dia} de ${nombreMes}`,
+            nombreMes,
+            String(anio),
+            d.toLocaleDateString("es-PE"),
+          ];
+
+          if (formatosFecha.some((f) => f.toLowerCase().includes(term))) {
+            return true;
+          }
+        }
+      }
+
+      // Coincidencia en cantidad
+      if (
+        mov.cantidad?.toString().includes(term) ||
+        mov.cantidad_cajas?.toString().includes(term)
+      ) {
+        return true;
+      }
+
+      // Búsqueda por término de stock crítico / bajo
+      if (
+        term === "critico" ||
+        term === "crítico" ||
+        term === "stock critico" ||
+        term === "stock crítico" ||
+        term === "bajo" ||
+        term === "stock bajo"
+      ) {
+        if (
+          mov.material_stock_minimo > 0 &&
+          mov.material_cantidad_total <= mov.material_stock_minimo
+        ) {
+          return true;
+        }
+      }
+
+      // Coincidencia numérica con cantidad o stock crítico
+      if (
+        esNumero &&
+        (mov.cantidad === numTerm ||
+          mov.material_stock_minimo === numTerm ||
+          mov.material_cantidad_total === numTerm)
+      ) {
+        return true;
+      }
+
+      return false;
     });
   }, [movimientos, q]);
 
@@ -56,13 +156,41 @@ export function MovimientosPage() {
           <p className="breadcrumb">Almacén / Movimientos</p>
           <h1 style={{ margin: 0 }}>Historial de Movimientos</h1>
         </div>
-        <Link
-          to={`/almacen/${almacenId}/movimientos/nuevo`}
-          className="button button-primary"
-          style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-        >
-          <Plus size={18} weight="bold" /> Registrar movimiento
-        </Link>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {esAdmin && (
+            <>
+              {gruposPendientes.length > 0 && (
+                <Link
+                  to={`/almacen/${almacenId}/movimientos/solicitudes`}
+                  className="button button-secondary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <ClipboardText size={17} />
+                  Solicitudes
+                  <span style={{ background: "#f59e0b", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 12, fontWeight: 700 }}>
+                    {gruposPendientes.length}
+                  </span>
+                </Link>
+              )}
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportarExcel}
+                disabled={exportando}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                <FileXls size={17} /> {exportando ? "Exportando…" : "Exportar Excel"}
+              </button>
+            </>
+          )}
+          <Link
+            to={`/almacen/${almacenId}/movimientos/nuevo`}
+            className="button button-primary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+          >
+            <Plus size={18} weight="bold" /> Registrar movimiento
+          </Link>
+        </div>
       </div>
 
       {/* Controles y Filtros */}
@@ -75,7 +203,7 @@ export function MovimientosPage() {
           <input
             type="search"
             className="input-search"
-            placeholder="Buscar por código, material o referencia..."
+            placeholder="Buscar por código, material, ubicación, fecha, cantidad, stock crítico u OT..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ paddingLeft: 36, width: "100%" }}
@@ -141,7 +269,7 @@ export function MovimientosPage() {
                 return (
                   <tr key={mov.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
-                      {mov.creado_at ? new Date(mov.creado_at).toLocaleString() : "—"}
+                      {mov.fecha ? new Date(mov.fecha).toLocaleString("es-PE") : "—"}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
                       <span
@@ -163,10 +291,15 @@ export function MovimientosPage() {
                       <div style={{ fontSize: 12, color: "var(--muted)" }}>
                         {mov.material_nombre || mov.pieza_nombre || "—"}
                       </div>
+                      {mov.material_ubicacion && (
+                        <div style={{ fontSize: 11, color: "var(--primary, #2563eb)", marginTop: 2 }}>
+                          📍 {mov.material_ubicacion}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: "12px 16px", fontWeight: 600 }}>
                       {mov.cantidad_cajas
-                        ? `${mov.cantidad_cajas} caja(s)`
+                        ? `${mov.cantidad_cajas} emp. (${mov.cantidad} u.)`
                         : `${mov.cantidad ?? 1} u.`}
                     </td>
                     <td style={{ padding: "12px 16px" }}>

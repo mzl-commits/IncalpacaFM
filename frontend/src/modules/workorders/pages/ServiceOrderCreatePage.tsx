@@ -1,9 +1,7 @@
 import { ArrowLeft, FloppyDisk } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import { getWorkRequestById, updateWorkRequest } from "@/modules/incidents/incidentRepository";
-import type { WorkRequest } from "@/modules/incidents/types";
 import { useLocations } from "@/modules/assets/locationMapQueries";
 import { addWorkOrderCost, createWorkOrder } from "@/modules/workorders/workOrderRepository";
 
@@ -48,12 +46,8 @@ function unique(values: string[]) {
 
 export function ServiceOrderCreatePage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const linkedRequestId = new URLSearchParams(location.search).get("request");
-  const backPath = linkedRequestId ? `/incidencias/${linkedRequestId}` : "/ordenes-trabajo";
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
-  const [linkedRequest, setLinkedRequest] = useState<WorkRequest | null>(null);
   const [form, setForm] = useState<ServiceOrderFormState>(initialForm);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -78,37 +72,6 @@ export function ServiceOrderCreatePage() {
     [form.area, form.building, form.zone, locations],
   );
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
-
-  useEffect(() => {
-    let isMounted = true;
-    if (!linkedRequestId) {
-      setLinkedRequest(null);
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    void getWorkRequestById(linkedRequestId)
-      .then((request) => {
-        if (!isMounted) return;
-        setLinkedRequest(request);
-        setForm((current) => ({
-          ...current,
-          description: current.description || request.description,
-          zone: current.zone || request.zone,
-          building: current.building || request.building,
-          area: current.area || request.area,
-          locationId: current.locationId || request.locationId,
-        }));
-      })
-      .catch(() => {
-        if (isMounted) setError("No se pudo cargar la solicitud vinculada.");
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [linkedRequestId]);
 
   useEffect(() => {
     setForm((current) => {
@@ -170,11 +133,9 @@ export function ServiceOrderCreatePage() {
       ].filter(Boolean).join("\n");
 
       const workOrder = await createWorkOrder({
-        requestId: linkedRequest?.id,
-        requestCode: linkedRequest?.code,
         orderType: "OS",
         directRequestDescription: form.description.trim(),
-        directRequestType: linkedRequest ? "OS desde solicitud" : "OS directa",
+        directRequestType: "OS directa",
         directLocationId: form.locationId,
         operatorId: "",
         operatorName: "",
@@ -196,13 +157,6 @@ export function ServiceOrderCreatePage() {
         amount,
       });
 
-      if (linkedRequest) {
-        await updateWorkRequest(linkedRequest.id, {
-          status: "CONVERTIDA_EN_OT",
-          workOrderId: workOrder.id,
-        });
-      }
-
       navigate(`/ordenes-trabajo/${workOrder.id}`);
     } catch (requestError) {
       const detail = requestError instanceof Error ? requestError.message : "";
@@ -220,7 +174,7 @@ export function ServiceOrderCreatePage() {
           <h1>Crear OS</h1>
           <p>Registra un servicio externo sin asignar horas ni operario interno.</p>
         </div>
-        <Link className="button button-secondary" to={backPath}>
+        <Link className="button button-secondary" to="/ordenes-trabajo/nueva">
           <ArrowLeft size={18} />
           Volver
         </Link>
@@ -350,7 +304,7 @@ export function ServiceOrderCreatePage() {
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-actions">
-          <Link className="button button-secondary" to={backPath}>Cancelar</Link>
+          <Link className="button button-secondary" to="/ordenes-trabajo/nueva">Cancelar</Link>
           <button className="button button-primary" type="submit" disabled={saving}>
             <FloppyDisk size={18} weight="bold" />
             {saving ? "Generando..." : "Generar OS"}

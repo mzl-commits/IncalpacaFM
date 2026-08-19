@@ -3,13 +3,7 @@ from datetime import timedelta
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import (
-    DataSubjectRequest,
-    PersonalDataIncident,
-    PrivacyAcknowledgement,
-    PrivacyNotice,
-    ProcessingInventory,
-)
+from .models import DataSubjectRequest, PersonalDataIncident, PrivacyAcknowledgement, PrivacyNotice, ProcessingInventory
 
 
 class PrivacyNoticeSerializer(serializers.ModelSerializer):

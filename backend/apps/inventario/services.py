@@ -1,11 +1,9 @@
-import uuid
-
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.catalogo.models import Material, Pieza
 from apps.inventario.models import Movimiento
-
+import uuid
 
 def _sincronizar_estado_contenedor(contenedor: Pieza):
     """Recalcula el estado del contenedor según sus hijas activas (no-Baja):
@@ -22,12 +20,15 @@ def _sincronizar_estado_contenedor(contenedor: Pieza):
 
     Pieza.objects.filter(pk=contenedor.pk).update(estado=nuevo_estado)
 
-def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones="", cantidad_cajas=None, lote_id=""):
+def registrar_salida_material(material: Material, cantidad: int, responsable, referencia_externa="", observaciones="", cantidad_cajas=None, lote_id="", unidad_movimiento=None, cantidad_en_unidad_movimiento=None):
     """
     Para materiales NO retornables (o retornables sin control individual, ej. brocas sueltas):
     descuenta cantidad_total de inmediato y deja el registro histórico.
-    'cantidad' siempre está en unidades; 'cantidad_cajas' es solo trazabilidad opcional
-    cuando el material se maneja por caja.
+    'cantidad' siempre está en la unidad base del material (unidades sueltas, o
+    unidad_movimiento_base para materiales tipo Rollo). 'cantidad_cajas' y
+    'unidad_movimiento'/'cantidad_en_unidad_movimiento' son solo trazabilidad
+    opcional de cómo se originó esa cantidad (por empaque, o convertida desde
+    otra unidad de la misma familia).
     """
     if material.control_individual:
         raise ValidationError(
@@ -44,6 +45,8 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
             tipo="salida",
             cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
+            unidad_movimiento=unidad_movimiento,
+            cantidad_en_unidad_movimiento=cantidad_en_unidad_movimiento,
             responsable=responsable,
             referencia_externa=referencia_externa,
             lote_id=lote_id,
@@ -53,10 +56,12 @@ def registrar_salida_material(material: Material, cantidad: int, responsable, re
         Material.objects.filter(pk=material.pk).update(
             cantidad_total=material.cantidad_total - cantidad
         )
+    nuevo_total = material.cantidad_total - cantidad
+    _check_and_notify_stock_bajo(material, nuevo_total)
     return mov
 
 
-def registrar_entrada_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None):
+def registrar_entrada_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None, unidad_movimiento=None, cantidad_en_unidad_movimiento=None):
     """Reingreso de stock (ej. compra nueva, o una pieza que finalmente aparece)."""
     if material.control_individual:
         raise ValidationError(
@@ -66,6 +71,8 @@ def registrar_entrada_material(material: Material, cantidad: int, responsable, o
         mov = Movimiento.objects.create(
             material=material, tipo="entrada", cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
+            unidad_movimiento=unidad_movimiento,
+            cantidad_en_unidad_movimiento=cantidad_en_unidad_movimiento,
             responsable=responsable, observaciones=observaciones,
             almacen=material.almacen,
         )
@@ -75,7 +82,7 @@ def registrar_entrada_material(material: Material, cantidad: int, responsable, o
     return mov
 
 
-def registrar_baja_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None):
+def registrar_baja_material(material: Material, cantidad: int, responsable, observaciones="", cantidad_cajas=None, unidad_movimiento=None, cantidad_en_unidad_movimiento=None):
     """Confirma pérdida/rotura de cantidad no reconciliada (ej. brocas)."""
     if material.control_individual:
         raise ValidationError(
@@ -89,6 +96,8 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
         mov = Movimiento.objects.create(
             material=material, tipo="baja", cantidad=cantidad,
             cantidad_cajas=cantidad_cajas,
+            unidad_movimiento=unidad_movimiento,
+            cantidad_en_unidad_movimiento=cantidad_en_unidad_movimiento,
             responsable=responsable, observaciones=observaciones,
             almacen=material.almacen,
         )
@@ -98,6 +107,7 @@ def registrar_baja_material(material: Material, cantidad: int, responsable, obse
     # Notificar si stock queda en 0
     if nuevo_total == 0:
         _notify_zero_stock(material)
+    _check_and_notify_stock_bajo(material, nuevo_total)
     return mov
 
 def registrar_salida_pieza(pieza: Pieza, responsable, referencia_externa="", observaciones="", piezas_hijas_ids=None):
@@ -212,6 +222,40 @@ def registrar_baja_pieza(pieza: Pieza, responsable, observaciones=""):
     # Notificar baja definitiva de pieza a Inspectores + Admin
     _notify_pieza_retirada(pieza, mov)
     return mov
+
+
+def _check_and_notify_stock_bajo(material: "Material", nuevo_total: int) -> None:
+    """Dispara notificación de stock bajo si el nuevo total cae al umbral configurado.
+    Usa deduplicación diaria para no inundar a los administradores."""
+    if material.stock_minimo > 0 and nuevo_total <= material.stock_minimo:
+        _notify_stock_bajo(material, nuevo_total)
+
+
+def _notify_stock_bajo(material: "Material", stock_actual: int) -> None:
+    """Notifica a Administradores cuando el stock de un material cae al umbral mínimo configurado."""
+    try:
+        from apps.notifications.services import queue_for_administrators, daily_discriminator
+        queue_for_administrators(
+            event="STOCK_BAJO",
+            subject=f"Stock bajo: {material.nombre} ({material.codigo})",
+            body=(
+                f"El stock de «{material.nombre}» (código: {material.codigo}) "
+                f"ha bajado a {stock_actual} unidades "
+                f"(umbral configurado: {material.stock_minimo}). "
+                f"Se recomienda revisar la reposición."
+            ),
+            entity=material,
+            context={
+                "materialId": material.id,
+                "materialNombre": material.nombre,
+                "materialCodigo": material.codigo,
+                "stockActual": stock_actual,
+                "stockMinimo": material.stock_minimo,
+            },
+            discriminator=daily_discriminator(f"stock-bajo-{material.id}"),
+        )
+    except Exception:
+        pass  # No bloquear la operación por un fallo de notificación
 
 
 def _notify_pieza_retirada(pieza: "Pieza", movimiento: "Movimiento"):

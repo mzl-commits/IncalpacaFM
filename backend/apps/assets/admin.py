@@ -1,7 +1,5 @@
 from django.contrib import admin
-
 from .models import BuildingArea, Location
-
 
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):

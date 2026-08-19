@@ -8,9 +8,6 @@ from apps.assets.models import (
     Asset,
     AssetInternalSequence,
     Taxonomy,
-    TaxonomyFamily,
-    TaxonomyPart,
-    TaxonomyPiece,
     TaxonomySequence,
 )
 
@@ -81,6 +78,15 @@ def allocate_fm_identifier(taxonomy):
     )
     sequence = TaxonomySequence.objects.select_for_update().get(pk=sequence.pk)
     next_value = sequence.last_value + 1
+    if next_value >= 10**taxonomy.sequence_digits:
+        raise ValidationError(
+            {
+                "taxonomy_id": (
+                    f"La secuencia {taxonomy.prefix} agotó sus "
+                    f"{taxonomy.sequence_digits} dígitos."
+                )
+            }
+        )
     sequence.last_value = next_value
     sequence.save(update_fields=("last_value", "updated_at"))
     return f"{taxonomy.prefix}-{next_value:0{taxonomy.sequence_digits}d}", next_value
@@ -166,31 +172,3 @@ def sync_taxonomy_catalog():
         review_status=Taxonomy.ReviewStatus.REVIEW,
     )
     return seeded
-
-
-@transaction.atomic
-def delete_taxonomy_family(family: TaxonomyFamily):
-    if family.types.exists():
-        raise ValidationError({"detail": "No se puede borrar la familia porque contiene tipos de bienes registrados."})
-    family.delete()
-
-
-@transaction.atomic
-def delete_taxonomy(taxonomy: Taxonomy):
-    if taxonomy.parts.exists():
-        raise ValidationError({"detail": "No se puede borrar el tipo porque contiene partes registradas."})
-    if Asset.objects.filter(taxonomy=taxonomy).exists():
-        raise ValidationError({"detail": "No se puede borrar el tipo porque existen bienes que lo utilizan."})
-    taxonomy.delete()
-
-
-@transaction.atomic
-def delete_taxonomy_part(part: TaxonomyPart):
-    if part.pieces.exists():
-        raise ValidationError({"detail": "No se puede borrar la parte porque contiene piezas registradas."})
-    part.delete()
-
-
-@transaction.atomic
-def delete_taxonomy_piece(piece: TaxonomyPiece):
-    piece.delete()

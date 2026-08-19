@@ -3,8 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
-from apps.assets.storage import private_asset_photo_storage
 from apps.incidents.models import Incident
+from apps.assets.storage import private_asset_photo_storage
 
 
 class WorkOrder(models.Model):
@@ -42,6 +42,17 @@ class WorkOrder(models.Model):
     )
     supporting_technicians = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="supporting_technical_orders", blank=True
+    )
+    almaceneros_autorizados = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="ordenes_almacen_autorizadas",
+        blank=True,
+        help_text=(
+            "Almaceneros que pueden ver y usar esta OT en el módulo de "
+            "movimientos de inventario. Gestionado por el ADMINISTRADOR, "
+            "ya que una OT solo debe ser visible para el/los almacenero(s) "
+            "del almacén al que corresponde."
+        ),
     )
     supervisor = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="supervised_orders", on_delete=models.PROTECT
@@ -110,14 +121,6 @@ class WorkOrderCost(models.Model):
     category = models.CharField(max_length=16, choices=Category.choices)
     description = models.CharField(max_length=240)
     amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    source_material = models.ForeignKey(
-        "catalogo.Material",
-        related_name="costos_generados_en_ot",
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        help_text="Material que originÃ³ este costo calculado automÃ¡ticamente.",
-    )
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="work_order_costs", on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -196,13 +199,6 @@ class WorkOrderMaterial(models.Model):
         on_delete=models.PROTECT,
     )
     cantidad = models.PositiveIntegerField()
-    precio_unitario = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Precio aplicado a este uso. Solo influye cuando el material es consumible.",
-    )
     tipo = models.CharField(
         max_length=24,
         choices=Tipo.choices,

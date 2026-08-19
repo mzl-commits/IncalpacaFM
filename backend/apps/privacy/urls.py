@@ -1,18 +1,6 @@
 from django.urls import path
 
-from .views import (
-    ActivePrivacyNoticeView,
-    AdminArcoRequestDetailView,
-    AdminArcoRequestListView,
-    AdminPrivacyNoticeDetailView,
-    AdminPrivacyNoticeListView,
-    ArcoRequestCreateView,
-    PersonalDataIncidentDetailView,
-    PersonalDataIncidentListView,
-    PrivacyAcknowledgementCreateView,
-    ProcessingInventoryDetailView,
-    ProcessingInventoryListView,
-)
+from .views import (ActivePrivacyNoticeView, AdminArcoRequestDetailView, AdminArcoRequestListView, AdminPrivacyNoticeDetailView, AdminPrivacyNoticeListView, ArcoRequestCreateView, PersonalDataIncidentDetailView, PersonalDataIncidentListView, PrivacyAcknowledgementCreateView, ProcessingInventoryDetailView, ProcessingInventoryListView)
 
 urlpatterns = [
     path("privacy/notices/active/", ActivePrivacyNoticeView.as_view()),

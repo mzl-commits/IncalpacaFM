@@ -1,4 +1,5 @@
 import {
+  CaretRight,
   Check,
   Copy,
   Cube,
@@ -12,13 +13,14 @@ import {
   Minus,
   Package,
   Plus,
+  Ruler,
   ShoppingCart,
   Stack,
   Trash,
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -26,8 +28,17 @@ import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
+import {
+  listCategorias,
+  listMateriales,
+  listSubcategorias,
+  eliminarAlmacenCroquis,
+} from "@/modules/almacen/catalogoRepository";
+
+import { CroquisUploader } from "@/modules/almacen/components/CroquisUploader";
+
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
+import { GestionUnidadesPanel } from "@/modules/almacen/components/GestionUnidadesPanel";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import type { Material } from "@/modules/almacen/types";
@@ -35,13 +46,15 @@ import type { Material } from "@/modules/almacen/types";
 const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
 
 export function CatalogoPage() {
-  const { almacenId } = useAlmacenActivo();
+  const { almacenId, almacen, puedeEditarCroquis } = useAlmacenActivo();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const isTechnician = user?.role === "TECNICO";
   const isInspector = user?.role === "INSPECTOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
+  const [mostrarGestionUnidades, setMostrarGestionUnidades] = useState(false);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [basket, setBasket] = useState<Record<number, number>>({});
   const [copiedBasket, setCopiedBasket] = useState(false);
@@ -166,15 +179,28 @@ export function CatalogoPage() {
           <p className="page-description">Ficha maestra de herramientas y materiales del almacén.</p>
         </div>
         <div className="header-actions">
-          {!isTechnician && <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setMostrarGestionCat((v) => !v)}
-            title="Administrar categorías y subcategorías"
-          >
-            <FolderPlus size={18} />
-            <span>Categorías</span>
-          </button>}
+          {!isTechnician && (
+            <>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setMostrarGestionCat((v) => !v)}
+                title="Administrar categorías y subcategorías"
+              >
+                <FolderPlus size={18} />
+                <span>Categorías</span>
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setMostrarGestionUnidades((v) => !v)}
+                title="Administrar unidades de medida y tipos de manejo de stock"
+              >
+                <Ruler size={18} />
+                <span>Unidades</span>
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="btn-secondary"
@@ -196,6 +222,11 @@ export function CatalogoPage() {
       {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE CATEGORÍAS */}
       {mostrarGestionCat && (
         <GestionCategoriasPanel onClose={() => setMostrarGestionCat(false)} />
+      )}
+
+      {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE UNIDADES DE MEDIDA / MANEJO DE STOCK */}
+      {mostrarGestionUnidades && (
+        <GestionUnidadesPanel onClose={() => setMostrarGestionUnidades(false)} />
       )}
 
       {/* Croquis del almacén — imagen fija */}
@@ -224,10 +255,17 @@ export function CatalogoPage() {
           </div>
           <div style={{ background: "#f8fafc" }}>
             <img
-              src="/croquis_almacen.png"
-              alt="Croquis del almacén: plano en planta, vista isométrica y leyenda de inventario"
+              src={almacen?.croquis || "/croquis_almacen.png"}
+              alt={`Croquis del almacén ${almacen?.nombre ?? ""}`}
               style={{ width: "100%", maxHeight: 640, objectFit: "contain", display: "block" }}
             />
+            {puedeEditarCroquis && (
+              <CroquisUploader
+                almacen={almacen}
+                almacenId={almacenId}
+                onUpdated={() => queryClient.invalidateQueries({ queryKey: ["almacen-detalle", almacenId] })}
+              />
+            )}
           </div>
         </div>
       )}
@@ -240,7 +278,7 @@ export function CatalogoPage() {
           </div>
           <div>
             <div className="kpi-number">{totalActivos}</div>
-            <div className="kpi-label">Materiales activos</div>
+            <div className="kpi-label">Total de Materiales</div>
           </div>
         </article>
 
@@ -296,7 +334,7 @@ export function CatalogoPage() {
               className="search-input"
               value={values.q}
               onChange={(e) => setValue("q", e.target.value)}
-              placeholder="Buscar por código, nombre, marca o categoría"
+              placeholder="Buscar por código, nombre, ubicación, cantidad o stock crítico..."
             />
           </div>
           <button

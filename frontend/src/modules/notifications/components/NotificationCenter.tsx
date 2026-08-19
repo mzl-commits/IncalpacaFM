@@ -21,6 +21,8 @@ function relativeDate(value: string) {
 
 function typeLabel(item: EmailNotification) {
   if (item.status === "ERROR") return "Requiere seguimiento";
+  if (item.event === "STOCK_BAJO") return "Stock bajo";
+  if (item.event === "STOCK_AGOTADO") return "Stock agotado";
   if (item.entityType === "GrupoSolicitud" || item.event.includes("SOLICITUD_GRUPO")) return "Solicitud de almacén";
   if (item.event.includes("WORK_ORDER")) return "Orden de trabajo";
   if (item.event.includes("INCIDENT")) return "Reporte";

@@ -29,7 +29,6 @@ type AssetApiRecord = {
   administrative_status: "Registrado";
   operational_status: "No evaluado";
   assignment_status: RegisteredAsset["assignmentStatus"];
-  full_assignment_code?: string | null;
   entry_payload: AssetEntryDraft;
   taxonomy_detail?: {
     id: string;
@@ -75,7 +74,6 @@ function mapAsset(item: AssetApiRecord): RegisteredAsset {
     administrativeStatus: item.administrative_status,
     operationalStatus: item.operational_status,
     assignmentStatus: item.assignment_status,
-    fullAssignmentCode: item.full_assignment_code ?? null,
     locationDetail: item.location_detail ? {
       id: item.location_detail.id,
       zone: item.location_detail.zone,

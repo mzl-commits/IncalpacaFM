@@ -20,30 +20,43 @@ export interface EmailNotification {
   readAt: string | null;
   last_error: string;
   createdAt: string;
+  almacenId?: number | null;
 }
 
 /** Resolves the operation associated with an in-app notification. */
 export function notificationActionPath(item: EmailNotification): string | null {
-  // Los resúmenes de inspección son agregados (no apuntan a un material puntual),
-  // así que no llevan entityId: se resuelven por evento, no por entidad.
-  if (item.event === "INSPECTION_OVERDUE") return "/almacen/inspecciones/vencidas";
-  if (item.event === "INSPECTION_DUE_SOON") return "/almacen/inspecciones";
-
-  if (!item.entityId) return null;
+  // Rutas agregadas de inspecciones
+  if (item.event === "INSPECTION_OVERDUE") {
+    return item.almacenId ? `/almacen/${item.almacenId}/inspecciones/vencidas` : null;
+  }
+  if (item.event === "INSPECTION_DUE_SOON") {
+    return item.almacenId ? `/almacen/${item.almacenId}/inspecciones` : null;
+  }
 
   if (item.entityType === "WorkOrder") {
+    if (!item.entityId) return null;
     if (["WORK_ORDER_ASSIGNED", "WORK_ORDER_TIME_EXCEEDED", "WORK_ORDER_TRACEABILITY_PENDING"].includes(item.event)) {
       return `/ordenes-trabajo/${item.entityId}/ejecutar`;
     }
     if (item.event === "REPAIR_FINISHED") return `/supervision?workOrder=${item.entityId}`;
     return `/ordenes-trabajo/${item.entityId}`;
   }
-  if (item.entityType === "Incident") return `/incidencias/${item.entityId}`;
-  if (item.entityType === "Asset") return `/bienes/${item.entityId}`;
-  if (item.entityType === "Assignment") return `/asignaciones/${item.entityId}`;
-  if (item.entityType === "GrupoSolicitud") return `/almacen/movimientos/solicitudes/${item.entityId}`;
-  if (item.entityType === "SolicitudMovimiento") return `/almacen/movimientos/solicitudes/${item.entityId}`;
-  if (item.entityType === "RetirementRequest") return `/bienes/ciclo-vida/bajas/${item.entityId}`;
+  if (item.entityType === "Incident") return item.entityId ? `/incidencias/${item.entityId}` : null;
+  if (item.entityType === "Asset") return item.entityId ? `/bienes/${item.entityId}` : null;
+  if (item.entityType === "Assignment") return item.entityId ? `/asignaciones/${item.entityId}` : null;
+  if (item.entityType === "GrupoSolicitud" || item.entityType === "SolicitudMovimiento") {
+    return item.almacenId && item.entityId ? `/almacen/${item.almacenId}/movimientos/solicitudes/${item.entityId}` : null;
+  }
+  if (item.entityType === "RetirementRequest") return item.entityId ? `/bienes/ciclo-vida/bajas/${item.entityId}` : null;
+  if (item.entityType === "Material" || item.event === "STOCK_BAJO" || item.event === "STOCK_AGOTADO" || item.event === "NEW_INSPECTABLE_MATERIAL") {
+    return item.almacenId && item.entityId ? `/almacen/${item.almacenId}/catalogo/${item.entityId}` : null;
+  }
+  if (item.entityType === "Inspeccion" || item.event === "INSPECTION_NON_CONFORMING") {
+    return item.almacenId && item.entityId ? `/almacen/${item.almacenId}/inspecciones/${item.entityId}` : null;
+  }
+  if (item.entityType === "PlanInspeccionAnual" || item.event === "INSPECTION_PLAN_SAVED") {
+    return item.almacenId ? `/almacen/${item.almacenId}/plan-anual` : null;
+  }
   return null;
 }
 

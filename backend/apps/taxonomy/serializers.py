@@ -3,77 +3,13 @@ import re
 from django.db import transaction
 from rest_framework import serializers
 
-from apps.assets.models import Asset, Taxonomy, TaxonomySequence, TaxonomyFamily, TaxonomyPart, TaxonomyPiece
+from apps.assets.models import Asset, Taxonomy, TaxonomySequence
 
 PREFIX_PATTERN = re.compile(r"^[A-Z][A-Z0-9]{0,15}$")
 
 
-class TaxonomyFamilySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TaxonomyFamily
-        fields = ("id", "code", "name", "active", "created_at", "updated_at")
-        read_only_fields = ("id", "created_at", "updated_at")
-
-    def validate_code(self, value):
-        normalized = value.strip().upper()
-        if TaxonomyFamily.objects.filter(code=normalized).exclude(pk=getattr(self.instance, 'pk', None)).exists():
-            raise serializers.ValidationError("Ya existe una familia con este código.")
-        return normalized
-
-
-class TaxonomyPieceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TaxonomyPiece
-        fields = ("id", "part", "piece_code", "name", "active", "created_at", "updated_at")
-        read_only_fields = ("id", "created_at", "updated_at")
-
-    def validate_piece_code(self, value):
-        normalized = value.strip().upper()
-        return normalized
-
-    def validate(self, attrs):
-        part = attrs.get('part', getattr(self.instance, 'part', None))
-        piece_code = attrs.get('piece_code', getattr(self.instance, 'piece_code', None))
-        if part and piece_code:
-            qs = TaxonomyPiece.objects.filter(part=part, piece_code=piece_code)
-            if self.instance:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise serializers.ValidationError({"piece_code": "Ya existe una pieza con este código en la parte seleccionada."})
-        return attrs
-
-
-class TaxonomyPartSerializer(serializers.ModelSerializer):
-    pieces = TaxonomyPieceSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = TaxonomyPart
-        fields = ("id", "taxonomy", "part_code", "name", "active", "created_at", "updated_at", "pieces")
-        read_only_fields = ("id", "created_at", "updated_at", "pieces")
-
-    def validate_part_code(self, value):
-        normalized = value.strip().upper()
-        return normalized
-
-    def validate(self, attrs):
-        taxonomy = attrs.get('taxonomy', getattr(self.instance, 'taxonomy', None))
-        part_code = attrs.get('part_code', getattr(self.instance, 'part_code', None))
-        if taxonomy and part_code:
-            qs = TaxonomyPart.objects.filter(taxonomy=taxonomy, part_code=part_code)
-            if self.instance:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise serializers.ValidationError({"part_code": "Ya existe una parte con este código en la taxonomía seleccionada."})
-        return attrs
-
-
 class TaxonomySerializer(serializers.ModelSerializer):
-    family_id = serializers.PrimaryKeyRelatedField(
-        queryset=TaxonomyFamily.objects.all(), source='family', required=True, write_only=True
-    )
-    family_detail = TaxonomyFamilySerializer(source='family', read_only=True)
-    type_code = serializers.CharField(required=True, allow_blank=False, max_length=10)
-    prefix = serializers.CharField(read_only=True)
+    prefix = serializers.CharField(required=True, allow_blank=False, max_length=16)
     asset_count = serializers.SerializerMethodField()
     last_sequence = serializers.SerializerMethodField()
     next_code_preview = serializers.SerializerMethodField()
@@ -82,9 +18,6 @@ class TaxonomySerializer(serializers.ModelSerializer):
         model = Taxonomy
         fields = (
             "id",
-            "family_id",
-            "family_detail",
-            "type_code",
             "prefix",
             "name",
             "asset_type",
@@ -141,11 +74,18 @@ class TaxonomySerializer(serializers.ModelSerializer):
             return None
         return f"{obj.prefix}-{value:0{obj.sequence_digits}d}"
 
-    def validate_type_code(self, value):
+    def validate_prefix(self, value):
         normalized = value.strip().upper()
-        if not re.fullmatch(r"^[A-Z0-9]+$", normalized):
+        if not PREFIX_PATTERN.fullmatch(normalized):
             raise serializers.ValidationError(
-                "Debe contener solo A-Z y números."
+                "Debe iniciar con una letra y contener solo A-Z y números."
+            )
+        queryset = Taxonomy.objects.filter(prefix__iexact=normalized)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError(
+                "Ya existe una taxonomía con este prefijo."
             )
         return normalized
 
@@ -164,25 +104,13 @@ class TaxonomySerializer(serializers.ModelSerializer):
         return normalized
 
     def validate_sequence_digits(self, value):
-        if not 2 <= value <= 8:
-            raise serializers.ValidationError("Debe estar entre 2 y 8 dígitos.")
+        if not 3 <= value <= 8:
+            raise serializers.ValidationError("Debe estar entre 3 y 8 dígitos.")
         return value
 
     def validate(self, attrs):
         instance = self.instance
-        family = attrs.get("family", instance.family if instance else None)
-        type_code = attrs.get("type_code", instance.type_code if instance else None)
-        prefix = f"{family.code}-{type_code}" if family and type_code else (instance.prefix if instance else None)
-
-        if family and type_code:
-            queryset = Taxonomy.objects.filter(family=family, type_code=type_code)
-            if instance:
-                queryset = queryset.exclude(pk=instance.pk)
-            if queryset.exists():
-                raise serializers.ValidationError(
-                    {"type_code": "Ya existe una taxonomía con este tipo en la familia seleccionada."}
-                )
-
+        prefix = attrs.get("prefix", instance.prefix if instance else None)
         active = attrs.get("active", instance.active if instance else True)
         issuance_enabled = attrs.get(
             "issuance_enabled",
@@ -245,10 +173,7 @@ class TaxonomySerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        family = validated_data.get('family')
-        type_code = validated_data.get('type_code')
-        if family and type_code:
-            validated_data["canonical_prefix"] = f"{family.code}-{type_code}"
+        validated_data["canonical_prefix"] = validated_data["prefix"]
         validated_data["source_version"] = "MANUAL"
         taxonomy = super().create(validated_data)
         TaxonomySequence.objects.create(taxonomy=taxonomy)
@@ -264,7 +189,6 @@ class FMCodeAssetSerializer(serializers.ModelSerializer):
             "id",
             "code",
             "fm_code",
-            "full_assignment_code",
             "name",
             "brand",
             "model",

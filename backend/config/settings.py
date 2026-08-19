@@ -65,7 +65,6 @@ INSTALLED_APPS = [
     "apps.audit",
     "apps.documents",
     "apps.assets",
-    "apps.spaces",
     "apps.taxonomy",
     "apps.assignments",
     "apps.notifications",

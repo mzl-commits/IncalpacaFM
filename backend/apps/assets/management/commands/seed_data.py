@@ -1,8 +1,8 @@
-from django.contrib.auth import get_user_model
+import uuid
 from django.core.management.base import BaseCommand
-
+from django.contrib.auth import get_user_model
+from apps.assets.models import Asset, Taxonomy, Location, AssignableResponsible
 from apps.accounts.models import AccountProfile
-from apps.assets.models import Asset, AssignableResponsible, Location, Taxonomy
 
 User = get_user_model()
 

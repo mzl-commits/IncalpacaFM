@@ -2,6 +2,7 @@ import {
   ArrowLeft, DownloadSimple, FileArrowDown,
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -18,6 +19,9 @@ export function InspeccionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const inspeccionId = Number(id);
   const { almacenId } = useAlmacenActivo();
+  const [descargandoExcel, setDescargandoExcel] = useState(false);
+  const [descargandoPdf, setDescargandoPdf] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
 
   const { data: inspeccion, isLoading, error } = useQuery({
     queryKey: ["inspeccion", inspeccionId],
@@ -190,20 +194,37 @@ export function InspeccionDetailPage() {
         <div className="help-panel">
           <h2>Exportar informe</h2>
           <p>Descarga el informe completo de esta inspección en el formato que necesites.</p>
+          {errorDescarga && (
+            <p style={{ color: "#c0392b", fontSize: 12, marginTop: 8 }}>{errorDescarga}</p>
+          )}
           <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
             <button
               className="button button-secondary"
-              onClick={() => exportarExcel(inspeccion.id)}
+              disabled={descargandoExcel}
+              onClick={async () => {
+                setErrorDescarga(null);
+                setDescargandoExcel(true);
+                try { await exportarExcel(inspeccion.id); }
+                catch { setErrorDescarga("No se pudo generar el Excel. Intenta de nuevo."); }
+                finally { setDescargandoExcel(false); }
+              }}
               style={{ width: "100%", justifyContent: "center" }}
             >
-              <DownloadSimple size={16} /> Descargar Excel
+              <DownloadSimple size={16} /> {descargandoExcel ? "Generando…" : "Descargar Excel"}
             </button>
             <button
               className="button button-secondary"
-              onClick={() => exportarPdf(inspeccion.id)}
+              disabled={descargandoPdf}
+              onClick={async () => {
+                setErrorDescarga(null);
+                setDescargandoPdf(true);
+                try { await exportarPdf(inspeccion.id); }
+                catch { setErrorDescarga("No se pudo generar el PDF. Intenta de nuevo."); }
+                finally { setDescargandoPdf(false); }
+              }}
               style={{ width: "100%", justifyContent: "center" }}
             >
-              <FileArrowDown size={16} /> Descargar PDF
+              <FileArrowDown size={16} /> {descargandoPdf ? "Generando…" : "Descargar PDF"}
             </button>
           </div>
 

@@ -1,7 +1,7 @@
 import { FolderPlus, Package, PencilSimple, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   createAlmacen,
   deleteAlmacen,
@@ -11,9 +11,72 @@ import {
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { Almacen } from "@/modules/almacen/types";
 
+/** Roles que están asignados a un único almacén y no deben ver la pantalla de selección. */
+const ROLES_ALMACEN_FIJO = ["ALMACENERO", "INSPECTOR"] as const;
+type RolAlmacenFijo = (typeof ROLES_ALMACEN_FIJO)[number];
+
+function esRolAlmacenFijo(role: string | undefined): role is RolAlmacenFijo {
+  return ROLES_ALMACEN_FIJO.includes(role as RolAlmacenFijo);
+}
+
 export function AlmacenesLandingPage() {
   const { user } = useAuth();
-  const puedeAdministrar = user?.role === "ADMINISTRADOR" || user?.role === "ALMACENERO";
+
+  const navigate = useNavigate();
+
+  // ── Redirección temprana para ALMACENERO / INSPECTOR ──────────────────────
+  // Si el rol tiene almacén fijo y ya sabemos su ID, redirigimos inmediatamente
+  // antes de montar queries innecesarias.
+  const rolFijo = esRolAlmacenFijo(user?.role);
+
+  useEffect(() => {
+    if (rolFijo && user?.almacenId) {
+      navigate(`/almacen/${user.almacenId}`, { replace: true });
+    }
+  }, [rolFijo, user?.almacenId, navigate]);
+
+  // Si tiene rol fijo y NO tiene almacén asignado (perfil mal configurado)
+  if (rolFijo && !user?.almacenId) {
+    return (
+      <section>
+        <header className="page-heading">
+          <p className="breadcrumb">Almacén</p>
+          <h1>Sin almacén asignado</h1>
+        </header>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 12,
+            padding: "48px 24px",
+            textAlign: "center",
+          }}
+        >
+          <WarningCircle size={40} style={{ color: "var(--warning, #f59e0b)" }} />
+          <p style={{ fontSize: 15, color: "var(--muted)", maxWidth: 380 }}>
+            Tu cuenta no tiene un almacén asignado. Comunícate con un{" "}
+            <strong>Administrador</strong> para que configure tu perfil correctamente.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  // Si ya sabemos que va a redirigir (tiene rol fijo + almacenId), no renderizamos
+  // el contenido de administrador para evitar un flash de pantalla.
+  if (rolFijo && user?.almacenId) {
+    return null;
+  }
+
+  // ── Vista de Administrador / Supervisor (multi-almacén) ───────────────────
+  return <AlmacenesAdminView />;
+}
+
+/** Vista completa con listado y CRUD de almacenes, solo para ADMIN/SUPERVISOR. */
+function AlmacenesAdminView() {
+  const { user } = useAuth();
+  const puedeAdministrar = user?.role === "ADMINISTRADOR";
   const queryClient = useQueryClient();
 
   const { data: almacenes = [], isLoading } = useQuery({

@@ -1,12 +1,12 @@
 from rest_framework.routers import DefaultRouter
 
 from apps.inspeccion.views import (
+    PlantillaCriterioViewSet,
     CriterioViewSet,
     InspeccionViewSet,
-    PlanInspeccionAnualViewSet,
-    PlantillaCriterioViewSet,
-    ProgramacionInspeccionViewSet,
     RespuestaCriterioViewSet,
+    ProgramacionInspeccionViewSet,
+    PlanInspeccionAnualViewSet,
 )
 
 router = DefaultRouter()

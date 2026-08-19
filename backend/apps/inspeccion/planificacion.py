@@ -1,10 +1,9 @@
+from datetime import timedelta, date
 from collections import defaultdict
-from datetime import date, timedelta
-
 from django.db import transaction
 
-from apps.inspeccion.models import Inspeccion, PlanInspeccionAnual, ProgramacionInspeccion
 from apps.inventario.models import Movimiento
+from apps.inspeccion.models import PlanInspeccionAnual, ProgramacionInspeccion, Inspeccion
 
 UMBRAL_ALTO = 15
 UMBRAL_MEDIO = 5
@@ -22,9 +21,14 @@ def construir_materiales_config(almacen):
     recorría todo el catálogo sin distinguir almacén; ahora 'almacen' es
     obligatorio (id o instancia de Almacen).
     Usada por el comando plan_anual y por PlanInspeccionAnualViewSet.generar()."""
-    from apps.catalogo.models import Material, Pieza
+    from apps.catalogo.models import Material, Pieza, Almacen
 
-    base = Material.objects.inspeccionables().filter(almacen=almacen)
+    if isinstance(almacen, Almacen):
+        almacen_obj = almacen
+    else:
+        almacen_obj = Almacen.objects.get(pk=almacen)
+
+    base = Material.objects.inspeccionables().filter(almacen=almacen_obj)
 
     materiales_config = []
     for material in base.filter(control_individual=False):
@@ -44,42 +48,85 @@ def construir_materiales_config(almacen):
 
     return materiales_config
 
+def _es_dia_laborable(d: date) -> bool:
+    """Solo días de Lunes a Viernes (0 a 4). Sábados (5) y Domingos (6) son días libres."""
+    return d.weekday() < 5
+
+def _ajustar_dia_laborable(d: date) -> date:
+    while not _es_dia_laborable(d):
+        d += timedelta(days=1)
+    return d
+
+def sumar_dias_laborables(fecha_base: date, dias_laborables: int) -> date:
+    """Avanza 'dias_laborables' días hábiles (Lunes a Viernes) a partir de fecha_base."""
+    actual = fecha_base
+    agregados = 0
+    while agregados < dias_laborables:
+        actual += timedelta(days=1)
+        if _es_dia_laborable(actual):
+            agregados += 1
+    return actual
+
+def _obtener_ultima_inspeccion_fecha(objetivo, es_pieza: bool):
+    filtro = {"pieza": objetivo} if es_pieza else {"material": objetivo}
+    ultima = Inspeccion.objects.filter(**filtro).order_by("-fecha").first()
+    if ultima:
+        return ultima.fecha.date()
+    return None
+
 @transaction.atomic
 def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen):
     """materiales_config: lista de dicts con {"material" o "pieza", "periodicidad_dias"}.
-    Fase 6: el plan queda scoped por (anio, almacen); 'almacen' es obligatorio."""
+    Fase 6: el plan queda scoped por (anio, almacen); 'almacen' es obligatorio.
+    Distribuye y escalona las fechas a lo largo de los días laborables (Lunes a Viernes)
+    para evitar saturar la jornada del inspector, dejando libres los fines de semana."""
+    from apps.catalogo.models import Almacen
+
+    if isinstance(almacen, Almacen):
+        almacen_obj = almacen
+    else:
+        almacen_obj = Almacen.objects.get(pk=almacen)
+
     plan, _ = PlanInspeccionAnual.objects.get_or_create(
-        anio=anio, almacen=almacen,
+        anio=anio, almacen=almacen_obj,
         defaults={"fecha_inicio": fecha_inicio, "fecha_fin": date(anio, 12, 31)},
     )
 
-    creadas = []
-    por_material = defaultdict(list)
+    fecha_base = max(fecha_inicio, date.today())
+
+    # Agrupar todos los items por periodicidad para escalonar uniformemente
     por_periodicidad = defaultdict(list)
     for item in materiales_config:
-        if "pieza" in item:
-            por_material[item["pieza"].material_id].append(item)
-        else:
-            # se agrupan por periodicidad para escalonar fechas en vez de amontonarlas
-            por_periodicidad[item["periodicidad_dias"]].append(item)
+        por_periodicidad[item["periodicidad_dias"]].append(item)
 
-    for items in por_periodicidad.values():
-        for item in items:
-            ancla = _fecha_ancla(item["material"], item["periodicidad_dias"], False, fecha_inicio)
+    creadas = []
+    for periodicidad_dias, items in por_periodicidad.items():
+        n = len(items)
+        # Equivalente aproximado de días laborables en el ciclo de periodicidad (5 de cada 7 días)
+        max_dias_lab = max(1, round(periodicidad_dias * 5 / 7))
+
+        for i, item in enumerate(items):
+            es_pieza = "pieza" in item
+            objetivo = item["pieza"] if es_pieza else item["material"]
+
+            # Si ya tiene una inspección previa registrada, calcular a partir de su última fecha
+            ultima_fecha = _obtener_ultima_inspeccion_fecha(objetivo, es_pieza)
+            if ultima_fecha:
+                fecha_prog = _ajustar_dia_laborable(ultima_fecha + timedelta(days=periodicidad_dias))
+            else:
+                # Escalonar uniformemente en los días laborables hábiles
+                offset_lab = 1 + int(round(i * (max_dias_lab - 1) / max(n - 1, 1)))
+                fecha_prog = sumar_dias_laborables(fecha_base, offset_lab)
+
             creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, material=item["material"], almacen=almacen,
-                periodicidad_dias=item["periodicidad_dias"],
-                fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
+                plan=plan,
+                material=None if es_pieza else objetivo,
+                pieza=objetivo if es_pieza else None,
+                almacen=almacen_obj,
+                periodicidad_dias=periodicidad_dias,
+                fecha_programada=fecha_prog,
             ))
 
-    for items in por_material.values():
-        for item in items:
-            ancla = _fecha_ancla(item["pieza"], item["periodicidad_dias"], True, fecha_inicio)
-            creadas.append(ProgramacionInspeccion.objects.create(
-                plan=plan, pieza=item["pieza"], almacen=almacen,
-                periodicidad_dias=item["periodicidad_dias"],
-                fecha_programada=ancla + timedelta(days=item["periodicidad_dias"]),
-            ))
     return plan, creadas
 
 def registrar_inspeccion_completada(programacion, inspeccion, generar_siguiente=True):
@@ -99,11 +146,13 @@ def registrar_inspeccion_completada(programacion, inspeccion, generar_siguiente=
         objetivo, programacion.periodicidad_dias,
         desde=programacion.fecha_programada, es_pieza=es_pieza,
     )
+    fecha_base_sig = inspeccion.fecha.date() if hasattr(inspeccion.fecha, 'date') else inspeccion.fecha
+    fecha_prog_sig = _ajustar_dia_laborable(fecha_base_sig + timedelta(days=nueva_periodicidad))
     ProgramacionInspeccion.objects.create(
         plan=programacion.plan, material=programacion.material, pieza=programacion.pieza,
         almacen=programacion.almacen,  # NUEVO Fase 6: se hereda de la programación que se cierra
         periodicidad_dias=nueva_periodicidad,
-        fecha_programada=inspeccion.fecha + timedelta(days=nueva_periodicidad),
+        fecha_programada=fecha_prog_sig,
     )
 
 def _fecha_ancla(objetivo, periodicidad_dias, es_pieza, fecha_inicio):
@@ -130,8 +179,9 @@ def asegurar_programacion_inicial(material=None, pieza=None):
         defaults={"fecha_inicio": date(date.today().year, 1, 1), "fecha_fin": date(date.today().year, 12, 31)},
     )
     periodicidad = (pieza.material if pieza else material).periodicidad_inspeccion_dias
+    fecha_prog = _ajustar_dia_laborable(date.today() + timedelta(days=periodicidad))
     return ProgramacionInspeccion.objects.create(
         plan=plan_actual, material=material, pieza=pieza, almacen=almacen,
         periodicidad_dias=periodicidad,
-        fecha_programada=date.today() + timedelta(days=periodicidad),
+        fecha_programada=fecha_prog,
     )

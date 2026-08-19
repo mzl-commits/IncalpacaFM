@@ -1,18 +1,24 @@
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q, F
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.accounts.models import AccountProfile
-from apps.accounts.permissions import IsAlmaceneroOrAdministratorWrite
+from apps.accounts.permissions import (
+    IsAdministrator,
+    IsAlmaceneroOrAdministratorWrite,
+    user_role,
+)
+from apps.accounts.serializers import UserListSerializer
+from apps.catalogo.models import Material, Pieza
 from apps.catalogo.views import AlmacenScopedMixin
-from apps.inventario.models import Movimiento, SolicitudMovimiento, GrupoSolicitud
-from apps.catalogo.models import Pieza, Material
+
+from apps.inventario.models import GrupoSolicitud, Movimiento, SolicitudMovimiento
 from apps.workorders.models import WorkOrder
-from apps.catalogo.views import AlmacenScopedMixin
-from apps.inventario.models import Movimiento
-from apps.catalogo.models import Pieza
 
 from apps.inventario.serializers import (
     MovimientoSerializer,
@@ -69,8 +75,34 @@ class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(lote_id=lote_id)
         if responsable_id:
             qs = qs.filter(responsable_id=responsable_id)
-        if almacen_id and self._almacen_forzado() is None:
-            qs = qs.filter(almacen_id=almacen_id)
+        busqueda = self.request.query_params.get("q")
+        if busqueda:
+            q_filtro = (
+                Q(material__nombre__icontains=busqueda)
+                | Q(material__codigo__icontains=busqueda)
+                | Q(material__ubicacion_fisica__icontains=busqueda)
+                | Q(pieza__codigo__icontains=busqueda)
+                | Q(pieza__detalle__icontains=busqueda)
+                | Q(responsable__username__icontains=busqueda)
+                | Q(responsable__first_name__icontains=busqueda)
+                | Q(responsable__last_name__icontains=busqueda)
+                | Q(referencia_externa__icontains=busqueda)
+                | Q(observaciones__icontains=busqueda)
+            )
+            if busqueda.strip().isdigit():
+                num = int(busqueda.strip())
+                q_filtro |= (
+                    Q(cantidad=num)
+                    | Q(cantidad_cajas=num)
+                    | Q(material__stock_minimo=num)
+                    | Q(material__cantidad_total=num)
+                )
+            busq_norm = busqueda.strip().lower()
+            if busq_norm in ("critico", "crítico", "stock critico", "stock crítico", "bajo", "stock bajo"):
+                q_filtro |= (Q(material__stock_minimo__gt=0) & Q(material__cantidad_total__lte=F("material__stock_minimo")))
+
+            qs = qs.filter(q_filtro)
+
         return qs
 
     # ── Acciones con flujo de aprobación para ALMACENERO ──────────────────────
@@ -178,7 +210,7 @@ class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
         fecha_str = request.query_params.get("fecha")
         if fecha_str:
             qs = qs.filter(movimientos__tipo="salida", movimientos__fecha__date=fecha_str).distinct()
-
+        qs = qs.filter(almacen_id=almacen_id)
         return Response(PiezaPrestadaSerializer(qs, many=True).data)
 
     # ── Exportar Excel ────────────────────────────────────────────────────────
@@ -512,16 +544,47 @@ class WorkOrderActivasView(APIView):
     Endpoint liviano de OTs activas (excluyendo CERRADA y CANCELADA).
     Permite al ALMACENERO poblar el desplegable de OTs en el formulario de salidas.
     Devuelve id, code, status y el nombre del técnico principal.
+
+    Visibilidad (Objetivo 3 / Opción C):
+    - ADMINISTRADOR ve todas las OTs activas.
+    - ALMACENERO solo ve las OTs en las que el admin lo haya marcado
+      explícitamente como autorizado (campo WorkOrder.almaceneros_autorizados),
+      ya que en un esquema multi-almacén cada almacenero solo debe operar
+      sobre las OTs de su(s) almacén(es).
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        hoy = timezone.localdate()
+        # Mismos estados que el sweep periódico (apps.notifications.monitoring)
+        # usa para decidir si una OT "venció" por fecha sin completarse.
+        # Una OT en supervisión/validación/conformidad puede tener fecha
+        # pasada legítimamente (el trabajo ya se hizo) y no debe excluirse.
+        estados_vence_por_fecha = [
+            WorkOrder.Status.SCHEDULED,
+            WorkOrder.Status.IN_PROGRESS,
+            WorkOrder.Status.RETURNED,
+        ]
         qs = (
             WorkOrder.objects.exclude(
-                status__in=[WorkOrder.Status.CLOSED, WorkOrder.Status.CANCELLED]
+                status__in=[
+                    WorkOrder.Status.CLOSED,
+                    WorkOrder.Status.CANCELLED,
+                    # Ya marcada como vencida por el sweep periódico.
+                    WorkOrder.Status.PENDING_RESCHEDULE,
+                ]
             )
-            .select_related("technician")
-            .only("id", "code", "status", "technician")
+            .exclude(status__in=estados_vence_por_fecha, scheduled_date__lt=hoy)
+        )
+
+        # El ADMINISTRADOR ve todas las OTs activas; el ALMACENERO solo las
+        # que se le hayan autorizado explícitamente para este almacén.
+        if user_role(request.user) != AccountProfile.Role.ADMIN:
+            qs = qs.filter(almaceneros_autorizados=request.user)
+
+        qs = (
+            qs.select_related("technician")
+            .only("id", "code", "status", "technician", "scheduled_date")
             .order_by("-created_at")[:100]
         )
 
@@ -539,6 +602,63 @@ class WorkOrderActivasView(APIView):
             for ot in qs
         ]
         return Response(data)
+
+
+class WorkOrderAlmacenerosAutorizadosView(APIView):
+    """
+    Gestión (solo ADMINISTRADOR) de qué almaceneros pueden ver/usar una OT
+    específica en el módulo de movimientos de inventario.
+
+    GET  -> lista de ids de almaceneros ya autorizados + catálogo de
+            almaceneros disponibles (para poblar un selector múltiple).
+    PUT  -> reemplaza el conjunto de almaceneros autorizados de la OT.
+            body: {"almacenero_ids": [1, 2, 3]}
+    """
+    permission_classes = [IsAuthenticated, IsAdministrator]
+
+    def _get_work_order(self, pk):
+        return get_object_or_404(WorkOrder, pk=pk)
+
+    def get(self, request, pk=None):
+        work_order = self._get_work_order(pk)
+        User = get_user_model()
+        almaceneros_disponibles = User.objects.filter(
+            account_profile__role=AccountProfile.Role.ALMACENERO
+        ).select_related("account_profile")
+
+        return Response({
+            "work_order_id": str(work_order.id),
+            "work_order_code": work_order.code,
+            "autorizados": UserListSerializer(
+                work_order.almaceneros_autorizados.all(), many=True
+            ).data,
+            "disponibles": UserListSerializer(
+                almaceneros_disponibles, many=True
+            ).data,
+        })
+
+    def put(self, request, pk=None):
+        work_order = self._get_work_order(pk)
+        ids = request.data.get("almacenero_ids", [])
+        if not isinstance(ids, list):
+            return Response(
+                {"detail": "almacenero_ids debe ser una lista de ids."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        User = get_user_model()
+        almaceneros = User.objects.filter(
+            pk__in=ids, account_profile__role=AccountProfile.Role.ALMACENERO
+        )
+        work_order.almaceneros_autorizados.set(almaceneros)
+
+        return Response({
+            "work_order_id": str(work_order.id),
+            "work_order_code": work_order.code,
+            "autorizados": UserListSerializer(
+                work_order.almaceneros_autorizados.all(), many=True
+            ).data,
+        })
 
 class GrupoSolicitudViewSet(viewsets.ReadOnlyModelViewSet):
     """
