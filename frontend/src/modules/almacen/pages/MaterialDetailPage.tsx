@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, ArrowRight, ClipboardText, Package, PencilSimple, Plus, Trash, WarningCircle,
+  ArrowLeft, ArrowRight, ClipboardText, DownloadSimple, Package, PencilSimple, Plus, Trash, WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -8,7 +8,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { useAuth } from "@/modules/accounts/AuthContext";
-import { deleteMaterial, deleteMaterialForzado, getMaterialDetalle } from "@/modules/almacen/catalogoRepository";
+import {
+  deleteMaterial, deleteMaterialForzado, getMaterialDetalle,
+  exportarHistorialInspeccionesExcel, exportarHistorialInspeccionesPdf,
+} from "@/modules/almacen/catalogoRepository";
 import { listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
 import { STOCK_MINIMO, tipoControlLabels } from "@/modules/almacen/types";
@@ -334,7 +337,9 @@ export function MaterialDetailPage() {
               <div><dt className="dt-label">Tipo de control</dt><dd className="dd-value">{tipoControlLabels[material.tipo_control]}</dd></div>
               <div><dt className="dt-label">Control individual</dt><dd className="dd-value">{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt className="dt-label">Ubicación física</dt><dd className="dd-value">{material.ubicacion_fisica || "—"}</dd></div>
-              <div><dt className="dt-label">Código Ekipu</dt><dd className="dd-value">{material.codigo_quipu || "—"}</dd></div>
+
+              <div><dt className="dt-label">Código EKIPU</dt><dd className="dd-value">{material.codigo_ekipu || "—"}</dd></div>
+
               {material.es_inspeccionable && (
                 <div>
                   <dt className="dt-label">Frecuencia de inspección</dt>
@@ -358,6 +363,13 @@ export function MaterialDetailPage() {
                 <dt className="dt-label">Cantidad / Piezas</dt>
                 <dd className="dd-value">
                   {material.cantidad_total}{" "}
+                  {material.control_individual
+                    ? material.cantidad_total === 1 ? "pieza" : "piezas"
+                    : material.unidad_manejo_permite_conversion_unidad
+                      ? (material.unidad_movimiento_base_abreviatura ?? "u.")
+                      : "u."}
+                  {" "}
+
                   {!material.control_individual && material.unidad_manejo_requiere_multiplicador && material.unidades_por_caja && (
                     <span style={{ color: "var(--muted)" }}>
                       ({Math.floor(material.cantidad_total / material.unidades_por_caja)} {material.unidad_manejo_nombre?.replace(/^Por /, "").toLowerCase() ?? "empaques"} de {material.unidades_por_caja} u.
@@ -374,16 +386,35 @@ export function MaterialDetailPage() {
                   )}
                 </dd>
               </div>
+              {!material.control_individual && (
+                <div>
+                  <dt className="dt-label">Manejo de stock</dt>
+                  <dd className="dd-value">
+                    {material.unidad_manejo_nombre ?? "—"}
+                    {material.unidad_manejo_permite_conversion_unidad && material.unidad_movimiento_base_nombre && (
+                      <span style={{ color: "var(--muted)", fontWeight: 400 }}>
+                        {" "}· se registra en {material.unidad_movimiento_base_nombre.toLowerCase()}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+              )}
               {material.grosor && (
                 <div>
                   <dt className="dt-label">Grosor / Diámetro</dt>
-                  <dd className="dd-value">{material.grosor} {material.unidad_medida_abreviatura}</dd>
+                  <dd className="dd-value">
+                    {material.grosor}
+                    {material.unidad_medida_abreviatura ? ` ${material.unidad_medida_abreviatura}` : ""}
+                  </dd>
                 </div>
               )}
               {material.largo && (
                 <div>
                   <dt className="dt-label">Largo</dt>
-                  <dd className="dd-value">{material.largo} {material.unidad_medida_abreviatura}</dd>
+                  <dd className="dd-value">
+                    {material.largo}
+                    {material.unidad_medida_abreviatura ? ` ${material.unidad_medida_abreviatura}` : ""}
+                  </dd>
                 </div>
               )}
             </dl>
@@ -476,9 +507,31 @@ export function MaterialDetailPage() {
           <div className="data-panel">
             <div className="table-toolbar">
               <strong style={{ fontSize: 15 }}>Inspecciones</strong>
-              <Link to={`/almacen/${almacenId}/inspecciones/nueva?material=${material.id}`} className="button button-secondary" style={{ fontSize: 13 }}>
-                <Plus size={14} /> Nueva
-              </Link>
+              <div style={{ display: "flex", gap: 8 }}>
+                {inspecciones.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      style={{ fontSize: 13 }}
+                      onClick={() => exportarHistorialInspeccionesExcel(material.id, material.codigo)}
+                    >
+                      <DownloadSimple size={14} /> Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      style={{ fontSize: 13 }}
+                      onClick={() => exportarHistorialInspeccionesPdf(material.id, material.codigo)}
+                    >
+                      <DownloadSimple size={14} /> PDF
+                    </button>
+                  </>
+                )}
+                <Link to={`/almacen/${almacenId}/inspecciones/nueva?material=${material.id}`} className="button button-secondary" style={{ fontSize: 13 }}>
+                  <Plus size={14} /> Nueva
+                </Link>
+              </div>
             </div>
             <div className="table-scroll">
               <table className="tabla-detalle-mobile">

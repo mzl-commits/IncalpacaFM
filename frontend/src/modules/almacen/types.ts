@@ -159,7 +159,7 @@ export interface Material {
   subcategoria_plantilla_inspeccion: number | null; 
   subcategoria_plantilla_inspeccion_nombre: string | null;
   categoria_nombre: string;
-  codigo_quipu: string;
+  codigo_ekipu: string;
   codigo: string;
   nombre: string;
   marca: string;
@@ -208,6 +208,7 @@ export interface MaterialDetalle extends Material {
 export interface MaterialCreatePayload {
   subcategoria: number;
   nombre: string;
+  codigo_ekipu?: string;
   marca: string;
   modelo: string;
   medida: string;
@@ -420,7 +421,6 @@ export interface UsuarioLista {
 // unidad_medida (grosor/largo) también viene ahora del catálogo editable
 // UnidadMedidaCatalogo — su label es unidad_medida_nombre/abreviatura desde
 // el backend, no un mapa fijo aquí.
-
 export interface UnidadMedidaCatalogo {
   id: number;
   codigo: string;
@@ -441,3 +441,27 @@ export interface TipoManejoStockCatalogo {
   activo: boolean;
   orden: number;
 }
+
+// ─── Documentos adjuntos de inspección ─────────────────────────────────────
+
+export type TipoDocumentoInspeccion = "pdf" | "excel" | "word" | "otro";
+
+export interface DocumentoInspeccion {
+  id: number;
+  inspeccion: number;
+  /** URL del archivo servido por el backend */
+  archivo: string;
+  /** Nombre amigable mostrado en la UI (por defecto, el nombre del archivo) */
+  nombre: string;
+  tipo: TipoDocumentoInspeccion;
+  subido_por: number;
+  subido_por_nombre?: string;
+  fecha_subida: string;
+}
+
+export const tipoDocumentoLabels: Record<TipoDocumentoInspeccion, string> = {
+  pdf: "PDF",
+  excel: "Excel",
+  word: "Word",
+  otro: "Otro",
+};

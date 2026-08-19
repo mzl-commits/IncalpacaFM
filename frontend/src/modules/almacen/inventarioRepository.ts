@@ -9,6 +9,10 @@ export interface MovimientosParams {
   tipo?: string;
   lote_id?: string;
   responsable?: number;
+  /** YYYY-MM-DD */
+  fecha_desde?: string;
+  /** YYYY-MM-DD */
+  fecha_hasta?: string;
 }
 
 export async function listMovimientos(

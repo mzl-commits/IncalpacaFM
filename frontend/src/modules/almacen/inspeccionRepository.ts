@@ -9,6 +9,8 @@ import type {
   ValorRespuesta,
   AccionInspeccion,
   UsuarioLista,
+  DocumentoInspeccion,
+  TipoDocumentoInspeccion,
 } from "./types";
 
 // ─── Usuarios (para selects de responsable/inspector) ─────────────────────────
@@ -136,42 +138,77 @@ export async function createInspeccion(
 // ─── Exportación ─────────────────────────────────────────────────────────────
 
 /**
- * Descarga el Excel de la inspección usando el token JWT en la cabecera.
- * window.open() no envía el Authorization header, de ahí el 401.
- * Esta función usa api.get con responseType "blob" y fuerza la descarga.
+ * Descarga un archivo protegido por auth.
+ * window.open() NO sirve aquí: es una navegación del navegador que no lleva
+ * el header Authorization que agrega la instancia `api` (interceptor de axios),
+ * así que el backend responde 401. En su lugar, pedimos el archivo como blob
+ * con `api` (que sí manda el token) y disparamos la descarga nosotros mismos.
  */
-export async function exportarExcel(id: number): Promise<void> {
-  const { data, headers } = await api.get(`/inspecciones/${id}/exportar-excel/`, {
-    responseType: "blob",
-  });
-  const contentDisposition: string = headers["content-disposition"] ?? "";
-  const match = contentDisposition.match(/filename="?([^"]+)"?/);
-  const filename = match?.[1] ?? `inspeccion_${id}.xlsx`;
-  const url = URL.createObjectURL(new Blob([data]));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+async function descargarArchivo(url: string, nombrePorDefecto: string): Promise<void> {
+  const response = await api.get(url, { responseType: "blob" });
+
+  // Si el backend manda el nombre de archivo en el header, lo usamos.
+  const disposition = response.headers?.["content-disposition"] as string | undefined;
+  const match = disposition?.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? nombrePorDefecto;
+
+  const blobUrl = window.URL.createObjectURL(response.data as Blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
+}
+
+/** Descarga el Excel de la inspección. */
+export function exportarExcel(id: number): Promise<void> {
+  return descargarArchivo(`/inspecciones/${id}/exportar-excel/`, `inspeccion-${id}.xlsx`);
+}
+
+/** Descarga el PDF de la inspección. */
+export function exportarPdf(id: number): Promise<void> {
+  return descargarArchivo(`/inspecciones/${id}/exportar-pdf/`, `inspeccion-${id}.pdf`);
+}
+
+// ─── Documentos adjuntos por inspección ───────────────────────────────────────
+
+function inferirTipoDocumento(archivo: File): TipoDocumentoInspeccion {
+  const ext = archivo.name.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return "pdf";
+  if (ext === "xls" || ext === "xlsx") return "excel";
+  if (ext === "doc" || ext === "docx") return "word";
+  return "otro";
+}
+
+/** Lista los documentos adjuntos de una inspección puntual (no del material). */
+export async function listDocumentosInspeccion(inspeccionId: number): Promise<DocumentoInspeccion[]> {
+  const { data } = await api.get<DocumentoInspeccion[]>(`/inspecciones/${inspeccionId}/documentos/`);
+  return data;
 }
 
 /**
- * Descarga el PDF de la inspección usando el token JWT en la cabecera.
- * Abre el blob en una nueva pestaña para que el navegador lo muestre.
+ * Sube un documento (PDF/Excel/Word/otro) adjunto a una inspección.
+ * El tipo se infiere automáticamente de la extensión del archivo.
  */
-export async function exportarPdf(id: number): Promise<void> {
-  const { data, headers } = await api.get(`/inspecciones/${id}/exportar-pdf/`, {
-    responseType: "blob",
+export async function subirDocumentoInspeccion(
+  inspeccionId: number,
+  archivo: File,
+  nombre?: string,
+): Promise<DocumentoInspeccion> {
+  const form = new FormData();
+  form.append("inspeccion", String(inspeccionId));
+  form.append("archivo", archivo);
+  form.append("nombre", nombre?.trim() || archivo.name);
+  form.append("tipo", inferirTipoDocumento(archivo));
+
+  const { data } = await api.post<DocumentoInspeccion>("/documentos-inspeccion/", form, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
-  const contentDisposition: string = headers["content-disposition"] ?? "";
-  const match = contentDisposition.match(/filename="?([^"]+)"?/);
-  const filename = match?.[1] ?? `inspeccion_${id}.pdf`;
-  const blob = new Blob([data], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  // Abrir en nueva pestaña para que el navegador muestre el PDF inline
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  return data;
+}
+
+export async function deleteDocumentoInspeccion(id: number): Promise<void> {
+  await api.delete(`/documentos-inspeccion/${id}/`);
 }

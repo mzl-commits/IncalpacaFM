@@ -166,10 +166,6 @@ function EstucheSalidaSelector({
   );
 }
 
-// Renglón vacío por defecto para inicializar/agregar filas de la grilla multi-material.
-// ⚠️ VERIFICAR: si RenglonSalida en inventarioRepository.ts define los campos con otros
-// nombres o tipos (ej. cantidad_cajas en vez de cantidadCajas), ajusta esta función y
-// los onChange de más abajo para que coincidan exactamente.
 function renglonVacio(): RenglonSalida {
   return {
     id: crypto.randomUUID(),
@@ -761,7 +757,7 @@ export function MovimientoFormPage() {
                     setPiezaId(0);
                   }}
                 >
-                  Materiales Consumibles (Agrupado)
+                  Materiales Consumibles
                 </button>
                 <button
                   type="button"
@@ -1247,16 +1243,6 @@ export function MovimientoFormPage() {
                   )}
                 </>
               )}
-
-              <Field label="Referencia externa / Folio">
-                <input
-                  type="text"
-                  value={referencia}
-                  onChange={(e) => setReferencia(e.target.value)}
-                  placeholder="Ej. Vale de almacén, Remisión..."
-                />
-              </Field>
-
               <Field label="Observaciones" wide>
                 <textarea
                   rows={3}

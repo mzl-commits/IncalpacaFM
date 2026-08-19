@@ -32,7 +32,6 @@ import {
   listCategorias,
   listMateriales,
   listSubcategorias,
-  eliminarAlmacenCroquis,
 } from "@/modules/almacen/catalogoRepository";
 
 import { CroquisUploader } from "@/modules/almacen/components/CroquisUploader";
@@ -53,6 +52,7 @@ export function CatalogoPage() {
   const isInspector = user?.role === "INSPECTOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
+  const [croquisActual, setCroquisActual] = useState<string | null | undefined>(undefined);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
   const [mostrarGestionUnidades, setMostrarGestionUnidades] = useState(false);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
@@ -255,15 +255,21 @@ export function CatalogoPage() {
           </div>
           <div style={{ background: "#f8fafc" }}>
             <img
-              src={almacen?.croquis || "/croquis_almacen.png"}
+              src={(croquisActual !== undefined ? croquisActual : almacen?.croquis) || "/croquis_almacen.png"}
               alt={`Croquis del almacén ${almacen?.nombre ?? ""}`}
               style={{ width: "100%", maxHeight: 640, objectFit: "contain", display: "block" }}
             />
             {puedeEditarCroquis && (
               <CroquisUploader
-                almacen={almacen}
+                almacen={{
+                  ...almacen,
+                  croquis: croquisActual !== undefined ? croquisActual : almacen?.croquis,
+                } as typeof almacen}
                 almacenId={almacenId}
-                onUpdated={() => queryClient.invalidateQueries({ queryKey: ["almacen-detalle", almacenId] })}
+                onUpdated={(nuevoAlmacen) => {
+                  setCroquisActual(nuevoAlmacen?.croquis ?? null);
+                  queryClient.invalidateQueries({ queryKey: ["almacen-detalle", almacenId] });
+                }}
               />
             )}
           </div>

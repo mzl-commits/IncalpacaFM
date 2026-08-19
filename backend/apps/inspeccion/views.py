@@ -15,7 +15,7 @@ from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_insp
 
 from apps.inspeccion.models import (
     PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
-    PlanInspeccionAnual, ProgramacionInspeccion,
+    PlanInspeccionAnual, ProgramacionInspeccion, DocumentoInspeccion,
 )
 
 from apps.inspeccion.planificacion import generar_plan_anual, construir_materiales_config
@@ -27,6 +27,7 @@ from apps.inspeccion.serializers import (
     RespuestaCriterioSerializer,
     ProgramacionInspeccionSerializer,
     PlanInspeccionAnualSerializer,
+    DocumentoInspeccionSerializer,
 )
 
 from django.db.models import ProtectedError
@@ -239,6 +240,32 @@ class InspeccionViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         response = HttpResponse(buffer.read(), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="inspeccion_{inspeccion.id}.pdf"'
         return response
+
+    @action(detail=True, methods=["get"], url_path="documentos")
+    def documentos(self, request, pk=None):
+        # get_object() ya usa get_queryset() de arriba -> mismo scoping por
+        # almacén que el resto del viewset (un Inspector no puede listar
+        # documentos de una inspección de otro almacén).
+        inspeccion = self.get_object()
+        documentos = inspeccion.documentos.select_related("subido_por").all()
+        serializer = DocumentoInspeccionSerializer(documentos, many=True, context={"request": request})
+        return Response(serializer.data)
+
+class DocumentoInspeccionViewSet(viewsets.ModelViewSet):
+    """CRUD de documentos adjuntos (PDF/Excel/Word) por inspección.
+    El listado normal para la UI de detalle es GET /inspecciones/{id}/documentos/
+    (arriba, en InspeccionViewSet); este viewset existe sobre todo para
+    crear (subir) y eliminar, y opcionalmente filtrar por ?inspeccion=."""
+    queryset = DocumentoInspeccion.objects.select_related("inspeccion", "subido_por").all()
+    serializer_class = DocumentoInspeccionSerializer
+    permission_classes = [IsInspectorOrAdministratorWrite]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        inspeccion_id = self.request.query_params.get("inspeccion")
+        if inspeccion_id:
+            qs = qs.filter(inspeccion_id=inspeccion_id)
+        return qs
 
 class RespuestaCriterioViewSet(viewsets.ModelViewSet):
     queryset = RespuestaCriterio.objects.select_related("inspeccion", "criterio").all()
