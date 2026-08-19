@@ -340,7 +340,7 @@ export function AssetDetailPage() {
         <div>
           <p className="breadcrumb">Bienes / Ficha</p>
           <h1>{asset.name}</h1>
-          <p>{displayCode(asset)}{asset.fm_code && <small> · {asset.code}</small>}</p>
+          <p>{displayCode(asset)}{asset.fm_code && asset.code !== displayCode(asset) && asset.code !== asset.fm_code ? <small> · {asset.code}</small> : null}</p>
         </div>
         <div className="detail-actions">
           <span
@@ -563,7 +563,7 @@ export function AssetDetailPage() {
               <div>
                 <span>Edición administrativa</span>
                 <h2 id="asset-edit-title">Actualizar ficha del bien</h2>
-                <p>{displayCode(asset)}{asset.fm_code && ` · ${asset.code}`}</p>
+                <p>{displayCode(asset)}{asset.fm_code && asset.code !== displayCode(asset) && asset.code !== asset.fm_code ? ` · ${asset.code}` : ""}</p>
               </div>
               <button type="button" aria-label="Cerrar edición" onClick={() => setEditing(false)}>
                 <X />
