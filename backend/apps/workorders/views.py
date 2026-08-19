@@ -271,14 +271,25 @@ class ReportTemplateListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = ReportTemplateSerializer
     queryset = ReportTemplate.objects.all()
+
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        is_default = serializer.validated_data.get("is_default", False)
+        if is_default:
+            ReportTemplate.objects.update(is_default=False)
+        user = self.request.user if self.request.user and self.request.user.is_authenticated else None
+        serializer.save(created_by=user)
 
 
 class ReportTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = ReportTemplateSerializer
     queryset = ReportTemplate.objects.all()
+
+    def perform_update(self, serializer):
+        is_default = serializer.validated_data.get("is_default", False)
+        if is_default:
+            ReportTemplate.objects.exclude(id=serializer.instance.id).update(is_default=False)
+        serializer.save()
 
 
 class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
