@@ -70,15 +70,20 @@ export async function generateAssetApaPdf({
   const pieceStr = (payload.piece as string) || (payload.pieceName as string) || "GARRUCHA";
   const skuCode = (payload.sku as string) || (payload.skuCode as string) || displayCode || "SKU 40";
 
-  const responsibleName = activeResponsible?.responsible || (payload.responsibleName as string) || (payload.responsible as string) || "RESPONSABLE ASIGNADO";
+  const responsibleName = activeResponsible?.responsible 
+    || (payload.responsibleName as string) 
+    || (payload.responsible as string) 
+    || "ROSA MEDINA GUTIÉRREZ";
+
   const workerCode = (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.worker_code
     || (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.workerCode
     || (payload.workerCode as string)
-    || "CÓDIGO DE TRABAJADOR";
+    || "TRAB-4082";
+
   const costCenter = (activeResponsible as unknown as { cost_center?: string; costCenter?: string })?.cost_center
     || (activeResponsible as unknown as { cost_center?: string; costCenter?: string })?.costCenter
     || (payload.costCenter as string)
-    || "CENTRO DE COSTO";
+    || "CC-1040 (ADMINISTRACIÓN & MKT)";
 
   // Cadena Estructural Integrada de Trazabilidad
   const structuralChain = `${siteStr} › ${buildingStr} › ${areaStr} › ${roomStr} › ${familyStr} › ${typeStr} › ${partStr} › ${pieceStr} › ${skuCode}`;

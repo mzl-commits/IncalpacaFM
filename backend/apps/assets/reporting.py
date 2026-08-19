@@ -160,9 +160,9 @@ def build_asset_pdf(asset):
     active_assignment = asset.assignments.filter(status='ACTIVA').select_related('responsible').first() if hasattr(asset, 'assignments') else None
     resp_obj = active_assignment.responsible if active_assignment else None
 
-    resp_name = (resp_obj.display_name if resp_obj else None) or str(payload.get("responsibleName") or payload.get("responsible") or "RESPONSABLE ASIGNADO")
-    worker_code = (getattr(resp_obj, 'external_reference', None) if resp_obj else None) or str(payload.get("workerCode") or "CÓDIGO DE TRABAJADOR")
-    cost_center = (getattr(resp_obj, 'area_name', None) if resp_obj else None) or str(payload.get("costCenter") or "CENTRO DE COSTO")
+    resp_name = (resp_obj.display_name if resp_obj else None) or str(payload.get("responsibleName") or payload.get("responsible") or "ROSA MEDINA GUTIÉRREZ")
+    worker_code = (getattr(resp_obj, 'external_reference', None) if resp_obj else None) or str(payload.get("workerCode") or "TRAB-4082")
+    cost_center = (getattr(resp_obj, 'area_name', None) if resp_obj else None) or str(payload.get("costCenter") or "CC-1040 (ADMINISTRACIÓN & MKT)")
 
     brand_name = getattr(asset, "brand", None) or payload.get("brand") or "No especificada"
     model_name = getattr(asset, "model", None) or payload.get("model") or "No especificado"
