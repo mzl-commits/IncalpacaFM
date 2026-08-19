@@ -178,8 +178,12 @@ def build_asset_pdf(asset):
     n8_code = str(payload.get("n8_code") or payload.get("piece_code") or "GA")
     n8_name = str(payload.get("piece") or payload.get("pieceName") or "GARRUCHA (RUEDA DE NYLON)")
 
-    raw_sku = str(payload.get("n9_code") or payload.get("sku") or payload.get("skuCode") or display_code or "SKU MR-0032")
-    n9_code = raw_sku if raw_sku.startswith("SKU") else f"SKU {raw_sku}"
+    raw_sku = str(payload.get("n9_code") or payload.get("sku") or payload.get("skuCode") or asset.fm_code or "SKU 10")
+    clean_sku = raw_sku
+    if "-" in clean_sku and ("INC1" in clean_sku or "MOB" in clean_sku or "Mobiliario" in clean_sku):
+        sku_parts = clean_sku.split("-")
+        clean_sku = sku_parts[-1].strip()
+    n9_code = clean_sku if clean_sku.upper().startswith("SKU") else f"SKU {clean_sku}"
 
     full_matrix_code = f"{n1_code} - {n2_code} - {n3_code} - {n4_code} - {n5_code} - {n6_code} - {n7_code} - {n8_code} - {n9_code}"
 

@@ -83,8 +83,13 @@ export async function generateAssetApaPdf({
   const n8Code = (payload.n8_code as string) || (payload.piece_code as string) || "GA";
   const n8Name = (payload.piece as string) || (payload.pieceName as string) || "GARRUCHA (RUEDA DE NYLON)";
 
-  const rawSku = (payload.n9_code as string) || (payload.sku as string) || (payload.skuCode as string) || displayCode || "SKU MR-0032";
-  const n9Code = rawSku.startsWith("SKU") ? rawSku : `SKU ${rawSku}`;
+  const rawSku = (payload.n9_code as string) || (payload.sku as string) || (payload.skuCode as string) || asset.fm_code || "SKU 10";
+  let cleanSku = rawSku;
+  if (cleanSku.includes("-") && (cleanSku.includes("INC1") || cleanSku.includes("MOB") || cleanSku.includes("Mobiliario"))) {
+    const parts = cleanSku.split("-");
+    cleanSku = parts[parts.length - 1].trim();
+  }
+  const n9Code = cleanSku.toUpperCase().startsWith("SKU") ? cleanSku : `SKU ${cleanSku}`;
 
   // CADENA MATRIZ COMPLETA DE 9 NIVELES
   const fullMatrixCode = `${n1Code} - ${n2Code} - ${n3Code} - ${n4Code} - ${n5Code} - ${n6Code} - ${n7Code} - ${n8Code} - ${n9Code}`;

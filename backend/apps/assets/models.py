@@ -451,13 +451,14 @@ class Asset(UUIDModel):
     def full_assignment_code(self):
         p = self.entry_payload or {}
 
-        # Nivel 1: Sede (4 car, ej: INC1)
+        # 1. Si self.code ya es el código completo asignado (ej: INC1-ADC-MKT-MT04-MOB-SE-BA-GA-SKU 10), usarlo directamente
+        if self.code and self.code.startswith("INC1-"):
+            return self.code
+
+        # 2. De lo contrario, derivar los 9 niveles sin duplicar cadenas
         n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1')
-        # Nivel 2: Área Macro (2 car, ej: AD, PR, CO, RE, AL)
-        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'AD')
-        # Nivel 3: Sector/Zona/Edificio (ej: MKT o ADC)
+        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'ADC')
         n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT')
-        # Nivel 4: Módulo/Ambiente (ej: MT04)
         n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04')
 
         if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
@@ -470,19 +471,21 @@ class Asset(UUIDModel):
             elif len(parts) == 2:
                 n1, n2 = parts[0], parts[1]
 
-        # Nivel 5: Familia Taxonómica (ej: MOB)
         n5 = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
-        # Nivel 6: Tipo de Bien (ej: SE)
         n6 = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
-        # Nivel 7: Parte (ej: BA)
         n7 = str(p.get('n7_code') or p.get('part_code') or 'BA')
-        # Nivel 8: Pieza (ej: GA)
         n8 = str(p.get('n8_code') or p.get('piece_code') or 'GA')
-        # Nivel 9: SKU / Código de Inventario (ej: SKU 10)
-        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_code or self.code or 'SKU 10')
-        n9 = raw_sku if raw_sku.startswith("SKU") else f"SKU {raw_sku}"
 
-        # Matriz 9 Niveles: N1 - N2 - N3 - N4 - N5 - N6 - N7 - N8 - N9
+        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_code or 'SKU 10')
+        if "-" in raw_sku and "SKU" in raw_sku.upper():
+            sku_parts = raw_sku.split("-")
+            clean_sku = sku_parts[-1]
+            n9 = clean_sku if clean_sku.upper().startswith("SKU") else f"SKU {clean_sku}"
+        elif raw_sku.upper().startswith("SKU"):
+            n9 = raw_sku
+        else:
+            n9 = f"SKU {raw_sku}"
+
         return f"{n1}-{n2}-{n3}-{n4}-{n5}-{n6}-{n7}-{n8}-{n9}"
 
 
