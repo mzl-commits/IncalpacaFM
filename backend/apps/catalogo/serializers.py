@@ -5,7 +5,6 @@ from apps.catalogo.models import (
 )
 from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_piezas, ajustar_stock
 
-
 class UnidadMedidaSerializer(serializers.ModelSerializer):
     class Meta:
         model = UnidadMedida
@@ -14,7 +13,6 @@ class UnidadMedidaSerializer(serializers.ModelSerializer):
             "factor_a_base", "activo", "orden",
         ]
 
-
 class TipoManejoStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoManejoStock
@@ -22,7 +20,6 @@ class TipoManejoStockSerializer(serializers.ModelSerializer):
             "id", "codigo", "nombre", "requiere_multiplicador",
             "permite_conversion_unidad", "activo", "orden",
         ]
-
 
 class CategoriaSerializer(serializers.ModelSerializer):
     almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
@@ -104,7 +101,7 @@ class MaterialSerializer(serializers.ModelSerializer):
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
             "unidad_medida", "unidad_medida_nombre", "unidad_medida_abreviatura",
             "grosor", "largo", "ubicacion_fisica", "precio", "moneda",
-            "codigo_quipu",
+            "codigo_ekipu",
             "tipo_control", "control_individual", "cantidad_total", "stock_minimo",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",

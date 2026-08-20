@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -16,7 +17,10 @@ from apps.accounts.permissions import (
 from apps.catalogo.models import (
     Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
 )
-
+from apps.inspeccion.exporters import (
+    generar_excel_historial_material,
+    generar_pdf_historial_material,
+)
 from apps.catalogo.serializers import (
     CategoriaSerializer,
     SubcategoriaSerializer,
@@ -67,7 +71,7 @@ class AlmacenScopedMixin:
                 "No tienes permiso para operar sobre un almacén distinto al asignado a tu cuenta."
             )
 
-class AlmacenViewSet(viewsets.ModelViewSet):
+class AlmacenViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     queryset = Almacen.objects.all()
     serializer_class = AlmacenSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
@@ -279,6 +283,7 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
             q_filtro = (
                 Q(nombre__icontains=busqueda)
                 | Q(codigo__icontains=busqueda)
+                | Q(codigo_ekipu__icontains=busqueda)
                 | Q(marca__icontains=busqueda)
                 | Q(modelo__icontains=busqueda)
                 | Q(ubicacion_fisica__icontains=busqueda)
@@ -449,6 +454,33 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         )
         materiales = Material.objects.filter(id__in=hijas_material_ids)
         return Response(MaterialSerializer(materiales, many=True).data)
+
+    @action(detail=True, methods=["get"], url_path="historial-inspecciones-excel")
+    def historial_inspecciones_excel(self, request, pk=None):
+        """Descarga en Excel TODAS las inspecciones históricas de este material
+        (individuales de sus piezas + grupales), ordenadas de más reciente a
+        más antigua. GET /materiales/{id}/historial-inspecciones-excel/"""
+        material = self.get_object()
+        buffer = generar_excel_historial_material(material)
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = (
+            f'attachment; filename="historial_inspecciones_{material.codigo}.xlsx"'
+        )
+        return response
+
+    @action(detail=True, methods=["get"], url_path="historial-inspecciones-pdf")
+    def historial_inspecciones_pdf(self, request, pk=None):
+        """Igual que el Excel de arriba, pero en PDF. GET /materiales/{id}/historial-inspecciones-pdf/"""
+        material = self.get_object()
+        buffer = generar_pdf_historial_material(material)
+        response = HttpResponse(buffer.read(), content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="historial_inspecciones_{material.codigo}.pdf"'
+        )
+        return response
 
 
 class PiezaViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):

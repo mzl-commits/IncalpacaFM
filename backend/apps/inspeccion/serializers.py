@@ -2,8 +2,8 @@ from rest_framework import serializers
 from django.db import transaction
 
 from apps.inspeccion.models import (
-    PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
-    PlanInspeccionAnual, ProgramacionInspeccion,
+     PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
+     PlanInspeccionAnual, ProgramacionInspeccion, DocumentoInspeccion,
 )
 
 from django.contrib.auth import get_user_model
@@ -71,6 +71,42 @@ class InspeccionSerializer(serializers.ModelSerializer):
     def get_material_periodicidad_inspeccion_dias(self, obj) -> int | None:
         material = obj.pieza.material if obj.pieza else obj.material
         return material.periodicidad_inspeccion_dias if material else None
+
+class DocumentoInspeccionSerializer(serializers.ModelSerializer):
+    subido_por_nombre = serializers.SerializerMethodField()
+    archivo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DocumentoInspeccion
+        fields = [
+            "id", "inspeccion", "archivo", "archivo_url", "nombre", "tipo",
+            "subido_por", "subido_por_nombre", "fecha_subida",
+        ]
+        read_only_fields = ["subido_por", "fecha_subida"]
+
+    def get_subido_por_nombre(self, obj) -> str:
+        if obj.subido_por:
+            return obj.subido_por.get_full_name() or obj.subido_por.username
+        return "N/A"
+
+    def get_archivo_url(self, obj) -> str | None:
+        request = self.context.get("request")
+        if obj.archivo and request:
+            return request.build_absolute_uri(obj.archivo.url)
+        return obj.archivo.url if obj.archivo else None
+
+    def create(self, validated_data):
+        # Mismo patrón que InspeccionCrearSerializer.create(): si no viene
+        # subido_por explícito, se usa el usuario autenticado.
+        if not validated_data.get("subido_por"):
+            request = self.context.get("request")
+            if request and hasattr(request, "user") and request.user.is_authenticated:
+                validated_data["subido_por"] = request.user
+            else:
+                raise serializers.ValidationError({
+                    "subido_por": "Se requiere un usuario autenticado para subir un documento."
+                })
+        return super().create(validated_data)
 
 class InspeccionCrearSerializer(serializers.ModelSerializer):
     respuestas = RespuestaCriterioCrearSerializer(many=True, write_only=True, required=False, default=[])

@@ -5,7 +5,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
@@ -1108,5 +1108,378 @@ def generar_pdf_inspeccion(inspeccion):
     elementos.append(KeepTogether(firmas))
 
     doc.build(elementos)
+    buffer.seek(0)
+    return buffer
+
+# ─── HISTORIAL DE INSPECCIONES POR MATERIAL ─────────────────────────────────
+# A diferencia de generar_excel_inspeccion/generar_pdf_inspeccion (que llenan
+# el formato oficial de UNA inspección puntual), estas dos funciones arman un
+# reporte tabular con TODAS las inspecciones históricas de un material —
+# pensado para auditoría/trazabilidad, no para el formato SST oficial.
+
+RESULTADO_LABELS_HISTORIAL = {
+    "apta": "Apta",
+    "requiere_reparacion": "Requiere reparación",
+    "fuera_servicio": "Fuera de servicio",
+}
+ACCION_LABELS_HISTORIAL = {
+    "continua_servicio": "Continúa en servicio",
+    "enviar_reparacion": "Enviar a reparación",
+    "retirar_servicio": "Retirar del servicio",
+    "dar_baja": "Dar de baja",
+    "reemplazar": "Reemplazar",
+}
+
+def _filas_historial_material(material):
+    """Devuelve las inspecciones del material, ordenadas de más reciente a más
+    antigua, junto con los valores ya formateados para las columnas del reporte."""
+    # Ordenamos de forma cronológica ASCENDENTE primero, solo para poder asignar
+    # el número secuencial (#1, #2, #3...) según el orden real en que se hicieron
+    # las inspecciones DE ESTE MATERIAL. Usar insp.id aquí sería incorrecto porque
+    # el id es un correlativo global de toda la tabla de inspecciones (compartido
+    # entre todos los materiales), no un contador propio del material.
+    inspecciones = list(
+        material.inspecciones
+        .select_related("pieza", "inspector")
+        .order_by("fecha", "id")
+    )
+    filas = []
+    for idx, insp in enumerate(inspecciones, start=1):
+        inspector_nombre = (
+            (insp.inspector.get_full_name() or insp.inspector.username)
+            if insp.inspector else "—"
+        )
+        filas.append({
+            "fecha": _fecha(insp.fecha),
+            "numero": f"#{idx}",
+            "tipo": "Individual" if insp.tipo == "individual" else "Grupal",
+            "pieza": insp.pieza.codigo if insp.pieza else "—",
+            "responsable": inspector_nombre,
+            "resultado": RESULTADO_LABELS_HISTORIAL.get(insp.resultado_general, insp.resultado_general or "—"),
+            "accion": ACCION_LABELS_HISTORIAL.get(insp.accion_tomada, insp.accion_tomada or "—"),
+            "proxima": _fecha(insp.proxima_inspeccion),
+            "observaciones": insp.observaciones or "",
+        })
+    # El reporte se muestra de más reciente a más antigua (igual que antes,
+    # que ordenaba por "-fecha"); como ya numeramos en orden ascendente,
+    # simplemente invertimos la lista para la presentación.
+    filas.reverse()
+    return filas
+
+def generar_excel_historial_material(material):
+    from datetime import datetime
+
+    from openpyxl import Workbook
+    from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    filas = _filas_historial_material(material)
+    total = len(filas)
+    n_apta = sum(1 for f in filas if f["resultado"] == "Apta")
+    n_reparacion = sum(1 for f in filas if f["resultado"] == "Requiere reparación")
+    n_fuera = sum(1 for f in filas if f["resultado"] == "Fuera de servicio")
+
+    GRIS_OSCURO_HEX = "2B2F36"
+    GRIS_CLARO_HEX = "F3F4F6"
+    GRIS_MEDIO_HEX = "6B7280"
+    NEGRO_HEX = "1A1C20"
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Historial de inspecciones"
+
+    borde = Border(*[Side(style="thin", color="C9CCD1")] * 4)
+
+    # ── Marca (logo + nombre de empresa) ──
+    if LOGO_PATH.exists():
+        try:
+            img = XLImage(str(LOGO_PATH))
+            img.width = 40
+            img.height = 40
+            ws.add_image(img, "A1")
+        except Exception:
+            pass
+    ws.row_dimensions[1].height = 22
+    ws.row_dimensions[2].height = 16
+    ws.merge_cells("C1:I1")
+    ws["C1"] = "INCALPACA"
+    ws["C1"].font = Font(bold=True, size=14, color=NEGRO_HEX)
+    ws.merge_cells("C2:I2")
+    ws["C2"] = "Facilities Management · Sistema de Gestión de Almacén"
+    ws["C2"].font = Font(size=8.5, italic=True, color=GRIS_MEDIO_HEX)
+
+    # ── Título del reporte ──
+    fila = 4
+    ws.merge_cells(f"A{fila}:I{fila}")
+    ws[f"A{fila}"] = f"Historial de inspecciones — {material.codigo} · {material.nombre}"
+    ws[f"A{fila}"].font = Font(bold=True, size=13, color=NEGRO_HEX)
+    ws[f"A{fila}"].alignment = Alignment(horizontal="center")
+    ws.row_dimensions[fila].height = 22
+
+    fila += 1
+    categoria_nombre = getattr(material, "categoria_nombre", None)
+    if not categoria_nombre:
+        subcategoria = getattr(material, "subcategoria", None)
+        categoria = getattr(subcategoria, "categoria", None)
+        categoria_nombre = getattr(categoria, "nombre", None)
+    ws.merge_cells(f"A{fila}:I{fila}")
+    ws[f"A{fila}"] = (
+        f"Marca: {material.marca or '—'}   ·   Categoría: {categoria_nombre or '—'}   ·   "
+        f"Generado el {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    ws[f"A{fila}"].font = Font(italic=True, size=9, color=GRIS_MEDIO_HEX)
+    ws[f"A{fila}"].alignment = Alignment(horizontal="center")
+
+    # ── KPIs de resumen ──
+    fila += 2
+    fila_kpi = fila
+    kpis = [
+        ("Total inspecciones", total, GRIS_OSCURO_HEX, "FFFFFF"),
+        ("Aptas", n_apta, "DCFCE7", "15803D"),
+        ("Requiere reparación", n_reparacion, "FEF3C7", "B45309"),
+        ("Fuera de servicio", n_fuera, "FEE2E2", "B91C1C"),
+    ]
+    col = 1
+    for etiqueta, valor, bg, fg in kpis:
+        c1, c2 = get_column_letter(col), get_column_letter(col + 1)
+        ws.merge_cells(f"{c1}{fila_kpi}:{c2}{fila_kpi}")
+        celda = ws[f"{c1}{fila_kpi}"]
+        celda.value = f"{etiqueta}: {valor}"
+        celda.font = Font(bold=True, size=9.5, color=fg)
+        celda.fill = PatternFill("solid", fgColor=bg)
+        celda.alignment = Alignment(horizontal="center", vertical="center")
+        for c in (c1, c2):
+            ws[f"{c}{fila_kpi}"].border = borde
+        col += 2
+    ws.row_dimensions[fila_kpi].height = 20
+
+    # ── Tabla de historial ──
+    fila_encabezado = fila_kpi + 2
+    encabezados = [
+        "Fecha", "N° Inspección", "Tipo", "Código de pieza", "Responsable",
+        "Resultado", "Acción tomada", "Próxima inspección", "Observaciones",
+    ]
+    fill_encabezado = PatternFill("solid", fgColor=GRIS_OSCURO_HEX)
+    fuente_encabezado = Font(bold=True, color="FFFFFF", size=9.5)
+    for col_i, titulo in enumerate(encabezados, start=1):
+        celda = ws.cell(row=fila_encabezado, column=col_i, value=titulo)
+        celda.fill = fill_encabezado
+        celda.font = fuente_encabezado
+        celda.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        celda.border = borde
+    ws.row_dimensions[fila_encabezado].height = 26
+
+    fill_resultado = {
+        "Apta": PatternFill("solid", fgColor="DCFCE7"),
+        "Requiere reparación": PatternFill("solid", fgColor="FEF3C7"),
+        "Fuera de servicio": PatternFill("solid", fgColor="FEE2E2"),
+    }
+    color_resultado = {
+        "Apta": "15803D",
+        "Requiere reparación": "B45309",
+        "Fuera de servicio": "B91C1C",
+    }
+    fila_zebra = PatternFill("solid", fgColor=GRIS_CLARO_HEX)
+
+    for i, item in enumerate(filas):
+        f = fila_encabezado + 1 + i
+        valores = [
+            item["fecha"], item["numero"], item["tipo"], item["pieza"],
+            item["responsable"], item["resultado"], item["accion"],
+            item["proxima"], item["observaciones"],
+        ]
+        for col_i, valor in enumerate(valores, start=1):
+            celda = ws.cell(row=f, column=col_i, value=valor)
+            celda.border = borde
+            celda.alignment = Alignment(vertical="top", wrap_text=True)
+            if i % 2 == 1:
+                celda.fill = fila_zebra
+        celda_resultado = ws.cell(row=f, column=6)
+        if item["resultado"] in fill_resultado:
+            celda_resultado.fill = fill_resultado[item["resultado"]]
+            celda_resultado.font = Font(bold=True, color=color_resultado[item["resultado"]])
+
+    anchos = [12, 12, 10, 14, 20, 18, 20, 16, 38]
+    for col_i, ancho in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(col_i)].width = ancho
+
+    ultima_fila = max(fila_encabezado, fila_encabezado + len(filas))
+    ws.auto_filter.ref = f"A{fila_encabezado}:I{ultima_fila}"
+    ws.freeze_panes = f"A{fila_encabezado + 1}"
+
+    # Impresión: apaisado, ajustado al ancho, repitiendo la fila de encabezado
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = f"{fila_encabezado}:{fila_encabezado}"
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+def generar_pdf_historial_material(material):
+    from datetime import datetime
+
+    filas = _filas_historial_material(material)
+    total = len(filas)
+    n_apta = sum(1 for f in filas if f["resultado"] == "Apta")
+    n_reparacion = sum(1 for f in filas if f["resultado"] == "Requiere reparación")
+    n_fuera = sum(1 for f in filas if f["resultado"] == "Fuera de servicio")
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=landscape(letter),
+        topMargin=1 * cm, bottomMargin=1.3 * cm,
+        leftMargin=1.3 * cm, rightMargin=1.3 * cm,
+    )
+    styles = getSampleStyleSheet()
+
+    empresa_style = ParagraphStyle(
+        "EmpresaHist", parent=styles["Normal"], fontSize=11.5,
+        textColor=NEGRO_TEXTO, fontName="Helvetica-Bold", leading=13,
+    )
+    meta_style = ParagraphStyle(
+        "MetaHist", parent=styles["Normal"], fontSize=7.5,
+        textColor=GRIS_MEDIO, alignment=TA_RIGHT, leading=10,
+    )
+    titulo_style = ParagraphStyle(
+        "TituloHistorial", parent=styles["Title"], fontSize=14, leading=17,
+        textColor=NEGRO_TEXTO, alignment=TA_CENTER, fontName="Helvetica-Bold",
+    )
+    subtitulo_style = ParagraphStyle(
+        "SubtituloHistorial", parent=styles["Normal"], fontSize=9, textColor=GRIS_MEDIO,
+        alignment=TA_CENTER,
+    )
+    celda_style = ParagraphStyle("CeldaHistorial", parent=styles["Normal"], fontSize=8, leading=9.5)
+
+    elementos = []
+
+    # ── Marca (igual que el formato de inspección individual) ──
+    if LOGO_PATH.exists():
+        logo_img = Image(str(LOGO_PATH), width=1.1 * cm, height=1.1 * cm)
+    else:
+        logo_img = Paragraph("", styles["Normal"])
+    marca_cell = Table(
+        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facilities Management</font>", empresa_style)]],
+        colWidths=[1.35 * cm, 6 * cm],
+    )
+    marca_cell.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (0, 0), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    meta_cell = Paragraph(
+        f"Generado el: <b>{datetime.now().strftime('%d/%m/%Y %H:%M')}</b><br/>Total de registros: <b>{total}</b>",
+        meta_style,
+    )
+    fila_superior = Table([[marca_cell, meta_cell]], colWidths=[16 * cm, 8 * cm])
+    fila_superior.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    elementos.append(fila_superior)
+    elementos.append(Spacer(1, 6))
+
+    elementos.append(Paragraph("HISTORIAL DE INSPECCIONES", titulo_style))
+    elementos.append(Spacer(1, 2))
+    elementos.append(Paragraph(f"{material.codigo} · {material.nombre}", subtitulo_style))
+    elementos.append(Spacer(1, 8))
+
+    # ── KPIs de resumen ──
+    kpi_style = ParagraphStyle("KpiHist", parent=styles["Normal"], fontSize=9, fontName="Helvetica-Bold", alignment=TA_CENTER)
+
+    def kpi_cell(texto, color_texto):
+        estilo = ParagraphStyle("KpiHistColor", parent=kpi_style, textColor=color_texto)
+        return Paragraph(texto, estilo)
+
+    kpis_data = [[
+        kpi_cell(f"Total<br/>{total}", NEGRO_TEXTO),
+        kpi_cell(f"Aptas<br/>{n_apta}", colors.HexColor("#15803d")),
+        kpi_cell(f"Requiere reparación<br/>{n_reparacion}", colors.HexColor("#b45309")),
+        kpi_cell(f"Fuera de servicio<br/>{n_fuera}", colors.HexColor("#b91c1c")),
+    ]]
+    kpi_bgs = [GRIS_CLARO, colors.HexColor("#dcfce7"), colors.HexColor("#fef3c7"), colors.HexColor("#fee2e2")]
+    kpis_tabla = Table(kpis_data, colWidths=[6 * cm] * 4, rowHeights=[1.1 * cm])
+    estilo_kpi = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("GRID", (0, 0), (-1, -1), 0.4, GRIS_BORDE)]
+    for idx, bg in enumerate(kpi_bgs):
+        estilo_kpi.append(("BACKGROUND", (idx, 0), (idx, 0), bg))
+    kpis_tabla.setStyle(TableStyle(estilo_kpi))
+    elementos.append(kpis_tabla)
+    elementos.append(Spacer(1, 10))
+
+    # ── Tabla de historial ──
+    encabezados = ["Fecha", "N°", "Tipo", "Código de pieza", "Responsable", "Resultado", "Acción tomada", "Próx. inspección", "Observaciones"]
+    data = [encabezados]
+    resultado_bg = {
+        "Apta": colors.HexColor("#dcfce7"),
+        "Requiere reparación": colors.HexColor("#fef3c7"),
+        "Fuera de servicio": colors.HexColor("#fee2e2"),
+    }
+    resultado_fg = {
+        "Apta": colors.HexColor("#15803d"),
+        "Requiere reparación": colors.HexColor("#b45309"),
+        "Fuera de servicio": colors.HexColor("#b91c1c"),
+    }
+    for item in filas:
+        resultado_style = ParagraphStyle(
+            "ResultadoHist", parent=celda_style, fontName="Helvetica-Bold",
+            textColor=resultado_fg.get(item["resultado"], NEGRO_TEXTO),
+        )
+        data.append([
+            item["fecha"], item["numero"], item["tipo"], item["pieza"],
+            Paragraph(item["responsable"], celda_style),
+            Paragraph(item["resultado"], resultado_style),
+            Paragraph(item["accion"], celda_style),
+            item["proxima"],
+            Paragraph(item["observaciones"], celda_style),
+        ])
+
+    tabla = Table(
+        data,
+        colWidths=[2.1 * cm, 1.4 * cm, 1.8 * cm, 2.6 * cm, 3.2 * cm, 3.2 * cm, 3.2 * cm, 2.4 * cm, 4.8 * cm],
+        repeatRows=1,
+    )
+    estilo_tabla = [
+        ("BACKGROUND", (0, 0), (-1, 0), GRIS_OSCURO),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (0, 0), (3, -1), "CENTER"),
+        ("ALIGN", (7, 0), (7, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.4, GRIS_BORDE),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+    for i, item in enumerate(filas, start=1):
+        if item["resultado"] in resultado_bg:
+            estilo_tabla.append(("BACKGROUND", (5, i), (5, i), resultado_bg[item["resultado"]]))
+        elif i % 2 == 0:
+            estilo_tabla.append(("BACKGROUND", (0, i), (-1, i), GRIS_CLARO))
+    tabla.setStyle(TableStyle(estilo_tabla))
+    elementos.append(tabla)
+
+    if not filas:
+        elementos.append(Spacer(1, 12))
+        elementos.append(Paragraph("Este material no tiene inspecciones registradas todavía.", subtitulo_style))
+
+    def pie_pagina(canvas, doc_):
+        canvas.saveState()
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(GRIS_MEDIO)
+        ancho, _ = landscape(letter)
+        canvas.drawString(1.3 * cm, 0.7 * cm, f"INCALPACA · Historial de inspecciones — {material.codigo}")
+        canvas.drawRightString(ancho - 1.3 * cm, 0.7 * cm, f"Página {doc_.page}")
+        canvas.restoreState()
+
+    doc.build(elementos, onFirstPage=pie_pagina, onLaterPages=pie_pagina)
     buffer.seek(0)
     return buffer

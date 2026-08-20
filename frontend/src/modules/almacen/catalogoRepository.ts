@@ -435,6 +435,50 @@ export async function updateAlmacenCroquis(id: number, formData: FormData): Prom
 }
 
 export async function eliminarAlmacenCroquis(id: number): Promise<Almacen> {
-  const { data } = await api.delete<Almacen>(`/almacenes/${id}/croquis/`);
+  // No existe una sub-ruta /almacenes/{id}/croquis/ en el backend (solo
+  // almacen-detail). Igual que updateAlmacenCroquis, se usa PATCH sobre
+  // el detalle del almacén, mandando croquis en null para limpiarlo.
+  const { data } = await api.patch<Almacen>(`/almacenes/${id}/`, { croquis: null });
   return data;
+}
+
+// ─── Historial de inspecciones de un material ─────────────────────────────────
+
+/**
+ * Descarga un archivo protegido por auth. window.open() no sirve: es una
+ * navegación del navegador que no lleva el header Authorization del
+ * interceptor de axios, así que el backend responde 401. En su lugar
+ * pedimos el archivo como blob (que sí manda el token) y disparamos la
+ * descarga nosotros mismos. Mismo patrón que inspeccionRepository.ts.
+ */
+async function descargarArchivo(url: string, nombrePorDefecto: string): Promise<void> {
+  const response = await api.get(url, { responseType: "blob" });
+  const disposition = response.headers?.["content-disposition"] as string | undefined;
+  const match = disposition?.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? nombrePorDefecto;
+
+  const blobUrl = window.URL.createObjectURL(response.data as Blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
+}
+
+/** Descarga el Excel con el historial completo de inspecciones de un material. */
+export function exportarHistorialInspeccionesExcel(materialId: number, materialCodigo: string): Promise<void> {
+  return descargarArchivo(
+    `/materiales/${materialId}/historial-inspecciones-excel/`,
+    `historial-inspecciones-${materialCodigo}.xlsx`,
+  );
+}
+
+/** Descarga el PDF con el historial completo de inspecciones de un material. */
+export function exportarHistorialInspeccionesPdf(materialId: number, materialCodigo: string): Promise<void> {
+  return descargarArchivo(
+    `/materiales/${materialId}/historial-inspecciones-pdf/`,
+    `historial-inspecciones-${materialCodigo}.pdf`,
+  );
 }

@@ -15,7 +15,6 @@ import {
   Plus,
   Ruler,
   ShoppingCart,
-  Stack,
   Trash,
   WarningCircle,
   X,
@@ -32,8 +31,9 @@ import {
   listCategorias,
   listMateriales,
   listSubcategorias,
-  eliminarAlmacenCroquis,
 } from "@/modules/almacen/catalogoRepository";
+import { listVencidas } from "@/modules/almacen/inspeccionRepository";
+import { listChecklistPrestados } from "@/modules/almacen/inventarioRepository";
 
 import { CroquisUploader } from "@/modules/almacen/components/CroquisUploader";
 
@@ -53,6 +53,7 @@ export function CatalogoPage() {
   const isInspector = user?.role === "INSPECTOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
+  const [croquisActual, setCroquisActual] = useState<string | null | undefined>(undefined);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
   const [mostrarGestionUnidades, setMostrarGestionUnidades] = useState(false);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
@@ -86,12 +87,26 @@ export function CatalogoPage() {
       listSubcategorias(almacenId, values.categoria ? Number(values.categoria) : undefined),
   });
 
+  const { data: vencidas = [] } = useQuery({
+    queryKey: ["inspecciones-vencidas", almacenId],
+    queryFn: () => listVencidas(almacenId),
+  });
+
+  // Checklist de piezas que salieron y aún no regresaron (sin filtrar por
+  // fecha/salio_hoy → trae TODAS las que siguen en estado "Prestado").
+  const { data: prestadas = [] } = useQuery({
+    queryKey: ["checklist-prestados", almacenId],
+    queryFn: () => listChecklistPrestados(almacenId),
+  });
+
   // Stats
   const totalActivos = materiales.filter((m) => m.activo).length;
-  const conControlIndividual = materiales.filter((m) => m.control_individual).length;
-  const consumibles = materiales.filter((m) => !m.control_individual).length;
-  const stockBajo = materiales.filter(
-    (m) => !m.control_individual && m.cantidad_total < STOCK_MINIMO,
+  // "Requieren atención": agotados (cantidad_total === 0) o por debajo del
+  // stock_minimo propio de CADA material (0 = umbral desactivado para ese
+  // material). Antes se comparaba contra una constante global STOCK_MINIMO,
+  // ignorando el umbral real configurado por material en el backend.
+  const requierenAtencion = materiales.filter(
+    (m) => m.cantidad_total === 0 || (m.stock_minimo > 0 && m.cantidad_total < m.stock_minimo),
   ).length;
 
   const basketItems = materiales.filter((material) => (basket[material.id] ?? 0) > 0);
@@ -255,15 +270,21 @@ export function CatalogoPage() {
           </div>
           <div style={{ background: "#f8fafc" }}>
             <img
-              src={almacen?.croquis || "/croquis_almacen.png"}
+              src={(croquisActual !== undefined ? croquisActual : almacen?.croquis) || "/croquis_almacen.png"}
               alt={`Croquis del almacén ${almacen?.nombre ?? ""}`}
               style={{ width: "100%", maxHeight: 640, objectFit: "contain", display: "block" }}
             />
             {puedeEditarCroquis && (
               <CroquisUploader
-                almacen={almacen}
+                almacen={{
+                  ...almacen,
+                  croquis: croquisActual !== undefined ? croquisActual : almacen?.croquis,
+                } as typeof almacen}
                 almacenId={almacenId}
-                onUpdated={() => queryClient.invalidateQueries({ queryKey: ["almacen-detalle", almacenId] })}
+                onUpdated={(nuevoAlmacen) => {
+                  setCroquisActual(nuevoAlmacen?.croquis ?? null);
+                  queryClient.invalidateQueries({ queryKey: ["almacen-detalle", almacenId] });
+                }}
               />
             )}
           </div>
@@ -282,34 +303,39 @@ export function CatalogoPage() {
           </div>
         </article>
 
-        <article className="kpi-card" aria-label={`Con piezas individuales: ${conControlIndividual}`}>
-          <div className="kpi-card-top">
-            <Stack size={20} className="kpi-icon" />
-          </div>
-          <div>
-            <div className="kpi-number">{conControlIndividual}</div>
-            <div className="kpi-label">Con piezas individuales</div>
-          </div>
-        </article>
-
-        <article className="kpi-card" aria-label={`Consumibles: ${consumibles}`}>
-          <div className="kpi-card-top">
-            <Package size={20} className="kpi-icon" />
-          </div>
-          <div>
-            <div className="kpi-number">{consumibles}</div>
-            <div className="kpi-label">Consumibles</div>
-          </div>
-        </article>
-
-        <article className="kpi-card" aria-label={`Stock bajo: ${stockBajo}`}>
+        <article className="kpi-card" aria-label={`Requieren atención: ${requierenAtencion}`}>
           <div className="kpi-card-top">
             <WarningCircle size={20} className="kpi-icon" />
           </div>
           <div>
-            <div className="kpi-number">{stockBajo}</div>
-            <div className="kpi-label">Stock bajo</div>
-            <div className="kpi-sublabel">Menos de {STOCK_MINIMO} unidades</div>
+            <div className="kpi-number">{requierenAtencion}</div>
+            <div className="kpi-label">Requieren atención</div>
+            <div className="kpi-sublabel">Agotados o bajo su stock mínimo</div>
+          </div>
+        </article>
+
+        <Link
+          to={`/almacen/${almacenId}/inspecciones/vencidas`}
+          className="kpi-card kpi-card-link"
+          aria-label={`Inspecciones vencidas: ${vencidas.length}`}
+        >
+          <div className="kpi-card-top">
+            <WarningCircle size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{vencidas.length}</div>
+            <div className="kpi-label">Inspecciones vencidas</div>
+          </div>
+        </Link>
+
+        <article className="kpi-card" aria-label={`Piezas no devueltas: ${prestadas.length}`}>
+          <div className="kpi-card-top">
+            <Package size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{prestadas.length}</div>
+            <div className="kpi-label">No devueltas</div>
+            <div className="kpi-sublabel">Piezas prestadas sin regresar</div>
           </div>
         </article>
       </section>
