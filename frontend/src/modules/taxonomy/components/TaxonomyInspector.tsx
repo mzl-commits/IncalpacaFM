@@ -72,10 +72,10 @@ function TaxonomyEntityActions({
         const payload = { ...node, active: !node.active } as any;
         await updateFamily.mutateAsync(payload);
       } else if (nodeType === "PART") {
-        const payload = { ...node, typeId: (node as TaxonomyTreePart).parentId, partCode: (node as TaxonomyTreePart).partCode, active: !node.active } as any;
+        const payload = { ...node, typeId: (node as any).parentId, partCode: (node as TaxonomyTreePart).partCode, active: !node.active } as any;
         await updatePart.mutateAsync(payload);
       } else if (nodeType === "PIECE") {
-        const payload = { ...node, partId: (node as TaxonomyTreePiece).parentId, pieceCode: (node as TaxonomyTreePiece).pieceCode, active: !node.active } as any;
+        const payload = { ...node, partId: (node as any).parentId, pieceCode: (node as TaxonomyTreePiece).pieceCode, active: !node.active } as any;
         await updatePiece.mutateAsync(payload);
       }
       setActionType(null);

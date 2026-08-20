@@ -92,10 +92,10 @@ export async function generateWorkOrderApaPdf({
   const materialRows = materials.length > 0
     ? materials.map(m => `
         <tr>
-          <td><strong>${m.name || m.description || "—"}</strong></td>
-          <td class="text-center">${m.quantity ?? 1}</td>
-          <td>${m.unit || "Unid."}</td>
-          <td>${m.notes || "—"}</td>
+          <td><strong>${m.materialNombre || "-"}</strong></td>
+          <td class="text-center">${m.cantidad ?? 1}</td>
+          <td>Unid.</td>
+          <td>${m.clasificacionOperativaLabel || "-"}</td>
         </tr>`).join("")
     : `<tr><td colspan="4" class="td-empty text-center" style="font-style:italic; color:#808080;">Sin materiales registrados.</td></tr>`;
 
@@ -144,7 +144,7 @@ export async function generateWorkOrderApaPdf({
     <div class="header-right">
       <span>Fecha de Emisión: ${nowStr}</span><br/>
       <span>Estado de Orden: <strong>${order.status || "—"}</strong></span><br/>
-      <span>Tipo: ${order.orderTypeLabel || "MANTENIMIENTO"}</span>
+      <span>Tipo: ${order.orderType || "MANTENIMIENTO"}</span>
     </div>
   </div>
 
@@ -157,13 +157,13 @@ export async function generateWorkOrderApaPdf({
           <td class="label">Código de Orden:</td>
           <td class="value">${order.code}</td>
           <td class="label">Solicitud Origen:</td>
-          <td class="value">${order.incidentCode || "Directa"}</td>
+          <td class="value">${order.requestCode || "Directa"}</td>
         </tr>
         <tr>
           <td class="label">Bien / Activo:</td>
           <td class="value">${order.assetDisplayCode || order.assetCode || "Sin bien asignado"}</td>
           <td class="label">Ubicación Física:</td>
-          <td class="value">${order.specificLocation || order.zone || "Planta Incalpaca"}</td>
+          <td class="value">${order.assetDisplayCode || order.assetCode || "Planta Incalpaca"}</td>
         </tr>
         <tr>
           <td class="label">Técnico Responsable:</td>
@@ -182,7 +182,7 @@ export async function generateWorkOrderApaPdf({
       <tbody>
         <tr>
           <td class="value" style="width:100%;">
-            ${order.description || "Sin descripción registrada."}
+            ${order.administratorNotes || "-"}
           </td>
         </tr>
       </tbody>
