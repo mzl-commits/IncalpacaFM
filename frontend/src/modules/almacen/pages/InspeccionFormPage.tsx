@@ -6,6 +6,7 @@ import { labelPieza } from "@/utils/pieza";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
+  getMaterialDetalle,
   listMateriales,
   listPiezas,
 } from "@/modules/almacen/catalogoRepository";
@@ -18,6 +19,7 @@ import type {
   AccionInspeccion,
   Criterio,
   Material,
+  MaterialDetalle,
   PiezaBase,
   ResultadoInspeccion,
   TipoInspeccion,
@@ -68,6 +70,11 @@ export function InspeccionFormPage() {
     queryFn: () => listMateriales(almacenId),
     enabled: !!almacenId,
   });
+  const { data: materialDetalle } = useQuery({
+    queryKey: ["material-detalle", materialId],
+    queryFn: () => getMaterialDetalle(materialId),
+    enabled: materialId > 0,
+  });
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listUsuarios,
@@ -77,7 +84,7 @@ export function InspeccionFormPage() {
     queryFn: listPlantillasCriterios,
   });
 
-  const material: Material | undefined = materiales.find((m) => m.id === materialId);
+  const material = materialDetalle ?? materiales.find((m) => m.id === materialId);
 
   const { data: piezas = [] } = useQuery({
     queryKey: ["piezas", materialId],
@@ -94,12 +101,18 @@ export function InspeccionFormPage() {
   });
   const esEstuche = piezaId > 0 && hijasActivas.length > 0;
 
-  // Auto-seleccionar plantilla de la subcategoría del material
+  // Auto-seleccionar plantilla de la subcategoría del material (automático y obligatorio)
   useEffect(() => {
     if (!material) return;
     const plantillaIdSub = material.subcategoria_plantilla_inspeccion;
-    if (plantillaIdSub) setPlantillaId(plantillaIdSub);
-  }, [material]);
+    if (plantillaIdSub) {
+      setPlantillaId(plantillaIdSub);
+    } else if (plantillas.length > 0) {
+      const fallback =
+        plantillas.find((p) => p.nombre.toLowerCase().includes("manual")) ?? plantillas[0];
+      if (fallback) setPlantillaId(fallback.id);
+    }
+  }, [material, plantillas]);
 
   // Auto-poblar piezas_lote cuando se detecta estuche.
   useEffect(() => {
@@ -414,19 +427,26 @@ export function InspeccionFormPage() {
               <Field label="Plantilla de criterios" required error={errors.plantilla}>
                 <select
                   value={plantillaId || ""}
-                  disabled={!!material?.subcategoria_plantilla_inspeccion}
-                  onChange={(e) => setPlantillaId(Number(e.target.value))}
+                  disabled={true}
+                  style={{
+                    backgroundColor: "var(--surface-muted, #f8fafc)",
+                    cursor: "not-allowed",
+                    color: "var(--text, #0f172a)",
+                    fontWeight: 500,
+                  }}
                 >
-                  <option value="">Seleccionar plantilla…</option>
+                  <option value="">
+                    {materialId ? "Cargando plantilla asignada…" : "Selecciona un material en el Paso 2…"}
+                  </option>
                   {plantillas.map((p) => (
                     <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
                 </select>
-                {material?.subcategoria_plantilla_inspeccion && (
-                  <small style={{ display: "block", marginTop: 4, color: "#666" }}>
-                    Definida por la subcategoría del material — no editable.
-                  </small>
-                )}
+                <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                  {materialId
+                    ? "✓ Asignada automáticamente según la clasificación del material (no editable)."
+                    : "Se asignará automáticamente al seleccionar el material."}
+                </small>
               </Field>
               <Field label="Inspector" required error={errors.inspector}>
                 <select value={inspectorId || ""} onChange={(e) => setInspectorId(Number(e.target.value))}>

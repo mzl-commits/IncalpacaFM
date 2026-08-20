@@ -242,18 +242,37 @@ def generar_excel_inspeccion(inspeccion):
 
 # ─── Estilos y funciones auxiliares para Excel de Inspecciones ───────────────
 
+EXCEL_HEADER_BG = "000000"         # Negro puro corporativo (combina 100% con el logo)
+EXCEL_HEADER_TXT = "FFFFFF"
+EXCEL_SUBHEADER_BG = "18181B"      # Negro grafito oscuro institucional
+EXCEL_ROW_ALT = "F9FAFB"        # Fondo gris sutil para filas alternadas
+EXCEL_ROW_BASE = "FFFFFF"       # Fondo base blanco
+EXCEL_BORDER = "E5E7EB"         # Borde gris sutil
+EXCEL_TEXT = "000000"           # Texto principal negro nítido
+
+# Colores semánticos de resultado (versión saturada profesional con texto blanco)
+EXCEL_APTA_BG = "065F46"        # Verde esmeralda oscuro
+EXCEL_APTA_TXT = "FFFFFF"
+EXCEL_REPARACION_BG = "92400E"  # Ámbar oscuro
+EXCEL_REPARACION_TXT = "FFFFFF"
+EXCEL_FUERA_BG = "991B1B"       # Rojo borgoña oscuro
+EXCEL_FUERA_TXT = "FFFFFF"
+
+
 def _get_logo_path():
     """Retorna la ruta al logo institucional PNG disponible."""
     from pathlib import Path
-    p1 = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "public" / "logo-incalpaca.png"
-    p2 = Path(__file__).resolve().parent.parent / "workorders" / "logo_brand.png"
-    if p1.exists():
-        return p1
-    if p2.exists():
-        return p2
+    p0 = Path(__file__).resolve().parent / "logo_incalpaca_header.png"
+    p1 = Path(__file__).resolve().parent / "logo_incalpaca.png"
+    p2 = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "public" / "logo-incalpaca.png"
+    p3 = Path(__file__).resolve().parent.parent / "workorders" / "logo_brand.png"
+    for p in [p0, p1, p2, p3]:
+        if p.exists():
+            return p
     return None
 
-def _insert_logo(ws, cell="A1", width=115, height=38):
+
+def _insert_logo(ws, cell="A1", width=125, height=37):
     """Inserta la imagen del logo institucional en la celda indicada."""
     from openpyxl.drawing.image import Image as OpenpyxlImage
     p = _get_logo_path()
@@ -266,27 +285,61 @@ def _insert_logo(ws, cell="A1", width=115, height=38):
         except Exception:
             pass
 
+
 def _aplicar_estilo_oscuro_plantilla(ws):
     """
-    Aplica el diseño corporativo oscuro e inserta el logo de Incalpaca en la plantilla oficial.
-    Reemplaza los antiguos rellenos celestes pastel por la paleta institucional (#1E293B / #334155).
+    Aplica diseño corporativo en negro estricto e inserta el logo oficial en la plantilla.
+    Reemplaza todos los fondos celestes pastel por la paleta institucional (#000000 / #18181B).
     """
-    from openpyxl.styles import Font, Alignment
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
-    # 1. Insertar Logo oficial en la esquina superior
-    _insert_logo(ws, cell="A1", width=115, height=38)
+    # 1. Cabecera ejecutiva integrada en negro puro (Filas 1 a 5)
+    dark_fill = _excel_fill("000000")
+    slate_fill = _excel_fill("18181B")
+    header_border = Border(
+        left=Side(style="thin", color="333333"),
+        right=Side(style="thin", color="333333"),
+        top=Side(style="thin", color="333333"),
+        bottom=Side(style="thin", color="333333"),
+    )
 
-    # 2. Paleta institucional
-    fill_section = _excel_fill(EXCEL_HEADER_BG)       # 1E293B (Carbón oscuro)
-    fill_subhead = _excel_fill(EXCEL_SUBHEADER_BG)    # 334155 (Slate medio-oscuro)
-    font_section = Font(bold=True, size=11, color="FFFFFF", name="Calibri")
-    font_subhead = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    for r in range(1, 6):
+        # A..E: Bloque del Logo y Título
+        for c in range(1, 6):
+            cell = ws.cell(row=r, column=c)
+            cell.fill = dark_fill
+            cell.border = header_border
+            if cell.value:
+                cell.font = Font(bold=True, size=11 if r <= 2 else 9.5, color="FFFFFF", name="Calibri")
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        # F..H: Caja de Metadatos
+        for c in range(6, 9):
+            cell = ws.cell(row=r, column=c)
+            cell.border = header_border
+            if c in [6, 7]:
+                cell.fill = slate_fill
+                cell.font = Font(bold=True, size=8.5, color="A1A1AA", name="Calibri")
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+            else:
+                cell.fill = dark_fill
+                cell.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    # Insertar Logo oficial horizontal en A1
+    _insert_logo(ws, cell="A1", width=125, height=37)
+
+    # 2. Paleta institucional para el resto de la hoja
+    fill_section = _excel_fill("000000")      # Negro puro
+    fill_subhead = _excel_fill("18181B")      # Negro zinc grafito
+    font_section = Font(bold=True, size=10.5, color="FFFFFF", name="Calibri")
+    font_subhead = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
     thin_border = _excel_thin_border()
 
-    for r in range(1, ws.max_row + 1):
+    for r in range(7, ws.max_row + 1):
         c1_val = str(ws.cell(row=r, column=1).value or "").strip().upper()
 
-        # A) Títulos de bloque principales
+        # A) Títulos de sección principales
         if any(keyword in c1_val for keyword in [
             "DATOS GENERALES",
             "CRITERIOS DE INSPECCIÓN",
@@ -316,20 +369,7 @@ def _aplicar_estilo_oscuro_plantilla(ws):
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             continue
 
-        # C) Filas de metadatos superiores (R1..R5 en F..H)
-        if r <= 5:
-            for c in range(6, ws.max_column + 1):
-                cell = ws.cell(row=r, column=c)
-                if cell.value is not None:
-                    cell.border = thin_border
-                    if c in [6, 7]:
-                        cell.font = Font(bold=True, size=9, color="334155", name="Calibri")
-                        cell.fill = _excel_fill("F8FAFC")
-                    else:
-                        cell.font = Font(bold=False, size=9, color="0F172A", name="Calibri")
-            continue
-
-        # D) Bloque de datos generales (R8..R12)
+        # C) Bloque de datos generales (R8..R12)
         if 8 <= r <= 12 and "CRITERIO" not in c1_val:
             ws.row_dimensions[r].height = 20
             for c in range(1, ws.max_column + 1):
@@ -341,7 +381,7 @@ def _aplicar_estilo_oscuro_plantilla(ws):
                         cell.fill = _excel_fill("F8FAFC")
             continue
 
-        # E) Filas de criterios de evaluación: centrar marcas 'X', alternar zebra striping
+        # D) Filas de criterios de evaluación: centrar marcas 'X', alternar zebra striping
         if str(ws.cell(row=r, column=1).value or "").strip().isdigit():
             ws.row_dimensions[r].height = 20
             idx_criterio = int(str(ws.cell(row=r, column=1).value).strip())
@@ -358,14 +398,6 @@ def _aplicar_estilo_oscuro_plantilla(ws):
                 elif c == 2:  # Texto criterio
                     cell.alignment = Alignment(horizontal="left", vertical="center")
                     cell.font = Font(size=9.5, color="0F172A", name="Calibri")
-
-EXCEL_HEADER_BG = "1E293B"         # Carbón / Slate oscuro institucional
-EXCEL_HEADER_TXT = "FFFFFF"
-EXCEL_SUBHEADER_BG = "334155"      # Slate medio oscuro
-EXCEL_ROW_ALT = "F1F5F9"        # Fondo gris suave para filas alternadas
-EXCEL_ROW_BASE = "FFFFFF"       # Fondo base blanco
-EXCEL_BORDER = "CBD5E1"         # Borde gris sutil
-EXCEL_TEXT = "0F172A"           # Texto principal oscuro
 
 # Colores semánticos de resultado (versión saturada profesional con texto blanco)
 EXCEL_APTA_BG = "065F46"        # Verde esmeralda oscuro
@@ -451,25 +483,36 @@ def _generar_excel_simple(inspeccion):
     ws = wb.active
     ws.title = "Inspección"
 
-    objetivo = inspeccion.pieza.codigo if inspeccion.pieza else inspeccion.material.codigo
+    objetivo = (
+        inspeccion.pieza.codigo
+        if getattr(inspeccion, "pieza", None)
+        else (inspeccion.material.codigo if getattr(inspeccion, "material", None) else "—")
+    )
+    mat_nombre = inspeccion.material.nombre if getattr(inspeccion, "material", None) else "—"
+    plantilla_nombre = inspeccion.plantilla.nombre if getattr(inspeccion, "plantilla", None) else "—"
     codigo_doc = _codigo_documento(inspeccion)
     fecha_emision = _fecha_emision_hoy()
-    inspector_nombre = inspeccion.inspector.get_full_name() or inspeccion.inspector.username
+    inspector_nombre = (
+        inspeccion.inspector.get_full_name() or inspeccion.inspector.username
+        if getattr(inspeccion, "inspector", None)
+        else "N/A"
+    )
 
-    # 1. Encabezado principal (A1:F1)
-    ws.merge_cells("A1:F1")
-    title_cell = ws["A1"]
+    # 1. Encabezado principal y Logo (A1..F1)
+    _insert_logo(ws, cell="A1", width=125, height=35)
+    ws.merge_cells("C1:F1")
+    title_cell = ws["C1"]
     title_cell.value = "INCALPACA TOPS S.A. — FORMATO DE INSPECCIÓN DE HERRAMIENTAS"
-    title_cell.font = Font(bold=True, size=13, color="FFFFFF", name="Calibri")
+    title_cell.font = Font(bold=True, size=12.5, color="FFFFFF", name="Calibri")
     title_cell.fill = _excel_fill(EXCEL_HEADER_BG)
     title_cell.alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[1].height = 32
 
     # 2. Bloque de Metadatos
     metadata_rows = [
         [("Código documento:", True), (codigo_doc, False), ("Fecha emisión:", True), (fecha_emision, False)],
-        [("Código herramienta:", True), (objetivo, False), ("Material:", True), (inspeccion.material.nombre, False)],
-        [("Tipo inspección:", True), (inspeccion.get_tipo_display(), False), ("Plantilla:", True), (inspeccion.plantilla.nombre, False)],
+        [("Código herramienta:", True), (objetivo, False), ("Material:", True), (mat_nombre, False)],
+        [("Tipo inspección:", True), (inspeccion.get_tipo_display(), False), ("Plantilla:", True), (plantilla_nombre, False)],
         [("Inspector:", True), (inspector_nombre, False), ("Fecha inspección:", True), (_fecha(inspeccion.fecha), False)],
     ]
 
