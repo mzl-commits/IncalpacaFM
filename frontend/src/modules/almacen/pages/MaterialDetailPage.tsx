@@ -3,6 +3,7 @@ import {
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -203,16 +204,15 @@ export function MaterialDetailPage() {
       </div>
 
       {/* ── Modal de eliminación (2 pasos) ── */}
-      {deleteStep !== "idle" && (
+      {deleteStep !== "idle" && createPortal(
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,.5)",
-          display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 999,
-          paddingTop: "60px", paddingBottom: "20px", paddingLeft: "16px", paddingRight: "16px",
-          overflowY: "auto",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999,
+          padding: 16,
         }}>
           <div style={{
             background: "var(--surface, #fff)", borderRadius: 12, padding: 28,
-            maxWidth: 440, width: "92%", boxShadow: "0 8px 40px rgba(0,0,0,.25)",
+            maxWidth: 440, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,.25)",
           }}>
 
             {/* Paso 1: confirmación normal */}
@@ -309,7 +309,8 @@ export function MaterialDetailPage() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <div className="wizard-layout">

@@ -1,6 +1,7 @@
 import { CalendarBlank, CalendarCheck, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, Fragment } from "react";
+import { createPortal } from "react-dom";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listProgramaciones, reprogramarInspeccion } from "@/modules/almacen/planificacionRepository";
@@ -84,7 +85,7 @@ function ModalReprogramar({ programacion, onClose, onSuccess }: ModalReprogramar
     ? `${programacion.pieza_codigo ?? programacion.material_codigo ?? "—"} · ${programacion.objeto_nombre}`
     : (programacion.pieza_codigo ?? programacion.material_codigo ?? "—");
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -92,16 +93,12 @@ function ModalReprogramar({ programacion, onClose, onSuccess }: ModalReprogramar
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 9999,
-        background: "rgba(0,0,0,0.45)",
+        zIndex: 99999,
+        background: "rgba(0, 0, 0, 0.5)",
         display: "flex",
-        alignItems: "flex-start",
+        alignItems: "center",
         justifyContent: "center",
-        paddingTop: "60px",
-        paddingBottom: "20px",
-        paddingLeft: "16px",
-        paddingRight: "16px",
-        overflowY: "auto",
+        padding: "16px",
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -112,8 +109,9 @@ function ModalReprogramar({ programacion, onClose, onSuccess }: ModalReprogramar
           padding: "28px 32px",
           width: "100%",
           maxWidth: 420,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.25)",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <CalendarCheck size={22} weight="bold" />
@@ -160,7 +158,8 @@ function ModalReprogramar({ programacion, onClose, onSuccess }: ModalReprogramar
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

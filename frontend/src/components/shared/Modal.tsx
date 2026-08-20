@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 
 interface ModalProps {
@@ -10,8 +11,9 @@ interface ModalProps {
 }
 
 /**
- * Modal genérico y reutilizable. Se cierra con el botón X, click en el overlay,
- * o tecla Escape.
+ * Modal genérico y reutilizable. Se monta con Portal en document.body para aparecer
+ * siempre frente a la vista del usuario, centrado en pantalla.
+ * Se cierra con el botón X, click en el overlay, o tecla Escape.
  */
 export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalProps) {
   useEffect(() => {
@@ -25,34 +27,30 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0, 0, 0, 0.45)",
+        background: "rgba(0, 0, 0, 0.5)",
         display: "flex",
-        alignItems: "flex-start",
+        alignItems: "center",
         justifyContent: "center",
-        paddingTop: 50,
-        paddingBottom: 20,
-        paddingLeft: 16,
-        paddingRight: 16,
-        zIndex: 1000,
-        overflowY: "auto",
+        padding: 16,
+        zIndex: 99999,
       }}
       onClick={onClose}
     >
       <div
         style={{
           background: "#fff",
-          borderRadius: 8,
+          borderRadius: 12,
           padding: 24,
           width: "100%",
           maxWidth,
-          maxHeight: "85vh",
+          maxHeight: "90vh",
           overflowY: "auto",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.25)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -83,6 +81,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
