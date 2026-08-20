@@ -189,13 +189,10 @@ class MaterialQuerySet(models.QuerySet):
             activo=True,
             es_componente=False,
             subcategoria__activo=True,
+            subcategoria__plantilla_inspeccion__isnull=False,
             subcategoria__categoria__activo=True,
-        ).filter(
-            models.Q(subcategoria__plantilla_inspeccion__isnull=False)
-            | models.Q(subcategoria__categoria__requiere_inspeccion=True)
-            | models.Q(control_individual=True)
-            | models.Q(tipo_control="retornable")
-        ).distinct()
+            subcategoria__categoria__requiere_inspeccion=True,
+        )
     
 class Material(models.Model):
     TIPO_CONTROL_CHOICES = [

@@ -193,24 +193,21 @@ class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
         qs = Pieza.objects.filter(estado="Prestado").select_related(
             "material", "padre"
         ).prefetch_related("movimientos")
-
         almacen_forzado = self._almacen_forzado()
         if almacen_forzado is not None:
             almacen_id = almacen_forzado
         else:
-            almacen_id = request.data.get("almacen")
+            almacen_id = request.query_params.get("almacen")
             if not almacen_id:
                 return Response({"detail": "Debes indicar el almacén..."}, status=400)
-
         salio_hoy = request.query_params.get("salio_hoy")
         if salio_hoy is not None and salio_hoy.lower() == "true":
             hoy = timezone.now().date()
             qs = qs.filter(movimientos__tipo="salida", movimientos__fecha__date=hoy).distinct()
-
         fecha_str = request.query_params.get("fecha")
         if fecha_str:
             qs = qs.filter(movimientos__tipo="salida", movimientos__fecha__date=fecha_str).distinct()
-        qs = qs.filter(almacen_id=almacen_id)
+        qs = qs.filter(material__almacen_id=almacen_id)
         return Response(PiezaPrestadaSerializer(qs, many=True).data)
 
     # ── Exportar Excel ────────────────────────────────────────────────────────

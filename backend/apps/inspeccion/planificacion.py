@@ -227,6 +227,18 @@ def _fecha_ancla(objetivo, periodicidad_dias, es_pieza, fecha_inicio):
 
 
 def asegurar_programacion_inicial(material=None, pieza=None):
+    from apps.catalogo.models import Material
+
+    # Solo crear programación si el material realmente requiere inspección
+    # periódica (categoría marcada + plantilla de inspección asignada). Antes
+    # esta función creaba una programación para cualquier material/pieza que
+    # se le pasara, sin validar elegibilidad — eso generaba entradas en el
+    # calendario/plan anual para materiales que nunca debieron aparecer ahí
+    # (ej. bisagras u otros consumibles no marcados para inspección).
+    objetivo_material = pieza.material if pieza else material
+    if not Material.objects.inspeccionables().filter(pk=objetivo_material.pk).exists():
+        return None
+
     filtro = {"pieza": pieza} if pieza else {"material": material}
     if ProgramacionInspeccion.objects.filter(estado="pendiente", **filtro).exists():
         return None

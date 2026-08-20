@@ -538,7 +538,9 @@ export function MaterialFormPage() {
                 />
               </Field>
 
-              {categorias.find((c) => c.id === categoriaId)?.requiere_inspeccion && (
+              {(categorias.find((c) => c.id === categoriaId)?.requiere_inspeccion
+                || form.control_individual
+                || form.tipo_control === "retornable") && (
                 <Field label="Frecuencia de inspección" hint="Cada cuánto debe inspeccionarse este material" wide>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input

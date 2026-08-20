@@ -741,6 +741,9 @@ export function MovimientoFormPage() {
       qc.invalidateQueries({ queryKey: ["piezas-baja", materialId] });
 
       if (resp && typeof resp === "object" && ("batchCompleto" in resp || "batchParcial" in resp)) {
+        if ("batchCompleto" in resp) {
+          setExito(true);
+        }
         return;
       }
 
@@ -782,7 +785,13 @@ export function MovimientoFormPage() {
   if (exito || avisoEstuche) {
     return (
       <section className="success-panel">
-        <h2>Movimiento registrado</h2>
+        <h2>
+          {tipo === "salida"
+            ? "✓ Salida registrada con éxito"
+            : tipo === "entrada"
+            ? "✓ Entrada registrada con éxito"
+            : "✓ Baja registrada con éxito"}
+        </h2>
         {avisoEstuche && (
           <div className="aviso-estuche" style={{ maxWidth: 480, margin: "0 auto 20px", textAlign: "left" }}>
             <strong>⚠ Estuche incompleto</strong>
@@ -810,6 +819,10 @@ export function MovimientoFormPage() {
               setCantidad(1);
               setRenglones([renglonVacio()]);
               setResultadosAdmin(null);
+              setObservaciones("");
+              setReferencia("");
+              setWorkOrderSelected("");
+              setSinOT(false);
             }}
           >
             Registrar otro
@@ -1256,6 +1269,15 @@ export function MovimientoFormPage() {
                 <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 10, marginBottom: 0 }}>
                   Los renglones con ✗ se conservan en el formulario para que puedas corregir y reintentar.
                 </p>
+              )}
+              {resultadosAdmin.some((x) => x.ok) && (
+                <Link
+                  to={`/almacen/${almacenId}/movimientos`}
+                  className="button button-secondary button-sm"
+                  style={{ marginTop: 12, display: "inline-flex" }}
+                >
+                  Ver movimientos
+                </Link>
               )}
             </div>
           )}

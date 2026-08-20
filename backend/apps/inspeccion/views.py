@@ -324,6 +324,35 @@ class ProgramacionInspeccionViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelVi
         if hasta:
             qs = qs.filter(fecha_programada__lte=hasta)
         return qs
+    @action(detail=True, methods=["post"], url_path="reprogramar")
+    def reprogramar(self, request, pk=None):
+        """Permite cambiar la fecha de una programación pendiente."""
+        programacion = self.get_object()
+        if programacion.estado != "pendiente":
+            return Response(
+                {"detail": "Solo se pueden reprogramar inspecciones en estado pendiente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        nueva_fecha = request.data.get("nueva_fecha")
+        motivo = request.data.get("motivo", "").strip()
+        if not nueva_fecha:
+            return Response(
+                {"detail": "Debes especificar la nueva fecha programada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        fecha_anterior = programacion.fecha_programada
+        programacion.fecha_programada = nueva_fecha
+        
+        # Opcional: Si tienes campo de observaciones o notas
+        if hasattr(programacion, "observaciones"):
+            nota = f"[Reprogramada del {fecha_anterior} al {nueva_fecha}] Motivo: {motivo or 'No especificado'}"
+            programacion.observaciones = f"{programacion.observaciones}\n{nota}".strip()
+        programacion.save()
+        return Response({
+            "detail": f"Inspección reprogramada exitosamente para el {nueva_fecha}.",
+            "id": programacion.id,
+            "nueva_fecha": programacion.fecha_programada,
+        })
 
 class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = PlanInspeccionAnual.objects.all()
