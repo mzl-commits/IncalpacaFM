@@ -459,7 +459,7 @@ class ReportTemplateSerializer(serializers.ModelSerializer):
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     class Meta:
         model = ReportTemplate
-        fields = ("id", "name", "scope", "sections", "version", "variables", "content_hash", "status", "is_active", "createdAt", "updatedAt")
+        fields = ("id", "name", "scope", "sections", "version", "variables", "content_hash", "status", "is_active", "is_default", "createdAt", "updatedAt")
         read_only_fields = ("id", "createdAt", "updatedAt")
 
 

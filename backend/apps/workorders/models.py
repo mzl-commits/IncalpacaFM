@@ -156,7 +156,8 @@ class ReportTemplate(models.Model):
     content_hash = models.CharField(max_length=64, blank=True, db_index=True)
     status = models.CharField(max_length=12, choices=(("BORRADOR", "Borrador"), ("EMITIDO", "Emitido"), ("ANULADO", "Anulado")), default="BORRADOR")
     is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="report_templates", on_delete=models.PROTECT)
+    is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="report_templates", on_delete=models.PROTECT, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

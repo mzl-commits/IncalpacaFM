@@ -128,6 +128,69 @@ class Location(UUIDModel):
     class Meta:
         constraints = [models.UniqueConstraint(fields=('site', 'zone', 'building', 'level', 'area', 'room', 'location_code'), name='uq_asset_location')]
 
+    @property
+    def full_assignment_code(self):
+        """Genera el Código de Taxonomía concatenado de 9 niveles:
+        Nivel 1 Sede → Nivel 2 Área Macro → Nivel 3 Área → Nivel 4 Módulo → Nivel 5 Tipo de bien → Nivel 6 Bien → Nivel 7 Característica → Nivel 8 Variante/Modelo → Nivel 9 SKU.
+        Ejemplo: INC1-AD-MKT-MT04-MOB-SE-BA-6A-SKU10
+        """
+        p = self.entry_payload or {}
+
+        # N1: Sede (ej: INC1)
+        n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1').upper()
+        # N2: Área Macro (ej: AD)
+        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'AD').upper()
+        # N3: Área (ej: MKT)
+        n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT').upper()
+        # N4: Módulo (ej: MT04)
+        n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04').upper()
+
+        if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
+            space_path = self.location.space_node.path_code
+            parts = space_path.split('-')
+            if len(parts) >= 4:
+                n1, n2, n3, n4 = parts[0], parts[1], parts[2], parts[3]
+            elif len(parts) == 3:
+                n1, n2, n3 = parts[0], parts[1], parts[2]
+            elif len(parts) == 2:
+                n1, n2 = parts[0], parts[1]
+
+        # N5: Tipo de bien / Familia Taxonómica (3 letras, ej: MOB)
+        fam_raw = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
+        fam_map = {
+            'MOBILIARIO': 'MOB',
+            'EQUIPOS DE CÓMPUTO': 'EQC',
+            'EQUIPOS DE COMPUTO': 'EQC',
+            'HERRAMIENTA ELÉCTRICA': 'HRE',
+            'HERRAMIENTA ELECTRICA': 'HRE',
+            'PERIFÉRICOS': 'PER',
+            'PERIFERICOS': 'PER',
+            'EQUIPOS FM': 'EQF',
+            'EQUIPO INDUSTRIAL': 'EQI',
+        }
+        n5 = fam_map.get(fam_raw.upper(), fam_raw[:3].upper() if len(fam_raw) >= 3 else 'MOB')
+
+        # N6: Bien / Tipo (ej: SE)
+        type_raw = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
+        n6 = type_raw.split('-')[0].strip().upper()[:3] if type_raw else 'SE'
+
+        # N7: Característica / Parte (ej: BA)
+        n7 = str(p.get('n7_code') or p.get('part_code') or 'BA').strip().upper()[:3]
+
+        # N8: Variante / Modelo / Pieza (ej: 6A o GA)
+        n8 = str(p.get('n8_code') or p.get('piece_code') or '6A').strip().upper()[:3]
+
+        # N9: SKU (Correlativo, ej: SKU10)
+        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_sequence_value or '10')
+        if '-' in raw_sku:
+            sku_num = raw_sku.split('-')[-1].strip()
+        else:
+            sku_num = raw_sku.replace('SKU', '').replace('sku', '').strip()
+
+        n9 = f"SKU{sku_num}" if sku_num else "SKU10"
+
+        return f"{n1}-{n2}-{n3}-{n4}-{n5}-{n6}-{n7}-{n8}-{n9}"
+
     def __str__(self):
         code = f'{self.location_code} · ' if self.location_code else ''
         return f'{code}{self.zone} / {self.building} / {self.area} / {self.room}'
@@ -340,6 +403,69 @@ class Asset(UUIDModel):
                 name='ck_asset_location_marker_y',
             ),
         ]
+
+    @property
+    def full_assignment_code(self):
+        """Genera el Código de Taxonomía concatenado de 9 niveles:
+        Nivel 1 Sede → Nivel 2 Área Macro → Nivel 3 Área → Nivel 4 Módulo → Nivel 5 Tipo de bien → Nivel 6 Bien → Nivel 7 Característica → Nivel 8 Variante/Modelo → Nivel 9 SKU.
+        Ejemplo: INC1-AD-MKT-MT04-MOB-SE-BA-6A-SKU10
+        """
+        p = self.entry_payload or {}
+
+        # N1: Sede (ej: INC1)
+        n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1').upper()
+        # N2: Área Macro (ej: AD)
+        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'AD').upper()
+        # N3: Área (ej: MKT)
+        n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT').upper()
+        # N4: Módulo (ej: MT04)
+        n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04').upper()
+
+        if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
+            space_path = self.location.space_node.path_code
+            parts = space_path.split('-')
+            if len(parts) >= 4:
+                n1, n2, n3, n4 = parts[0], parts[1], parts[2], parts[3]
+            elif len(parts) == 3:
+                n1, n2, n3 = parts[0], parts[1], parts[2]
+            elif len(parts) == 2:
+                n1, n2 = parts[0], parts[1]
+
+        # N5: Tipo de bien / Familia Taxonómica (3 letras, ej: MOB)
+        fam_raw = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
+        fam_map = {
+            'MOBILIARIO': 'MOB',
+            'EQUIPOS DE CÓMPUTO': 'EQC',
+            'EQUIPOS DE COMPUTO': 'EQC',
+            'HERRAMIENTA ELÉCTRICA': 'HRE',
+            'HERRAMIENTA ELECTRICA': 'HRE',
+            'PERIFÉRICOS': 'PER',
+            'PERIFERICOS': 'PER',
+            'EQUIPOS FM': 'EQF',
+            'EQUIPO INDUSTRIAL': 'EQI',
+        }
+        n5 = fam_map.get(fam_raw.upper(), fam_raw[:3].upper() if len(fam_raw) >= 3 else 'MOB')
+
+        # N6: Bien / Tipo (ej: SE)
+        type_raw = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
+        n6 = type_raw.split('-')[0].strip().upper()[:3] if type_raw else 'SE'
+
+        # N7: Característica / Parte (ej: BA)
+        n7 = str(p.get('n7_code') or p.get('part_code') or 'BA').strip().upper()[:3]
+
+        # N8: Variante / Modelo / Pieza (ej: 6A o GA)
+        n8 = str(p.get('n8_code') or p.get('piece_code') or '6A').strip().upper()[:3]
+
+        # N9: SKU (Correlativo, ej: SKU10)
+        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_sequence_value or '10')
+        if '-' in raw_sku:
+            sku_num = raw_sku.split('-')[-1].strip()
+        else:
+            sku_num = raw_sku.replace('SKU', '').replace('sku', '').strip()
+
+        n9 = f"SKU{sku_num}" if sku_num else "SKU10"
+
+        return f"{n1}-{n2}-{n3}-{n4}-{n5}-{n6}-{n7}-{n8}-{n9}"
 
 
 class FacilityPlan(UUIDModel):

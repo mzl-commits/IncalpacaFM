@@ -336,7 +336,11 @@ export function AssetDetailPage() {
         <div>
           <p className="breadcrumb">Bienes / Ficha</p>
           <h1>{asset.name}</h1>
-          <p>{displayCode(asset)}{asset.fm_code && <small> · {asset.code}</small>}</p>
+          <p>
+            <span><strong>ID Técnico Único:</strong> {asset.code}</span>
+            <span style={{ margin: "0 10px", opacity: 0.5 }}>|</span>
+            <span><strong>Código Taxonomía (9 Niveles):</strong> {asset.full_assignment_code || displayCode(asset)}</span>
+          </p>
         </div>
         <div className="detail-actions">
           <span

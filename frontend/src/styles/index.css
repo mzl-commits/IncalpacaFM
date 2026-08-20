@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./reportTemplates.css";
 
 @theme {
   --font-sans: "Montserrat", sans-serif;
