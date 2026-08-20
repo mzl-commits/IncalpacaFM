@@ -427,25 +427,19 @@ export function InspeccionFormPage() {
               <Field label="Plantilla de criterios" required error={errors.plantilla}>
                 <select
                   value={plantillaId || ""}
-                  disabled={true}
-                  style={{
-                    backgroundColor: "var(--surface-muted, #f8fafc)",
-                    cursor: "not-allowed",
-                    color: "var(--text, #0f172a)",
-                    fontWeight: 500,
-                  }}
+                  onChange={(e) => setPlantillaId(Number(e.target.value))}
                 >
                   <option value="">
-                    {materialId ? "Cargando plantilla asignada…" : "Selecciona un material en el Paso 2…"}
+                    {materialId ? "Seleccionar plantilla…" : "Selecciona un material en el Paso 2…"}
                   </option>
                   {plantillas.map((p) => (
                     <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
                 </select>
                 <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
-                  {materialId
-                    ? "✓ Asignada automáticamente según la clasificación del material (no editable)."
-                    : "Se asignará automáticamente al seleccionar el material."}
+                  {material?.subcategoria_plantilla_inspeccion_nombre
+                    ? `✓ Plantilla recomendada: ${material.subcategoria_plantilla_inspeccion_nombre}`
+                    : "Selecciona la plantilla de criterios que corresponda."}
                 </small>
               </Field>
               <Field label="Inspector" required error={errors.inspector}>
