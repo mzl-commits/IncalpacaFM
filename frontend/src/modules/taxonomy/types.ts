@@ -80,13 +80,14 @@ export interface TaxonomyRecord extends TaxonomyOption {
 }
 
 export interface TaxonomyInput {
-  familyId: string;
-  typeCode: string;
+  prefix: string;
+  familyId?: string;
+  typeCode?: string;
   name: string;
-  assetType?: string;
-  category?: string;
-  subcategory?: string;
-  specialty?: string;
+  assetType: string;
+  category: string;
+  subcategory: string;
+  specialty: string;
   sequenceDigits: number;
   defaultCriticality: TaxonomyCriticality;
   usefulLifeYears: number | null;

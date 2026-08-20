@@ -95,7 +95,7 @@ export async function generateWorkOrderApaPdf({
           <td><strong>${m.materialNombre || "-"}</strong></td>
           <td class="text-center">${m.cantidad ?? 1}</td>
           <td>Unid.</td>
-          <td>${m.clasificacionOperativaLabel || "-"}</td>
+          <td>${m.tipoLabel || "-"}</td>
         </tr>`).join("")
     : `<tr><td colspan="4" class="td-empty text-center" style="font-style:italic; color:#808080;">Sin materiales registrados.</td></tr>`;
 
