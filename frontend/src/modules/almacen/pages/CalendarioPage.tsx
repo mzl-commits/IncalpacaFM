@@ -1,9 +1,9 @@
-import { CalendarBlank, CaretLeft, CaretRight } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { CalendarBlank, CalendarCheck, CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, Fragment } from "react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listProgramaciones } from "@/modules/almacen/planificacionRepository";
+import { listProgramaciones, reprogramarInspeccion } from "@/modules/almacen/planificacionRepository";
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import { estadoCalculadoLabels } from "@/modules/almacen/types";
 import type { EstadoCalculado, ProgramacionInspeccion } from "@/modules/almacen/types";
@@ -53,13 +53,119 @@ function agruparProgramaciones(
   return mapa;
 }
 
+// ─── Modal de Reprogramación ──────────────────────────────────────────────────
+
+interface ModalReprogramarProps {
+  programacion: ProgramacionInspeccion;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function ModalReprogramar({ programacion, onClose, onSuccess }: ModalReprogramarProps) {
+  const hoy = toISODate(new Date());
+  const [nuevaFecha, setNuevaFecha] = useState(programacion.fecha_programada);
+  const [error, setError] = useState<string | null>(null);
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: () => reprogramarInspeccion(programacion.id, nuevaFecha),
+    onSuccess: () => {
+      onSuccess();
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        "Error al reprogramar la inspección.";
+      setError(msg);
+    },
+  });
+
+  const nombre = programacion.objeto_nombre
+    ? `${programacion.pieza_codigo ?? programacion.material_codigo ?? "—"} · ${programacion.objeto_nombre}`
+    : (programacion.pieza_codigo ?? programacion.material_codigo ?? "—");
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Reprogramar inspección"
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: "var(--surface, #fff)",
+          borderRadius: 12,
+          padding: "28px 32px",
+          width: "100%",
+          maxWidth: 420,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <CalendarCheck size={22} weight="bold" />
+          <h2 style={{ margin: 0, fontSize: 17 }}>Reprogramar inspección</h2>
+        </div>
+
+        <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--muted)" }}>
+          <strong>{nombre}</strong>
+        </p>
+
+        <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+          Nueva fecha de inspección
+        </label>
+        <input
+          type="date"
+          min={hoy}
+          value={nuevaFecha}
+          onChange={(e) => { setNuevaFecha(e.target.value); setError(null); }}
+          style={{
+            width: "100%", boxSizing: "border-box",
+            padding: "8px 12px", fontSize: 14,
+            border: "1px solid var(--border, #d1d5db)",
+            borderRadius: 8, background: "var(--bg, #f9fafb)",
+          }}
+        />
+
+        {error && (
+          <p style={{ marginTop: 10, fontSize: 13, color: "var(--error, #dc2626)" }}>
+            {error}
+          </p>
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "flex-end" }}>
+          <button type="button" className="button button-secondary" onClick={onClose} disabled={isPending}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => mutate()}
+            disabled={isPending || !nuevaFecha}
+          >
+            {isPending ? "Guardando…" : "Confirmar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tabla agrupada con botón Reprogramar ─────────────────────────────────────
+
 /** Tabla reutilizable: misma vista para "Vencidas", "Próximas" y el panel del día seleccionado. */
 function TablaAgrupada({
   grupos,
   agruparPor,
+  onReprogramar,
 }: {
   grupos: Map<string, ProgramacionInspeccion[]>;
   agruparPor: "equipo" | "clasificacion";
+  onReprogramar?: (p: ProgramacionInspeccion) => void;
 }) {
   return (
     <div className="table-scroll">
@@ -70,13 +176,14 @@ function TablaAgrupada({
             {agruparPor === "clasificacion" && <th>Material / Pieza</th>}
             <th>Estado</th>
             <th>Periodicidad</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {Array.from(grupos.entries()).map(([clave, items]) => (
             <Fragment key={clave}>
               <tr className="checklist-section-row">
-                <td colSpan={agruparPor === "clasificacion" ? 4 : 3} className="checklist-section-label">
+                <td colSpan={agruparPor === "clasificacion" ? 5 : 4} className="checklist-section-label">
                   {agruparPor === "equipo" && items[0]?.objeto_nombre
                     ? `${clave} · ${items[0].objeto_nombre}`
                     : clave}{" "}
@@ -96,6 +203,20 @@ function TablaAgrupada({
                   )}
                   <td><StatusBadge value={p.estado_calculado} label={estadoCalculadoLabels[p.estado_calculado]} /></td>
                   <td className="text-muted-sm">cada {p.periodicidad_dias} días</td>
+                  <td>
+                    {p.estado === "pendiente" && onReprogramar && (
+                      <button
+                        type="button"
+                        className="button button-sm button-secondary"
+                        title="Cambiar la fecha programada de esta inspección"
+                        onClick={() => onReprogramar(p)}
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        <CalendarBlank size={13} weight="bold" />
+                        Reprogramar
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </Fragment>
@@ -106,15 +227,18 @@ function TablaAgrupada({
   );
 }
 
+
 export function CalendarioPage() {
   const { almacenId } = useAlmacenActivo();
   const almacenActivo = almacenId;
+  const queryClient = useQueryClient();
 
   const [mesVisible, setMesVisible] = useState(() => new Date());
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<EstadoCalculado | "todas">("todas");
   const [agruparPor, setAgruparPor] = useState<"equipo" | "clasificacion">("equipo");
   const [verVencidas, setVerVencidas] = useState(false);
+  const [programacionAReprogramar, setProgramacionAReprogramar] = useState<ProgramacionInspeccion | null>(null);
 
   const grilla = useMemo(() => construirGrilla(mesVisible), [mesVisible]);
   const desde = toISODate(grilla[0]);
@@ -154,7 +278,7 @@ export function CalendarioPage() {
     queryKey: ["programaciones-inspeccion-urgentes", hastaProximas, almacenActivo],
     queryFn: () => listProgramaciones({ hasta: hastaProximas, almacen: almacenActivo ?? undefined }),
     enabled: almacenActivo != null,
-});
+  });
 
   const vencidas = useMemo(() => {
     return programacionesUrgentes
@@ -175,7 +299,12 @@ export function CalendarioPage() {
     [listaDiaSeleccionado, agruparPor],
   );
 
-   return (
+  function handleRefrescar() {
+    void queryClient.invalidateQueries({ queryKey: ["programaciones-inspeccion"] });
+    void queryClient.invalidateQueries({ queryKey: ["programaciones-inspeccion-urgentes"] });
+  }
+
+  return (
     <section>
       <div className="page-heading">
         <div>
@@ -288,7 +417,7 @@ export function CalendarioPage() {
         {vencidas.length === 0 ? (
           <p className="empty-row">No hay inspecciones vencidas.</p>
         ) : verVencidas ? (
-          <TablaAgrupada grupos={gruposVencidas} agruparPor={agruparPor} />
+          <TablaAgrupada grupos={gruposVencidas} agruparPor={agruparPor} onReprogramar={setProgramacionAReprogramar} />
         ) : (
           <p className="empty-row">
             Hay <strong>{vencidas.length}</strong> inspección{vencidas.length !== 1 ? "es" : ""} vencida
@@ -325,7 +454,7 @@ export function CalendarioPage() {
         {proximas.length === 0 ? (
           <p className="empty-row">No hay inspecciones próximas en los siguientes 15 días.</p>
         ) : (
-          <TablaAgrupada grupos={gruposProximas} agruparPor={agruparPor} />
+          <TablaAgrupada grupos={gruposProximas} agruparPor={agruparPor} onReprogramar={setProgramacionAReprogramar} />
         )}
       </div>
 
@@ -342,9 +471,18 @@ export function CalendarioPage() {
           {listaDiaSeleccionado.length === 0 ? (
             <p className="empty-row">No hay inspecciones programadas este día.</p>
           ) : (
-            <TablaAgrupada grupos={gruposDia} agruparPor={agruparPor} />
+            <TablaAgrupada grupos={gruposDia} agruparPor={agruparPor} onReprogramar={setProgramacionAReprogramar} />
           )}
         </div>
+      )}
+
+      {/* Modal interactivo de reprogramación */}
+      {programacionAReprogramar && (
+        <ModalReprogramar
+          programacion={programacionAReprogramar}
+          onClose={() => setProgramacionAReprogramar(null)}
+          onSuccess={handleRefrescar}
+        />
       )}
     </section>
   );

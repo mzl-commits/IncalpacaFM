@@ -354,6 +354,55 @@ class ProgramacionInspeccionViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelVi
             "nueva_fecha": programacion.fecha_programada,
         })
 
+    @action(detail=True, methods=["patch"], url_path="reprogramar")
+    def reprogramar(self, request, pk=None):
+        """
+        Cambia la fecha_programada de una ProgramacionInspeccion pendiente.
+        PATCH /programaciones/{id}/reprogramar/
+        Body: { "fecha_programada": "YYYY-MM-DD", "motivo": "..." }
+        """
+        from apps.inspeccion.planificacion import _ajustar_dia_laborable
+
+        prog = self.get_object()
+
+        if prog.estado != "pendiente":
+            return Response(
+                {"detail": "Solo se pueden reprogramar inspecciones en estado 'pendiente'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        nueva_fecha_str = request.data.get("fecha_programada")
+        if not nueva_fecha_str:
+            return Response(
+                {"detail": "Debes indicar la nueva 'fecha_programada' (formato YYYY-MM-DD)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            nueva_fecha = date.fromisoformat(nueva_fecha_str)
+        except ValueError:
+            return Response(
+                {"detail": f"Formato de fecha inválido: '{nueva_fecha_str}'. Usa YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if nueva_fecha < date.today():
+            return Response(
+                {"detail": "No puedes programar una inspección en una fecha pasada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Ajustar al día laborable más cercano si cae en fin de semana
+        nueva_fecha = _ajustar_dia_laborable(nueva_fecha)
+
+        prog.fecha_programada = nueva_fecha
+        prog.save(update_fields=["fecha_programada"])
+
+        serializer = self.get_serializer(prog)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
 class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = PlanInspeccionAnual.objects.all()
     serializer_class = PlanInspeccionAnualSerializer

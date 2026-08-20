@@ -22,6 +22,17 @@ export async function listProgramaciones(
   return data;
 }
 
+export async function reprogramarInspeccion(
+  id: number,
+  fechaProgramada: string,
+): Promise<ProgramacionInspeccion> {
+  const { data } = await api.patch<ProgramacionInspeccion>(
+    `/programaciones-inspeccion/${id}/reprogramar/`,
+    { fecha_programada: fechaProgramada },
+  );
+  return data;
+}
+
 export async function getProgramacion(id: number): Promise<ProgramacionInspeccion> {
   const { data } = await api.get<ProgramacionInspeccion>(`/programaciones-inspeccion/${id}/`);
   return data;
