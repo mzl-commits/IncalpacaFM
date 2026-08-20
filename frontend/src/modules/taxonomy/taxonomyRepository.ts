@@ -8,16 +8,19 @@ import type {
   TaxonomyOptionsResult,
   TaxonomyRecord,
   TaxonomyReviewStatus,
+  TaxonomyTreeFamily,
 } from "./types";
 
 type TaxonomyApiRecord = {
   id: string;
+  family_id: string;
+  type_code: string;
   prefix: string;
   name: string;
-  asset_type: string;
-  category: string;
-  subcategory: string;
-  specialty: string;
+  asset_type?: string;
+  category?: string;
+  subcategory?: string;
+  specialty?: string;
   sequence_digits: number;
   default_criticality: TaxonomyOption["defaultCriticality"];
   useful_life_years: number | null;
@@ -57,8 +60,10 @@ function sortByPrefix<T extends Pick<TaxonomyOption, "prefix" | "name">>(items: 
 function mapTaxonomy(item: TaxonomyApiRecord): TaxonomyRecord {
   return {
     id: item.id,
+    familyId: item.family_id,
+    typeCode: item.type_code,
     prefix: item.prefix,
-    name: item.name || item.subcategory,
+    name: item.name || item.subcategory || "",
     assetType: item.asset_type,
     category: item.category,
     subcategory: item.subcategory,
@@ -89,12 +94,13 @@ function asList<T>(data: T[] | PaginatedResponse<T>) {
 
 function toApiPayload(input: TaxonomyInput) {
   return {
-    prefix: input.prefix.trim().toUpperCase(),
+    family_id: input.familyId,
+    type_code: input.typeCode.trim().toUpperCase(),
     name: input.name.trim(),
-    asset_type: input.assetType.trim(),
-    category: input.category.trim(),
-    subcategory: input.subcategory.trim(),
-    specialty: input.specialty.trim(),
+    asset_type: input.assetType?.trim() || "",
+    category: input.category?.trim() || "",
+    subcategory: input.subcategory?.trim() || "",
+    specialty: input.specialty?.trim() || "",
     sequence_digits: input.sequenceDigits,
     default_criticality: input.defaultCriticality,
     useful_life_years: input.usefulLifeYears,
@@ -142,6 +148,55 @@ export async function createTaxonomy(input: TaxonomyInput): Promise<TaxonomyReco
 export async function updateTaxonomy(id: string, input: TaxonomyInput): Promise<TaxonomyRecord> {
   const { data } = await api.patch<TaxonomyApiRecord>(`/taxonomies/${id}/`, toApiPayload(input));
   return mapTaxonomy(data);
+}
+
+export async function deleteTaxonomy(id: string): Promise<void> {
+  await api.delete(`/taxonomies/${id}/`);
+}
+
+// Familia
+export async function createTaxonomyFamily(input: any): Promise<any> {
+  const { data } = await api.post("/taxonomies/families/", { code: input.code.trim().toUpperCase(), name: input.name.trim(), active: input.active });
+  return data;
+}
+
+export async function updateTaxonomyFamily(id: string, input: any): Promise<any> {
+  const { data } = await api.patch(`/taxonomies/families/${id}/`, { code: input.code.trim().toUpperCase(), name: input.name.trim(), active: input.active });
+  return data;
+}
+
+export async function deleteTaxonomyFamily(id: string): Promise<void> {
+  await api.delete(`/taxonomies/families/${id}/`);
+}
+
+// Parte
+export async function createTaxonomyPart(input: any): Promise<any> {
+  const { data } = await api.post("/taxonomies/parts/", { taxonomy: input.typeId, part_code: input.partCode.trim().toUpperCase(), name: input.name.trim(), active: input.active });
+  return data;
+}
+
+export async function updateTaxonomyPart(id: string, input: any): Promise<any> {
+  const { data } = await api.patch(`/taxonomies/parts/${id}/`, { taxonomy: input.typeId, part_code: input.partCode.trim().toUpperCase(), name: input.name.trim(), active: input.active });
+  return data;
+}
+
+export async function deleteTaxonomyPart(id: string): Promise<void> {
+  await api.delete(`/taxonomies/parts/${id}/`);
+}
+
+// Pieza
+export async function createTaxonomyPiece(input: any): Promise<any> {
+  const { data } = await api.post("/taxonomies/pieces/", { part: input.partId, piece_code: input.pieceCode.trim().toUpperCase(), name: input.name.trim(), active: input.active });
+  return data;
+}
+
+export async function updateTaxonomyPiece(id: string, input: any): Promise<any> {
+  const { data } = await api.patch(`/taxonomies/pieces/${id}/`, { part: input.partId, piece_code: input.pieceCode.trim().toUpperCase(), name: input.name.trim(), active: input.active });
+  return data;
+}
+
+export async function deleteTaxonomyPiece(id: string): Promise<void> {
+  await api.delete(`/taxonomies/pieces/${id}/`);
 }
 
 export async function activateTaxonomy(id: string): Promise<TaxonomyRecord> {
@@ -209,4 +264,34 @@ export async function loadActiveTaxonomyOptions(): Promise<TaxonomyOptionsResult
     if (cached) return cached;
     throw error;
   }
+}
+
+export async function fetchTaxonomyTree(): Promise<TaxonomyTreeFamily[]> {
+  const { data } = await api.get<any[]>("/taxonomies/tree/");
+  return data.map((family: any) => ({
+    id: family.id,
+    code: family.code,
+    name: family.name,
+    active: family.active,
+    types: family.types.map((t: any) => ({
+      id: t.id,
+      prefix: t.prefix,
+      typeCode: t.type_code,
+      name: t.name,
+      assetCount: t.asset_count,
+      active: t.active,
+      parts: t.parts.map((p: any) => ({
+        id: p.id,
+        partCode: p.part_code,
+        name: p.name,
+        active: p.active,
+        pieces: p.pieces.map((piece: any) => ({
+          id: piece.id,
+          pieceCode: piece.piece_code,
+          name: piece.name,
+          active: piece.active,
+        })),
+      })),
+    })),
+  }));
 }

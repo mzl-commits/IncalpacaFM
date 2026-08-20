@@ -7,6 +7,17 @@ import {
   listTaxonomies,
   loadActiveTaxonomyOptions,
   updateTaxonomy,
+  fetchTaxonomyTree,
+  createTaxonomyFamily,
+  updateTaxonomyFamily,
+  createTaxonomyPart,
+  updateTaxonomyPart,
+  createTaxonomyPiece,
+  updateTaxonomyPiece,
+  deleteTaxonomy,
+  deleteTaxonomyFamily,
+  deleteTaxonomyPart,
+  deleteTaxonomyPiece,
 } from "./taxonomyRepository";
 import type { TaxonomyFilters, TaxonomyInput } from "./types";
 
@@ -16,6 +27,7 @@ export const taxonomyKeys = {
   list: (filters: TaxonomyFilters) => [...taxonomyKeys.lists(), filters] as const,
   options: () => [...taxonomyKeys.all, "options"] as const,
   detail: (id: string) => [...taxonomyKeys.all, "detail", id] as const,
+  tree: () => [...taxonomyKeys.all, "tree"] as const,
 };
 
 export function useTaxonomyCatalog(filters: TaxonomyFilters) {
@@ -30,6 +42,13 @@ export function useTaxonomyOptions() {
     queryKey: taxonomyKeys.options(),
     queryFn: loadActiveTaxonomyOptions,
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useTaxonomyTree() {
+  return useQuery({
+    queryKey: taxonomyKeys.tree(),
+    queryFn: fetchTaxonomyTree,
   });
 }
 
@@ -57,11 +76,91 @@ export function useUpdateTaxonomy(id: string) {
   });
 }
 
+export function useCreateTaxonomyFamily() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => createTaxonomyFamily(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useUpdateTaxonomyFamily(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => updateTaxonomyFamily(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useCreateTaxonomyPart() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => createTaxonomyPart(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useUpdateTaxonomyPart(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => updateTaxonomyPart(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useCreateTaxonomyPiece() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => createTaxonomyPiece(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useUpdateTaxonomyPiece(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: any) => updateTaxonomyPiece(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
 export function useSetTaxonomyActive() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       active ? activateTaxonomy(id) : deactivateTaxonomy(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useDeleteTaxonomy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteTaxonomy(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useDeleteTaxonomyFamily() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteTaxonomyFamily(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useDeleteTaxonomyPart() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteTaxonomyPart(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
+  });
+}
+
+export function useDeleteTaxonomyPiece() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteTaxonomyPiece(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: taxonomyKeys.all }),
   });
 }
