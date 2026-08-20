@@ -175,3 +175,23 @@ export async function exportarPdf(id: number): Promise<void> {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Descarga el Excel general consolidado de inspecciones del almacén.
+ * Incluye hojas: Resumen, Por Mes, Vencidas, Top Materiales con BarChart.
+ */
+export async function exportarExcelGeneral(almacenId: number): Promise<void> {
+  const { data, headers } = await api.get(
+    `/inspecciones/exportar-excel/?almacen=${almacenId}`,
+    { responseType: "blob" },
+  );
+  const contentDisposition: string = headers["content-disposition"] ?? "";
+  const match = contentDisposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? `reporte_inspecciones_${almacenId}.xlsx`;
+  const url = URL.createObjectURL(new Blob([data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

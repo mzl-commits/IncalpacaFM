@@ -237,63 +237,606 @@ def generar_excel_inspeccion(inspeccion):
     buffer.seek(0)
     return buffer
 
+# ─── Estilos y funciones auxiliares para Excel de Inspecciones ───────────────
+
+EXCEL_HEADER_BG = "1E293B"         # Carbón / Slate oscuro institucional
+EXCEL_HEADER_TXT = "FFFFFF"
+EXCEL_SUBHEADER_BG = "334155"      # Slate medio oscuro
+EXCEL_ROW_ALT = "F1F5F9"        # Fondo gris suave para filas alternadas
+EXCEL_ROW_BASE = "FFFFFF"       # Fondo base blanco
+EXCEL_BORDER = "CBD5E1"         # Borde gris sutil
+EXCEL_TEXT = "0F172A"           # Texto principal oscuro
+
+# Colores semánticos de resultado (versión saturada profesional con texto blanco)
+EXCEL_APTA_BG = "065F46"        # Verde esmeralda oscuro
+EXCEL_APTA_TXT = "FFFFFF"
+EXCEL_REPARACION_BG = "92400E"  # Ámbar oscuro
+EXCEL_REPARACION_TXT = "FFFFFF"
+EXCEL_FUERA_BG = "991B1B"       # Rojo borgoña oscuro
+EXCEL_FUERA_TXT = "FFFFFF"
+
+
+def _excel_fill(hex_color):
+    from openpyxl.styles import PatternFill
+    return PatternFill(start_color=hex_color, end_color=hex_color, fill_type="solid")
+
+
+def _excel_thin_border():
+    from openpyxl.styles import Border, Side
+    thin = Side(style="thin", color=EXCEL_BORDER)
+    return Border(left=thin, right=thin, top=thin, bottom=thin)
+
+
+def _excel_header_font(bold=True, color=EXCEL_HEADER_TXT, size=11):
+    return Font(bold=bold, color=color, size=size, name="Calibri")
+
+
+def _excel_normal_font(bold=False, size=10, color=EXCEL_TEXT):
+    return Font(bold=bold, size=size, color=color, name="Calibri")
+
+
+def _excel_write_header_row(ws, row, columns, bg_color=EXCEL_HEADER_BG, font_color=EXCEL_HEADER_TXT):
+    from openpyxl.styles import Alignment
+    fill = _excel_fill(bg_color)
+    font = _excel_header_font(bold=True, color=font_color, size=11)
+    ws.row_dimensions[row].height = 26
+    for col_idx, text in enumerate(columns, start=1):
+        cell = ws.cell(row=row, column=col_idx, value=text)
+        cell.fill = fill
+        cell.font = font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = _excel_thin_border()
+
+
+def _excel_write_data_row(ws, row, values, row_fill=None, is_alt=False, alignments=None, cell_styles=None):
+    from openpyxl.styles import Alignment
+    bg = row_fill or (EXCEL_ROW_ALT if is_alt else EXCEL_ROW_BASE)
+    fill = _excel_fill(bg) if bg else None
+    ws.row_dimensions[row].height = 20
+    for col_idx, value in enumerate(values, start=1):
+        cell = ws.cell(row=row, column=col_idx, value=value)
+        cell.border = _excel_thin_border()
+        if cell_styles and col_idx in cell_styles:
+            c_bg, c_fc, c_bold = cell_styles[col_idx]
+            cell.fill = _excel_fill(c_bg)
+            cell.font = _excel_normal_font(bold=c_bold, color=c_fc, size=10)
+        else:
+            if fill:
+                cell.fill = fill
+            cell.font = _excel_normal_font(bold=False, color=EXCEL_TEXT, size=10)
+
+        align = alignments.get(col_idx, "left") if alignments else "left"
+        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=False)
+
+
+def _excel_set_col_widths(ws, widths):
+    from openpyxl.utils import get_column_letter
+    for col_idx, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+
+def _excel_freeze(ws, cell="A2"):
+    ws.freeze_panes = cell
+
+
 def _generar_excel_simple(inspeccion):
-    """Respaldo: formato basico usado antes, para plantillas que no coincidan con ninguna hoja conocida."""
+    """
+    Respaldo con diseño oscuro profesional: usado para plantillas que no coincidan
+    con ninguna hoja conocida de la plantilla oficial INCALPACA.
+    """
     from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Side
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Inspeccion"
+    ws.title = "Inspección"
 
     objetivo = inspeccion.pieza.codigo if inspeccion.pieza else inspeccion.material.codigo
     codigo_doc = _codigo_documento(inspeccion)
     fecha_emision = _fecha_emision_hoy()
-
-    ws.append(["INCALPACA TOPS S.A. - Formato de Inspección de Herramientas"])
-    ws["A1"].font = Font(bold=True, size=14)
-    ws.append([])
-    ws.append(["Código documento:", codigo_doc, "", "Fecha de emisión:", fecha_emision])
-    ws.append(["Código herramienta:", objetivo])
-    ws.append(["Material:", inspeccion.material.nombre])
-    ws.append(["Tipo:", inspeccion.get_tipo_display()])
-    ws.append(["Plantilla:", inspeccion.plantilla.nombre])
     inspector_nombre = inspeccion.inspector.get_full_name() or inspeccion.inspector.username
-    ws.append(["Inspector:", inspector_nombre])
-    ws.append(["Fecha inspeción:", _fecha(inspeccion.fecha)])
-    ws.append([])
 
-    ws.append(["N", "Criterio", "Cumple", "No cumple", "No aplica", "Observaciones"])
-    for cell in ws[ws.max_row]:
-        cell.font = Font(bold=True)
+    # 1. Encabezado principal (A1:F1)
+    ws.merge_cells("A1:F1")
+    title_cell = ws["A1"]
+    title_cell.value = "INCALPACA TOPS S.A. — FORMATO DE INSPECCIÓN DE HERRAMIENTAS"
+    title_cell.font = Font(bold=True, size=13, color="FFFFFF", name="Calibri")
+    title_cell.fill = _excel_fill(EXCEL_HEADER_BG)
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
 
-    for resp in inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"):
-        ws.append([
+    # 2. Bloque de Metadatos
+    metadata_rows = [
+        [("Código documento:", True), (codigo_doc, False), ("Fecha emisión:", True), (fecha_emision, False)],
+        [("Código herramienta:", True), (objetivo, False), ("Material:", True), (inspeccion.material.nombre, False)],
+        [("Tipo inspección:", True), (inspeccion.get_tipo_display(), False), ("Plantilla:", True), (inspeccion.plantilla.nombre, False)],
+        [("Inspector:", True), (inspector_nombre, False), ("Fecha inspección:", True), (_fecha(inspeccion.fecha), False)],
+    ]
+
+    for r_offset, (lbl1, val1, lbl2, val2) in enumerate(metadata_rows, start=3):
+        ws.row_dimensions[r_offset].height = 20
+        # A & B (merge B:C)
+        c_lbl1 = ws.cell(row=r_offset, column=1, value=lbl1[0])
+        c_lbl1.font = Font(bold=True, size=10, color="334155", name="Calibri")
+        c_lbl1.fill = _excel_fill("F8FAFC")
+        c_lbl1.border = _excel_thin_border()
+        c_lbl1.alignment = Alignment(horizontal="left", vertical="center")
+
+        ws.merge_cells(start_row=r_offset, start_column=2, end_row=r_offset, end_column=3)
+        c_val1 = ws.cell(row=r_offset, column=2, value=val1[0])
+        c_val1.font = Font(bold=False, size=10, color="0F172A", name="Calibri")
+        c_val1.fill = _excel_fill("FFFFFF")
+        c_val1.alignment = Alignment(horizontal="left", vertical="center")
+        for col_i in range(2, 4):
+            ws.cell(row=r_offset, column=col_i).border = _excel_thin_border()
+
+        # D & E (merge E:F)
+        c_lbl2 = ws.cell(row=r_offset, column=4, value=lbl2[0])
+        c_lbl2.font = Font(bold=True, size=10, color="334155", name="Calibri")
+        c_lbl2.fill = _excel_fill("F8FAFC")
+        c_lbl2.border = _excel_thin_border()
+        c_lbl2.alignment = Alignment(horizontal="left", vertical="center")
+
+        ws.merge_cells(start_row=r_offset, start_column=5, end_row=r_offset, end_column=6)
+        c_val2 = ws.cell(row=r_offset, column=5, value=val2[0])
+        c_val2.font = Font(bold=False, size=10, color="0F172A", name="Calibri")
+        c_val2.fill = _excel_fill("FFFFFF")
+        c_val2.alignment = Alignment(horizontal="left", vertical="center")
+        for col_i in range(5, 7):
+            ws.cell(row=r_offset, column=col_i).border = _excel_thin_border()
+
+    # 3. Tabla de Criterios (Fila 8)
+    header_row = 8
+    cols_criterios = ["N°", "Criterio de evaluación", "Cumple", "No cumple", "No aplica", "Observaciones"]
+    _excel_write_header_row(ws, header_row, cols_criterios, bg_color=EXCEL_HEADER_BG)
+
+    respuestas = list(inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"))
+    for idx, resp in enumerate(respuestas, start=1):
+        r_num = header_row + idx
+        ws.row_dimensions[r_num].height = 20
+        is_alt = (idx % 2 == 0)
+        bg = EXCEL_ROW_ALT if is_alt else EXCEL_ROW_BASE
+
+        row_vals = [
             resp.criterio.orden,
             resp.criterio.texto,
             "X" if resp.valor == "cumple" else "",
             "X" if resp.valor == "no_cumple" else "",
             "X" if resp.valor == "no_aplica" else "",
-            resp.observacion,
-        ])
+            resp.observacion or "",
+        ]
 
-    ws.append([])
-    ws.append(["Resultado general:", inspeccion.get_resultado_general_display()])
-    ws.append(["Accion tomada:", inspeccion.get_accion_tomada_display()])
-    ws.append(["Observaciones generales:", inspeccion.observaciones])
-    ws.append([])
-    ws.append(["FIRMAS DE CONFORMIDAD"])
+        for col_i, val in enumerate(row_vals, start=1):
+            cell = ws.cell(row=r_num, column=col_i, value=val)
+            cell.border = _excel_thin_border()
+            cell.fill = _excel_fill(bg)
+            align = "center" if col_i in [1, 3, 4, 5] else "left"
+            is_bold = (col_i in [3, 4, 5] and val == "X") or (col_i == 1)
+            cell.font = Font(bold=is_bold, size=10, color="0F172A", name="Calibri")
+            cell.alignment = Alignment(horizontal=align, vertical="center")
+
+    curr_row = header_row + len(respuestas) + 2
+
+    # 4. Sección de Resultados
+    # Resultado general
+    ws.row_dimensions[curr_row].height = 24
+    lbl_res = ws.cell(row=curr_row, column=1, value="Resultado general:")
+    lbl_res.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    lbl_res.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+    lbl_res.border = _excel_thin_border()
+    lbl_res.alignment = Alignment(horizontal="left", vertical="center")
+
+    ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=3)
+    val_res = ws.cell(row=curr_row, column=2, value=inspeccion.get_resultado_general_display() or "No definido")
+
+    # Resaltar color según resultado (consistente con paleta oscura del sistema)
+    res_color_map = {
+        "apta": (EXCEL_APTA_BG, EXCEL_APTA_TXT),
+        "requiere_reparacion": (EXCEL_REPARACION_BG, EXCEL_REPARACION_TXT),
+        "fuera_servicio": (EXCEL_FUERA_BG, EXCEL_FUERA_TXT),
+    }
+    bg_res, txt_res = res_color_map.get(inspeccion.resultado_general, (EXCEL_SUBHEADER_BG, "FFFFFF"))
+    val_res.font = Font(bold=True, size=11, color=txt_res, name="Calibri")
+    val_res.fill = _excel_fill(bg_res)
+    val_res.alignment = Alignment(horizontal="center", vertical="center")
+    for c in range(2, 4):
+        ws.cell(row=curr_row, column=c).border = _excel_thin_border()
+
+    # Acción tomada
+    lbl_acc = ws.cell(row=curr_row, column=4, value="Acción tomada:")
+    lbl_acc.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    lbl_acc.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+    lbl_acc.border = _excel_thin_border()
+    lbl_acc.alignment = Alignment(horizontal="left", vertical="center")
+
+    ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=6)
+    val_acc = ws.cell(row=curr_row, column=5, value=inspeccion.get_accion_tomada_display() or "—")
+    val_acc.font = Font(bold=True, size=10, color="0F172A", name="Calibri")
+    val_acc.fill = _excel_fill("F1F5F9")
+    val_acc.alignment = Alignment(horizontal="left", vertical="center")
+    for c in range(5, 7):
+        ws.cell(row=curr_row, column=c).border = _excel_thin_border()
+
+    # Observaciones generales
+    curr_row += 1
+    ws.row_dimensions[curr_row].height = 22
+    lbl_obs = ws.cell(row=curr_row, column=1, value="Observaciones:")
+    lbl_obs.font = Font(bold=True, size=10, color="334155", name="Calibri")
+    lbl_obs.fill = _excel_fill("F8FAFC")
+    lbl_obs.border = _excel_thin_border()
+    lbl_obs.alignment = Alignment(horizontal="left", vertical="center")
+
+    ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=6)
+    val_obs = ws.cell(row=curr_row, column=2, value=inspeccion.observaciones or "Sin observaciones.")
+    val_obs.font = Font(bold=False, size=10, color="0F172A", name="Calibri")
+    val_obs.fill = _excel_fill("FFFFFF")
+    val_obs.alignment = Alignment(horizontal="left", vertical="center")
+    for c in range(2, 7):
+        ws.cell(row=curr_row, column=c).border = _excel_thin_border()
+
+    # 5. Sección de Firmas de Conformidad (con 5 filas de espacio para firma física)
+    curr_row += 2
+    ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=6)
+    firma_title = ws.cell(row=curr_row, column=1, value="FIRMAS DE CONFORMIDAD")
+    firma_title.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    firma_title.fill = _excel_fill(EXCEL_HEADER_BG)
+    firma_title.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[curr_row].height = 22
+
     for _ in range(5):
-        ws.append([])
-    ws.append(["Inspector", "", "Supervisor SST / Mantenimiento", "", "Responsable de Area"])
-    ws.append(["Fecha: ____________", "", "Fecha: ____________", "", "Fecha: ____________"])
+        curr_row += 1
+        ws.row_dimensions[curr_row].height = 20
 
-    for col in ["A", "B", "C", "D", "E", "F"]:
-        ws.column_dimensions[col].width = 22
+    curr_row += 1
+    ws.row_dimensions[curr_row].height = 20
+    top_line = Border(top=Side(style="medium", color="1E293B"))
+
+    cargos = [
+        (1, 2, "Inspector"),
+        (3, 4, "Supervisor SST / Mantenimiento"),
+        (5, 6, "Responsable del Área"),
+    ]
+    for start_c, end_c, cargo_txt in cargos:
+        ws.merge_cells(start_row=curr_row, start_column=start_c, end_row=curr_row, end_column=end_c)
+        c_cargo = ws.cell(row=curr_row, column=start_c, value=cargo_txt)
+        c_cargo.font = Font(bold=True, size=10, color="1E293B", name="Calibri")
+        c_cargo.alignment = Alignment(horizontal="center", vertical="center")
+        for col_k in range(start_c, end_c + 1):
+            ws.cell(row=curr_row, column=col_k).border = top_line
+
+    curr_row += 1
+    ws.row_dimensions[curr_row].height = 18
+    for start_c, end_c, _ in cargos:
+        ws.merge_cells(start_row=curr_row, start_column=start_c, end_row=curr_row, end_column=end_c)
+        c_f = ws.cell(row=curr_row, column=start_c, value="Fecha: ____ / ____ / ______")
+        c_f.font = Font(bold=False, size=9, color="64748B", name="Calibri")
+        c_f.alignment = Alignment(horizontal="center", vertical="center")
+
+    widths = [8, 42, 12, 14, 12, 32]
+    _excel_set_col_widths(ws, widths)
 
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
     return buffer
+
+
+# ─── Reporte General Consolidado de Inspecciones ──────────────────────────────
+
+MESES_ES = [
+    "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+]
+
+
+def generar_excel_inspecciones_generales(almacen_id=None):
+    """
+    Genera el reporte Excel general y consolidado de Inspecciones para todo el almacén.
+    Hojas:
+      1. 'Resumen': Conteo total por estado y resultado, KPIs y tablas ejecutivas.
+      2. 'Por Mes': Inspecciones realizadas agrupadas por mes/año con resultado.
+      3. 'Vencidas': Listado de materiales con inspección vencida ordenado por días de atraso.
+      4. 'Top Materiales': Gráfico BarChart de los 15 materiales con más inspecciones no conformes.
+    Devuelve (buffer, filename).
+    """
+    from collections import defaultdict
+    from datetime import date
+    from django.db.models import Q
+    from django.utils import timezone
+    from openpyxl import Workbook
+    from openpyxl.chart import BarChart, Reference
+    from openpyxl.chart.label import DataLabelList
+    from openpyxl.styles import Alignment, Font
+
+    from apps.inspeccion.models import Inspeccion, ProgramacionInspeccion
+    from apps.catalogo.models import Almacen
+
+    wb = Workbook()
+    wb.remove(wb.active)  # Eliminar hoja por defecto
+
+    hoy = timezone.localdate()
+
+    almacen_nombre = "Todos los almacenes"
+    if almacen_id:
+        try:
+            alm = Almacen.objects.get(pk=almacen_id)
+            almacen_nombre = alm.nombre
+        except Almacen.DoesNotExist:
+            pass
+
+    # ── Consultas base ──
+    qs_inspecciones = Inspeccion.objects.select_related(
+        "material", "pieza", "inspector", "plantilla", "almacen"
+    ).all()
+    if almacen_id:
+        qs_inspecciones = qs_inspecciones.filter(almacen_id=almacen_id)
+
+    inspecciones = list(qs_inspecciones.order_by("-fecha"))
+
+    # Programaciones vencidas
+    qs_vencidas = ProgramacionInspeccion.objects.filter(
+        estado="pendiente",
+        fecha_programada__lt=hoy,
+    ).select_related(
+        "material__subcategoria", "pieza__material__subcategoria", "plan"
+    )
+    if almacen_id:
+        qs_vencidas = qs_vencidas.filter(
+            Q(almacen_id=almacen_id)
+            | Q(material__almacen_id=almacen_id)
+            | Q(pieza__material__almacen_id=almacen_id)
+        )
+
+    vencidas_list = list(qs_vencidas)
+    # Ordenar por días de atraso desc
+    vencidas_list.sort(key=lambda p: (hoy - p.fecha_programada).days, reverse=True)
+
+    # ── Métricas calculadas ──
+    total_insp = len(inspecciones)
+    total_aptas = sum(1 for i in inspecciones if i.resultado_general == "apta")
+    total_reparacion = sum(1 for i in inspecciones if i.resultado_general == "requiere_reparacion")
+    total_fuera = sum(1 for i in inspecciones if i.resultado_general == "fuera_servicio")
+    total_vencidas = len(vencidas_list)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # HOJA 1: Resumen Ejecutivo y KPIs
+    # ─────────────────────────────────────────────────────────────────────────
+    ws_resumen = wb.create_sheet("Resumen")
+
+    # Título institucional
+    ws_resumen.merge_cells("A1:H1")
+    t1 = ws_resumen["A1"]
+    t1.value = "INCALPACA TOPS S.A. — REPORTE GENERAL DE INSPECCIONES Y CALIDAD"
+    t1.font = Font(bold=True, size=13, color="FFFFFF", name="Calibri")
+    t1.fill = _excel_fill(EXCEL_HEADER_BG)
+    t1.alignment = Alignment(horizontal="center", vertical="center")
+    ws_resumen.row_dimensions[1].height = 30
+
+    # Subtítulo con Almacén y Fecha
+    ws_resumen.merge_cells("A2:H2")
+    t2 = ws_resumen["A2"]
+    t2.value = f"Almacén: {almacen_nombre}  |  Fecha de emisión: {hoy.strftime('%d/%m/%Y')}  |  Total inspecciones registradas: {total_insp}"
+    t2.font = Font(bold=False, size=10, color="FFFFFF", name="Calibri")
+    t2.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+    t2.alignment = Alignment(horizontal="center", vertical="center")
+    ws_resumen.row_dimensions[2].height = 20
+
+    # Tarjetas KPI (Filas 4 a 5)
+    kpis = [
+        ("A", "B", "TOTAL REALIZADAS", str(total_insp), "1E293B", "F1F5F9", "0F172A"),
+        ("C", "C", "APTAS", str(total_aptas), "065F46", "ECFDF5", "065F46"),
+        ("D", "E", "REQUIEREN REPARACIÓN", str(total_reparacion), "92400E", "FEF3C7", "92400E"),
+        ("F", "G", "FUERA DE SERVICIO", str(total_fuera), "991B1B", "FEE2E2", "991B1B"),
+        ("H", "H", "VENCIDAS PENDIENTES", str(total_vencidas), "7F1D1D", "FEE2E2", "991B1B"),
+    ]
+
+    ws_resumen.row_dimensions[4].height = 18
+    ws_resumen.row_dimensions[5].height = 26
+
+    for start_c, end_c, label, val, bg_head, bg_val, txt_val in kpis:
+        c1_idx = ord(start_c) - ord("A") + 1
+        c2_idx = ord(end_c) - ord("A") + 1
+
+        ws_resumen.merge_cells(start_row=4, start_column=c1_idx, end_row=4, end_column=c2_idx)
+        cell_lbl = ws_resumen.cell(row=4, column=c1_idx, value=label)
+        cell_lbl.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
+        cell_lbl.fill = _excel_fill(bg_head)
+        cell_lbl.alignment = Alignment(horizontal="center", vertical="center")
+
+        ws_resumen.merge_cells(start_row=5, start_column=c1_idx, end_row=5, end_column=c2_idx)
+        cell_val = ws_resumen.cell(row=5, column=c1_idx, value=val)
+        cell_val.font = Font(bold=True, size=14, color=txt_val, name="Calibri")
+        cell_val.fill = _excel_fill(bg_val)
+        cell_val.alignment = Alignment(horizontal="center", vertical="center")
+
+        for r_k in [4, 5]:
+            for c_k in range(c1_idx, c2_idx + 1):
+                ws_resumen.cell(row=r_k, column=c_k).border = _excel_thin_border()
+
+    # Tabla 1: Distribución por Resultado (Fila 7)
+    _excel_write_header_row(ws_resumen, 7, ["Resultado", "Cantidad", "% del Total", "Estado Operativo"])
+    res_rows = [
+        ("Apta", total_aptas, (f"{total_aptas / total_insp * 100:.1f}%" if total_insp else "0.0%"), "Conforme para uso"),
+        ("Requiere reparación", total_reparacion, (f"{total_reparacion / total_insp * 100:.1f}%" if total_insp else "0.0%"), "Observado / En taller"),
+        ("Fuera de servicio", total_fuera, (f"{total_fuera / total_insp * 100:.1f}%" if total_insp else "0.0%"), "No apto / Baja requerida"),
+    ]
+    aligns_t1 = {1: "left", 2: "center", 3: "center", 4: "left"}
+    for idx, (res_lbl, cant, pct, est_op) in enumerate(res_rows, start=8):
+        c_styles = {}
+        if idx == 8:
+            c_styles[1] = (EXCEL_APTA_BG, EXCEL_APTA_TXT, True)
+        elif idx == 9:
+            c_styles[1] = (EXCEL_REPARACION_BG, EXCEL_REPARACION_TXT, True)
+        elif idx == 10:
+            c_styles[1] = (EXCEL_FUERA_BG, EXCEL_FUERA_TXT, True)
+        _excel_write_data_row(ws_resumen, idx, [res_lbl, cant, pct, est_op], is_alt=(idx % 2 == 0), alignments=aligns_t1, cell_styles=c_styles)
+
+    # Tabla 2: Distribución por Inspector (Fila 13)
+    _excel_write_header_row(ws_resumen, 13, ["Inspector", "Inspecciones", "Aptas", "Con Observación"])
+    insp_stats = defaultdict(lambda: {"total": 0, "aptas": 0, "obs": 0})
+    for i in inspecciones:
+        nom = i.inspector.get_full_name() or i.inspector.username
+        insp_stats[nom]["total"] += 1
+        if i.resultado_general == "apta":
+            insp_stats[nom]["aptas"] += 1
+        else:
+            insp_stats[nom]["obs"] += 1
+
+    for idx, (nom_insp, d_insp) in enumerate(sorted(insp_stats.items(), key=lambda x: -x[1]["total"]), start=14):
+        _excel_write_data_row(ws_resumen, idx, [
+            nom_insp, d_insp["total"], d_insp["aptas"], d_insp["obs"]
+        ], is_alt=(idx % 2 == 0), alignments={1: "left", 2: "center", 3: "center", 4: "center"})
+
+    _excel_set_col_widths(ws_resumen, [22, 16, 16, 26, 16, 16, 16, 22])
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # HOJA 2: Por Mes
+    # ─────────────────────────────────────────────────────────────────────────
+    ws_mes = wb.create_sheet("Por Mes")
+    cols_mes = ["Año", "Mes", "Aptas", "Requieren Reparación", "Fuera de Servicio", "Total Realizadas", "% Conformidad"]
+    _excel_write_header_row(ws_mes, 1, cols_mes)
+    _excel_set_col_widths(ws_mes, [8, 10, 14, 22, 18, 18, 16])
+    _excel_freeze(ws_mes)
+
+    mes_stats = defaultdict(lambda: {"apta": 0, "reparacion": 0, "fuera": 0, "total": 0})
+    for i in inspecciones:
+        f = i.fecha.date() if hasattr(i.fecha, "date") else i.fecha
+        k = (f.year, f.month)
+        mes_stats[k]["total"] += 1
+        if i.resultado_general == "apta":
+            mes_stats[k]["apta"] += 1
+        elif i.resultado_general == "requiere_reparacion":
+            mes_stats[k]["reparacion"] += 1
+        elif i.resultado_general == "fuera_servicio":
+            mes_stats[k]["fuera"] += 1
+
+    rows_mes = sorted(mes_stats.items(), key=lambda x: (x[0][0], x[0][1]))
+    aligns_mes = {1: "center", 2: "center", 3: "center", 4: "center", 5: "center", 6: "center", 7: "center"}
+
+    for r_idx, ((anio_k, mes_k), d_m) in enumerate(rows_mes, start=2):
+        tot_m = d_m["total"]
+        pct_conf = f"{(d_m['apta'] / tot_m * 100):.1f}%" if tot_m else "0.0%"
+        _excel_write_data_row(ws_mes, r_idx, [
+            anio_k, MESES_ES[mes_k],
+            d_m["apta"] or "", d_m["reparacion"] or "", d_m["fuera"] or "", tot_m,
+            pct_conf,
+        ], is_alt=(r_idx % 2 == 0), alignments=aligns_mes)
+
+    ws_mes.auto_filter.ref = f"A1:G{max(2, len(rows_mes) + 1)}"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # HOJA 3: Vencidas (Materiales con inspección vencida)
+    # ─────────────────────────────────────────────────────────────────────────
+    ws_vencidas = wb.create_sheet("Vencidas")
+    cols_venc = ["Puesto", "Código", "Material / Herramienta", "Subcategoría", "Fecha Programada", "Días de Atraso", "Estado"]
+    _excel_write_header_row(ws_vencidas, 1, cols_venc)
+    _excel_set_col_widths(ws_vencidas, [8, 14, 38, 22, 18, 16, 14])
+    _excel_freeze(ws_vencidas)
+
+    aligns_venc = {1: "center", 2: "center", 3: "left", 4: "left", 5: "center", 6: "center", 7: "center"}
+
+    for idx, prog in enumerate(vencidas_list, start=1):
+        r_num = 1 + idx
+        dias_atraso = (hoy - prog.fecha_programada).days
+        mat = prog.pieza.material if prog.pieza else prog.material
+        codigo = prog.pieza.codigo if prog.pieza else (mat.codigo if mat else "—")
+        nombre = prog.pieza.nombre if (prog.pieza and prog.pieza.nombre) else (mat.nombre if mat else "—")
+        subcat = mat.subcategoria.nombre if (mat and mat.subcategoria) else "—"
+
+        # Celda de días de atraso resaltada en rojo suave
+        c_styles = {
+            6: ("FEE2E2", "991B1B", True),
+            7: (EXCEL_FUERA_BG, "FFFFFF", True),
+        }
+
+        _excel_write_data_row(ws_vencidas, r_num, [
+            idx,
+            codigo,
+            nombre,
+            subcat,
+            prog.fecha_programada.strftime("%d/%m/%Y"),
+            f"{dias_atraso} días",
+            "VENCIDA",
+        ], is_alt=(idx % 2 == 0), alignments=aligns_venc, cell_styles=c_styles)
+
+    ws_vencidas.auto_filter.ref = f"A1:G{max(2, len(vencidas_list) + 1)}"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # HOJA 4: Top Materiales con Más Inspecciones No Conformes + BarChart
+    # ─────────────────────────────────────────────────────────────────────────
+    ws_top = wb.create_sheet("Top Materiales")
+
+    mat_fallas = defaultdict(lambda: {
+        "codigo": "", "nombre": "", "subcategoria": "", "total_fallas": 0, "reparacion": 0, "fuera": 0
+    })
+
+    for i in inspecciones:
+        if i.resultado_general in ["requiere_reparacion", "fuera_servicio"]:
+            mid = i.material_id
+            if not mid:
+                continue
+            st = mat_fallas[mid]
+            st["codigo"] = i.material.codigo if i.material else str(mid)
+            st["nombre"] = i.material.nombre if i.material else "—"
+            st["subcategoria"] = i.material.subcategoria.nombre if (i.material and i.material.subcategoria) else "—"
+            st["total_fallas"] += 1
+            if i.resultado_general == "requiere_reparacion":
+                st["reparacion"] += 1
+            elif i.resultado_general == "fuera_servicio":
+                st["fuera"] += 1
+
+    sorted_fallas = sorted(mat_fallas.values(), key=lambda x: -x["total_fallas"])[:15]
+
+    # Encabezados de tabla
+    cols_top = ["Puesto", "Código", "Material", "Subcategoría", "No Conformes", "Req. Reparación", "Fuera de Servicio"]
+    _excel_write_header_row(ws_top, 1, cols_top)
+    _excel_set_col_widths(ws_top, [8, 14, 38, 22, 16, 16, 16])
+    _excel_freeze(ws_top)
+
+    aligns_top = {1: "center", 2: "center", 3: "left", 4: "left", 5: "center", 6: "center", 7: "center"}
+
+    for idx, mf in enumerate(sorted_fallas, start=1):
+        r_num = 1 + idx
+        _excel_write_data_row(ws_top, r_num, [
+            idx,
+            mf["codigo"],
+            mf["nombre"],
+            mf["subcategoria"],
+            mf["total_fallas"],
+            mf["reparacion"],
+            mf["fuera"],
+        ], is_alt=(idx % 2 == 0), alignments=aligns_top)
+
+    ws_top.auto_filter.ref = f"A1:G{max(2, len(sorted_fallas) + 1)}"
+
+    # Insertar Gráfico BarChart si hay datos
+    if sorted_fallas:
+        chart = BarChart()
+        chart.type = "col"
+        chart.style = 10
+        chart.title = "Top 15 Materiales con Más Inspecciones No Conformes"
+        chart.y_axis.title = "Cantidad No Conformes"
+        chart.x_axis.tickLblPos = "low"
+        chart.x_axis.tickLblSkip = 1
+        chart.legend = None
+        chart.width = 22
+        chart.height = 14
+
+        chart.dataLabels = DataLabelList()
+        chart.dataLabels.showVal = True
+
+        data = Reference(ws_top, min_col=5, min_row=1, max_row=1 + len(sorted_fallas))
+        cats = Reference(ws_top, min_col=3, min_row=2, max_row=1 + len(sorted_fallas))
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+
+        ws_top.add_chart(chart, "I2")
+
+    filename = f"reporte_inspecciones_general_{hoy.isoformat()}.xlsx"
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer, filename
 
 # ─── PDF ───────────────────────────────────────────────────────────────────
 

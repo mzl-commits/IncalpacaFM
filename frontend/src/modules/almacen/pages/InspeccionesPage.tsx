@@ -1,6 +1,6 @@
-import { ArrowRight, ClipboardText, Plus, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, ClipboardText, FileXls, Plus, WarningCircle } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
@@ -8,7 +8,7 @@ import { buildFilterOptions, useListFilterParams } from "@/components/filters/fi
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
-import { listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
+import { exportarExcelGeneral, listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import type { ResultadoInspeccion, TipoInspeccion } from "@/modules/almacen/types";
 
@@ -17,6 +17,7 @@ const FILTER_KEYS = ["q", "tipo", "resultado"] as const;
 export function InspeccionesPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const { almacenId } = useAlmacenActivo();
+  const [exportando, setExportando] = useState(false);
 
   const { data: inspecciones = [], isLoading } = useQuery({
     queryKey: ["inspecciones", almacenId, values],
@@ -52,6 +53,18 @@ export function InspeccionesPage() {
     return f;
   }, [values, setValue]);
 
+  async function handleExportarExcel() {
+    if (!almacenId || exportando) return;
+    setExportando(true);
+    try {
+      await exportarExcelGeneral(almacenId);
+    } catch {
+      // noop: el usuario verá que no descargó nada
+    } finally {
+      setExportando(false);
+    }
+  }
+
   return (
     <section>
       <div className="page-heading">
@@ -61,6 +74,16 @@ export function InspeccionesPage() {
           <p>Registro y control de calidad de herramientas y materiales.</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => void handleExportarExcel()}
+            disabled={exportando || !almacenId}
+            title="Exportar reporte general Excel de inspecciones"
+          >
+            <FileXls size={16} />
+            {exportando ? "Exportando…" : "Exportar Excel"}
+          </button>
           <Link to={`/almacen/${almacenId}/inspecciones/vencidas`} className="button button-secondary">
             <WarningCircle size={16} /> Vencidas ({vencidas.length})
           </Link>

@@ -11,7 +11,7 @@ from apps.catalogo.views import AlmacenScopedMixin
 from django.db.models import Q
 
 from django.http import HttpResponse
-from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion
+from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion, generar_excel_inspecciones_generales
 
 from apps.inspeccion.models import (
     PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
@@ -238,6 +238,24 @@ class InspeccionViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         buffer = generar_pdf_inspeccion(inspeccion)
         response = HttpResponse(buffer.read(), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="inspeccion_{inspeccion.id}.pdf"'
+        return response
+
+    @action(detail=False, methods=["get"], url_path="exportar-excel")
+    def exportar_excel_general(self, request):
+        """
+        Exporta un reporte Excel general y consolidado para todo el almacén:
+        Resumen por estado, Por Mes, Vencidas, Top Materiales no conformes + BarChart.
+        """
+        almacen_id = getattr(request, "almacen_id", None)
+        if almacen_id is None:
+            almacen_id = request.query_params.get("almacen")
+
+        buffer, filename = generar_excel_inspecciones_generales(almacen_id=almacen_id)
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
 class RespuestaCriterioViewSet(viewsets.ModelViewSet):

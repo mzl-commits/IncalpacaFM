@@ -8,6 +8,7 @@ from collections import defaultdict
 from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference
+from openpyxl.chart.label import DataLabelList
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -19,24 +20,25 @@ COLOR_HEADER_FONT = "FFFFFF"
 COLOR_SUBHEADER = "334155"      # Slate medio oscuro
 COLOR_SUBHEADER_FONT = "FFFFFF"
 COLOR_ACCENT = "0EA5E9"         # Azul cyan moderno para destaques
-COLOR_ROW_ALT = "F8FAFC"        # Fondo suave para filas alternadas
-COLOR_ROW_BASE = "FFFFFF"
-COLOR_BORDER = "CBD5E1"         # Borde gris sutil
+COLOR_ROW_ALT = "F1F5F9"        # Fondo gris medio-suave para filas alternadas (zebra striping)
+COLOR_ROW_BASE = "FFFFFF"       # Fondo base blanco limpio
+COLOR_BORDER = "CBD5E1"         # Borde gris sutil y elegante
+COLOR_TEXT = "0F172A"           # Texto principal oscuro de alta legibilidad
 
-# Colores de estado / tipo de movimiento
-COLOR_SALIDA_BG = "E0F2FE"      # Azul suave
-COLOR_SALIDA_TXT = "0369A1"
-COLOR_BAJA_BG = "FEE2E2"        # Rojo suave
-COLOR_BAJA_TXT = "B91C1C"
-COLOR_ENTRADA_BG = "DCFCE7"     # Verde suave
-COLOR_ENTRADA_TXT = "15803D"
+# Colores de tipo de movimiento (versión oscura y saturada con texto claro)
+COLOR_SALIDA_BG = "1E40AF"      # Azul marino saturado
+COLOR_SALIDA_TXT = "FFFFFF"     # Texto blanco
+COLOR_BAJA_BG = "991B1B"        # Rojo oscuro saturado
+COLOR_BAJA_TXT = "FFFFFF"       # Texto blanco
+COLOR_ENTRADA_BG = "065F46"     # Verde esmeralda oscuro saturado
+COLOR_ENTRADA_TXT = "FFFFFF"    # Texto blanco
 
 
-def _header_font(bold=True, color=COLOR_HEADER_FONT, size=10):
+def _header_font(bold=True, color=COLOR_HEADER_FONT, size=11):
     return Font(bold=bold, color=color, size=size, name="Calibri")
 
 
-def _normal_font(bold=False, size=10, color="000000"):
+def _normal_font(bold=False, size=10, color=COLOR_TEXT):
     return Font(bold=bold, size=size, color=color, name="Calibri")
 
 
@@ -52,8 +54,8 @@ def _thin_border():
 def _write_header_row(ws, row, columns, bg_color=COLOR_HEADER, font_color=COLOR_HEADER_FONT):
     """Escribe una fila de encabezados con fondo oscuro y texto blanco."""
     fill = _fill(bg_color)
-    font = _header_font(bold=True, color=font_color, size=10)
-    ws.row_dimensions[row].height = 24
+    font = _header_font(bold=True, color=font_color, size=11)
+    ws.row_dimensions[row].height = 26
     for col_idx, text in enumerate(columns, start=1):
         cell = ws.cell(row=row, column=col_idx, value=text)
         cell.fill = fill
@@ -62,17 +64,27 @@ def _write_header_row(ws, row, columns, bg_color=COLOR_HEADER, font_color=COLOR_
         cell.border = _thin_border()
 
 
-def _write_data_row(ws, row, values, row_fill=None, is_alt=False, alignments=None):
-    """Escribe una fila de datos con bordes sutiles, zebra striping y alineación."""
+def _write_data_row(ws, row, values, row_fill=None, is_alt=False, alignments=None, cell_styles=None):
+    """
+    Escribe una fila de datos con bordes sutiles, zebra striping y alineación.
+    Permite cell_styles={col_idx: (bg_color, font_color, bold)} para celdas individuales (ej. Tipo).
+    """
     bg = row_fill or (COLOR_ROW_ALT if is_alt else COLOR_ROW_BASE)
     fill = _fill(bg) if bg else None
-    ws.row_dimensions[row].height = 19
+    ws.row_dimensions[row].height = 20
     for col_idx, value in enumerate(values, start=1):
         cell = ws.cell(row=row, column=col_idx, value=value)
-        cell.font = _normal_font()
         cell.border = _thin_border()
-        if fill:
-            cell.fill = fill
+        
+        if cell_styles and col_idx in cell_styles:
+            c_bg, c_fc, c_bold = cell_styles[col_idx]
+            cell.fill = _fill(c_bg)
+            cell.font = _normal_font(bold=c_bold, color=c_fc, size=10)
+        else:
+            if fill:
+                cell.fill = fill
+            cell.font = _normal_font(bold=False, color=COLOR_TEXT, size=10)
+
         align = alignments.get(col_idx, "left") if alignments else "left"
         cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=False)
 
@@ -193,8 +205,6 @@ def _hoja_top_materiales(wb, movimientos):
 
     # 4. Insertar Gráfico de Barras con nombres de material claros y etiquetas de valor
     if top_15:
-        from openpyxl.chart.label import DataLabelList
-
         chart = BarChart()
         chart.type = "col"
         chart.style = 10
@@ -340,15 +350,15 @@ def _hoja_por_anio(wb, por_anio):
 def _hoja_historial_material(wb, movimientos, material):
     ws = wb.create_sheet("Historial")
     cols = ["Fecha", "Hora", "Tipo", "Cantidad", "Empaques", "Responsable", "Referencia", "Orden de Trabajo", "Observaciones"]
-    widths = [14, 10, 12, 10, 10, 26, 18, 18, 38]
+    widths = [14, 10, 14, 10, 10, 26, 18, 18, 38]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
 
-    tipo_fills = {
-        "salida": COLOR_SALIDA_BG,
-        "baja": COLOR_BAJA_BG,
-        "entrada": COLOR_ENTRADA_BG,
+    tipo_styles = {
+        "salida": (COLOR_SALIDA_BG, COLOR_SALIDA_TXT, True),
+        "baja": (COLOR_BAJA_BG, COLOR_BAJA_TXT, True),
+        "entrada": (COLOR_ENTRADA_BG, COLOR_ENTRADA_TXT, True),
     }
 
     alignments = {
@@ -363,7 +373,8 @@ def _hoja_historial_material(wb, movimientos, material):
             mov.responsable.get_full_name() or mov.responsable.username
             if mov.responsable else "N/A"
         )
-        row_fill = tipo_fills.get(mov.tipo)
+        t_style = tipo_styles.get(mov.tipo)
+        cell_styles = {3: t_style} if t_style else None
         ot_code = _obtener_ot_code(mov) or "—"
 
         _write_data_row(ws, r_idx, [
@@ -374,7 +385,7 @@ def _hoja_historial_material(wb, movimientos, material):
             mov.referencia_externa or "—",
             ot_code,
             mov.observaciones or "—",
-        ], row_fill=row_fill, is_alt=(r_idx % 2 == 0), alignments=alignments)
+        ], is_alt=(r_idx % 2 == 0), alignments=alignments, cell_styles=cell_styles)
 
     ws.auto_filter.ref = f"A1:I{max(2, len(movimientos) + 1)}"
 
