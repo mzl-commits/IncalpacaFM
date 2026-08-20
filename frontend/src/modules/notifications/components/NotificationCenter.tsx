@@ -13,9 +13,9 @@ const POLL_INTERVAL_MS = 45_000;
 function relativeDate(value: string) {
   const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
   if (minutes < 1) return "Ahora";
-  if (minutes < 60) return `Hace ${minutes} min`;
+  if (minutes < 60) return `Hace ${minutes}\u00A0min`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Hace ${hours} h`;
+  if (hours < 24) return `Hace ${hours}\u00A0h`;
   return new Intl.DateTimeFormat("es-PE", { day: "numeric", month: "short" }).format(new Date(value));
 }
 
@@ -173,10 +173,10 @@ export function NotificationCenter() {
                         <Bell size={18} weight="duotone" />
                       )}
                     </span>
-                    <span>
-                      <small>{typeLabel(item)} · {relativeDate(item.createdAt)}</small>
-                      <strong>{item.subject}</strong>
-                      <em>{item.body}</em>
+                    <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                      <small style={{ display: "block" }}>{typeLabel(item)} · {relativeDate(item.createdAt)}</small>
+                      <strong style={{ display: "block" }}>{item.subject}</strong>
+                      <em style={{ display: "block" }}>{item.body}</em>
                     </span>
                   </button>
 
