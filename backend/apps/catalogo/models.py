@@ -95,6 +95,32 @@ class TipoManejoStock(models.Model):
         return self.nombre
 
 
+class TipoMedidaCatalogo(models.Model):
+    """Catálogo editable de tipos de medida dimensional que puede tener un
+    material (Largo, Diámetro, Ancho, Alto, Espesor, Calibre, etc.).
+
+    Un mismo material puede tener varias medidas de distinto tipo a la vez
+    (ej. un tubo con Diámetro y Largo), pero no dos del mismo tipo (ver
+    unique_together en MaterialMedida).
+    """
+
+    codigo = models.SlugField(
+        max_length=20, unique=True,
+        help_text="Identificador interno estable (ej. 'diametro'). No se muestra al usuario.",
+    )
+    nombre = models.CharField(max_length=50, help_text="Ej. 'Diámetro'.")
+    activo = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Tipo de medida"
+        verbose_name_plural = "Tipos de medida"
+        ordering = ["orden", "nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
 def _default_unidad_medida():
     return UnidadMedida.objects.filter(codigo="mm").values_list("pk", flat=True).first()
 
@@ -202,21 +228,6 @@ class Material(models.Model):
         null=True,
         help_text="Foto representativa del material (ej. foto genérica de un tornillo, "
                    "o del modelo de taladro antes de generar sus piezas)."
-    )
-    unidad_medida = models.ForeignKey(
-        UnidadMedida,
-        on_delete=models.PROTECT,
-        related_name="materiales_medida",
-        default=_default_unidad_medida,
-        help_text="Unidad usada para grosor y largo.",
-    )
-    grosor = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True,
-        help_text="Grosor/diámetro, si aplica (ej. brocas, pernos)."
-    )
-    largo = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True,
-        help_text="Largo, si aplica (ej. brocas, pernos)."
     )
     ubicacion_fisica = models.CharField(
         max_length=100, blank=True,
@@ -349,6 +360,39 @@ class Material(models.Model):
             ).exclude(estado="Baja").exclude(padre__estado="Baja").count()
             total = directas + hijas_en_estuches
             Material.objects.filter(pk=self.pk).update(cantidad_total=total)
+
+class MaterialMedida(models.Model):
+    """Una medida dimensional puntual de un material (ej. Diámetro: 12.5 mm,
+    Largo: 2 m). Un material puede tener varias, una por cada tipo distinto
+    (ver unique_together). Reemplaza los antiguos campos fijos grosor/largo
+    con unidad única compartida."""
+
+    material = models.ForeignKey(
+        Material,
+        on_delete=models.CASCADE,
+        related_name="medidas",
+    )
+    tipo = models.ForeignKey(
+        TipoMedidaCatalogo,
+        on_delete=models.PROTECT,
+        related_name="medidas_material",
+    )
+    valor = models.DecimalField(max_digits=8, decimal_places=2)
+    unidad_medida = models.ForeignKey(
+        UnidadMedida,
+        on_delete=models.PROTECT,
+        related_name="medidas_material",
+    )
+
+    class Meta:
+        verbose_name = "Medida de material"
+        verbose_name_plural = "Medidas de material"
+        unique_together = ("material", "tipo")
+        ordering = ["tipo__orden", "tipo__nombre"]
+
+    def __str__(self):
+        return f"{self.tipo.nombre}: {self.valor} {self.unidad_medida.abreviatura}"
+
 
 class Pieza(models.Model):
     ESTADO_CHOICES = [

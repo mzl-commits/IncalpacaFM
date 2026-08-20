@@ -14,11 +14,13 @@ import {
   listSubcategorias,
   listUnidadesMedida,
   listTiposManejoStock,
+  listTiposMedida,
   updateMaterial,
 } from "@/modules/almacen/catalogoRepository";
 
 import type {
   MaterialCreatePayload,
+  MaterialMedida,
   Moneda,
   TipoControl,
 } from "@/modules/almacen/types";
@@ -51,9 +53,7 @@ export function MaterialFormPage() {
     marca: "",
     modelo: "",
     medida: "",
-    unidad_medida: 0,
-    grosor: "",
-    largo: "",
+    medidas: [],
     ubicacion_fisica: "",
     precio: "",
     tipo_control: "retornable",
@@ -97,6 +97,11 @@ export function MaterialFormPage() {
     queryFn: listTiposManejoStock,
   });
 
+  const { data: tiposMedida = [] } = useQuery({
+    queryKey: ["tipos-medida"],
+    queryFn: listTiposMedida,
+  });
+
   const unidadesMedidaActivas = unidadesMedida
     .filter((u) => u.activo)
     .sort((a, b) => a.orden - b.orden);
@@ -105,25 +110,28 @@ export function MaterialFormPage() {
     .filter((t) => t.activo)
     .sort((a, b) => a.orden - b.orden);
 
-  // Al crear un material nuevo, preseleccionamos valores razonables del
-  // catálogo apenas cargan (equivalente a los antiguos defaults "mm"/"Unidad"
-  // hardcodeados). En edición, los valores vienen del material existente.
+  const tiposMedidaActivos = tiposMedida
+    .filter((t) => t.activo)
+    .sort((a, b) => a.orden - b.orden);
+
+  // Tipos de medida que todavía no se usaron en el formulario (no se puede
+  // repetir un mismo tipo dos veces, ver unique_together en el backend).
+  const tiposMedidaDisponibles = (tipoActualId?: number) =>
+    tiposMedidaActivos.filter(
+      (t) => t.id === tipoActualId || !form.medidas.some((m) => m.tipo === t.id),
+    );
+
+  // Al crear un material nuevo, preseleccionamos un tipo de manejo de stock
+  // razonable apenas carga el catálogo (equivalente al antiguo default
+  // "Unidad" hardcodeado). En edición, el valor viene del material existente.
   useEffect(() => {
     if (isEditMode) return;
     setForm((prev) => {
-      let next = prev;
-      if (!prev.unidad_medida && unidadesMedida.length > 0) {
-        const defecto = unidadesMedida.find((u) => u.codigo === "mm") ?? unidadesMedida[0];
-        next = { ...next, unidad_medida: defecto.id };
-      }
-      if (!prev.unidad_manejo && tiposManejoStock.length > 0) {
-        const defecto = tiposManejoStock.find((t) => t.codigo === "unidad") ?? tiposManejoStock[0];
-        next = { ...next, unidad_manejo: defecto.id };
-      }
-      return next;
+      if (prev.unidad_manejo || tiposManejoStock.length === 0) return prev;
+      const defecto = tiposManejoStock.find((t) => t.codigo === "unidad") ?? tiposManejoStock[0];
+      return { ...prev, unidad_manejo: defecto.id };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, unidadesMedida, tiposManejoStock]);
+  }, [isEditMode, tiposManejoStock]);
 
   // Flags del tipo de manejo elegido: definen qué campos de stock mostrar,
   // reemplazando la vieja comparación hardcodeada `unidad_manejo !== "Unidad"`.
@@ -157,9 +165,7 @@ export function MaterialFormPage() {
         marca: materialExistente.marca,
         modelo: materialExistente.modelo,
         medida: materialExistente.medida,
-        unidad_medida: materialExistente.unidad_medida ?? 0,
-        grosor: materialExistente.grosor ?? "",
-        largo: materialExistente.largo ?? "",
+        medidas: materialExistente.medidas ?? [],
         ubicacion_fisica: materialExistente.ubicacion_fisica,
         precio: materialExistente.precio ?? "",
         moneda: materialExistente.moneda ?? "PEN",
@@ -214,7 +220,12 @@ export function MaterialFormPage() {
     if (!form.nombre.trim()) errs.nombre = "El nombre es requerido.";
     if (!form.subcategoria) errs.subcategoria = "Selecciona una subcategoría.";
     if (!form.tipo_control) errs.tipo_control = "Selecciona el tipo de control.";
-    if (!form.unidad_medida) errs.unidad_medida = "Selecciona la unidad de medida.";
+
+    form.medidas.forEach((medida, i) => {
+      if (!medida.tipo || !medida.unidad_medida || medida.valor === "" || medida.valor === null) {
+        errs[`medida_${i}`] = "Completa el tipo, valor y unidad de esta medida.";
+      }
+    });
 
     const aplicaManejo = form.tipo_control === "no_retornable" && !form.control_individual;
 
@@ -393,7 +404,6 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.marca}
                   onChange={(e) => set("marca", e.target.value)}
-                  placeholder="Bosch"
                 />
               </Field>
               <Field label="Modelo" error={errors.modelo}>
@@ -401,7 +411,6 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.modelo}
                   onChange={(e) => set("modelo", e.target.value)}
-                  placeholder="GSB 550"
                 />
               </Field>
               <Field label="Medida" hint='Solo si aplica (ej. 5/16" o M8)' error={errors.medida}>
@@ -411,34 +420,97 @@ export function MaterialFormPage() {
                   onChange={(e) => set("medida", e.target.value)}
                 />
               </Field>
-              <Field label="Unidad de medida" required error={errors.unidad_medida}>
-                <select
-                  value={form.unidad_medida || ""}
-                  onChange={(e) => set("unidad_medida", Number(e.target.value))}
-                >
-                  <option value="">Seleccionar…</option>
-                  {unidadesMedidaActivas.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nombre} ({u.abreviatura})
-                    </option>
+
+              <Field label="Dimensiones" wide hint="Agrega una fila por cada medida que aplique a este material (ej. Diámetro y Largo).">
+                <div style={{ display: "grid", gap: 8 }}>
+                  {form.medidas.map((medida, i) => (
+                    <div
+                      key={i}
+                      style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8, alignItems: "start" }}
+                    >
+                      <select
+                        value={medida.tipo || ""}
+                        onChange={(e) => {
+                          const tipo = Number(e.target.value);
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.map((m, idx) => (idx === i ? { ...m, tipo } : m)),
+                          }));
+                        }}
+                      >
+                        <option value="">Tipo de medida…</option>
+                        {tiposMedidaDisponibles(medida.tipo).map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Valor"
+                        value={medida.valor}
+                        onChange={(e) => {
+                          const valor = e.target.value;
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.map((m, idx) => (idx === i ? { ...m, valor } : m)),
+                          }));
+                        }}
+                      />
+                      <select
+                        value={medida.unidad_medida || ""}
+                        onChange={(e) => {
+                          const unidad_medida = Number(e.target.value);
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.map((m, idx) => (idx === i ? { ...m, unidad_medida } : m)),
+                          }));
+                        }}
+                      >
+                        <option value="">Unidad…</option>
+                        {unidadesMedidaActivas.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nombre} ({u.abreviatura})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.filter((_, idx) => idx !== i),
+                          }))
+                        }
+                        aria-label="Quitar medida"
+                        style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted, #6b7280)", padding: "6px 8px" }}
+                      >
+                        <Trash size={16} />
+                      </button>
+                      {errors[`medida_${i}`] && (
+                        <small className="field-error" style={{ gridColumn: "1 / -1" }}>
+                          <WarningCircle size={14} /> {errors[`medida_${i}`]}
+                        </small>
+                      )}
+                    </div>
                   ))}
-                </select>
-              </Field>
-              <Field label="Grosor / Diámetro" error={errors.grosor}>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.grosor}
-                  onChange={(e) => set("grosor", e.target.value)}
-                />
-              </Field>
-              <Field label="Largo" error={errors.largo}>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.largo}
-                  onChange={(e) => set("largo", e.target.value)}
-                />
+
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={tiposMedidaDisponibles().length === 0}
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        medidas: [...prev.medidas, { tipo: 0, valor: "", unidad_medida: 0 }],
+                      }))
+                    }
+                    style={{ fontSize: 13, padding: "6px 12px", justifySelf: "start" }}
+                  >
+                    + Agregar medida
+                  </button>
+                </div>
               </Field>
               <Field label="Precio" hint="Precio de referencia (opcional)" error={errors.precio}>
                 <input
@@ -515,7 +587,7 @@ export function MaterialFormPage() {
                 <strong>Control por pieza individual</strong>
                 <small>
                   Activa si cada unidad tiene código propio (herramientas, equipos).
-                  Desactiva para consumibles (tornillos, tuercas,etc).
+                  Desactiva para consumibles (tornillos, tuercas).
                 </small>
               </label>
             </div>
@@ -736,7 +808,8 @@ export function MaterialFormPage() {
         <div className="help-panel">
           <h2>Sobre el código</h2>
           <p>
-            El código se genera automáticamente según la categoría. No es necesario ingresarlo.
+            El código se genera automáticamente según la categoría (ej. <code>H0013</code>
+            para Herramientas). No es necesario ingresarlo.
           </p>
           <hr style={{ margin: "16px 0", borderColor: "#dfe6ef" }} />
           <h2>Control individual</h2>

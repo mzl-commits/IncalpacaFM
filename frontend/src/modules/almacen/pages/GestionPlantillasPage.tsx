@@ -156,7 +156,24 @@ export function GestionPlantillasPage() {
   const activePlantilla = selectedPlantilla;
 
   return (
-    <section>
+    <section className="gestion-plantillas">
+      <style>{`
+        .gestion-plantillas .plantillas-grid {
+          display: grid;
+          grid-template-columns: 340px 1fr;
+          gap: 16px;
+        }
+        @media (max-width: 860px) {
+          .gestion-plantillas .plantillas-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .gestion-plantillas .form-panel {
+            margin: 0 12px 12px !important;
+          }
+        }
+      `}</style>
+
       <div className="page-heading">
         <div>
           <p className="breadcrumb">Inspecciones / Plantillas de Criterios</p>
@@ -165,7 +182,7 @@ export function GestionPlantillasPage() {
         </div>
       </div>
 
-      <div className="grid-2col" style={{ gridTemplateColumns: "340px 1fr" }}>
+      <div className="plantillas-grid">
         {/* Columna Izquierda: Lista y Alta de Plantillas */}
         <div className="data-panel">
           <div className="table-toolbar">

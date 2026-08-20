@@ -10,6 +10,7 @@ import type {
   Almacen,
   UnidadMedidaCatalogo,
   TipoManejoStockCatalogo,
+  TipoMedidaCatalogo,
 } from "./types";
 
 // Unidades de medida
@@ -71,6 +72,32 @@ export async function updateTipoManejoStock(
 
 export async function deleteTipoManejoStock(id: number): Promise<void> {
   await api.delete(`/tipos-manejo-stock/${id}/`);
+}
+
+// Tipos de medida (Largo, Diámetro, Ancho, Alto, Espesor, Calibre, etc.)
+
+export async function listTiposMedida(): Promise<TipoMedidaCatalogo[]> {
+  const { data } = await api.get<TipoMedidaCatalogo[]>("/tipos-medida/");
+  return data;
+}
+
+export async function createTipoMedida(
+  payload: Omit<TipoMedidaCatalogo, "id">,
+): Promise<TipoMedidaCatalogo> {
+  const { data } = await api.post<TipoMedidaCatalogo>("/tipos-medida/", payload);
+  return data;
+}
+
+export async function updateTipoMedida(
+  id: number,
+  payload: Partial<Omit<TipoMedidaCatalogo, "id">>,
+): Promise<TipoMedidaCatalogo> {
+  const { data } = await api.patch<TipoMedidaCatalogo>(`/tipos-medida/${id}/`, payload);
+  return data;
+}
+
+export async function deleteTipoMedida(id: number): Promise<void> {
+  await api.delete(`/tipos-medida/${id}/`);
 }
 
 // ─── Categorías ───────────────────────────────────────────────────────────────
@@ -196,19 +223,35 @@ function sanitizeMaterialPayload<T extends Partial<MaterialCreatePayload>>(paylo
   const valorFinal = num !== null && Number.isFinite(num) ? num : null;
   return { ...payload, unidades_por_caja: valorFinal };
 }
- 
+
+/**
+ * Arma el FormData para crear/editar un material con foto. "medidas" es un
+ * array de objetos (MaterialMedida[]) — form.append(k, String(v)) lo
+ * convertiría en basura tipo "[object Object],[object Object]", así que va
+ * aparte como JSON. El backend (MaterialSerializer.to_internal_value) debe
+ * parsear ese string de vuelta a lista antes de validar.
+ */
+function buildMaterialFormData(clean: Partial<MaterialCreatePayload>, foto: File): FormData {
+  const form = new FormData();
+  (Object.entries(clean) as [string, unknown][]).forEach(([k, v]) => {
+    if (v === null || v === undefined) return;
+    if (k === "medidas") {
+      form.append("medidas", JSON.stringify(v));
+    } else {
+      form.append(k, String(v));
+    }
+  });
+  form.append("foto", foto);
+  return form;
+}
+
 export async function createMaterial(
   payload: MaterialCreatePayload,
   foto?: File | null,
 ): Promise<Material> {
   const clean = sanitizeMaterialPayload(payload);
   if (foto) {
-    // multipart/form-data cuando hay foto
-    const form = new FormData();
-    Object.entries(clean).forEach(([k, v]) => {
-      if (v !== null && v !== undefined) form.append(k, String(v));
-    });
-    form.append("foto", foto);
+    const form = buildMaterialFormData(clean, foto);
     const { data } = await api.post<Material>("/materiales/", form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -225,11 +268,7 @@ export async function updateMaterial(
 ): Promise<Material> {
   const clean = sanitizeMaterialPayload(payload);
   if (foto) {
-    const form = new FormData();
-    Object.entries(clean).forEach(([k, v]) => {
-      if (v !== null && v !== undefined) form.append(k, String(v));
-    });
-    form.append("foto", foto);
+    const form = buildMaterialFormData(clean, foto);
     const { data } = await api.patch<Material>(`/materiales/${id}/`, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });

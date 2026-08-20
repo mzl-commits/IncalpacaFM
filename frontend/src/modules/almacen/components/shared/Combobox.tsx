@@ -73,7 +73,7 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
   }, []);
 
   return (
-    <div className="combobox" ref={containerRef}>
+    <div className="combobox" ref={containerRef} style={{ position: "relative" }}>
       <input
         ref={inputRef}
         type="text"
@@ -99,9 +99,31 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
         }}
       />
       {open && (
-        <div id="combobox-options" role="listbox" className="combobox-panel">
-          {loading && <div className="combobox-message">Buscando…</div>}
-          {!loading && options.length === 0 && <div className="combobox-message">{debounced ? "Sin resultados." : "Escribe para buscar…"}</div>}
+        <div
+          id="combobox-options"
+          role="listbox"
+          className="combobox-panel"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: "#ffffff",
+            opacity: 1,
+            border: "1px solid var(--border, #d1d5db)",
+            borderRadius: 8,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            maxHeight: 260,
+            overflowY: "auto",
+          }}
+        >
+          {loading && <div className="combobox-message" style={{ padding: "10px 12px", background: "#ffffff" }}>Buscando…</div>}
+          {!loading && options.length === 0 && (
+            <div className="combobox-message" style={{ padding: "10px 12px", background: "#ffffff" }}>
+              {debounced ? "Sin resultados." : "Escribe para buscar…"}
+            </div>
+          )}
           {!loading && options.map((option) => (
             <button
               type="button"
@@ -109,6 +131,17 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
               role="option"
               aria-selected={value === option.id}
               className="combobox-option"
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                background: "#ffffff",
+                opacity: 1,
+                padding: "8px 12px",
+                border: "none",
+                borderBottom: "1px solid #f0f0f0",
+                cursor: "pointer",
+              }}
               onPointerDown={(event) => {
                 event.preventDefault();
                 selectOption(option);

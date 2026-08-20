@@ -892,3 +892,87 @@
   user-select: none;
   font-weight: 400;
 }
+/* ─── Historial de Movimientos — tabla (desktop) vs tarjetas (móvil) ────────── */
+.movimientos-table-desktop { display: block; }
+.movimientos-cards-mobile { display: none; }
+
+.mov-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.mov-card.is-open { border-color: #cbd5e1; }
+.mov-card-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.mov-card-summary:active { background: #f9fafb; }
+.mov-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mov-card-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.mov-card-fecha {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mov-card-nombre-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mov-card-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mov-card-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform .15s ease;
+}
+.mov-card-caret.is-open { transform: rotate(180deg); }
+.mov-card-detalle {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.mov-card-ubicacion { color: var(--primary, #2563eb) !important; }
+.mov-card-field { display: flex; flex-direction: column; gap: 2px; }
+.mov-card-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.mov-card-value { font-size: 13px; color: var(--text); }
+
+@media (max-width: 768px) {
+   .movimientos-table-desktop { display: none; }
+   .movimientos-cards-mobile {
+     display: grid;
+     gap: 10px;
+     padding: 12px;
+   }
+ }

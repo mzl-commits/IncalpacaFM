@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.catalogo.models import (
     Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
+    TipoMedidaCatalogo, MaterialMedida,
 )
 from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_piezas, ajustar_stock
 
@@ -19,6 +20,27 @@ class TipoManejoStockSerializer(serializers.ModelSerializer):
         fields = [
             "id", "codigo", "nombre", "requiere_multiplicador",
             "permite_conversion_unidad", "activo", "orden",
+        ]
+
+class TipoMedidaCatalogoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoMedidaCatalogo
+        fields = ["id", "codigo", "nombre", "activo", "orden"]
+
+class MaterialMedidaSerializer(serializers.ModelSerializer):
+    """Una fila de la lista `medidas` de un material (ej. Diámetro: 12.5 mm).
+    Anidado y escribible dentro de MaterialSerializer — ver create()/update()
+    de MaterialSerializer, que sincronizan esta lista a mano porque DRF no
+    guarda listas anidadas automáticamente."""
+    tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
+    unidad_medida_nombre = serializers.CharField(source="unidad_medida.nombre", read_only=True)
+    unidad_medida_abreviatura = serializers.CharField(source="unidad_medida.abreviatura", read_only=True)
+
+    class Meta:
+        model = MaterialMedida
+        fields = [
+            "id", "tipo", "tipo_nombre", "valor",
+            "unidad_medida", "unidad_medida_nombre", "unidad_medida_abreviatura",
         ]
 
 class CategoriaSerializer(serializers.ModelSerializer):
@@ -85,8 +107,7 @@ class MaterialSerializer(serializers.ModelSerializer):
     es_inspeccionable = serializers.SerializerMethodField()
     almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
 
-    unidad_medida_nombre = serializers.CharField(source="unidad_medida.nombre", read_only=True, default=None)
-    unidad_medida_abreviatura = serializers.CharField(source="unidad_medida.abreviatura", read_only=True, default=None)
+    medidas = MaterialMedidaSerializer(many=True, required=False)
     unidad_manejo_nombre = serializers.CharField(source="unidad_manejo.nombre", read_only=True, default=None)
     unidad_manejo_requiere_multiplicador = serializers.BooleanField(source="unidad_manejo.requiere_multiplicador", read_only=True, default=False)
     unidad_manejo_permite_conversion_unidad = serializers.BooleanField(source="unidad_manejo.permite_conversion_unidad", read_only=True, default=False)
@@ -99,8 +120,8 @@ class MaterialSerializer(serializers.ModelSerializer):
             "id", "subcategoria", "subcategoria_nombre", "categoria_nombre",
             "subcategoria_plantilla_inspeccion", "subcategoria_plantilla_inspeccion_nombre",
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
-            "unidad_medida", "unidad_medida_nombre", "unidad_medida_abreviatura",
-            "grosor", "largo", "ubicacion_fisica", "precio", "moneda",
+            "medidas",
+            "ubicacion_fisica", "precio", "moneda",
             "codigo_quipu",
             "tipo_control", "control_individual", "cantidad_total", "stock_minimo",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
@@ -119,6 +140,17 @@ class MaterialSerializer(serializers.ModelSerializer):
             obj.subcategoria.plantilla_inspeccion_id
             and obj.subcategoria.categoria.requiere_inspeccion
         )
+
+    def validate_medidas(self, value):
+        tipos_vistos = set()
+        for medida in value:
+            tipo = medida["tipo"]
+            if tipo.pk in tipos_vistos:
+                raise serializers.ValidationError(
+                    f"No puedes agregar '{tipo.nombre}' dos veces en el mismo material."
+                )
+            tipos_vistos.add(tipo.pk)
+        return value
 
     def validate(self, attrs):
         control_individual = attrs.get(
@@ -171,6 +203,28 @@ class MaterialSerializer(serializers.ModelSerializer):
             attrs["unidad_movimiento_base"] = None
 
         return attrs
+
+    def create(self, validated_data):
+        medidas_data = validated_data.pop("medidas", [])
+        material = super().create(validated_data)
+        self._sync_medidas(material, medidas_data)
+        return material
+
+    def update(self, instance, validated_data):
+        medidas_data = validated_data.pop("medidas", None)
+        material = super().update(instance, validated_data)
+        if medidas_data is not None:
+            self._sync_medidas(material, medidas_data)
+        return material
+
+    def _sync_medidas(self, material, medidas_data):
+        """Reemplaza por completo la lista de medidas del material. Simple y
+        seguro dado el tamaño chico de la lista (máximo un puñado de filas
+        por material); evita tener que diffear altas/bajas/cambios uno a uno."""
+        material.medidas.all().delete()
+        MaterialMedida.objects.bulk_create([
+            MaterialMedida(material=material, **medida) for medida in medidas_data
+        ])
 
 class MaterialDetalleSerializer(MaterialSerializer):
     """Incluye las piezas propias del material (solo las que no son hijas de otra)."""

@@ -8,6 +8,7 @@ from apps.catalogo.views import (
     AlmacenViewSet,
     UnidadMedidaViewSet,
     TipoManejoStockViewSet,
+    TipoMedidaCatalogoViewSet,
 )
 
 router = DefaultRouter()
@@ -18,5 +19,6 @@ router.register("piezas", PiezaViewSet)
 router.register("almacenes", AlmacenViewSet)
 router.register("unidades-medida", UnidadMedidaViewSet)
 router.register("tipos-manejo-stock", TipoManejoStockViewSet)
+router.register("tipos-medida", TipoMedidaCatalogoViewSet)
 
 urlpatterns = router.urls

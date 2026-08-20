@@ -2,7 +2,6 @@ import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { labelPieza } from "@/utils/pieza";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
@@ -23,11 +22,9 @@ import {
   registrarSalidaMaterial,
   registrarSalidaPieza,
 } from "@/modules/almacen/inventarioRepository";
-import type { RenglonSalida, WorkOrderActiva } from "@/modules/almacen/inventarioRepository";
-import type { PiezaBase, TipoMovimiento } from "@/modules/almacen/types";
+import type { WorkOrderActiva } from "@/modules/almacen/inventarioRepository";
+import type { Material, TipoMovimiento, UnidadMedidaCatalogo } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
-import { ResumenCarrito } from "../components/ResumenCarrito";
-import type { ItemCarrito } from "../components/ResumenCarrito";
 
 function Field({
   label,
@@ -63,101 +60,221 @@ function Field({
   );
 }
 
-// Selector de UN estuche dentro de la grilla multi-estuche de salida.
-// Cada instancia maneja su propia query de piezas hijas, para poder tener
-// varios estuches seleccionados a la vez (Objetivo: agregar más estuches).
-function EstucheSalidaSelector({
-  materialId, renglon, excluirIds, onCambiarPieza, onCambiarTodas, onToggleHija, onQuitar, mostrarQuitar,
-}: {
+function mensajeError(err: any): string {
+  return err?.response?.data
+    ? Object.values(err.response.data).flat().join(" ")
+    : err?.message ?? "Error desconocido";
+}
+
+// ── Renglón unificado (Objetivo: mezclar consumibles y piezas retornables
+// en Entrada y Salida, un renglón = un material) ────────────────────────────
+
+interface RenglonMovimiento {
+  id: string;
   materialId: number;
-  renglon: EstucheSeleccion;
-  excluirIds: number[];
-  onCambiarPieza: (piezaId: number) => void;
-  onCambiarTodas: (checked: boolean) => void;
-  onToggleHija: (hijaId: number) => void;
-  onQuitar: () => void;
-  mostrarQuitar: boolean;
+  // Consumibles (material sin control individual)
+  cantidad: number;
+  cantidadCajas: number;
+  unidadMovimientoId: number | null;
+  cantidadEnUnidadMovimiento: string;
+  // Piezas (material con control individual)
+  modoPieza: "sueltas" | "estuche";
+  piezasSeleccionadas: Set<number>; // salida: sueltas disponibles · entrada: prestadas a devolver
+  estuchePiezaId: number; // solo salida
+  estucheTodasHijas: boolean;
+  estucheHijasSeleccionadas: Set<number>;
+}
+
+function renglonVacio(materialId = 0): RenglonMovimiento {
+  return {
+    id: crypto.randomUUID(),
+    materialId,
+    cantidad: 1,
+    cantidadCajas: 1,
+    unidadMovimientoId: null,
+    cantidadEnUnidadMovimiento: "",
+    modoPieza: "sueltas",
+    piezasSeleccionadas: new Set(),
+    estuchePiezaId: 0,
+    estucheTodasHijas: true,
+    estucheHijasSeleccionadas: new Set(),
+  };
+}
+
+function unidadesCompatiblesDe(mat: Material | undefined, unidadesMedida: UnidadMedidaCatalogo[]): UnidadMedidaCatalogo[] {
+  if (!mat?.unidad_manejo_permite_conversion_unidad) return [];
+  const base = unidadesMedida.find((u) => u.id === mat.unidad_movimiento_base);
+  if (!base) return [];
+  return unidadesMedida.filter((u) => u.activo && u.familia === base.familia);
+}
+
+type ResultadoLoteAdmin = { materialNombre: string; ok: boolean; error?: string };
+
+// Selector de piezas dentro de UN renglón. Para salida: piezas sueltas
+// disponibles o un estuche completo. Para entrada: piezas prestadas a
+// devolver. Cada renglón maneja su propia query — así se pueden tener varios
+// materiales con control individual en la misma lista.
+function PiezaPickerRenglon({
+  tipo,
+  materialId,
+  renglon,
+  onUpdate,
+}: {
+  tipo: "salida" | "entrada";
+  materialId: number;
+  renglon: RenglonMovimiento;
+  onUpdate: (patch: Partial<RenglonMovimiento>) => void;
 }) {
-  const { data: estuchePieza } = useQuery({
-    queryKey: ["pieza-estuche-seleccionado", renglon.piezaId],
+  const { data: piezasDisponibles = [] } = useQuery({
+    queryKey: ["piezas-renglon-disponible", materialId],
     queryFn: () => listPiezas({ material: materialId, estado: "Disponible", sin_padre: true }),
-    enabled: renglon.piezaId > 0,
+    enabled: tipo === "salida" && !!materialId,
   });
-  const pieza = (estuchePieza ?? []).find((p) => p.id === renglon.piezaId);
+  const { data: piezasPrestadasRaw = [] } = useQuery({
+    queryKey: ["piezas-renglon-prestado", materialId],
+    queryFn: () => listPiezas({ material: materialId, estado: "Prestado" }),
+    enabled: tipo === "entrada" && !!materialId,
+  });
+  const piezasPrestadas = piezasPrestadasRaw.filter((p) => !p.tiene_hijas);
+  const piezasSueltas = piezasDisponibles.filter((p) => !p.tiene_hijas);
+  const estuches = piezasDisponibles.filter((p) => p.tiene_hijas);
+  const estuche = estuches.find((e) => e.id === renglon.estuchePiezaId);
 
   const { data: hijasDisponibles = [] } = useQuery({
-    queryKey: ["piezas-hijas", renglon.piezaId],
-    queryFn: () => listPiezas({ padre: renglon.piezaId, estado: "Disponible" }),
-    enabled: renglon.piezaId > 0,
+    queryKey: ["piezas-hijas-renglon", renglon.estuchePiezaId],
+    queryFn: () => listPiezas({ padre: renglon.estuchePiezaId, estado: "Disponible" }),
+    enabled: tipo === "salida" && renglon.estuchePiezaId > 0,
   });
 
-  return (
-    <div style={{ background: "var(--surface-subtle, #f9fafb)", padding: 12, borderRadius: 8, border: "1px solid var(--border, #e5e7eb)" }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <div style={{ flex: 1 }}>
-          <Combobox
-            value={renglon.piezaId}
-            selectedLabel={
-              pieza
-                ? `${pieza.codigo} — ${pieza.material_nombre}${pieza.material_medida ? ` (${pieza.material_medida})` : ""} · ${pieza.estado} [estuche]`
-                : ""
+  // Si el material no tiene piezas sueltas (todas están dentro de estuches),
+  // "sueltas" es un callejón sin salida — cambiamos automáticamente a "estuche"
+  // para que el usuario no se quede viendo "No hay piezas sueltas disponibles".
+  useEffect(() => {
+    if (tipo === "salida" && renglon.modoPieza === "sueltas" && piezasSueltas.length === 0 && estuches.length > 0) {
+      onUpdate({ modoPieza: "estuche" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo, renglon.modoPieza, piezasSueltas.length, estuches.length]);
+
+  function togglePieza(id: number) {
+    const next = new Set(renglon.piezasSeleccionadas);
+    next.has(id) ? next.delete(id) : next.add(id);
+    onUpdate({ piezasSeleccionadas: next });
+  }
+
+  function toggleHija(id: number) {
+    const next = new Set(renglon.estucheHijasSeleccionadas);
+    next.has(id) ? next.delete(id) : next.add(id);
+    onUpdate({ estucheHijasSeleccionadas: next });
+  }
+
+  if (tipo === "entrada") {
+    if (piezasPrestadas.length === 0) {
+      return <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 0" }}>No hay piezas prestadas de este material.</p>;
+    }
+    return (
+      <div className="pieza-multiselect" style={{ marginTop: 8 }}>
+        <label className="pieza-checkbox-row">
+          <input
+            type="checkbox"
+            checked={renglon.piezasSeleccionadas.size === piezasPrestadas.length}
+            onChange={(e) =>
+              onUpdate({ piezasSeleccionadas: e.target.checked ? new Set(piezasPrestadas.map((p) => p.id)) : new Set() })
             }
+          />
+          <strong style={{ fontSize: 13 }}>Todas las prestadas ({piezasPrestadas.length})</strong>
+        </label>
+        {piezasPrestadas.map((p) => (
+          <label key={p.id} className="pieza-checkbox-row">
+            <input type="checkbox" checked={renglon.piezasSeleccionadas.has(p.id)} onChange={() => togglePieza(p.id)} />
+            <span className="pieza-code">{p.codigo}</span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  // tipo === "salida"
+  if (piezasSueltas.length === 0 && estuches.length === 0) {
+    return <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 0" }}>No hay piezas disponibles de este material.</p>;
+  }
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      {estuches.length > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <button
+            type="button"
+            className={renglon.modoPieza === "sueltas" ? "button button-secondary button-sm is-active" : "button button-ghost button-sm"}
+            style={{ fontSize: 12 }}
+            onClick={() => onUpdate({ modoPieza: "sueltas", estuchePiezaId: 0, estucheHijasSeleccionadas: new Set() })}
+          >
+            Piezas sueltas
+          </button>
+          <button
+            type="button"
+            className={renglon.modoPieza === "estuche" ? "button button-secondary button-sm is-active" : "button button-ghost button-sm"}
+            style={{ fontSize: 12 }}
+            onClick={() => onUpdate({ modoPieza: "estuche", piezasSeleccionadas: new Set() })}
+          >
+            Estuche completo
+          </button>
+        </div>
+      )}
+
+      {(renglon.modoPieza === "sueltas" || estuches.length === 0) ? (
+        piezasSueltas.length === 0 ? (
+          <p style={{ fontSize: 12, color: "var(--muted)" }}>
+            No hay piezas sueltas disponibles{estuches.length > 0 ? " — este material está organizado en estuches, usa \"Estuche completo\"." : "."}
+          </p>
+        ) : (
+          <PiezasSueltasSelector piezasSueltas={piezasSueltas} renglon={renglon} onUpdate={onUpdate} />
+        )
+      ) : (
+        <div>
+          <Combobox
+            value={renglon.estuchePiezaId}
+            selectedLabel={estuche ? `${estuche.codigo} — ${estuche.material_nombre ?? ""}` : ""}
             placeholder="Buscar estuche por código…"
-            onChange={onCambiarPieza}
+            onChange={(id) => onUpdate({ estuchePiezaId: id, estucheTodasHijas: true, estucheHijasSeleccionadas: new Set() })}
             fetchOptions={async (q) => {
               const res = await listPiezas({ material: materialId, estado: "Disponible", sin_padre: true, q });
               return res
-                .filter((p) => p.tiene_hijas && !excluirIds.includes(p.id))
-                .map((p) => ({
-                  id: p.id,
-                  label: `${p.codigo} — ${p.material_nombre}${p.material_medida ? ` (${p.material_medida})` : ""} · ${p.estado} [estuche]`,
-                }));
+                .filter((p) => p.tiene_hijas)
+                .map((p) => ({ id: p.id, label: `${p.codigo} — ${p.material_nombre ?? ""}` }));
             }}
           />
-        </div>
-        {mostrarQuitar && (
-          <button
-            type="button"
-            onClick={onQuitar}
-            style={{ padding: "6px 10px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600 }}
-            title="Quitar este estuche"
-          >
-            ✕ Quitar
-          </button>
-        )}
-      </div>
-
-      {renglon.piezaId > 0 && (
-        <div style={{ marginTop: 10 }}>
-          {hijasDisponibles.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>No hay items disponibles en este estuche.</p>
-          ) : (
-            <div className="pieza-multiselect">
-              <label className="pieza-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={renglon.todasHijas}
-                  onChange={(e) => onCambiarTodas(e.target.checked)}
-                />
-                <strong style={{ fontSize: 13 }}>Todas las disponibles ({hijasDisponibles.length})</strong>
-              </label>
-              {!renglon.todasHijas && hijasDisponibles.map((h) => (
-                <label key={h.id} className="pieza-checkbox-row" style={{ marginLeft: 24 }}>
-                  <input
-                    type="checkbox"
-                    checked={renglon.hijasSeleccionadas.has(h.id)}
-                    onChange={() => onToggleHija(h.id)}
-                  />
-                  <span style={{ fontSize: 13 }}>
-                    <b>{labelPieza(h)}</b>
-                    {h.material_nombre && (
-                      <span style={{ color: "var(--muted)", marginLeft: 6 }}>
-                        {h.material_nombre}{h.material_medida ? ` (${h.material_medida})` : ""}
-                      </span>
-                    )}
-                  </span>
-                </label>
-              ))}
+          {renglon.estuchePiezaId > 0 && (
+            <div style={{ marginTop: 8 }}>
+              {hijasDisponibles.length === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--muted)" }}>No hay items disponibles en este estuche.</p>
+              ) : (
+                <div className="pieza-multiselect">
+                  <label className="pieza-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={renglon.estucheTodasHijas}
+                      onChange={(e) => onUpdate({ estucheTodasHijas: e.target.checked, estucheHijasSeleccionadas: new Set() })}
+                    />
+                    <strong style={{ fontSize: 13 }}>Todas las disponibles ({hijasDisponibles.length})</strong>
+                  </label>
+                  {!renglon.estucheTodasHijas &&
+                    hijasDisponibles.map((h) => (
+                      <label key={h.id} className="pieza-checkbox-row" style={{ marginLeft: 24 }}>
+                        <input type="checkbox" checked={renglon.estucheHijasSeleccionadas.has(h.id)} onChange={() => toggleHija(h.id)} />
+                        <span className="pieza-code" style={{ fontSize: 13 }}>{h.codigo}</span>
+                        {(h.material_nombre || h.material_medida) && (
+                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>
+                            {[h.material_nombre, h.material_medida].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
+                        {h.detalle && (
+                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>({h.detalle})</span>
+                        )}
+                      </label>
+                    ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -166,31 +283,112 @@ function EstucheSalidaSelector({
   );
 }
 
-function renglonVacio(): RenglonSalida {
-  return {
-    id: crypto.randomUUID(),
-    materialId: 0,
-    cantidad: 1,
-    cantidadCajas: 1,
-  } as RenglonSalida;
-}
+// Selector de piezas sueltas para UN renglón de salida. La mayoría de las
+// veces cualquier pieza suelta sirve igual (rara vez varían en detalle o
+// medida), así que por defecto solo se pide una cantidad y se auto-eligen
+// las primeras N disponibles. Si el usuario necesita una pieza puntual
+// (por su detalle/medida/código), puede desplegar la lista y elegirla.
+function PiezasSueltasSelector({
+  piezasSueltas,
+  renglon,
+  onUpdate,
+}: {
+  piezasSueltas: Array<{ id: number; codigo: string | null; detalle?: string | null }>;
+  renglon: RenglonMovimiento;
+  onUpdate: (patch: Partial<RenglonMovimiento>) => void;
+}) {
+  const [modoSeleccion, setModoSeleccion] = useState<"cantidad" | "especifica">("cantidad");
+  const [cantidadDeseada, setCantidadDeseada] = useState(1);
+  const idsDisponibles = piezasSueltas.map((p) => p.id).join(",");
 
-type ResultadoLoteAdmin = { materialNombre: string; ok: boolean; error?: string };
+  // Mientras estamos en modo "cantidad", mantenemos la selección sincronizada
+  // tomando las primeras N piezas sueltas disponibles.
+  useEffect(() => {
+    if (modoSeleccion !== "cantidad") return;
+    const n = Math.min(Math.max(cantidadDeseada, 1), piezasSueltas.length);
+    onUpdate({ piezasSeleccionadas: new Set(piezasSueltas.slice(0, n).map((p) => p.id)) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modoSeleccion, cantidadDeseada, idsDisponibles]);
 
-interface EstucheSeleccion {
-  id: string;
-  piezaId: number;
-  todasHijas: boolean;
-  hijasSeleccionadas: Set<number>;
-}
+  if (modoSeleccion === "especifica") {
+    return (
+      <div className="pieza-multiselect">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <strong style={{ fontSize: 13 }}>Elegir piezas específicas</strong>
+          <button
+            type="button"
+            style={{ background: "transparent", border: 0, color: "var(--accent, #6366f1)", cursor: "pointer", fontSize: 12 }}
+            onClick={() => {
+              setModoSeleccion("cantidad");
+              setCantidadDeseada(Math.max(renglon.piezasSeleccionadas.size, 1));
+            }}
+          >
+            ← Volver a cantidad
+          </button>
+        </div>
+        <label className="pieza-checkbox-row">
+          <input
+            type="checkbox"
+            checked={renglon.piezasSeleccionadas.size === piezasSueltas.length}
+            onChange={(e) =>
+              onUpdate({ piezasSeleccionadas: e.target.checked ? new Set(piezasSueltas.map((p) => p.id)) : new Set() })
+            }
+          />
+          <strong style={{ fontSize: 13 }}>Todas las sueltas ({piezasSueltas.length})</strong>
+        </label>
+        {piezasSueltas.map((p) => (
+          <label key={p.id} className="pieza-checkbox-row">
+            <input
+              type="checkbox"
+              checked={renglon.piezasSeleccionadas.has(p.id)}
+              onChange={() => {
+                const next = new Set(renglon.piezasSeleccionadas);
+                next.has(p.id) ? next.delete(p.id) : next.add(p.id);
+                onUpdate({ piezasSeleccionadas: next });
+              }}
+            />
+            <span className="pieza-code">{p.codigo}</span>
+            {p.detalle && <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: 4 }}>{p.detalle}</span>}
+          </label>
+        ))}
+      </div>
+    );
+  }
 
-function estucheVacio(): EstucheSeleccion {
-  return {
-    id: crypto.randomUUID(),
-    piezaId: 0,
-    todasHijas: true,
-    hijasSeleccionadas: new Set(),
-  };
+  const seleccionadas = piezasSueltas.filter((p) => renglon.piezasSeleccionadas.has(p.id));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+          Cantidad
+          <input
+            type="number"
+            min={1}
+            max={piezasSueltas.length}
+            value={cantidadDeseada}
+            onChange={(e) =>
+              setCantidadDeseada(Math.max(1, Math.min(piezasSueltas.length, Number(e.target.value) || 1)))
+            }
+            style={{ width: 56, padding: "4px 8px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #d1d5db)" }}
+          />
+        </label>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>de {piezasSueltas.length} disponibles</span>
+        <button
+          type="button"
+          style={{ background: "transparent", border: 0, color: "var(--accent, #6366f1)", cursor: "pointer", fontSize: 12, marginLeft: "auto" }}
+          onClick={() => setModoSeleccion("especifica")}
+        >
+          Elegir una en específico
+        </button>
+      </div>
+      {seleccionadas.length > 0 && (
+        <span style={{ fontSize: 11, color: "var(--muted)" }}>
+          Se usarán: {seleccionadas.map((p) => p.codigo ?? "—").join(", ")}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export function MovimientoFormPage() {
@@ -202,12 +400,16 @@ export function MovimientoFormPage() {
   const preselMaterial = params.get("material") ? Number(params.get("material")) : 0;
 
   const [tipo, setTipo] = useState<TipoMovimiento>("salida");
+
+  // ── Estado exclusivo de Baja (single-material, sin cambios de lógica) ────
   const [materialId, setMaterialId] = useState<number>(preselMaterial);
   const [piezaId, setPiezaId] = useState<number>(0);
   const [cantidad, setCantidad] = useState(1);
   const [cantidadCajas, setCantidadCajas] = useState(1);
   const [unidadMovimientoId, setUnidadMovimientoId] = useState<number | null>(null);
   const [cantidadEnUnidadMovimiento, setCantidadEnUnidadMovimiento] = useState("");
+
+  // ── Estado común ──────────────────────────────────────────────────────
   const [responsableId, setResponsableId] = useState<number>(0);
   const [referencia, setReferencia] = useState("");
   const [observaciones, setObservaciones] = useState("");
@@ -215,16 +417,18 @@ export function MovimientoFormPage() {
   const [avisoEstuche, setAvisoEstuche] = useState<{ aviso: string; excluidas: number[] } | null>(null);
   const [exito, setExito] = useState(false);
   const [exitoPendiente, setExitoPendiente] = useState<string | null>(null);
-  const [modoSalida, setModoSalida] = useState<"consumibles" | "pieza">("consumibles");
 
-  // Grilla de renglones para salida de materiales consumibles (sin control individual)
-  const [renglones, setRenglones] = useState<RenglonSalida[]>([renglonVacio()]);
+  // ── Renglones unificados de Entrada / Salida (Objetivo: mezclar
+  // consumibles y piezas retornables) ──────────────────────────────────────
+  const [renglones, setRenglones] = useState<RenglonMovimiento[]>([renglonVacio(preselMaterial)]);
 
   // Orden de Trabajo seleccionada (id como string, UUID) para vincular la salida.
   const [workOrderSelected, setWorkOrderSelected] = useState<string>("");
 
-  // Resultado del batch cuando el usuario es ADMIN (tabla ✓/✗ por renglón).
+  // Resultado del lote (tabla ✓/✗ por renglón/pieza).
   const [resultadosAdmin, setResultadosAdmin] = useState<ResultadoLoteAdmin[] | null>(null);
+
+  const [sinOT, setSinOT] = useState(false);
 
   function agregarRenglon() {
     setRenglones((prev) => [...prev, renglonVacio()]);
@@ -234,53 +438,22 @@ export function MovimientoFormPage() {
     setRenglones((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev));
   }
 
-  function actualizarRenglon(id: string, campo: "materialId" | "cantidad" | "cantidadCajas", valor: number) {
-    setRenglones((prev) => prev.map((r) => (r.id === id ? { ...r, [campo]: valor } : r)));
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
-  // F2b: uno o más estuches seleccionados para salida (Objetivo: agregar más estuches).
-  const [estuchesSeleccionados, setEstuchesSeleccionados] = useState<EstucheSeleccion[]>([]);
-
-  // F4: checklist de piezas sueltas (no-estuche) para salida múltiple.
-  const [piezasSalidaSeleccionadas, setPiezasSalidaSeleccionadas] = useState<Set<number>>(new Set());
-
-  // F3: checklist de piezas prestadas a devolver (entrada)
-  const [prestadasSeleccionadas, setPrestadasSeleccionadas] = useState<Set<number>>(new Set());
-
-  // Objetivo: permitir que un movimiento de salida no esté ligado a ninguna OT.
-  const [sinOT, setSinOT] = useState(false);
-
-  function agregarEstuche() {
-    setPiezasSalidaSeleccionadas(new Set());
-    setEstuchesSeleccionados((prev) => [...prev, estucheVacio()]);
+  function actualizarRenglon(id: string, patch: Partial<RenglonMovimiento>) {
+    setRenglones((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
-  function quitarEstuche(id: string) {
-    setEstuchesSeleccionados((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  function actualizarEstuchePieza(id: string, piezaId: number) {
-    setEstuchesSeleccionados((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, piezaId, todasHijas: true, hijasSeleccionadas: new Set() } : e))
-    );
-  }
-
-  function actualizarEstucheTodas(id: string, checked: boolean) {
-    setEstuchesSeleccionados((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, todasHijas: checked, hijasSeleccionadas: checked ? new Set() : e.hijasSeleccionadas } : e))
-    );
-  }
-
-  function toggleEstucheHija(id: string, hijaId: number) {
-    setEstuchesSeleccionados((prev) =>
-      prev.map((e) => {
-        if (e.id !== id) return e;
-        const next = new Set(e.hijasSeleccionadas);
-        next.has(hijaId) ? next.delete(hijaId) : next.add(hijaId);
-        return { ...e, hijasSeleccionadas: next };
-      })
-    );
+  function resetRenglonSelector(id: string) {
+    actualizarRenglon(id, {
+      cantidad: 1,
+      cantidadCajas: 1,
+      unidadMovimientoId: null,
+      cantidadEnUnidadMovimiento: "",
+      modoPieza: "sueltas",
+      piezasSeleccionadas: new Set(),
+      estuchePiezaId: 0,
+      estucheTodasHijas: true,
+      estucheHijasSeleccionadas: new Set(),
+    });
   }
 
   const tipoId = useId();
@@ -295,31 +468,24 @@ export function MovimientoFormPage() {
     queryFn: listUsuarios,
   });
 
-  // Query de OTs activas, para alimentar el <select> de "Orden de Trabajo".
   const { data: otsActivas = [] } = useQuery<WorkOrderActiva[]>({
     queryKey: ["ots-activas"],
     queryFn: listOrdenesTrabajoActivas,
     enabled: tipo === "salida",
   });
 
-  const material = materiales.find((m) => m.id === materialId);
-
-  // Unidades de medida compatibles con la unidad base del material (ej. si
-  // el material es Rollo con base "cm", ofrece cm/m/etc. de la misma familia
-  // "longitud"), para materiales con unidad_manejo_permite_conversion_unidad.
   const { data: unidadesMedida = [] } = useQuery({
     queryKey: ["unidades-medida"],
     queryFn: listUnidadesMedida,
-    enabled: !!material?.unidad_manejo_permite_conversion_unidad,
   });
-  const unidadBase = unidadesMedida.find((u) => u.id === material?.unidad_movimiento_base);
-  const unidadesCompatibles = unidadesMedida.filter(
-    (u) => u.activo && unidadBase && u.familia === unidadBase.familia,
-  );
 
-  // Al cambiar de material (o cargar uno con conversión de unidad), por
-  // defecto se preselecciona su propia unidad base (ej. Rollo en cm).
+  // ── Solo para Baja ────────────────────────────────────────────────────
+  const material = materiales.find((m) => m.id === materialId);
+  const unidadBase = unidadesMedida.find((u) => u.id === material?.unidad_movimiento_base);
+  const unidadesCompatibles = unidadesCompatiblesDe(material, unidadesMedida);
+
   useEffect(() => {
+    if (tipo !== "baja") return;
     if (material?.unidad_manejo_permite_conversion_unidad && unidadBase) {
       setUnidadMovimientoId((prev) => (prev && unidadesCompatibles.some((u) => u.id === prev) ? prev : unidadBase.id));
     } else {
@@ -327,115 +493,135 @@ export function MovimientoFormPage() {
       setCantidadEnUnidadMovimiento("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [materialId, unidadBase?.id]);
+  }, [tipo, materialId, unidadBase?.id]);
 
-  // Piezas seleccionables para salida/baja (combobox único)
-  const { data: piezas = [] } = useQuery({
-    queryKey: ["piezas", materialId, tipo],
-    queryFn: () => {
-      if (!materialId) return Promise.resolve<PiezaBase[]>([]);
-      if (tipo === "salida") return listPiezas({ material: materialId, estado: "Disponible", sin_padre: true });
-      return listPiezas({ material: materialId }); // baja
-    },
-    enabled: !!materialId && !!material?.control_individual && tipo !== "entrada",
+  const { data: piezasBaja = [] } = useQuery({
+    queryKey: ["piezas-baja", materialId],
+    queryFn: () => listPiezas({ material: materialId }),
+    enabled: !!materialId && !!material?.control_individual && tipo === "baja",
   });
-
-  const { data: prestadasMaterialRaw = [] } = useQuery({
-    queryKey: ["piezas-prestadas-material", materialId],
-    queryFn: () => listPiezas({ material: materialId, estado: "Prestado" }),
-    enabled: !!materialId && !!material?.control_individual && tipo === "entrada",
-  });
-  const prestadasMaterial = prestadasMaterialRaw.filter((p) => !p.tiene_hijas);
-
-  // `pieza` solo se usa ya para el selector único de Baja (piezaId).
-  const pieza = piezas.find((p) => p.id === piezaId);
-
-  const piezasSueltasDisponibles = piezas.filter((p) => !p.tiene_hijas);
-  const estuchesDisponibles = piezas.filter((p) => p.tiene_hijas);
-
-  // ── Carrito unificado (Tareas 1+2) ──────────────────────────────────────
-  // Computa una lista plana de todos los ítems seleccionados (consumibles +
-  // piezas sueltas + estuches) para mostrar el ResumenCarrito. No duplica
-  // estado — deriva de los arrays existentes.
-  const carritoUnificado = useMemo<ItemCarrito[]>(() => {
-    if (tipo !== "salida") return [];
-    const items: ItemCarrito[] = [];
-
-    if (modoSalida === "consumibles") {
-      for (const r of renglones) {
-        if (r.materialId <= 0) continue;
-        const mat = materiales.find((m) => m.id === r.materialId);
-        items.push({
-          tipo: "consumible",
-          id: r.id,
-          materialId: r.materialId,
-          materialLabel: mat ? `${mat.codigo} \u2014 ${mat.nombre}` : `Material #${r.materialId}`,
-          cantidad: r.cantidad,
-          cantidadCajas: r.cantidadCajas,
-          esEmpaque: !!mat?.unidad_manejo_requiere_multiplicador,
-          unidadNombre: mat?.unidad_manejo_nombre ?? null,
-          unidadesPorCaja: mat?.unidades_por_caja ?? null,
-        });
-      }
-    } else {
-      // Piezas sueltas seleccionadas
-      for (const pid of piezasSalidaSeleccionadas) {
-        const p = piezasSueltasDisponibles.find((x) => x.id === pid);
-        items.push({
-          tipo: "pieza_suelta",
-          id: String(pid),
-          piezaId: pid,
-          piezaLabel: p?.codigo ?? `Pieza #${pid}`,
-        });
-      }
-      // Estuches
-      for (const e of estuchesSeleccionados) {
-        items.push({
-          tipo: "pieza",
-          id: e.id,
-          piezaId: e.piezaId,
-          piezaLabel: e.piezaId > 0 ? `Estuche #${e.piezaId}` : "",
-          todasHijas: e.todasHijas,
-          hijasCount: e.todasHijas ? 0 : e.hijasSeleccionadas.size,
-        });
-      }
-    }
-    return items;
-  }, [tipo, modoSalida, renglones, materiales, piezasSalidaSeleccionadas, piezasSueltasDisponibles, estuchesSeleccionados]);
-
-  function togglePrestada(id: number) {
-    setPrestadasSeleccionadas((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  function togglePiezaSalida(id: number) {
-    setPiezasSalidaSeleccionadas((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-    setEstuchesSeleccionados([]);
-  }
+  const piezaBaja = piezasBaja.find((p) => p.id === piezaId);
 
   const mut = useMutation({
     mutationFn: async () => {
-      // ── MODO SALIDA CONSUMIBLES (Multi-material) ──────────────────────────
-      if (tipo === "salida" && modoSalida === "consumibles") {
+      // ═══════════════ BAJA (sin cambios: un material a la vez) ═══════════
+      if (tipo === "baja") {
+        if (!materialId) throw new Error("Selecciona un material.");
         if (!responsableId) throw new Error("Selecciona un responsable.");
 
-        const renglonesValidos = renglones.filter((r) => r.materialId > 0);
-        if (renglonesValidos.length === 0) throw new Error("Agrega al menos un material a la lista.");
+        if (material?.control_individual) {
+          if (!piezaId) throw new Error("Selecciona una pieza.");
+          return registrarBajaPieza({ pieza_id: piezaId, responsable_id: responsableId, observaciones });
+        }
+        const esPorEmpaque = !!material?.unidad_manejo_requiere_multiplicador;
+        const esPorConversion = !!material?.unidad_manejo_permite_conversion_unidad;
+        const cantidadPayload = esPorEmpaque || esPorConversion ? undefined : cantidad;
+        const cantidadCajasPayload = esPorEmpaque ? cantidadCajas : undefined;
+        const conversionPayload = esPorConversion
+          ? {
+              unidad_movimiento_id: unidadMovimientoId ?? undefined,
+              cantidad_en_unidad_movimiento: cantidadEnUnidadMovimiento ? Number(cantidadEnUnidadMovimiento) : undefined,
+            }
+          : {};
+        if (esPorConversion && (!unidadMovimientoId || !cantidadEnUnidadMovimiento)) {
+          throw new Error(`Indica la cantidad y la unidad (${unidadBase?.nombre ?? "unidad base"} u otra compatible).`);
+        }
+        return registrarBajaMaterial({
+          material_id: materialId,
+          cantidad: cantidadPayload,
+          cantidad_cajas: cantidadCajasPayload,
+          responsable_id: responsableId,
+          observaciones,
+          ...conversionPayload,
+        });
+      }
 
-        if (esAlmacenero) {
-          return crearGrupoSolicitud({
+      // ═══════ ENTRADA / SALIDA — lista unificada (consumibles + piezas) ═══
+      if (!responsableId) throw new Error("Selecciona un responsable.");
+      const renglonesValidos = renglones.filter((r) => r.materialId > 0);
+      if (renglonesValidos.length === 0) throw new Error("Agrega al menos un material a la lista.");
+
+      const consumibleRenglones = renglonesValidos.filter((r) => {
+        const m = materiales.find((mm) => mm.id === r.materialId);
+        return m && !m.control_individual;
+      });
+      const piezaRenglones = renglonesValidos.filter((r) => {
+        const m = materiales.find((mm) => mm.id === r.materialId);
+        return m && m.control_individual;
+      });
+
+      for (const r of piezaRenglones) {
+        const m = materiales.find((mm) => mm.id === r.materialId)!;
+        if (tipo === "entrada") {
+          if (r.piezasSeleccionadas.size === 0) {
+            throw new Error(`Selecciona al menos una pieza a devolver de "${m.nombre}".`);
+          }
+        } else {
+          const tieneSueltas = r.piezasSeleccionadas.size > 0;
+          const tieneEstuche = r.modoPieza === "estuche" && r.estuchePiezaId > 0;
+          if (!tieneSueltas && !tieneEstuche) {
+            throw new Error(`Selecciona pieza(s) o un estuche de "${m.nombre}".`);
+          }
+        }
+      }
+
+      // ── ENTRADA: siempre directa, sin flujo de aprobación ──────────────
+      if (tipo === "entrada") {
+        const resultados: ResultadoLoteAdmin[] = [];
+        for (const r of consumibleRenglones) {
+          const m = materiales.find((mm) => mm.id === r.materialId)!;
+          const esEmp = !!m.unidad_manejo_requiere_multiplicador;
+          const esConv = !!m.unidad_manejo_permite_conversion_unidad;
+          try {
+            await registrarEntradaMaterial({
+              material_id: r.materialId,
+              cantidad: esEmp || esConv ? undefined : r.cantidad,
+              cantidad_cajas: esEmp ? r.cantidadCajas : undefined,
+              unidad_movimiento_id: esConv ? r.unidadMovimientoId ?? undefined : undefined,
+              cantidad_en_unidad_movimiento:
+                esConv && r.cantidadEnUnidadMovimiento ? Number(r.cantidadEnUnidadMovimiento) : undefined,
+              responsable_id: responsableId,
+              observaciones,
+            });
+            resultados.push({ materialNombre: `${m.codigo} — ${m.nombre}`, ok: true });
+          } catch (err: any) {
+            resultados.push({ materialNombre: `${m.codigo} — ${m.nombre}`, ok: false, error: mensajeError(err) });
+          }
+        }
+        for (const r of piezaRenglones) {
+          const m = materiales.find((mm) => mm.id === r.materialId)!;
+          for (const piezaIdSel of r.piezasSeleccionadas) {
+            try {
+              await registrarEntradaPieza({ pieza_id: piezaIdSel, responsable_id: responsableId, observaciones });
+              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: true });
+            } catch (err: any) {
+              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: false, error: mensajeError(err) });
+            }
+          }
+        }
+        setResultadosAdmin(resultados);
+        return resultados.every((r) => r.ok) ? { batchCompleto: true } : { batchParcial: true };
+      }
+
+      // ── SALIDA ──────────────────────────────────────────────────────────
+      const referenciaFinal = workOrderSelected
+        ? (otsActivas.find((o) => o.id === workOrderSelected)?.code ?? referencia)
+        : referencia;
+
+      if (esAlmacenero) {
+        // Consumibles → solicitud en lote (requiere aprobación, como antes).
+        // Piezas → salida directa (como antes: el checkout de piezas nunca
+        // pasó por aprobación en este sistema).
+        const resultados: ResultadoLoteAdmin[] = [];
+        let solicitudEnviada = false;
+
+        if (consumibleRenglones.length > 0) {
+          await crearGrupoSolicitud({
             work_order: workOrderSelected || null,
             observaciones,
-            items: renglonesValidos.map((r) => {
-              const matObj = materiales.find((m) => m.id === r.materialId);
-              const esEmp = matObj && matObj.unidad_manejo_requiere_multiplicador;
+            items: consumibleRenglones.map((r) => {
+              const m = materiales.find((mm) => mm.id === r.materialId)!;
+              const esEmp = !!m.unidad_manejo_requiere_multiplicador;
               return {
                 tipo: "salida_material" as const,
                 material: r.materialId,
@@ -444,125 +630,105 @@ export function MovimientoFormPage() {
               };
             }),
           });
+          solicitudEnviada = true;
         }
 
-        // Flujo ADMIN: loop cliente-side con mismo lote_id
-        const loteId = crypto.randomUUID().slice(0, 12);
-        const resultados: ResultadoLoteAdmin[] = [];
-        for (const r of renglonesValidos) {
-          const matObj = materiales.find((m) => m.id === r.materialId);
-          const nombre = matObj ? `${matObj.codigo} — ${matObj.nombre}` : `Material #${r.materialId}`;
-          const esEmp = matObj && matObj.unidad_manejo_requiere_multiplicador;
-          try {
-            await registrarSalidaMaterial({
-              material_id: r.materialId,
-              cantidad: esEmp ? undefined : r.cantidad,
-              cantidad_cajas: esEmp ? r.cantidadCajas : undefined,
-              responsable_id: responsableId,
-              referencia_externa: workOrderSelected
-                ? (otsActivas.find((o) => o.id === workOrderSelected)?.code ?? referencia)
-                : referencia,
-              observaciones,
-              lote_id: loteId,
-            });
-            resultados.push({ materialNombre: nombre, ok: true });
-          } catch (err: any) {
-            const msg = err?.response?.data
-              ? Object.values(err.response.data).flat().join(" ")
-              : err?.message ?? "Error desconocido";
-            resultados.push({ materialNombre: nombre, ok: false, error: msg });
-          }
-        }
-
-        setResultadosAdmin(resultados);
-        const idsFallidos = new Set(
-          renglonesValidos
-            .filter((_, idx) => !resultados[idx]?.ok)
-            .map((r) => r.id)
-        );
-        setRenglones((prev) => {
-          const restantes = prev.filter((r) => idsFallidos.has(r.id));
-          return restantes.length > 0 ? restantes : [renglonVacio()];
-        });
-
-        if (resultados.every((r) => r.ok)) {
-          return { batchCompleto: true };
-        }
-        return { batchParcial: true };
-      }
-      // ─────────────────────────────────────────────────────────────────────
-
-      if (!materialId) throw new Error("Selecciona un material.");
-      if (!responsableId) throw new Error("Selecciona un responsable.");
-
-      if (material?.control_individual) {
-        if (tipo === "entrada") {
-          if (prestadasSeleccionadas.size === 0) {
-            throw new Error("Selecciona al menos una pieza a devolver.");
-          }
-          const resultados = [];
-          for (const id of prestadasSeleccionadas) {
-            resultados.push(
-              await registrarEntradaPieza({ pieza_id: id, responsable_id: responsableId, observaciones })
-            );
-          }
-          return resultados;
-        }
-
-        if (tipo === "salida") {
-          if (piezasSalidaSeleccionadas.size > 0) {
-            const resultados = [];
-            for (const id of piezasSalidaSeleccionadas) {
-              resultados.push(
-                await registrarSalidaPieza({
-                  pieza_id: id,
-                  responsable_id: responsableId,
-                  referencia_externa: referencia,
-                  observaciones,
-                })
-              );
+        for (const r of piezaRenglones) {
+          const m = materiales.find((mm) => mm.id === r.materialId)!;
+          if (r.piezasSeleccionadas.size > 0) {
+            for (const piezaIdSel of r.piezasSeleccionadas) {
+              try {
+                await registrarSalidaPieza({ pieza_id: piezaIdSel, responsable_id: responsableId, referencia_externa: referenciaFinal, observaciones });
+                resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: true });
+              } catch (err: any) {
+                resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: false, error: mensajeError(err) });
+              }
             }
-            return resultados;
-          }
-          const estuchesValidos = estuchesSeleccionados.filter((e) => e.piezaId > 0);
-          if (estuchesValidos.length === 0) throw new Error("Selecciona al menos una pieza o un estuche.");
-          const resultadosEstuches = [];
-          for (const e of estuchesValidos) {
-            const piezas_hijas_ids = e.todasHijas ? undefined : Array.from(e.hijasSeleccionadas);
-            resultadosEstuches.push(
-              await registrarSalidaPieza({
-                pieza_id: e.piezaId,
+          } else if (r.estuchePiezaId > 0) {
+            try {
+              const resp = await registrarSalidaPieza({
+                pieza_id: r.estuchePiezaId,
                 responsable_id: responsableId,
-                referencia_externa: referencia,
+                referencia_externa: referenciaFinal,
                 observaciones,
-                piezas_hijas_ids,
-              })
-            );
-          }
-          return resultadosEstuches;
-        }
-        if (!piezaId) throw new Error("Selecciona una pieza.");
-        return registrarBajaPieza({ pieza_id: piezaId, responsable_id: responsableId, observaciones });
-      } else {
-        const esPorEmpaque = !!material?.unidad_manejo_requiere_multiplicador;
-        const esPorConversion = !!material?.unidad_manejo_permite_conversion_unidad;
-        const cantidadPayload = esPorEmpaque || esPorConversion ? undefined : cantidad;
-        const cantidadCajasPayload = esPorEmpaque ? cantidadCajas : undefined;
-        const conversionPayload = esPorConversion
-          ? {
-              unidad_movimiento_id: unidadMovimientoId ?? undefined,
-              cantidad_en_unidad_movimiento: cantidadEnUnidadMovimiento
-                ? Number(cantidadEnUnidadMovimiento)
-                : undefined,
+                piezas_hijas_ids: r.estucheTodasHijas ? undefined : Array.from(r.estucheHijasSeleccionadas),
+              });
+              const nota = resp.aviso ? ` — ⚠ ${resp.aviso}` : "";
+              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (estuche)${nota}`, ok: true });
+            } catch (err: any) {
+              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (estuche)`, ok: false, error: mensajeError(err) });
             }
-          : {};
-        if (esPorConversion && (!unidadMovimientoId || !cantidadEnUnidadMovimiento)) {
-          throw new Error(`Indica la cantidad y la unidad (${unidadBase?.nombre ?? "unidad base"} u otra compatible).`);
+          }
         }
-        if (tipo === "salida") return registrarSalidaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, referencia_externa: referencia, observaciones, ...conversionPayload });
-        if (tipo === "entrada") return registrarEntradaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, observaciones, ...conversionPayload });
-        return registrarBajaMaterial({ material_id: materialId, cantidad: cantidadPayload, cantidad_cajas: cantidadCajasPayload, responsable_id: responsableId, observaciones, ...conversionPayload });
+
+        if (resultados.length > 0) setResultadosAdmin(resultados);
+
+        if (solicitudEnviada) {
+          return {
+            solicitud_grupo_id: true,
+            mensaje:
+              resultados.length > 0
+                ? "Solicitud de materiales consumibles enviada para aprobación. Las piezas seleccionadas ya salieron del almacén."
+                : "Solicitud enviada para aprobación.",
+          };
+        }
+        return resultados.every((r) => r.ok) ? { batchCompleto: true } : { batchParcial: true };
       }
+
+      // ADMIN: todo directo, mismo lote_id.
+      const loteId = crypto.randomUUID().slice(0, 12);
+      const resultados: ResultadoLoteAdmin[] = [];
+      for (const r of consumibleRenglones) {
+        const m = materiales.find((mm) => mm.id === r.materialId)!;
+        const esEmp = !!m.unidad_manejo_requiere_multiplicador;
+        const esConv = !!m.unidad_manejo_permite_conversion_unidad;
+        try {
+          await registrarSalidaMaterial({
+            material_id: r.materialId,
+            cantidad: esEmp || esConv ? undefined : r.cantidad,
+            cantidad_cajas: esEmp ? r.cantidadCajas : undefined,
+            unidad_movimiento_id: esConv ? r.unidadMovimientoId ?? undefined : undefined,
+            cantidad_en_unidad_movimiento:
+              esConv && r.cantidadEnUnidadMovimiento ? Number(r.cantidadEnUnidadMovimiento) : undefined,
+            responsable_id: responsableId,
+            referencia_externa: referenciaFinal,
+            observaciones,
+            lote_id: loteId,
+          });
+          resultados.push({ materialNombre: `${m.codigo} — ${m.nombre}`, ok: true });
+        } catch (err: any) {
+          resultados.push({ materialNombre: `${m.codigo} — ${m.nombre}`, ok: false, error: mensajeError(err) });
+        }
+      }
+      for (const r of piezaRenglones) {
+        const m = materiales.find((mm) => mm.id === r.materialId)!;
+        if (r.piezasSeleccionadas.size > 0) {
+          for (const piezaIdSel of r.piezasSeleccionadas) {
+            try {
+              await registrarSalidaPieza({ pieza_id: piezaIdSel, responsable_id: responsableId, referencia_externa: referenciaFinal, observaciones });
+              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: true });
+            } catch (err: any) {
+              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: false, error: mensajeError(err) });
+            }
+          }
+        } else if (r.estuchePiezaId > 0) {
+          try {
+            const resp = await registrarSalidaPieza({
+              pieza_id: r.estuchePiezaId,
+              responsable_id: responsableId,
+              referencia_externa: referenciaFinal,
+              observaciones,
+              piezas_hijas_ids: r.estucheTodasHijas ? undefined : Array.from(r.estucheHijasSeleccionadas),
+            });
+            const nota = resp.aviso ? ` — ⚠ ${resp.aviso}` : "";
+            resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (estuche)${nota}`, ok: true });
+          } catch (err: any) {
+            resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (estuche)`, ok: false, error: mensajeError(err) });
+          }
+        }
+      }
+      setResultadosAdmin(resultados);
+      return resultados.every((r) => r.ok) ? { batchCompleto: true } : { batchParcial: true };
     },
     onSuccess: (resp: any) => {
       qc.invalidateQueries({ queryKey: ["movimientos"] });
@@ -570,25 +736,16 @@ export function MovimientoFormPage() {
       qc.invalidateQueries({ queryKey: ["grupos-solicitud"] });
       qc.invalidateQueries({ queryKey: ["materiales"] });
       qc.invalidateQueries({ queryKey: ["checklist-prestados"] });
-      qc.invalidateQueries({ queryKey: ["piezas-prestadas-material", materialId] });
+      qc.invalidateQueries({ queryKey: ["piezas-renglon-disponible"] });
+      qc.invalidateQueries({ queryKey: ["piezas-renglon-prestado"] });
+      qc.invalidateQueries({ queryKey: ["piezas-baja", materialId] });
 
-      // Resultado del batch admin: no navegar a pantalla de éxito, la tabla
-      // ✓/✗ ya está visible arriba del formulario (resultadosAdmin).
       if (resp && typeof resp === "object" && ("batchCompleto" in resp || "batchParcial" in resp)) {
-        if (resp.batchCompleto) {
-          // Todo salió bien: limpia y muestra la tabla igual (queda como
-          // confirmación visual), no hace falta pantalla aparte.
-        }
         return;
       }
 
       if (resp && typeof resp === "object" && "solicitud_grupo_id" in resp) {
         setExitoPendiente(resp.mensaje);
-        return;
-      }
-      if (resp && typeof resp === "object" && !Array.isArray(resp) && "solicitud_id" in resp) {
-        const r = resp as unknown as { mensaje?: string };
-        setExitoPendiente(r.mensaje || "Solicitud enviada para aprobación.");
         return;
       }
       if (resp && typeof resp === "object" && !Array.isArray(resp) && "aviso" in resp) {
@@ -601,12 +758,7 @@ export function MovimientoFormPage() {
       setExito(true);
     },
     onError: (e: any) => {
-      const data = e?.response?.data;
-      if (data) {
-        setError(Object.values(data).flat().join(" "));
-      } else {
-        setError(e.message ?? "Ocurrió un error al registrar el movimiento.");
-      }
+      setError(mensajeError(e));
     },
   });
 
@@ -656,9 +808,8 @@ export function MovimientoFormPage() {
               setAvisoEstuche(null);
               setPiezaId(0);
               setCantidad(1);
-              setEstuchesSeleccionados([]);
-              setPrestadasSeleccionadas(new Set());
-              setPiezasSalidaSeleccionadas(new Set());
+              setRenglones([renglonVacio()]);
+              setResultadosAdmin(null);
             }}
           >
             Registrar otro
@@ -706,9 +857,6 @@ export function MovimientoFormPage() {
                   onClick={() => {
                     setTipo(t);
                     setPiezaId(0);
-                    setEstuchesSeleccionados([]);
-                    setPrestadasSeleccionadas(new Set());
-                    setPiezasSalidaSeleccionadas(new Set());
                     setRenglones([renglonVacio()]);
                     setResultadosAdmin(null);
                     setSinOT(false);
@@ -726,187 +874,11 @@ export function MovimientoFormPage() {
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 1</span>
-              <h2>Materiales / Renglones</h2>
+              <h2>Materiales</h2>
             </div>
 
-            {/* Selector de modo para Salida: Consumibles agrupados vs Pieza individual */}
-            {tipo === "salida" && (
-              <div
-                style={{
-                  marginBottom: 16,
-                  display: "flex",
-                  gap: 8,
-                  background: "var(--surface-subtle, #f3f4f6)",
-                  padding: 4,
-                  borderRadius: 8,
-                  width: "fit-content",
-                }}
-              >
-                <button
-                  type="button"
-                  className={modoSalida === "consumibles" ? "button button-secondary button-sm is-active" : "button button-ghost button-sm"}
-                  style={{
-                    fontSize: 12,
-                    padding: "4px 12px",
-                    background: modoSalida === "consumibles" ? "var(--surface, #fff)" : "transparent",
-                    boxShadow: modoSalida === "consumibles" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
-                  }}
-                  onClick={() => {
-                    setModoSalida("consumibles");
-                    setMaterialId(0);
-                    setPiezaId(0);
-                  }}
-                >
-                  Materiales Consumibles
-                </button>
-                <button
-                  type="button"
-                  className={modoSalida === "pieza" ? "button button-secondary button-sm is-active" : "button button-ghost button-sm"}
-                  style={{
-                    fontSize: 12,
-                    padding: "4px 12px",
-                    background: modoSalida === "pieza" ? "var(--surface, #fff)" : "transparent",
-                    boxShadow: modoSalida === "pieza" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
-                  }}
-                  onClick={() => {
-                    setModoSalida("pieza");
-                    setMaterialId(0);
-                    setPiezaId(0);
-                  }}
-                >
-                  Pieza / Estuche (Control Individual)
-                </button>
-              </div>
-            )}
-
-            {/* SI ES SALIDA CONSUMIBLES MULTI-MATERIAL */}
-            {tipo === "salida" && modoSalida === "consumibles" ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <p style={{ fontSize: 13, color: "var(--muted, #6b7280)", margin: 0 }}>
-                  Agrega los materiales consumibles que saldrán en este envío.
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {renglones.map((r, index) => {
-                    const matObj = materiales.find((m) => m.id === r.materialId);
-                    const esEmp = matObj && matObj.unidad_manejo_requiere_multiplicador;
-                    return (
-                      <div
-                        key={r.id}
-                        style={{
-                          display: "flex",
-                          gap: 12,
-                          alignItems: "flex-start",
-                          background: "var(--surface-subtle, #f9fafb)",
-                          padding: 12,
-                          borderRadius: 8,
-                          border: "1px solid var(--border, #e5e7eb)",
-                        }}
-                      >
-                        <div style={{ flex: 2 }}>
-                          <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                            Material #{index + 1}
-                          </label>
-                          <Combobox
-                            value={r.materialId}
-                            selectedLabel={matObj ? `${matObj.codigo} — ${matObj.nombre}` : ""}
-                            placeholder="Buscar material consumible…"
-                            onChange={(id) => {
-                              actualizarRenglon(r.id, "materialId", id);
-                            }}
-                            fetchOptions={async (q) => {
-                              const res = await listMateriales(almacenId, { q });
-                              return res
-                                .filter((m) => !m.control_individual)
-                                .map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
-                            }}
-                          />
-                        </div>
-
-                        {esEmp ? (
-                          <div style={{ width: 140 }}>
-                            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                              {`Cant. (${matObj?.unidad_manejo_nombre ?? "empaque"})`}
-                            </label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={r.cantidadCajas || 1}
-                              onChange={(e) => actualizarRenglon(r.id, "cantidadCajas", Number(e.target.value))}
-                              placeholder="Empaques"
-                              style={{ width: "100%", padding: "6px 10px", fontSize: 13 }}
-                            />
-                            <small style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>
-                              {`× ${matObj?.unidades_por_caja ?? 1} u.`}
-                            </small>
-                          </div>
-                        ) : (
-                          <div style={{ width: 120 }}>
-                            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                              Cantidad (u.)
-                            </label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={r.cantidad}
-                              onChange={(e) => actualizarRenglon(r.id, "cantidad", Number(e.target.value))}
-                              placeholder="Unidades"
-                              style={{ width: "100%", padding: "6px 10px", fontSize: 13 }}
-                            />
-                          </div>
-                        )}
-
-                        {renglones.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => quitarRenglon(r.id)}
-                            style={{
-                              marginTop: 22,
-                              padding: "6px 10px",
-                              background: "#fee2e2",
-                              color: "#dc2626",
-                              border: "none",
-                              borderRadius: 6,
-                              cursor: "pointer",
-                              fontSize: 12,
-                              fontWeight: 600,
-                            }}
-                            title="Quitar este material"
-                          >
-                            ✕ Quitar
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    type="button"
-                    className="button button-secondary button-sm"
-                    onClick={agregarRenglon}
-                    style={{ fontSize: 13 }}
-                  >
-                    + Agregar otro material
-                  </button>
-                </div>
-
-                {/* Resumen del carrito — consumibles (Tarea 1) */}
-                <ResumenCarrito
-                  items={carritoUnificado}
-                  onQuitarConsumible={quitarRenglon}
-                  onQuitarEstuche={quitarEstuche}
-                  onQuitarPiezaSuelta={(pid) => {
-                    setPiezasSalidaSeleccionadas((prev) => {
-                      const next = new Set(prev);
-                      next.delete(pid);
-                      return next;
-                    });
-                  }}
-                />
-              </div>
-            ) : (
-              /* SI ES ENTRADA / BAJA O SALIDA DE PIEZA INDIVIDUAL */
+            {tipo === "baja" ? (
+              /* ══════════════ BAJA: un solo material a la vez ══════════════ */
               <div className="form-grid">
                 <Field label="Material" required>
                   <Combobox
@@ -916,48 +888,38 @@ export function MovimientoFormPage() {
                     onChange={(id) => {
                       setMaterialId(id);
                       setPiezaId(0);
-                      setEstuchesSeleccionados([]);
-                      setPrestadasSeleccionadas(new Set());
-                      setPiezasSalidaSeleccionadas(new Set());
                     }}
                     fetchOptions={async (q) => {
                       const res = await listMateriales(almacenId, { q });
-                      // En modo "Pieza/Estuche" de salida, solo materiales con control
-                      // individual; en entrada/baja se permiten ambos tipos.
-                      const filtrados = (tipo === "salida" && modoSalida === "pieza")
-                        ? res.filter((m) => m.control_individual)
-                        : res;
-                      return filtrados.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
+                      return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
                     }}
                   />
                 </Field>
 
                 {material?.control_individual ? (
-                  tipo === "baja" && (
-                    <Field label="Pieza" required>
-                      <Combobox
-                        value={piezaId}
-                        selectedLabel={
-                          pieza
-                            ? `${pieza.codigo} — ${pieza.material_nombre}${
-                                pieza.material_medida ? ` (${pieza.material_medida})` : ""
-                              } · ${pieza.estado}${pieza.tiene_hijas ? " [estuche]" : ""}`
-                            : ""
-                        }
-                        placeholder="Buscar por código…"
-                        onChange={(id) => setPiezaId(id)}
-                        fetchOptions={async (q) => {
-                          const res = await listPiezas({ material: materialId, q });
-                          return res.map((p) => ({
-                            id: p.id,
-                            label: `${p.codigo} — ${p.material_nombre}${
-                              p.material_medida ? ` (${p.material_medida})` : ""
-                            } · ${p.estado}${p.tiene_hijas ? " [estuche]" : ""}`,
-                          }));
-                        }}
-                      />
-                    </Field>
-                  )
+                  <Field label="Pieza" required>
+                    <Combobox
+                      value={piezaId}
+                      selectedLabel={
+                        piezaBaja
+                          ? `${piezaBaja.codigo} — ${piezaBaja.material_nombre}${
+                              piezaBaja.material_medida ? ` (${piezaBaja.material_medida})` : ""
+                            } · ${piezaBaja.estado}${piezaBaja.tiene_hijas ? " [estuche]" : ""}`
+                          : ""
+                      }
+                      placeholder="Buscar por código…"
+                      onChange={(id) => setPiezaId(id)}
+                      fetchOptions={async (q) => {
+                        const res = await listPiezas({ material: materialId, q });
+                        return res.map((p) => ({
+                          id: p.id,
+                          label: `${p.codigo} — ${p.material_nombre}${
+                            p.material_medida ? ` (${p.material_medida})` : ""
+                          } · ${p.estado}${p.tiene_hijas ? " [estuche]" : ""}`,
+                        }));
+                      }}
+                    />
+                  </Field>
                 ) : material ? (
                   material.unidad_manejo_requiere_multiplicador ? (
                     <Field
@@ -970,11 +932,7 @@ export function MovimientoFormPage() {
                       <input
                         type="number"
                         min={1}
-                        max={
-                          tipo === "salida" || tipo === "baja"
-                            ? Math.floor(material.cantidad_total / (material.unidades_por_caja || 1))
-                            : undefined
-                        }
+                        max={Math.floor(material.cantidad_total / (material.unidades_por_caja || 1))}
                         value={cantidadCajas}
                         onChange={(e) => setCantidadCajas(Number(e.target.value))}
                       />
@@ -1011,7 +969,7 @@ export function MovimientoFormPage() {
                       <input
                         type="number"
                         min={1}
-                        max={tipo === "salida" || tipo === "baja" ? material.cantidad_total : undefined}
+                        max={material.cantidad_total}
                         value={cantidad}
                         onChange={(e) => setCantidad(Number(e.target.value))}
                       />
@@ -1019,152 +977,178 @@ export function MovimientoFormPage() {
                   )
                 ) : null}
               </div>
-            )}
+            ) : (
+              /* ══════ ENTRADA / SALIDA: lista unificada (consumibles + piezas) ══════ */
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <p style={{ fontSize: 13, color: "var(--muted, #6b7280)", margin: 0 }}>
+                  {tipo === "salida"
+                    ? "Agrega los materiales que saldrán: indica cantidad o con control individual (elige la pieza o el estuche)."
+                    : "Agrega los materiales que se devuelven: consumibles (indica cantidad) o con control individual (elige qué pieza prestada devuelves)."}
+                </p>
 
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {renglones.map((r, index) => {
+                    const matObj = materiales.find((m) => m.id === r.materialId);
+                    const esControlIndividual = !!matObj?.control_individual;
+                    const esEmp = !!matObj?.unidad_manejo_requiere_multiplicador;
+                    const esConv = !!matObj?.unidad_manejo_permite_conversion_unidad;
+                    const unidadesRenglon = unidadesCompatiblesDe(matObj, unidadesMedida);
 
-            {/* F4: checklist de piezas sueltas disponibles + selector de
-                estuche, para salida. Reemplaza el Combobox de pieza única
-                que había acá antes. Fuera del form-grid a propósito, igual
-                que F2/F3. */}
-            {material?.control_individual && tipo === "salida" && materialId > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
-                  Piezas a sacar <span style={{ color: "var(--error, #dc2626)" }}>*</span>
-                </strong>
-
-                {piezasSueltasDisponibles.length === 0 && estuchesDisponibles.length === 0 ? (
-                  <p style={{ fontSize: 13, color: "var(--muted)" }}>No hay piezas disponibles de este material.</p>
-                ) : (
-                  <>
-                    {piezasSueltasDisponibles.length > 0 && (
-                      <div className="pieza-multiselect">
-                        <label className="pieza-checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={piezasSalidaSeleccionadas.size === piezasSueltasDisponibles.length}
-                            onChange={(e) => {
-                              setPiezasSalidaSeleccionadas(
-                                e.target.checked ? new Set(piezasSueltasDisponibles.map((p) => p.id)) : new Set()
-                              );
-                              setEstuchesSeleccionados([]);
-                            }}
-                          />
-                          <strong style={{ fontSize: 13 }}>
-                            Todas las piezas sueltas ({piezasSueltasDisponibles.length})
-                          </strong>
-                        </label>
-                        {piezasSueltasDisponibles.map((p) => (
-                          <label key={p.id} className="pieza-checkbox-row">
-                            <input
-                              type="checkbox"
-                              checked={piezasSalidaSeleccionadas.has(p.id)}
-                              onChange={() => togglePiezaSalida(p.id)}
+                    return (
+                      <div
+                        key={r.id}
+                        style={{
+                          background: "var(--surface-subtle, #f9fafb)",
+                          padding: 12,
+                          borderRadius: 8,
+                          border: "1px solid var(--border, #e5e7eb)",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          <div style={{ flex: 2 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                              Material #{index + 1}
+                            </label>
+                            <Combobox
+                              value={r.materialId}
+                              selectedLabel={
+                                matObj
+                                  ? `${matObj.codigo} — ${matObj.nombre}${matObj.control_individual ? " · piezas" : ""}`
+                                  : ""
+                              }
+                              placeholder="Buscar material, retornable o no…"
+                              onChange={(id) => {
+                                const nuevo = materiales.find((mm) => mm.id === id);
+                                actualizarRenglon(r.id, {
+                                  materialId: id,
+                                  cantidad: 1,
+                                  cantidadCajas: 1,
+                                  unidadMovimientoId: nuevo?.unidad_manejo_permite_conversion_unidad
+                                    ? (nuevo.unidad_movimiento_base as number) ?? null
+                                    : null,
+                                  cantidadEnUnidadMovimiento: "",
+                                  modoPieza: "sueltas",
+                                  piezasSeleccionadas: new Set(),
+                                  estuchePiezaId: 0,
+                                  estucheTodasHijas: true,
+                                  estucheHijasSeleccionadas: new Set(),
+                                });
+                              }}
+                              fetchOptions={async (q) => {
+                                const res = await listMateriales(almacenId, { q });
+                                return res.map((m) => ({
+                                  id: m.id,
+                                  label: `${m.codigo} — ${m.nombre}${m.control_individual ? " · piezas" : ""}`,
+                                }));
+                              }}
                             />
-                            <span className="pieza-code">{p.codigo}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
+                          </div>
 
-                    {estuchesDisponibles.length > 0 && piezasSalidaSeleccionadas.size === 0 && (
-                      <div style={{ marginTop: piezasSueltasDisponibles.length > 0 ? 16 : 0 }}>
-                        <strong style={{ fontSize: 13, display: "block", marginBottom: 4 }}>
-                          O selecciona uno o más estuches completos
-                        </strong>
-                        <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 0, marginBottom: 8 }}>
-                          Los estuches se sacan aparte; no se pueden combinar con piezas sueltas en el mismo movimiento.
-                        </p>
+                          {matObj && !esControlIndividual && (
+                            esEmp ? (
+                              <div style={{ width: 140 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                                  {`Cant. (${matObj.unidad_manejo_nombre ?? "empaque"})`}
+                                </label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={r.cantidadCajas || 1}
+                                  onChange={(e) => actualizarRenglon(r.id, { cantidadCajas: Number(e.target.value) })}
+                                  style={{ width: "100%", padding: "6px 10px", fontSize: 13 }}
+                                />
+                                <small style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>
+                                  {`× ${matObj.unidades_por_caja ?? 1} u.`}
+                                </small>
+                              </div>
+                            ) : esConv ? (
+                              <>
+                                <div style={{ width: 130 }}>
+                                  <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Unidad</label>
+                                  <select
+                                    value={r.unidadMovimientoId ?? ""}
+                                    onChange={(e) => actualizarRenglon(r.id, { unidadMovimientoId: e.target.value ? Number(e.target.value) : null })}
+                                    style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
+                                  >
+                                    {unidadesRenglon.map((u) => (
+                                      <option key={u.id} value={u.id}>{u.abreviatura}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div style={{ width: 120 }}>
+                                  <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Cantidad</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={r.cantidadEnUnidadMovimiento}
+                                    onChange={(e) => actualizarRenglon(r.id, { cantidadEnUnidadMovimiento: e.target.value })}
+                                    placeholder="Ej. 1.5"
+                                    style={{ width: "100%", padding: "6px 10px", fontSize: 13 }}
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ width: 120 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                                  Cantidad (u.)
+                                </label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={r.cantidad}
+                                  onChange={(e) => actualizarRenglon(r.id, { cantidad: Number(e.target.value) })}
+                                  style={{ width: "100%", padding: "6px 10px", fontSize: 13 }}
+                                />
+                              </div>
+                            )
+                          )}
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                          {estuchesSeleccionados.map((renglon) => (
-                            <EstucheSalidaSelector
-                              key={renglon.id}
-                              materialId={materialId}
-                              renglon={renglon}
-                              excluirIds={estuchesSeleccionados.filter((e) => e.id !== renglon.id).map((e) => e.piezaId).filter((id) => id > 0)}
-                              onCambiarPieza={(id) => actualizarEstuchePieza(renglon.id, id)}
-                              onCambiarTodas={(checked) => actualizarEstucheTodas(renglon.id, checked)}
-                              onToggleHija={(hijaId) => toggleEstucheHija(renglon.id, hijaId)}
-                              onQuitar={() => quitarEstuche(renglon.id)}
-                              mostrarQuitar={estuchesSeleccionados.length > 1}
-                            />
-                          ))}
+                          {renglones.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => quitarRenglon(r.id)}
+                              style={{
+                                marginTop: 22,
+                                padding: "6px 10px",
+                                background: "#fee2e2",
+                                color: "#dc2626",
+                                border: "none",
+                                borderRadius: 6,
+                                cursor: "pointer",
+                                fontSize: 12,
+                                fontWeight: 600,
+                              }}
+                              title="Quitar este material"
+                            >
+                              ✕ Quitar
+                            </button>
+                          )}
                         </div>
 
-                        <button
-                          type="button"
-                          className="button button-secondary button-sm"
-                          onClick={agregarEstuche}
-                          style={{ fontSize: 13, marginTop: 10 }}
-                        >
-                          + Agregar otro estuche
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Resumen del carrito — piezas y estuches (Tarea 1+2) */}
-                {(piezasSalidaSeleccionadas.size > 0 || estuchesSeleccionados.some((e) => e.piezaId > 0)) && (
-                  <ResumenCarrito
-                    items={carritoUnificado}
-                    onQuitarConsumible={quitarRenglon}
-                    onQuitarEstuche={quitarEstuche}
-                    onQuitarPiezaSuelta={(pid) => {
-                      setPiezasSalidaSeleccionadas((prev) => {
-                        const next = new Set(prev);
-                        next.delete(pid);
-                        return next;
-                      });
-                    }}
-                  />
-                )}
-              </div>
-            )}
-
-            {/* F3: checklist de piezas prestadas a devolver (entrada). Fuera del
-                form-grid a propósito, igual que F2: evita que estas filas queden
-                atrapadas en la grilla de 2 columnas del formulario. */}
-            {material?.control_individual && tipo === "entrada" && materialId > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
-                  Piezas prestadas a devolver <span style={{ color: "var(--error, #dc2626)" }}>*</span>
-                </strong>
-
-                {prestadasMaterial.length === 0 ? (
-                  <p style={{ fontSize: 13, color: "var(--muted)" }}>
-                    No hay piezas prestadas de este material.
-                  </p>
-                ) : (
-                  <div className="pieza-multiselect">
-                    <label className="pieza-checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={prestadasSeleccionadas.size === prestadasMaterial.length}
-                        onChange={(e) =>
-                          setPrestadasSeleccionadas(
-                            e.target.checked ? new Set(prestadasMaterial.map((p) => p.id)) : new Set()
-                          )
-                        }
-                      />
-                      <strong style={{ fontSize: 13 }}>Todas las prestadas ({prestadasMaterial.length})</strong>
-                    </label>
-                    {prestadasMaterial.map((p) => (
-                      <label key={p.id} className="pieza-checkbox-row">
-                        <input
-                          type="checkbox"
-                          checked={prestadasSeleccionadas.has(p.id)}
-                          onChange={() => togglePrestada(p.id)}
-                        />
-                        <span className="pieza-code">{p.codigo}</span>
-                        {p.padre && (
-                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>
-                            pieza de estuche
-                          </span>
+                        {matObj && esControlIndividual && r.materialId > 0 && (
+                          <PiezaPickerRenglon
+                            tipo={tipo as "salida" | "entrada"}
+                            materialId={r.materialId}
+                            renglon={r}
+                            onUpdate={(patch) => actualizarRenglon(r.id, patch)}
+                          />
                         )}
-                      </label>
-                    ))}
-                  </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div>
+                  <button type="button" className="button button-secondary button-sm" onClick={agregarRenglon} style={{ fontSize: 13 }}>
+                    + Agregar otro material
+                  </button>
+                </div>
+
+                {esAlmacenero && tipo === "salida" && renglones.some((r) => materiales.find((m) => m.id === r.materialId)?.control_individual) && (
+                  <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
+                    Nota: las piezas con control individual salen de inmediato; los materiales consumibles de esta lista se envían como solicitud pendiente de aprobación.
+                  </p>
                 )}
               </div>
             )}
@@ -1230,7 +1214,7 @@ export function MovimientoFormPage() {
                       </Field>
 
                       {!workOrderSelected && (
-                        <Field label="Referencia manual" hint="Ej. OT-2026-045 (opcional si no eliges de la lista)">
+                        <Field label="Referencia manual">
                           <input
                             type="text"
                             value={referencia}
@@ -1254,7 +1238,7 @@ export function MovimientoFormPage() {
             </div>
           </div>
 
-          {/* Resultados de envío por lote (solo Admin) */}
+          {/* Resultados del lote (Entrada o Salida con varios renglones) */}
           {resultadosAdmin && (
             <div className="form-panel" style={{ borderLeft: "4px solid var(--accent, #2563eb)" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>Resultado de la operación</h3>
@@ -1270,7 +1254,7 @@ export function MovimientoFormPage() {
               </ul>
               {resultadosAdmin.some((x) => !x.ok) && (
                 <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 10, marginBottom: 0 }}>
-                  Los materiales con ✗ se han conservado en el formulario para que puedas corregir y reintentar.
+                  Los renglones con ✗ se conservan en el formulario para que puedas corregir y reintentar.
                 </p>
               )}
             </div>
@@ -1304,28 +1288,18 @@ export function MovimientoFormPage() {
             <li><strong>Entrada:</strong> registra la devolución o reingreso.</li>
             <li><strong>Baja:</strong> da de baja definitiva el material o pieza.</li>
           </ul>
-          {material?.control_individual ? (
-            <div className="help-note">
-              {tipo === "entrada" ? (
-                <>Marca todas las piezas que estás devolviendo en esta misma acción.</>
-              ) : tipo === "salida" ? (
-                <>
-                  Marca una o más piezas sueltas para sacarlas juntas, o
-                  selecciona un estuche completo (no se puede combinar
-                  ambos en el mismo movimiento).
-                </>
-              ) : (
-                <>Selecciona la pieza física específica (por código y nombre).</>
-              )}
-            </div>
-          ) : material ? (
-          <div className="help-note">
-              {material.unidad_manejo_requiere_multiplicador
-                ? `Este material es consumible y se maneja por ${material.unidad_manejo_nombre ?? "empaque"} (${material.unidades_por_caja ?? "?"} unidades c/u). Indica cuántos mover.`
-                : material.unidad_manejo_permite_conversion_unidad
-                ? `Este material se guarda en ${material.unidad_movimiento_base_nombre ?? "su unidad base"}. Elige la unidad y la cantidad a mover.`
-                : "Este material es consumible. Indica la cantidad a mover."}
-            </div>
+          {tipo === "baja" ? (
+            material?.control_individual ? (
+              <div className="help-note">Selecciona la pieza física específica (por código y nombre).</div>
+            ) : material ? (
+              <div className="help-note">
+                {material.unidad_manejo_requiere_multiplicador
+                  ? `Este material es consumible y se maneja por ${material.unidad_manejo_nombre ?? "empaque"} (${material.unidades_por_caja ?? "?"} unidades c/u). Indica cuántos mover.`
+                  : material.unidad_manejo_permite_conversion_unidad
+                  ? `Este material se guarda en ${material.unidad_movimiento_base_nombre ?? "su unidad base"}. Elige la unidad y la cantidad a mover.`
+                  : "Este material es consumible. Indica la cantidad a mover."}
+              </div>
+            ) : null
           ) : null}
         </div>
       </form>
