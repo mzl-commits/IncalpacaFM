@@ -267,8 +267,8 @@ function AlmacenesAdminView() {
                   style={{ display: "block", padding: 14, textDecoration: "none", color: "inherit" }}
                 >
                   <strong style={{ fontSize: 14 }}>{m.codigo} — {m.nombre}</strong>
-                  {m.codigo_ekipu && (
-                    <span className="text-muted-sm" style={{ marginLeft: 8 }}>EKIPU: {m.codigo_ekipu}</span>
+                  {m.codigo_quipu && (
+                    <span className="text-muted-sm" style={{ marginLeft: 8 }}>QUIPU: {m.codigo_quipu}</span>
                   )}
                   <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 6, fontSize: 12, color: "var(--muted)" }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>

@@ -159,7 +159,7 @@ export interface Material {
   subcategoria_plantilla_inspeccion: number | null; 
   subcategoria_plantilla_inspeccion_nombre: string | null;
   categoria_nombre: string;
-  codigo_ekipu: string;
+  codigo_quipu: string;
   codigo: string;
   nombre: string;
   marca: string;
@@ -208,7 +208,7 @@ export interface MaterialDetalle extends Material {
 export interface MaterialCreatePayload {
   subcategoria: number;
   nombre: string;
-  codigo_ekipu?: string;
+  codigo_quipu?: string;
   marca: string;
   modelo: string;
   medida: string;

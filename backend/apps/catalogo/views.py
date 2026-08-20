@@ -283,7 +283,7 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
             q_filtro = (
                 Q(nombre__icontains=busqueda)
                 | Q(codigo__icontains=busqueda)
-                | Q(codigo_ekipu__icontains=busqueda)
+                | Q(codigo_quipu__icontains=busqueda)
                 | Q(marca__icontains=busqueda)
                 | Q(modelo__icontains=busqueda)
                 | Q(ubicacion_fisica__icontains=busqueda)

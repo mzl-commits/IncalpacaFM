@@ -338,7 +338,7 @@ export function MaterialDetailPage() {
               <div><dt className="dt-label">Control individual</dt><dd className="dd-value">{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt className="dt-label">Ubicación física</dt><dd className="dd-value">{material.ubicacion_fisica || "—"}</dd></div>
 
-              <div><dt className="dt-label">Código EKIPU</dt><dd className="dd-value">{material.codigo_ekipu || "—"}</dd></div>
+              <div><dt className="dt-label">Código EKIPU</dt><dd className="dd-value">{material.codigo_quipu || "—"}</dd></div>
 
               {material.es_inspeccionable && (
                 <div>

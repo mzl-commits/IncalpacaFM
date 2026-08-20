@@ -101,7 +101,7 @@ class MaterialSerializer(serializers.ModelSerializer):
             "codigo", "nombre", "marca", "modelo", "medida", "foto",
             "unidad_medida", "unidad_medida_nombre", "unidad_medida_abreviatura",
             "grosor", "largo", "ubicacion_fisica", "precio", "moneda",
-            "codigo_ekipu",
+            "codigo_quipu",
             "tipo_control", "control_individual", "cantidad_total", "stock_minimo",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",

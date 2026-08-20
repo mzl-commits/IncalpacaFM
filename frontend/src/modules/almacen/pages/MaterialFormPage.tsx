@@ -47,7 +47,7 @@ export function MaterialFormPage() {
     subcategoria: 0,
     almacen: almacenId,
     nombre: "",
-    codigo_ekipu: "",
+    codigo_quipu: "",
     marca: "",
     modelo: "",
     medida: "",
@@ -153,7 +153,7 @@ export function MaterialFormPage() {
         subcategoria: materialExistente.subcategoria,
         almacen: materialExistente.almacen,
         nombre: materialExistente.nombre,
-        codigo_ekipu: materialExistente.codigo_ekipu ?? "",
+        codigo_quipu: materialExistente.codigo_quipu ?? "",
         marca: materialExistente.marca,
         modelo: materialExistente.modelo,
         medida: materialExistente.medida,
@@ -381,11 +381,11 @@ export function MaterialFormPage() {
                   onChange={(e) => set("nombre", e.target.value)}
                 />
               </Field>
-              <Field label="Código EKIPU" hint="Código interno del equipo, si aplica" error={errors.codigo_ekipu}>
+              <Field label="Código EKIPU" hint="Código interno del equipo, si aplica" error={errors.codigo_quipu}>
                 <input
                   type="text"
-                  value={form.codigo_ekipu ?? ""}
-                  onChange={(e) => set("codigo_ekipu", e.target.value)}
+                  value={form.codigo_quipu ?? ""}
+                  onChange={(e) => set("codigo_quipu", e.target.value)}
                 />
               </Field>
               <Field label="Marca" error={errors.marca}>
