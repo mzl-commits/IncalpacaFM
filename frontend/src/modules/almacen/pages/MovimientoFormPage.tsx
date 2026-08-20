@@ -26,6 +26,23 @@ import type { WorkOrderActiva } from "@/modules/almacen/inventarioRepository";
 import type { Material, TipoMovimiento, UnidadMedidaCatalogo } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
 
+/**
+ * `crypto.randomUUID()` solo existe en contextos seguros (HTTPS o localhost).
+ * Cuando la app se abre por HTTP con una IP (ej. http://172.18.10.24:8080),
+ * el navegador no expone esa función y la app se cae. Este helper genera un
+ * UUID v4 equivalente sin depender de esa API.
+ */
+function generarUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function Field({
   label,
   required,
@@ -87,7 +104,7 @@ interface RenglonMovimiento {
 
 function renglonVacio(materialId = 0): RenglonMovimiento {
   return {
-    id: crypto.randomUUID(),
+    id: generarUUID(),
     materialId,
     cantidad: 1,
     cantidadCajas: 1,
@@ -676,7 +693,7 @@ export function MovimientoFormPage() {
       }
 
       // ADMIN: todo directo, mismo lote_id.
-      const loteId = crypto.randomUUID().slice(0, 12);
+      const loteId = generarUUID().slice(0, 12);
       const resultados: ResultadoLoteAdmin[] = [];
       for (const r of consumibleRenglones) {
         const m = materiales.find((mm) => mm.id === r.materialId)!;
