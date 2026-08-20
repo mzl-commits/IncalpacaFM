@@ -206,7 +206,9 @@ export function MaterialDetailPage() {
       {deleteStep !== "idle" && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,.5)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999,
+          display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 999,
+          paddingTop: "60px", paddingBottom: "20px", paddingLeft: "16px", paddingRight: "16px",
+          overflowY: "auto",
         }}>
           <div style={{
             background: "var(--surface, #fff)", borderRadius: 12, padding: 28,

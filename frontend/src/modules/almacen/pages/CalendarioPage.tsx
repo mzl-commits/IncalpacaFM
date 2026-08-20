@@ -90,9 +90,18 @@ function ModalReprogramar({ programacion, onClose, onSuccess }: ModalReprogramar
       aria-modal="true"
       aria-label="Reprogramar inspección"
       style={{
-        position: "fixed", inset: 0, zIndex: 9999,
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
         background: "rgba(0,0,0,0.45)",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        paddingTop: "60px",
+        paddingBottom: "20px",
+        paddingLeft: "16px",
+        paddingRight: "16px",
+        overflowY: "auto",
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
