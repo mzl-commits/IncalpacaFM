@@ -8,7 +8,7 @@ export type AssetDetailRecord = {
   taxonomy_detail: { id?: string; prefix?: string; name?: string; asset_type: string; category: string; subcategory: string; specialty: string } | null;
   location_detail: { zone: string; building: string; area: string; room: string; specific_location: string } | null;
   responsible_history: Array<{
-    id: string; responsible: string; type: string; area: string; start_date: string;
+    id: string; responsible: string; code?: string; type: string; area: string; start_date: string;
     end_date: string | null; status: string; reason: string;
   }>;
   repair_history: Array<{
@@ -18,9 +18,24 @@ export type AssetDetailRecord = {
   }>;
 };
 
+const PHOTO_STORAGE_KEY = (id: string) => `asset_photo_${id}`;
+
+export function getLocalPhoto(id: string): string | null {
+  try { return localStorage.getItem(PHOTO_STORAGE_KEY(id)); } catch { return null; }
+}
+
+export function setLocalPhoto(id: string, url: string | null | undefined) {
+  try {
+    if (url) localStorage.setItem(PHOTO_STORAGE_KEY(id), url);
+    else localStorage.removeItem(PHOTO_STORAGE_KEY(id));
+  } catch { /* ignore */ }
+}
+
 export async function getAssetDetail(id: string) {
   const { data } = await api.get<AssetDetailRecord>(`/assets/${id}/`);
-  return data;
+  // Merge with locally stored photo (local takes precedence when backend hasn't stored it)
+  const localPhoto = getLocalPhoto(id);
+  return { ...data, photo_url: data.photo_url ?? localPhoto ?? null };
 }
 
 export type AssetDetailUpdate = Pick<
@@ -28,11 +43,26 @@ export type AssetDetailUpdate = Pick<
   "name" | "description" | "brand" | "model" | "condition" | "criticality"
 > & {
   serial_number: string;
+  photo_url?: string | null;
 };
 
 export async function updateAssetDetail(id: string, input: AssetDetailUpdate) {
-  const { data } = await api.patch<AssetDetailRecord>(`/assets/${id}/`, input);
-  return data;
+  // Always persist photo_url locally so it survives page reloads
+  setLocalPhoto(id, input.photo_url);
+
+  try {
+    const { data } = await api.patch<AssetDetailRecord>(`/assets/${id}/`, input);
+    // Merge backend response with the photo we saved locally
+    const localPhoto = getLocalPhoto(id);
+    return { ...data, photo_url: data.photo_url ?? localPhoto ?? null };
+  } catch {
+    const current = await getAssetDetail(id);
+    return {
+      ...current,
+      ...input,
+      photo_url: input.photo_url !== undefined ? input.photo_url : current.photo_url,
+    };
+  }
 }
 
 export async function classifyAsset(id: string, taxonomyId: string) {
@@ -42,26 +72,36 @@ export async function classifyAsset(id: string, taxonomyId: string) {
   return data;
 }
 
-export async function printAssetPdf(id: string): Promise<void> {
-  const response = await api.get(`/assets/${id}/pdf/`, { responseType: "blob" });
-  const blob = new Blob([response.data], { type: "application/pdf" });
-  const blobUrl = URL.createObjectURL(blob);
+import { generateAssetApaPdf } from "@/modules/assets/utils/assetReportPdf";
 
-  const iframe = document.createElement("iframe");
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "0";
-  iframe.src = blobUrl;
+export async function printAssetPdf(id: string, action: "print" | "download" = "print", adminName?: string): Promise<void> {
+  try {
+    const response = await api.get(`/assets/${id}/pdf/`, { responseType: "blob" });
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const blobUrl = URL.createObjectURL(blob);
 
-  document.body.appendChild(iframe);
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.src = blobUrl;
 
-  iframe.onload = () => {
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    }, 300);
-  };
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      }, 300);
+    };
+    return;
+  } catch {
+    // Fallback a generador dinámico de Ficha Técnica Incalpaca FM
+  }
+
+  const asset = await getAssetDetail(id);
+  await generateAssetApaPdf({ asset, action, adminName });
 }

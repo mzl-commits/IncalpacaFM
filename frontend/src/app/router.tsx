@@ -110,6 +110,17 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "mantenimiento/panel",
+        lazy: lazyRoute(() => import("@/modules/dashboard/pages/DashboardPage"), "MaintenanceDashboardPage"),
+      },
+      {
+        path: "bienes/panel",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/assets/pages/AssetsDashboardPage"),
+          "AssetsDashboardPage",
+        ),
+      },
+      {
         path: "bienes",
         lazy: administratorLazyRoute(
           () => import("@/modules/assets/pages/AssetInventoryPage"),
@@ -362,13 +373,7 @@ export const router = createBrowserRouter([
           "TaxonomyCatalogPage",
         ),
       },
-      {
-        path: "administracion/modelos",
-        lazy: administratorLazyRoute(
-          () => import("@/modules/taxonomy/pages/ModelCatalogPage"),
-          "ModelCatalogPage",
-        ),
-      },
+
       {
         path: "administracion/tecnicos",
         element: (
