@@ -13,6 +13,32 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from apps.inventario.models import Movimiento
+from openpyxl.drawing.image import Image as OpenpyxlImage
+from pathlib import Path
+
+LOGO_PATH_1 = Path(__file__).resolve().parent.parent.parent / "frontend" / "public" / "logo-incalpaca.png"
+LOGO_PATH_2 = Path(__file__).resolve().parent.parent / "workorders" / "logo_brand.png"
+
+
+def _get_logo_path():
+    if LOGO_PATH_1.exists():
+        return LOGO_PATH_1
+    if LOGO_PATH_2.exists():
+        return LOGO_PATH_2
+    return None
+
+
+def _insert_logo(ws, cell="A1", width=115, height=38):
+    p = _get_logo_path()
+    if p:
+        try:
+            img = OpenpyxlImage(str(p))
+            img.width = width
+            img.height = height
+            ws.add_image(img, cell)
+        except Exception:
+            pass
+
 
 # ─── Paleta de colores profesional (tonos oscuros y sobrios) ───────────────────
 COLOR_HEADER = "1E293B"         # Carbón / Slate oscuro institucional
@@ -134,11 +160,12 @@ def _hoja_top_materiales(wb, movimientos):
 
     sorted_mats = sorted(stats.values(), key=lambda x: x["total_movs"], reverse=True)
 
-    # 1. Título General
-    ws.merge_cells("A1:G1")
-    title_cell = ws["A1"]
+    # 1. Título General y Logo
+    _insert_logo(ws, cell="A1", width=115, height=35)
+    ws.merge_cells("C1:G1")
+    title_cell = ws["C1"]
     title_cell.value = "INCALPACA TOPS S.A. — REPORTE GENERAL DE MOVIMIENTOS DE ALMACÉN"
-    title_cell.font = Font(bold=True, size=13, color="FFFFFF", name="Calibri")
+    title_cell.font = Font(bold=True, size=12.5, color="FFFFFF", name="Calibri")
     title_cell.fill = _fill(COLOR_HEADER)
     title_cell.alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 30
@@ -203,7 +230,7 @@ def _hoja_top_materiales(wb, movimientos):
             mat["bajas"],
         ], is_alt=(idx % 2 == 0), alignments=alignments)
 
-    # 4. Insertar Gráfico de Barras con nombres de material claros y etiquetas de valor
+    # 4. Insertar Gráfico de Barras con nombres de material claros y etiquetas de valor limpias
     if top_15:
         chart = BarChart()
         chart.type = "col"
@@ -216,9 +243,12 @@ def _hoja_top_materiales(wb, movimientos):
         chart.width = 22
         chart.height = 14
 
-        # Etiquetas con valor numérico sobre cada barra
+        # Etiquetas con valor numérico limpio sobre cada barra (sin nombres repetidos)
         chart.dataLabels = DataLabelList()
         chart.dataLabels.showVal = True
+        chart.dataLabels.showCatName = False
+        chart.dataLabels.showSerName = False
+        chart.dataLabels.showPercent = False
 
         data = Reference(ws, min_col=4, min_row=6, max_row=6 + len(top_15))
         cats = Reference(ws, min_col=3, min_row=7, max_row=6 + len(top_15))
@@ -349,11 +379,37 @@ def _hoja_por_anio(wb, por_anio):
 
 def _hoja_historial_material(wb, movimientos, material):
     ws = wb.create_sheet("Historial")
+
+    # 1. Logo y Encabezado del Material
+    _insert_logo(ws, cell="A1", width=115, height=35)
+    ws.merge_cells("C1:I1")
+    title_cell = ws["C1"]
+    title_cell.value = "INCALPACA TOPS S.A. — HISTORIAL DE MOVIMIENTOS POR MATERIAL"
+    title_cell.font = Font(bold=True, size=12, color="FFFFFF", name="Calibri")
+    title_cell.fill = _fill(COLOR_HEADER)
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 28
+
+    mat_nombre = material.nombre if material else "Material"
+    mat_cod = material.codigo if material else "—"
+    mat_stock = getattr(material, "cantidad_total", 0) if material else 0
+    mat_unidad = getattr(material, "unidad_medida_nombre", "") if material else ""
+
+    ws.merge_cells("C2:I2")
+    sub_cell = ws["C2"]
+    sub_cell.value = f"Material: {mat_nombre} (Cód: {mat_cod})  |  Stock actual: {mat_stock} {mat_unidad}"
+    sub_cell.font = Font(bold=True, size=10, color="0F172A", name="Calibri")
+    sub_cell.fill = _fill("F1F5F9")
+    sub_cell.alignment = Alignment(horizontal="center", vertical="center")
+    sub_cell.border = _thin_border()
+    ws.row_dimensions[2].height = 22
+
+    # 2. Encabezados de tabla (Fila 4)
     cols = ["Fecha", "Hora", "Tipo", "Cantidad", "Empaques", "Responsable", "Referencia", "Orden de Trabajo", "Observaciones"]
     widths = [14, 10, 14, 10, 10, 26, 18, 18, 38]
-    _write_header_row(ws, 1, cols)
+    _write_header_row(ws, 4, cols, bg_color=COLOR_HEADER)
     _set_col_widths(ws, widths)
-    _freeze(ws)
+    _freeze(ws, cell="A5")
 
     tipo_styles = {
         "salida": (COLOR_SALIDA_BG, COLOR_SALIDA_TXT, True),
@@ -366,7 +422,7 @@ def _hoja_historial_material(wb, movimientos, material):
         6: "left", 7: "center", 8: "center", 9: "left",
     }
 
-    for r_idx, mov in enumerate(movimientos, start=2):
+    for r_idx, mov in enumerate(movimientos, start=5):
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
         hora = mov.fecha.strftime("%H:%M") if hasattr(mov.fecha, "strftime") else ""
         responsable = (
@@ -387,7 +443,7 @@ def _hoja_historial_material(wb, movimientos, material):
             mov.observaciones or "—",
         ], is_alt=(r_idx % 2 == 0), alignments=alignments, cell_styles=cell_styles)
 
-    ws.auto_filter.ref = f"A1:I{max(2, len(movimientos) + 1)}"
+    ws.auto_filter.ref = f"A4:I{max(5, len(movimientos) + 4)}"
 
 
 def _hoja_resumen_dia_material(wb, movimientos):
@@ -470,15 +526,23 @@ def generar_excel_movimientos(material_id=None):
     hoy = timezone.localdate()
 
     if material_id:
-        qs = Movimiento.objects.filter(
-            material_id=material_id
-        ).select_related("material", "responsable", "pieza").order_by("-fecha")
-
         material = None
+        # Resolver material por ID o por código
         try:
-            material = MaterialModel.objects.get(pk=material_id)
+            mid_int = int(material_id)
+            material = MaterialModel.objects.get(pk=mid_int)
+        except (ValueError, TypeError):
+            try:
+                material = MaterialModel.objects.get(codigo__iexact=str(material_id).strip())
+            except MaterialModel.DoesNotExist:
+                pass
         except MaterialModel.DoesNotExist:
             pass
+
+        target_id = material.id if material else material_id
+        qs = Movimiento.objects.filter(
+            material_id=target_id
+        ).select_related("material", "responsable", "pieza").order_by("-fecha")
 
         movimientos = list(qs)
         _hoja_historial_material(wb, movimientos, material)

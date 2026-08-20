@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, ArrowRight, ClipboardText, DownloadSimple, Package, PencilSimple, Plus, Trash, WarningCircle,
+  ArrowLeft, ArrowRight, ClipboardText, DownloadSimple, FileXls, Package, PencilSimple, Plus, Trash, WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -12,7 +12,7 @@ import {
   deleteMaterial, deleteMaterialForzado, getMaterialDetalle,
   exportarHistorialInspeccionesExcel, exportarHistorialInspeccionesPdf,
 } from "@/modules/almacen/catalogoRepository";
-import { listMovimientos } from "@/modules/almacen/inventarioRepository";
+import { descargarExcelMovimientos, listMovimientos } from "@/modules/almacen/inventarioRepository";
 import { listInspecciones } from "@/modules/almacen/inspeccionRepository";
 import { STOCK_MINIMO, tipoControlLabels } from "@/modules/almacen/types";
 import { AjustarStockPanel } from "@/modules/almacen/components/AjustarStockPanel";
@@ -466,9 +466,19 @@ export function MaterialDetailPage() {
           <div className="data-panel">
             <div className="table-toolbar">
               <strong style={{ fontSize: 15 }}>Movimientos</strong>
-              <Link to={`/almacen/${almacenId}/movimientos?material=${encodeURIComponent(material.codigo)}`} className="table-action" style={{ fontSize: 13 }}>
-                Ver todos
-              </Link>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  type="button"
+                  className="button button-sm button-secondary"
+                  onClick={() => void descargarExcelMovimientos(material.id)}
+                  title="Descargar reporte Excel con el historial y resúmenes de este material"
+                >
+                  <FileXls size={15} /> Exportar Excel
+                </button>
+                <Link to={`/almacen/${almacenId}/movimientos?material=${encodeURIComponent(material.codigo)}`} className="table-action" style={{ fontSize: 13 }}>
+                  Ver todos
+                </Link>
+              </div>
             </div>
             <div className="table-scroll">
               <table className="tabla-detalle-mobile">

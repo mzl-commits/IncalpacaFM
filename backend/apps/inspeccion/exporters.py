@@ -232,12 +232,132 @@ def generar_excel_inspeccion(inspeccion):
                 ws.row_dimensions[empty_r].height = 20
             break
 
+    # Aplicar diseño oscuro institucional, bordes finos e insertar logo oficial
+    _aplicar_estilo_oscuro_plantilla(ws)
+
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
     return buffer
 
 # ─── Estilos y funciones auxiliares para Excel de Inspecciones ───────────────
+
+def _get_logo_path():
+    """Retorna la ruta al logo institucional PNG disponible."""
+    from pathlib import Path
+    p1 = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "public" / "logo-incalpaca.png"
+    p2 = Path(__file__).resolve().parent.parent / "workorders" / "logo_brand.png"
+    if p1.exists():
+        return p1
+    if p2.exists():
+        return p2
+    return None
+
+def _insert_logo(ws, cell="A1", width=115, height=38):
+    """Inserta la imagen del logo institucional en la celda indicada."""
+    from openpyxl.drawing.image import Image as OpenpyxlImage
+    p = _get_logo_path()
+    if p:
+        try:
+            img = OpenpyxlImage(str(p))
+            img.width = width
+            img.height = height
+            ws.add_image(img, cell)
+        except Exception:
+            pass
+
+def _aplicar_estilo_oscuro_plantilla(ws):
+    """
+    Aplica el diseño corporativo oscuro e inserta el logo de Incalpaca en la plantilla oficial.
+    Reemplaza los antiguos rellenos celestes pastel por la paleta institucional (#1E293B / #334155).
+    """
+    from openpyxl.styles import Font, Alignment
+
+    # 1. Insertar Logo oficial en la esquina superior
+    _insert_logo(ws, cell="A1", width=115, height=38)
+
+    # 2. Paleta institucional
+    fill_section = _excel_fill(EXCEL_HEADER_BG)       # 1E293B (Carbón oscuro)
+    fill_subhead = _excel_fill(EXCEL_SUBHEADER_BG)    # 334155 (Slate medio-oscuro)
+    font_section = Font(bold=True, size=11, color="FFFFFF", name="Calibri")
+    font_subhead = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    thin_border = _excel_thin_border()
+
+    for r in range(1, ws.max_row + 1):
+        c1_val = str(ws.cell(row=r, column=1).value or "").strip().upper()
+
+        # A) Títulos de bloque principales
+        if any(keyword in c1_val for keyword in [
+            "DATOS GENERALES",
+            "CRITERIOS DE INSPECCIÓN",
+            "CRITERIOS DE INSPECCION",
+            "HERRAMIENTAS CON OBSERVACIONES",
+            "RESULTADO FINAL",
+            "OBSERVACIONES GENERALES",
+            "FIRMAS DE CONFORMIDAD",
+        ]):
+            ws.row_dimensions[r].height = 25
+            for c in range(1, ws.max_column + 1):
+                cell = ws.cell(row=r, column=c)
+                cell.fill = fill_section
+                cell.font = font_section
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+            continue
+
+        # B) Encabezados de columnas de tablas (N°, Criterio de inspección, Cumple, Código...)
+        if any(keyword in c1_val for keyword in ["N°", "Nº", "N.", "CÓDIGO", "CODIGO"]):
+            ws.row_dimensions[r].height = 22
+            for c in range(1, ws.max_column + 1):
+                cell = ws.cell(row=r, column=c)
+                cell.fill = fill_subhead
+                cell.font = font_subhead
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            continue
+
+        # C) Filas de metadatos superiores (R1..R5 en F..H)
+        if r <= 5:
+            for c in range(6, ws.max_column + 1):
+                cell = ws.cell(row=r, column=c)
+                if cell.value is not None:
+                    cell.border = thin_border
+                    if c in [6, 7]:
+                        cell.font = Font(bold=True, size=9, color="334155", name="Calibri")
+                        cell.fill = _excel_fill("F8FAFC")
+                    else:
+                        cell.font = Font(bold=False, size=9, color="0F172A", name="Calibri")
+            continue
+
+        # D) Bloque de datos generales (R8..R12)
+        if 8 <= r <= 12 and "CRITERIO" not in c1_val:
+            ws.row_dimensions[r].height = 20
+            for c in range(1, ws.max_column + 1):
+                cell = ws.cell(row=r, column=c)
+                if cell.value is not None or ws.cell(row=r, column=1).value:
+                    cell.border = thin_border
+                    if c in [1, 5] and str(cell.value or "").strip().endswith(":"):
+                        cell.font = Font(bold=True, size=9.5, color="1E293B", name="Calibri")
+                        cell.fill = _excel_fill("F8FAFC")
+            continue
+
+        # E) Filas de criterios de evaluación: centrar marcas 'X', alternar zebra striping
+        if str(ws.cell(row=r, column=1).value or "").strip().isdigit():
+            ws.row_dimensions[r].height = 20
+            idx_criterio = int(str(ws.cell(row=r, column=1).value).strip())
+            is_alt = (idx_criterio % 2 == 0)
+            row_bg = _excel_fill(EXCEL_ROW_ALT if is_alt else EXCEL_ROW_BASE)
+            for c in range(1, ws.max_column + 1):
+                cell = ws.cell(row=r, column=c)
+                cell.fill = row_bg
+                cell.border = thin_border
+                if c in [1, 3, 4, 5]:  # N°, Cumple, No cumple, No aplica
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                    if str(cell.value or "").strip().upper() == "X":
+                        cell.font = Font(bold=True, size=11, color="0F172A", name="Calibri")
+                elif c == 2:  # Texto criterio
+                    cell.alignment = Alignment(horizontal="left", vertical="center")
+                    cell.font = Font(size=9.5, color="0F172A", name="Calibri")
 
 EXCEL_HEADER_BG = "1E293B"         # Carbón / Slate oscuro institucional
 EXCEL_HEADER_TXT = "FFFFFF"
