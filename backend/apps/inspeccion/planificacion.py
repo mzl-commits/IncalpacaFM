@@ -150,20 +150,27 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen, max_por_d
         else:
             items_sin_historial.append(item)
 
-    # ── Fase 2: items SIN historial — distribuir con Round-Robin por día ─────
-    # Ordenar por periodicidad para que los más frecuentes se distribuyan primero
+    # ── Fase 2: items SIN historial — rellenar días hasta max_por_dia ────────
+    # Ordenar por periodicidad para agrupar materiales del mismo ciclo
     items_sin_historial.sort(key=lambda x: x["periodicidad_dias"])
 
-    # Cursor de fecha: arranca en fecha_base + 1 día laborable
-    cursor = _ajustar_dia_laborable(fecha_base + timedelta(days=1))
+    # Cursor de fecha: arranca en el primer día laborable desde fecha_base
+    cursor = _ajustar_dia_laborable(fecha_base)
 
     for item in items_sin_historial:
         es_pieza = "pieza" in item
         objetivo = item["pieza"] if es_pieza else item["material"]
         periodicidad_dias = item["periodicidad_dias"]
 
-        # Encontrar el próximo día con capacidad
-        fecha_prog = _siguiente_dia_disponible(cursor, carga_dia, max_por_dia)
+        # Si el día actual ya está lleno, avanzar al siguiente día disponible
+        if carga_dia[cursor] >= max_por_dia:
+            cursor = _siguiente_dia_disponible(
+                _ajustar_dia_laborable(cursor + timedelta(days=1)),
+                carga_dia,
+                max_por_dia,
+            )
+
+        fecha_prog = cursor
         carga_dia[fecha_prog] += 1
 
         creadas.append(ProgramacionInspeccion.objects.create(
@@ -175,8 +182,8 @@ def generar_plan_anual(anio, fecha_inicio, materiales_config, almacen, max_por_d
             fecha_programada=fecha_prog,
         ))
 
-        # Avanzar el cursor al siguiente día laborable para el siguiente item
-        cursor = _ajustar_dia_laborable(fecha_prog + timedelta(days=1))
+        # NO avanzamos el cursor aquí — el siguiente item puede ir al mismo día
+        # si todavía hay capacidad (carga_dia[cursor] < max_por_dia)
 
     return plan, creadas
 
