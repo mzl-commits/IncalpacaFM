@@ -333,7 +333,9 @@ export function MaterialDetailPage() {
 
             <dl className="review-card dl" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0, padding: "16px" }}>
               <div><dt className="dt-label">Marca / Modelo</dt><dd className="dd-value">{[material.marca, material.modelo].filter(Boolean).join(" / ") || "—"}</dd></div>
-              <div><dt className="dt-label">Medida</dt><dd className="dd-value">{material.medida || "—"}</dd></div>
+              {material.medida && (
+                <div><dt className="dt-label">Medida</dt><dd className="dd-value">{material.medida}</dd></div>
+              )}
               <div><dt className="dt-label">Tipo de control</dt><dd className="dd-value">{tipoControlLabels[material.tipo_control]}</dd></div>
               <div><dt className="dt-label">Control individual</dt><dd className="dd-value">{material.control_individual ? "Sí" : "No"}</dd></div>
               <div><dt className="dt-label">Ubicación física</dt><dd className="dd-value">{material.ubicacion_fisica || "—"}</dd></div>
@@ -399,25 +401,31 @@ export function MaterialDetailPage() {
                   </dd>
                 </div>
               )}
-              {material.grosor && (
-                <div>
-                  <dt className="dt-label">Grosor / Diámetro</dt>
-                  <dd className="dd-value">
-                    {material.grosor}
-                    {material.unidad_medida_abreviatura ? ` ${material.unidad_medida_abreviatura}` : ""}
-                  </dd>
-                </div>
-              )}
-              {material.largo && (
-                <div>
-                  <dt className="dt-label">Largo</dt>
-                  <dd className="dd-value">
-                    {material.largo}
-                    {material.unidad_medida_abreviatura ? ` ${material.unidad_medida_abreviatura}` : ""}
-                  </dd>
-                </div>
-              )}
             </dl>
+
+            {material.medidas && material.medidas.length > 0 && (
+              <div style={{ padding: "0 16px 16px", borderTop: "1px solid var(--border, #e5e7eb)" }}>
+                <dt className="dt-label" style={{ display: "block", margin: "14px 0 8px" }}>
+                  Dimensiones
+                </dt>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {material.medidas.map((m) => (
+                    <span
+                      key={m.id ?? `${m.tipo}-${m.valor}`}
+                      style={{
+                        fontSize: 13,
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        background: "var(--surface-muted, #f3f4f6)",
+                        border: "1px solid var(--border, #e5e7eb)",
+                      }}
+                    >
+                      <strong>{m.tipo_nombre}:</strong> {m.valor} {m.unidad_medida_abreviatura}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Ajuste de stock (solo materiales sin control individual, no disponible para Inspector) */}

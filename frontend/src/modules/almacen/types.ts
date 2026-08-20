@@ -166,11 +166,7 @@ export interface Material {
   modelo: string;
   medida: string;
   foto: string | null;
-  grosor: string | null;
-  largo: string | null;
-  unidad_medida: number | string;
-  unidad_medida_nombre?: string | null;
-  unidad_medida_abreviatura?: string | null;
+  medidas: MaterialMedida[];
   ubicacion_fisica: string;
   precio: string | number | null;
   moneda: Moneda;
@@ -212,9 +208,7 @@ export interface MaterialCreatePayload {
   marca: string;
   modelo: string;
   medida: string;
-  grosor: string;
-  largo: string;
-  unidad_medida: number | string;
+  medidas: MaterialMedida[];
   ubicacion_fisica: string;
   precio?: string | number | null;
   moneda?: Moneda;
@@ -228,7 +222,6 @@ export interface MaterialCreatePayload {
   cantidad_total?: number;
   almacen?: number;
   stock_minimo?: number;
-  // foto se envía aparte como FormData si existe
 }
 
 export interface AltaPiezasSueltasPayload {
@@ -440,6 +433,23 @@ export interface TipoManejoStockCatalogo {
   permite_conversion_unidad: boolean;
   activo: boolean;
   orden: number;
+}
+export interface TipoMedidaCatalogo {
+  id: number;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  orden: number;
+}
+
+export interface MaterialMedida {
+  id?: number;           // ausente al crear, presente al editar
+  tipo: number;           // FK a TipoMedidaCatalogo
+  tipo_nombre?: string;   // read-only, viene del backend
+  valor: string | number;
+  unidad_medida: number;  // FK a UnidadMedidaCatalogo
+  unidad_medida_nombre?: string;
+  unidad_medida_abreviatura?: string;
 }
 
 // ─── Documentos adjuntos de inspección ─────────────────────────────────────

@@ -1,10 +1,10 @@
-import { Check, Package, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
+import { Package, Plus, Trash } from "@phosphor-icons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
-import { agregarHijaInline, deletePieza, updatePieza } from "@/modules/almacen/catalogoRepository";
+import { agregarHijaInline, deletePieza } from "@/modules/almacen/catalogoRepository";
 import type { PiezaAnidada } from "@/modules/almacen/types";
 import { PiezaHijaRow } from "@/modules/almacen/components/PiezaHijaRow";
 
@@ -32,18 +32,6 @@ export function PiezaTreeRow({
   const [hijaMedida, setHijaMedida] = useState("");
   const [hijaCantidad, setHijaCantidad] = useState(1);
   const [hijaError, setHijaError] = useState("");
-
-  // Edición inline del nombre/nota personalizada de esta pieza (campo "detalle")
-  const [editandoDetalle, setEditandoDetalle] = useState(false);
-  const [detalleValor, setDetalleValor] = useState(pieza.detalle ?? "");
-
-  const detalleMut = useMutation({
-    mutationFn: () => updatePieza(pieza.id, { detalle: detalleValor }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["material", materialId] });
-      setEditandoDetalle(false);
-    },
-  });
 
   const delMut = useMutation({
     mutationFn: () => deletePieza(pieza.id),
@@ -89,48 +77,9 @@ export function PiezaTreeRow({
         )}
 
         {/* Nombre / nota personalizada de esta pieza física (campo "detalle") */}
-        {editandoDetalle ? (
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <input
-              type="text"
-              value={detalleValor}
-              onChange={(e) => setDetalleValor(e.target.value)}
-              placeholder="Nombre / nota de esta pieza"
-              style={{ fontSize: 12, padding: "2px 6px", width: 150 }}
-              autoFocus
-            />
-            <button
-              type="button"
-              style={{ background: "transparent", border: 0, cursor: "pointer", color: "var(--success, #16a34a)" }}
-              onClick={() => detalleMut.mutate()}
-              disabled={detalleMut.isPending}
-              title="Guardar"
-            >
-              <Check size={14} />
-            </button>
-            <button
-              type="button"
-              style={{ background: "transparent", border: 0, cursor: "pointer", color: "var(--muted)" }}
-              onClick={() => { setEditandoDetalle(false); setDetalleValor(pieza.detalle ?? ""); }}
-              title="Cancelar"
-            >
-              <X size={14} />
-            </button>
-          </span>
-        ) : (
-          <span
-            style={{
-              fontSize: 12,
-              color: pieza.detalle ? "var(--text)" : "var(--muted)",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              cursor: "pointer",
-            }}
-            onClick={() => setEditandoDetalle(true)}
-            title="Editar nombre/nota de esta pieza"
-          >
-            {pieza.detalle || "Sin nombre"} <PencilSimple size={11} />
+        {pieza.detalle && (
+          <span style={{ fontSize: 12, color: "var(--text)" }}>
+            {pieza.detalle}
           </span>
         )}
 

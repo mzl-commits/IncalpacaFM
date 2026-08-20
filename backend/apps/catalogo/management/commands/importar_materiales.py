@@ -36,7 +36,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.catalogo.models import (
-    Categoria, Subcategoria, Material, Pieza, UnidadMedida, TipoManejoStock
+    Categoria, Subcategoria, Material, Pieza, TipoManejoStock
 )
 from apps.catalogo.services import crear_piezas_sueltas, crear_estuche_con_piezas, ajustar_stock
 
@@ -48,9 +48,6 @@ COLS = {
     "marca": "Marca",
     "modelo": "Modelo",
     "medida": "Medida",
-    "unidad_medida": "Unidad medida (grosor/largo)",
-    "grosor": "Grosor / Diámetro",
-    "largo": "Largo",
     "precio": "Precio (S/)",
     "periodicidad_valor": "Frecuencia inspección - valor*",
     "periodicidad_unidad": "Frecuencia inspección - unidad*",
@@ -147,14 +144,6 @@ class Command(BaseCommand):
         for sub in Subcategoria.objects.select_related("categoria__almacen").all():
             subcategorias_por_clave[(sub.categoria_id, _clave(sub.nombre))] = sub
             subcategorias_por_categoria_id.setdefault(sub.categoria_id, []).append(sub.nombre)
-
-        # --- Precarga de unidades de medida ---
-        unidades_medida_map = {}
-        for um in UnidadMedida.objects.all():
-            unidades_medida_map[_clave(um.codigo)] = um
-            unidades_medida_map[_clave(um.abreviatura)] = um
-            unidades_medida_map[_clave(um.nombre)] = um
-        default_um = UnidadMedida.objects.filter(codigo="mm").first() or UnidadMedida.objects.first()
 
         # --- Precarga de tipos de manejo de stock ---
         # Asegurar tipo de manejo 'balde' si no existe
@@ -274,14 +263,6 @@ class Command(BaseCommand):
                             "importar sin ella y completarla después)."
                         )
 
-                    val_um = _norm(row[col_idx["unidad_medida"]])
-                    if val_um:
-                        um_obj = unidades_medida_map.get(_clave(val_um))
-                        if not um_obj:
-                            raise ValueError(f"Unidad de medida no reconocida: '{val_um}'.")
-                    else:
-                        um_obj = default_um
-
                     almacen_obj = subcategoria.categoria.almacen
 
                     material_kwargs = dict(
@@ -291,9 +272,6 @@ class Command(BaseCommand):
                         marca=_norm(row[col_idx["marca"]]),
                         modelo=_norm(row[col_idx["modelo"]]),
                         medida=_norm(row[col_idx["medida"]]),
-                        unidad_medida=um_obj,
-                        grosor=row[col_idx["grosor"]] or None,
-                        largo=row[col_idx["largo"]] or None,
                         precio=row[col_idx["precio"]] or None,
                         ubicacion_fisica=ubicacion,
                         tipo_control=tipo_control,
@@ -356,7 +334,6 @@ class Command(BaseCommand):
                                         almacen=almacen_obj,
                                         tipo_control=tipo_control,
                                         control_individual=True,
-                                        unidad_medida=default_um,
                                     ),
                                 )
                                 spec.append({"material": mat_hija, "cantidad": item["cantidad"]})

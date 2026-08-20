@@ -1,4 +1,4 @@
-import { Plus, ArrowClockwise, FileXls, ClipboardText } from "@phosphor-icons/react";
+import { Plus, ArrowClockwise, FileXls, ClipboardText, CaretDown } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -79,6 +79,7 @@ export function MovimientosPage() {
   const { user } = useAuth();
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [exportando, setExportando] = useState(false);
+  const [movExpandido, setMovExpandido] = useState<number | null>(null);
 
   const esAdmin = user?.role === "ADMINISTRADOR";
 
@@ -369,6 +370,29 @@ export function MovimientosPage() {
     },
   ];
 
+  const filasProcesadas = useMemo(
+    () =>
+      lista.map((mov: any) => {
+        const esEntrada = mov.tipo === "entrada";
+        const esSalida = mov.tipo === "salida";
+        const fechaMov = fechaMovimiento(mov);
+        return {
+          mov,
+          badgeColor: esEntrada ? "#dcfce7" : esSalida ? "#dbeafe" : "#fee2e2",
+          textColor: esEntrada ? "#15803d" : esSalida ? "#1d4ed8" : "#b91c1c",
+          fechaTxt: fechaMov ? fechaMov.toLocaleString("es-PE") : "—",
+          codigo: mov.pieza_codigo || mov.material_codigo || "—",
+          nombre: mov.pieza_codigo
+            ? (mov.pieza_nombre || mov.material_nombre || "—")
+            : (mov.material_nombre || "—"),
+          cantidadTxt: mov.cantidad_cajas ? `${mov.cantidad_cajas} emp. (${mov.cantidad} u.)` : `${mov.cantidad ?? 1} u.`,
+          responsable: mov.responsable_nombre || mov.usuario_nombre || "—",
+          referencia: mov.referencia_externa || mov.work_order_code || "—",
+        };
+      }),
+    [lista],
+  );
+
   return (
     <div className="almacen-movimientos-view">
       <header className="page-heading">
@@ -492,38 +516,30 @@ export function MovimientosPage() {
         </button>
       </div>
 
-      {/* Tabla de Movimientos */}
+      {/* Tabla de Movimientos (desktop) + Tarjetas (móvil) */}
       <div className="data-panel">
         {isLoading ? (
           <p className="empty-row">Cargando historial de movimientos…</p>
         ) : lista.length === 0 ? (
           <p className="empty-row">No se encontraron movimientos registrados con los filtros aplicados.</p>
         ) : (
-          <div className="table-scroll">
-            <table className="tabla-detalle-mobile">
-              <thead>
-                <tr>
-                  <th>Fecha / Hora</th>
-                  <th>Tipo</th>
-                  <th>Material / Pieza</th>
-                  <th>Cantidad</th>
-                  <th>Responsable</th>
-                  <th>Referencia / OT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((mov: any) => {
-                  const esEntrada = mov.tipo === "entrada";
-                  const esSalida = mov.tipo === "salida";
-                  const badgeColor = esEntrada ? "#dcfce7" : esSalida ? "#dbeafe" : "#fee2e2";
-                  const textColor = esEntrada ? "#15803d" : esSalida ? "#1d4ed8" : "#b91c1c";
-                  const fechaMov = fechaMovimiento(mov);
-
-                  return (
+          <>
+            <div className="table-scroll movimientos-table-desktop">
+              <table className="tabla-detalle-mobile">
+                <thead>
+                  <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Tipo</th>
+                    <th>Material / Pieza</th>
+                    <th>Cantidad</th>
+                    <th>Responsable</th>
+                    <th>Referencia / OT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filasProcesadas.map(({ mov, badgeColor, textColor, fechaTxt, codigo, nombre, cantidadTxt, responsable, referencia }) => (
                     <tr key={mov.id}>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        {fechaMov ? fechaMov.toLocaleString("es-PE") : "—"}
-                      </td>
+                      <td style={{ whiteSpace: "nowrap" }}>{fechaTxt}</td>
                       <td>
                         <span
                           style={{
@@ -540,29 +556,78 @@ export function MovimientosPage() {
                         </span>
                       </td>
                       <td>
-                        <strong style={{ fontSize: 13 }}>{mov.material_codigo || mov.pieza_codigo || "—"}</strong>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                          {mov.material_nombre || mov.pieza_nombre || "—"}
-                        </div>
+                        <strong style={{ fontSize: 13 }}>{codigo}</strong>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{nombre}</div>
                         {mov.material_ubicacion && (
                           <div style={{ fontSize: 11, color: "var(--primary, #2563eb)", marginTop: 2 }}>
                             📍 {mov.material_ubicacion}
                           </div>
                         )}
                       </td>
-                      <td style={{ fontWeight: 600 }}>
-                        {mov.cantidad_cajas ? `${mov.cantidad_cajas} emp. (${mov.cantidad} u.)` : `${mov.cantidad ?? 1} u.`}
-                      </td>
-                      <td>{mov.responsable_nombre || mov.usuario_nombre || "—"}</td>
-                      <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                        {mov.referencia_externa || mov.work_order_code || "—"}
-                      </td>
+                      <td style={{ fontWeight: 600 }}>{cantidadTxt}</td>
+                      <td>{responsable}</td>
+                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{referencia}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Vista de tarjetas — solo visible en pantallas angostas (ver almacen.css) */}
+            <div className="movimientos-cards-mobile">
+              {filasProcesadas.map(({ mov, badgeColor, textColor, fechaTxt, codigo, nombre, cantidadTxt, responsable, referencia }) => {
+                const abierto = movExpandido === mov.id;
+                return (
+                  <div key={mov.id} className={`mov-card ${abierto ? "is-open" : ""}`}>
+                    <button
+                      type="button"
+                      className="mov-card-summary"
+                      aria-expanded={abierto}
+                      onClick={() => setMovExpandido(abierto ? null : mov.id)}
+                    >
+                      <div className="mov-card-top">
+                        <span className="mov-card-badge" style={{ background: badgeColor, color: textColor }}>
+                          {mov.tipo}
+                        </span>
+                        <span className="mov-card-fecha">{fechaTxt}</span>
+                      </div>
+                      <div className="mov-card-nombre-row">
+                        <span className="mov-card-nombre">{nombre}</span>
+                        <CaretDown size={14} className={`mov-card-caret ${abierto ? "is-open" : ""}`} />
+                      </div>
+                    </button>
+
+                    {abierto && (
+                      <div className="mov-card-detalle">
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Código</span>
+                          <span className="mov-card-value pieza-code">{codigo}</span>
+                        </div>
+                        {mov.material_ubicacion && (
+                          <div className="mov-card-field">
+                            <span className="mov-card-label">Ubicación</span>
+                            <span className="mov-card-value mov-card-ubicacion">📍 {mov.material_ubicacion}</span>
+                          </div>
+                        )}
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Cantidad</span>
+                          <span className="mov-card-value">{cantidadTxt}</span>
+                        </div>
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Responsable</span>
+                          <span className="mov-card-value">{responsable}</span>
+                        </div>
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Referencia / OT</span>
+                          <span className="mov-card-value">{referencia}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -16,6 +16,7 @@ from apps.accounts.permissions import (
 )
 from apps.catalogo.models import (
     Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
+    TipoMedidaCatalogo,
 )
 from apps.inspeccion.exporters import (
     generar_excel_historial_material,
@@ -37,6 +38,7 @@ from apps.catalogo.serializers import (
     AlmacenSerializer,
     UnidadMedidaSerializer,
     TipoManejoStockSerializer,
+    TipoMedidaCatalogoSerializer,
 )
 
 class AlmacenScopedMixin:
@@ -148,6 +150,11 @@ class UnidadMedidaViewSet(_CatalogoEditableViewSet):
 class TipoManejoStockViewSet(_CatalogoEditableViewSet):
     queryset = TipoManejoStock.objects.all()
     serializer_class = TipoManejoStockSerializer
+
+
+class TipoMedidaCatalogoViewSet(_CatalogoEditableViewSet):
+    queryset = TipoMedidaCatalogo.objects.all()
+    serializer_class = TipoMedidaCatalogoSerializer
 
 
 class CategoriaViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
