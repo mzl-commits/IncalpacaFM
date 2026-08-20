@@ -128,31 +128,24 @@ def _freeze(ws, cell="A2"):
 
 # ─── Resolución de Orden de Trabajo ──────────────────────────────────────────
 
-def _obtener_ot(mov) -> tuple[str, str]:
+def _obtener_ot(mov) -> str:
     """
-    Retorna (tiene_ot, codigo_ot) para un Movimiento.
-
-    La relación es:
-        Movimiento ← SolicitudMovimiento (FK movimiento) → work_order (FK WorkOrder)
-
-    Si mov.solicitud_origen (reverse manager) tiene una SolicitudMovimiento con work_order,
-    se usa ese. De lo contrario, se revisa referencia_externa como fallback.
+    Retorna el código de la Orden de Trabajo vinculada o '—' si no existe.
     """
-    # Intentar resolver via SolicitudMovimiento (relación correcta en el modelo)
+    # 1. Intentar resolver via SolicitudMovimiento vinculada a WorkOrder
     try:
         solicitud = mov.solicitud_origen.select_related("work_order").first()
         if solicitud and solicitud.work_order_id:
-            code = solicitud.work_order.code or f"OT-{solicitud.work_order_id}"
-            return "SÍ", code
+            return solicitud.work_order.code or f"OT-{solicitud.work_order_id}"
     except Exception:
         pass
 
-    # Fallback: referencia_externa con algún indicador de OT
+    # 2. Fallback: referencia externa si contiene código o identificador
     ref = (mov.referencia_externa or "").strip()
     if ref:
-        return "SÍ", ref
+        return ref
 
-    return "NO", "Sin OT"
+    return "—"
 
 
 # ─── Hoja 1: Top 15 Materiales + KPI Cards + BarChart ────────────────────────
@@ -161,7 +154,6 @@ def _hoja_top_materiales(wb, movimientos):
     """Resumen ejecutivo: KPI Cards y Top 15 materiales con gráfico de barras."""
     ws = wb.create_sheet("Top 15 Materiales")
 
-    # Estadísticas por material
     stats: dict = {}
     for mov in movimientos:
         mid = mov.material_id
@@ -184,10 +176,9 @@ def _hoja_top_materiales(wb, movimientos):
         elif tipo == "baja":
             st["bajas"] += mov.cantidad
 
-        # Resolución OT (solo leer el atributo prefetched, no hacer query aquí)
-        ref = (mov.referencia_externa or "").strip()
-        if ref:
-            st["ots"].add(ref)
+        ot_code = _obtener_ot(mov)
+        if ot_code != "—":
+            st["ots"].add(ot_code)
 
     sorted_mats = sorted(stats.values(), key=lambda x: x["total"], reverse=True)
 
@@ -218,7 +209,7 @@ def _hoja_top_materiales(wb, movimientos):
         ("A", "MATERIAL CON MAYOR ROTACIÓN", max_mat),
         ("E", "MATERIAL CON MENOR ROTACIÓN", min_mat),
     ]:
-        end_col = chr(ord(start_col) + 3)  # 4 columns wide
+        end_col = chr(ord(start_col) + 3)
         ws.merge_cells(f"{start_col}4:{end_col}4")
         hdr = ws[f"{start_col}4"]
         hdr.value = label
@@ -249,7 +240,7 @@ def _hoja_top_materiales(wb, movimientos):
              5: "center", 6: "center", 7: "center", 8: "left"}
 
     for i, mat in enumerate(top_15, 1):
-        ots = ", ".join(sorted(mat["ots"])) if mat["ots"] else "Sin OT"
+        ots = ", ".join(sorted(mat["ots"])) if mat["ots"] else "—"
         _write_data_row(ws, 7 + i, [
             i, mat["codigo"], mat["nombre"],
             mat["total"], mat["entradas"], mat["salidas"], mat["bajas"],
@@ -260,7 +251,7 @@ def _hoja_top_materiales(wb, movimientos):
     if top_15:
         chart = BarChart()
         chart.type = "col"
-        chart.style = 2          # estilo limpio sin ruido
+        chart.style = 2
         chart.title = "Top 15 — Total de Movimientos por Material"
         chart.y_axis.title = "Total de Movimientos"
         chart.x_axis.title = None
@@ -276,7 +267,6 @@ def _hoja_top_materiales(wb, movimientos):
         chart.dataLabels.showSerName = False
         chart.dataLabels.showPercent = False
 
-        # min_row=7 es el encabezado, titles_from_data=True lo toma como título de serie
         data = Reference(ws, min_col=4, min_row=7, max_row=7 + len(top_15))
         cats = Reference(ws, min_col=3, min_row=8, max_row=7 + len(top_15))
         chart.add_data(data, titles_from_data=True)
@@ -287,14 +277,14 @@ def _hoja_top_materiales(wb, movimientos):
 # ─── Hoja 2: Detalle completo de movimientos ─────────────────────────────────
 
 def _hoja_detalle_general(wb, movimientos):
-    """Lista completa con nombre de material, tipo, y columnas explícitas de OT."""
+    """Lista completa con nombre de material, tipo, y columna de Orden de Trabajo."""
     ws = wb.create_sheet("Detalle de Movimientos")
     cols = [
         "Fecha", "Hora", "Código", "Nombre del Material", "Tipo",
         "Cantidad", "Empaques", "Responsable",
-        "¿Tiene OT?", "Orden de Trabajo", "Referencia / Observaciones"
+        "Orden de Trabajo (OT)", "Referencia / Observaciones"
     ]
-    widths = [13, 9, 13, 34, 13, 10, 10, 24, 11, 24, 34]
+    widths = [13, 9, 13, 34, 13, 10, 10, 24, 24, 38]
     _write_header_row(ws, 1, cols)
     _set_col_widths(ws, widths)
     _freeze(ws)
@@ -304,7 +294,7 @@ def _hoja_detalle_general(wb, movimientos):
     }
     align = {
         1: "center", 2: "center", 3: "center", 4: "left", 5: "center",
-        6: "center", 7: "center", 8: "left", 9: "center", 10: "left", 11: "left",
+        6: "center", 7: "center", 8: "left", 9: "center", 10: "left",
     }
 
     for r, mov in enumerate(movimientos, 2):
@@ -312,7 +302,7 @@ def _hoja_detalle_general(wb, movimientos):
         hora = mov.fecha.strftime("%H:%M") if hasattr(mov.fecha, "strftime") else ""
         resp = (mov.responsable.get_full_name() or mov.responsable.username
                 if mov.responsable else "N/A")
-        tiene_ot, ot_code = _obtener_ot(mov)
+        ot_code = _obtener_ot(mov)
         t_style = tipo_cell_styles.get(mov.tipo)
 
         _write_data_row(ws, r, [
@@ -324,13 +314,12 @@ def _hoja_detalle_general(wb, movimientos):
             mov.cantidad,
             mov.cantidad_cajas if mov.cantidad_cajas is not None else "",
             resp,
-            tiene_ot,
             ot_code,
             (mov.observaciones or mov.referencia_externa or "—"),
         ], is_alt=(r % 2 == 0), alignments=align,
            cell_styles={5: t_style} if t_style else None)
 
-    ws.auto_filter.ref = f"A1:K{max(2, len(movimientos) + 1)}"
+    ws.auto_filter.ref = f"A1:J{max(2, len(movimientos) + 1)}"
 
 
 # ─── Construcción de frecuencias agrupadas ───────────────────────────────────
@@ -338,7 +327,6 @@ def _hoja_detalle_general(wb, movimientos):
 def _construir_frecuencia_general(movimientos):
     """
     Agrupa movimientos por (fecha, material), (año, mes, material) y (año, material).
-    Solo acumula tipos válidos: entrada, salida, baja.
     Devuelve (por_dia, por_mes, por_anio).
     """
     _TIPOS_VALIDOS = {"entrada", "salida", "baja"}
@@ -352,13 +340,13 @@ def _construir_frecuencia_general(movimientos):
 
     for mov in movimientos:
         if mov.tipo not in _TIPOS_VALIDOS:
-            continue  # ignorar tipos inesperados
+            continue
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
         anio, mes = fecha.year, fecha.month
         mid = mov.material_id
         nombre = mov.material.nombre if mov.material else "—"
         codigo = mov.material.codigo if mov.material else "—"
-        cantidad = mov.cantidad  # campo NOT NULL en el modelo
+        cantidad = mov.cantidad
 
         key_d, key_m, key_a = (fecha, mid), (anio, mes, mid), (anio, mid)
 
@@ -367,11 +355,10 @@ def _construir_frecuencia_general(movimientos):
             d["codigo"] = codigo
             d[mov.tipo] += cantidad
 
-        # OT via referencia_externa (sin query extra, ya está cargado)
-        ref = (mov.referencia_externa or "").strip()
-        if ref:
+        ot_code = _obtener_ot(mov)
+        if ot_code != "—":
             for d in [por_dia[key_d], por_mes[key_m], por_anio[key_a]]:
-                d["ots"].add(ref)
+                d["ots"].add(ot_code)
 
     return por_dia, por_mes, por_anio
 
@@ -391,7 +378,7 @@ def _hoja_por_dia(wb, por_dia):
     rows = sorted(por_dia.items(), key=lambda x: x[0][0])
     for r, ((fecha, _), d) in enumerate(rows, 2):
         total = d["entrada"] + d["salida"] + d["baja"]
-        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "Sin OT"
+        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r, [
             fecha.strftime("%d/%m/%Y"), d["codigo"], d["nombre"],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total, ots,
@@ -412,7 +399,7 @@ def _hoja_por_mes(wb, por_mes):
     rows = sorted(por_mes.items(), key=lambda x: (x[0][0], x[0][1]))
     for r, ((anio, mes, _), d) in enumerate(rows, 2):
         total = d["entrada"] + d["salida"] + d["baja"]
-        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "Sin OT"
+        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r, [
             anio, MESES_ES[mes], d["codigo"], d["nombre"],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total, ots,
@@ -433,7 +420,7 @@ def _hoja_por_anio(wb, por_anio):
     rows = sorted(por_anio.items(), key=lambda x: x[0][0])
     for r, ((anio, _), d) in enumerate(rows, 2):
         total = d["entrada"] + d["salida"] + d["baja"]
-        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "Sin OT"
+        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r, [
             anio, d["codigo"], d["nombre"],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total, ots,
@@ -454,7 +441,7 @@ def _hoja_historial_material(wb, movimientos, material):
 
     # ── Cabecera: Logo + Título ──────────────────────────────────────────────
     _insert_logo(ws, cell="A1", width=125, height=36)
-    ws.merge_cells("C1:J1")
+    ws.merge_cells("C1:I1")
     tc = ws["C1"]
     tc.value = "INCALPACA TOPS S.A. — HISTORIAL DE MOVIMIENTOS POR MATERIAL"
     tc.font = Font(bold=True, size=12.5, color="FFFFFF", name="Calibri")
@@ -463,7 +450,7 @@ def _hoja_historial_material(wb, movimientos, material):
     ws.row_dimensions[1].height = 34
 
     # ── Fila 2: tarjeta de datos del material ────────────────────────────────
-    ws.merge_cells("C2:J2")
+    ws.merge_cells("C2:I2")
     sub = ws["C2"]
     sub.value = f"{mat_nombre}   |   Cód: {mat_cod}   |   Stock actual: {mat_stock} {mat_unidad}"
     sub.font = Font(bold=True, size=10.5, color="FFFFFF", name="Calibri")
@@ -475,9 +462,9 @@ def _hoja_historial_material(wb, movimientos, material):
     # ── Fila 4: encabezados de la tabla ─────────────────────────────────────
     cols = [
         "Fecha", "Hora", "Tipo", "Cantidad", "Empaques",
-        "Responsable", "¿Tiene OT?", "Orden de Trabajo", "Observaciones / Referencia"
+        "Responsable", "Orden de Trabajo (OT)", "Observaciones / Referencia"
     ]
-    widths = [13, 9, 13, 10, 10, 24, 11, 24, 40]
+    widths = [13, 9, 13, 10, 10, 24, 24, 40]
     _write_header_row(ws, 4, cols)
     _set_col_widths(ws, widths)
     _freeze(ws, cell="A5")
@@ -485,7 +472,7 @@ def _hoja_historial_material(wb, movimientos, material):
     tipo_cell_styles = {tipo: (bg, fc, True) for tipo, (bg, fc) in TIPO_COLORS.items()}
     align = {
         1: "center", 2: "center", 3: "center", 4: "center", 5: "center",
-        6: "left", 7: "center", 8: "left", 9: "left",
+        6: "left", 7: "center", 8: "left",
     }
 
     for r, mov in enumerate(movimientos, 5):
@@ -493,7 +480,7 @@ def _hoja_historial_material(wb, movimientos, material):
         hora = mov.fecha.strftime("%H:%M") if hasattr(mov.fecha, "strftime") else ""
         resp = (mov.responsable.get_full_name() or mov.responsable.username
                 if mov.responsable else "N/A")
-        tiene_ot, ot_code = _obtener_ot(mov)
+        ot_code = _obtener_ot(mov)
         t_style = tipo_cell_styles.get(mov.tipo)
         obs = " | ".join(filter(None, [mov.observaciones, mov.referencia_externa])) or "—"
 
@@ -503,13 +490,12 @@ def _hoja_historial_material(wb, movimientos, material):
             mov.cantidad,
             mov.cantidad_cajas if mov.cantidad_cajas is not None else "",
             resp,
-            tiene_ot,
             ot_code,
             obs,
         ], is_alt=(r % 2 == 0), alignments=align,
            cell_styles={3: t_style} if t_style else None)
 
-    ws.auto_filter.ref = f"A4:I{max(5, len(movimientos) + 4)}"
+    ws.auto_filter.ref = f"A4:H{max(5, len(movimientos) + 4)}"
 
 
 def _hoja_resumen_dia_material(wb, movimientos):
@@ -527,13 +513,13 @@ def _hoja_resumen_dia_material(wb, movimientos):
             continue
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
         por_dia[fecha][mov.tipo] += mov.cantidad
-        ref = (mov.referencia_externa or "").strip()
-        if ref:
-            por_dia[fecha]["ots"].add(ref)
+        ot_code = _obtener_ot(mov)
+        if ot_code != "—":
+            por_dia[fecha]["ots"].add(ot_code)
 
     for r, (fecha, d) in enumerate(sorted(por_dia.items()), 2):
         total = d["entrada"] + d["salida"] + d["baja"]
-        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "Sin OT"
+        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r, [
             fecha.strftime("%d/%m/%Y"),
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total, ots,
@@ -557,13 +543,13 @@ def _hoja_resumen_mes_material(wb, movimientos):
             continue
         fecha = mov.fecha.date() if hasattr(mov.fecha, "date") else mov.fecha
         por_mes[(fecha.year, fecha.month)][mov.tipo] += mov.cantidad
-        ref = (mov.referencia_externa or "").strip()
-        if ref:
-            por_mes[(fecha.year, fecha.month)]["ots"].add(ref)
+        ot_code = _obtener_ot(mov)
+        if ot_code != "—":
+            por_mes[(fecha.year, fecha.month)]["ots"].add(ot_code)
 
     for r, ((anio, mes), d) in enumerate(sorted(por_mes.items()), 2):
         total = d["entrada"] + d["salida"] + d["baja"]
-        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "Sin OT"
+        ots = ", ".join(sorted(d["ots"])) if d["ots"] else "—"
         _write_data_row(ws, r, [
             anio, MESES_ES[mes],
             d["entrada"] or "", d["salida"] or "", d["baja"] or "", total, ots,
