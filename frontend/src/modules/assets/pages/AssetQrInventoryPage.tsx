@@ -37,7 +37,7 @@ const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
 const FILTER_KEYS = ["q", "category", "assignment", "condition", "criticality"] as const;
 
 const PRINT_FORMATS = {
-  COMPACT: { label: "Compacta", detail: "38 × 30 mm", widthMm: 38, heightMm: 30, qrMm: 20, columns: 5, gapMm: 1.5, perPage: 30 },
+  COMPACT: { label: "Compacta", detail: "38 × 30 mm", widthMm: 38, heightMm: 30, qrMm: 16, columns: 5, gapMm: 1.5, perPage: 30 },
   STANDARD: { label: "Estándar", detail: "60 × 45 mm", widthMm: 60, heightMm: 45, qrMm: 32, columns: 3, gapMm: 4, perPage: 15 },
   LARGE: { label: "Grande", detail: "90 × 60 mm", widthMm: 90, heightMm: 60, qrMm: 44, columns: 2, gapMm: 4, perPage: 8 },
 } as const;
@@ -378,10 +378,11 @@ export function AssetQrInventoryPage() {
         strong { 
           font-family: "Courier New", Courier, monospace;
           margin: 0 0 ${format === PRINT_FORMATS.COMPACT ? 1 : 1.5}mm 0; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 9 : format === PRINT_FORMATS.STANDARD ? 13 : 15}px; 
-          line-height: 1.1; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 15}px; 
+          line-height: 1; 
           font-weight: 800;
-          letter-spacing: -0.02em;
+          letter-spacing: -0.05em;
+          word-break: break-all;
         }
         .name { 
           font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 9 : 11}px; 

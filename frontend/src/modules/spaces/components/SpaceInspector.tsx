@@ -10,6 +10,7 @@ import {
   Plus,
   Trash,
   WarningCircle,
+  ImageSquare,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -197,9 +198,10 @@ export function SpaceInspector({ node, site, treeNode, compact = false, onChange
       <dl className="space-inspector-facts">
         <div><dt>Tipo</dt><dd>{spaceKindLabels[node!.kind]}</dd></div>
         <div><dt>Segmento</dt><dd>{node!.codeSegment}</dd></div>
-        <div><dt>Ubicación heredada</dt><dd>{node!.legacyLocation ? `${node!.legacyLocation.code} · ${node!.legacyLocation.displayName}` : "Sin vincular"}</dd></div>
+        <div><dt>Ubicación heredada</dt><dd>{node!.legacyLocation ? <Link to={`/administracion/taxonomia/codigos/${node!.legacyLocation.id}`} className="button-link" style={{ padding: 0, textDecoration: "underline" }}>{node!.legacyLocation.displayName}</Link> : "Sin vincular"}</dd></div>
       </dl>
       {!compact && <SpaceMetricsPanel node={node!} />}
+      {!compact && <SpacePhotoPanel node={node!} />}
       {!compact && <SpaceMapCompatibilityPanel node={node!} />}
       {!compact && impact && <dl className="space-impact-summary"><div><dt>Subespacios</dt><dd>{impact.childCount}</dd></div><div><dt>Bienes</dt><dd>{impact.assetCount}</dd></div><div><dt>Usuarios</dt><dd>{impact.userCount}</dd></div><div><dt>Mapas</dt><dd>{impact.mapCount}</dd></div></dl>}
       {impactMessage && <p className="space-inspector-note"><WarningCircle weight="fill" />{impactMessage}</p>}
@@ -216,4 +218,58 @@ export function SpaceInspector({ node, site, treeNode, compact = false, onChange
 
 function InfoCircle() {
   return <CheckCircle weight="duotone" />;
+}
+
+export function SpacePhotoPanel({ node }: { node: SpaceNode }) {
+  const [photo, setPhoto] = useState<string | null>(() => {
+    return localStorage.getItem(`space_photo_${node.id}`) || node.photoUrl || null;
+  });
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      if (result) {
+        setPhoto(result);
+        localStorage.setItem(`space_photo_${node.id}`, result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemove = () => {
+    setPhoto(null);
+    localStorage.removeItem(`space_photo_${node.id}`);
+  };
+
+  if (node.nodeType === "MODULE") return null;
+
+  return (
+    <div className="space-metrics-panel" style={{ marginTop: "16px", marginBottom: "16px" }}>
+      <header className="metrics-header">
+        <div>
+          <h3>Fotografía del espacio</h3>
+          <p>Imagen de referencia para este nivel.</p>
+        </div>
+      </header>
+      <div className="metrics-grid" style={{ gridTemplateColumns: "1fr", padding: "16px" }}>
+        {photo ? (
+          <div style={{ position: "relative", width: "100%", maxWidth: "400px", borderRadius: "8px", overflow: "hidden", border: "1px solid #e5e5e5" }}>
+            <img src={photo} alt={`Fotografía de ${node.name}`} style={{ width: "100%", height: "auto", display: "block" }} />
+            <button type="button" onClick={handleRemove} className="button button-secondary" style={{ position: "absolute", top: "8px", right: "8px", padding: "4px 8px", fontSize: "12px", background: "white" }}>Quitar</button>
+          </div>
+        ) : (
+          <div style={{ padding: "24px", textAlign: "center", background: "#f8f9fa", borderRadius: "8px", border: "1px dashed #d4d4d4" }}>
+            <p style={{ fontSize: "13px", color: "#666", marginBottom: "12px" }}>No hay imagen de referencia</p>
+            <label className="button button-secondary" style={{ cursor: "pointer", display: "inline-flex" }}>
+              <span>Subir imagen</span>
+              <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
+            </label>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

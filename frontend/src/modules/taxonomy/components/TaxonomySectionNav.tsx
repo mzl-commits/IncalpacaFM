@@ -25,7 +25,7 @@ export function TaxonomySectionNav() {
         aria-current={classificationsActive ? "page" : undefined}
       >
         <SquaresFour size={19} weight="bold" />
-        <span>Clasificaciones</span>
+        <span>Estructura de clasificación</span>
       </Link>
       <Link
         className={codesActive ? "is-active" : ""}
@@ -33,15 +33,7 @@ export function TaxonomySectionNav() {
         aria-current={codesActive ? "page" : undefined}
       >
         <QrCode size={19} weight="bold" />
-        <span>Códigos FM</span>
-      </Link>
-      <Link
-        className={modelsActive ? "is-active" : ""}
-        to="/administracion/modelos"
-        aria-current={modelsActive ? "page" : undefined}
-      >
-        <Tag size={19} weight="bold" />
-        <span>Modelos</span>
+        <span>Directorio de espacios</span>
       </Link>
     </nav>
   );

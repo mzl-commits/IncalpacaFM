@@ -379,7 +379,7 @@ export function AssetDetailPage() {
             <UserPlus />
             Asignar nuevo responsable
           </button>
-          <button className="button button-secondary" onClick={() => void printAssetPdf(asset.id)}>
+          <button className="button button-secondary" onClick={() => void printAssetPdf(asset.id, "print", user?.fullName)}>
             <Printer />
             Imprimir ficha
           </button>
@@ -538,7 +538,7 @@ export function AssetDetailPage() {
           </div>
           {qr && <img src={qr} alt={`Código QR de ${displayCode(asset)}`} />}
           <div className="qr-record-actions">
-            <button className="button button-primary" onClick={() => void printAssetPdf(asset.id)}>
+            <button className="button button-primary" onClick={() => void printAssetPdf(asset.id, "print", user?.fullName)}>
               <Printer />
               Imprimir etiqueta
             </button>

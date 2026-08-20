@@ -41,7 +41,7 @@ const stepCopy = [
 ];
 
 function Field({ label, error, hint, required, children, wide }: {
-  label: string; error?: string; hint?: string; required?: boolean; children: ReactNode; wide?: boolean;
+  label: string; error?: string; hint?: ReactNode; required?: boolean; children: ReactNode; wide?: boolean;
 }) {
   return (
     <label className={`field ${wide ? "field-wide" : ""} ${error ? "has-error" : ""}`}>
@@ -243,25 +243,25 @@ export function AssetEntryWizardPage() {
     anchor.href = registered.qrDataUrl; anchor.download = `${registered.fmCode ?? registered.code}-QR.png`; anchor.click();
   };
 
-  const applyTaxonomy = (item: TaxonomyOption) => {
+  const applyTaxonomy = (item: any) => {
     setDraft((current) => ({
       ...current,
       taxonomyId: item.id,
       taxonomyPrefix: item.prefix,
       fmCode: item.nextCodePreview ?? "",
-      taxonomyVersion: item.sourceVersion,
+      taxonomyVersion: item.sourceVersion ?? "",
       taxonomySnapshot: {
         name: item.name,
-        assetType: item.assetType ?? "",
-        category: item.category ?? "",
-        subcategory: item.subcategory ?? "",
-        specialty: item.specialty ?? "",
+        assetType: "",
+        category: "",
+        subcategory: "",
+        specialty: "",
       },
-      assetType: item.assetType ?? "",
-      category: item.category ?? "",
-      subcategory: item.subcategory ?? "",
-      technicalSpecialty: item.specialty ?? "",
-      criticality: item.defaultCriticality,
+      assetType: "",
+      category: "",
+      subcategory: "",
+      technicalSpecialty: "",
+      criticality: item.defaultCriticality ?? "Media",
       usefulLifeYears: item.usefulLifeYears?.toString() ?? "",
       preventiveFrequencyMonths: item.preventiveFrequencyMonths?.toString() ?? "",
       requiresMaintenance: item.requiresMaintenance,
@@ -370,16 +370,18 @@ export function AssetEntryWizardPage() {
       <Field label="Descripción detallada" error={errors.description} required wide><textarea value={draft.description} onChange={(e) => setField("description", e.target.value)} rows={3} /></Field>
       <Field label="Número de serie" error={errors.serialNumber} hint="Se verificará que no exista otro bien con el mismo número."><input value={draft.serialNumber} onChange={(e) => setField("serialNumber", e.target.value)} /></Field>
       <Field label="Color"><input value={draft.color} onChange={(e) => setField("color", e.target.value)} /></Field>
-      <Field label="Año de fabricación" error={errors.manufactureYear}><input type="number" value={draft.manufactureYear} onChange={(e) => setField("manufactureYear", e.target.value)} /></Field>
+      <Field label="Año de fabricación" error={errors.manufactureYear}><input type="number" min="1900" max={new Date().getFullYear() + 1} value={draft.manufactureYear} onChange={(e) => setField("manufactureYear", e.target.value)} /></Field>
       <Field label="Condición de ingreso"><select value={draft.condition} onChange={(e) => setField("condition", e.target.value as AssetEntryDraft["condition"])}>{CONDITIONS.map((x) => <option key={x}>{x}</option>)}</select></Field>
       <Field label="Observaciones" wide><textarea value={draft.observations} onChange={(e) => setField("observations", e.target.value)} rows={3} /></Field>
       <div className="field-wide">{upload("photo", "Fotografía oficial del bien", errors.photo)}</div>
     </div>;
     if (draft.currentStep === 2) return <div className="section-gap">
-      <label className="switch-row"><input type="checkbox" checked={draft.classificationPending} onChange={(e) => toggleClassificationPending(e.target.checked)} /><span><strong>Clasificación por confirmar</strong><small>Úsalo solo cuando se requiera una validación técnica posterior.</small></span></label>
+      <label className="switch-row"><input type="checkbox" checked={draft.classificationPending} onChange={(e) => toggleClassificationPending(e.target.checked)} /><span><strong>Sin clasificar (por confirmar)</strong><small>El bien se registrará sin taxonomía y el código matriz requerirá validación posterior.</small></span></label>
       {draft.classificationPending
         ? <div className="form-grid"><Field label="Justificación" error={errors.classificationPendingReason} required wide><textarea rows={3} value={draft.classificationPendingReason} onChange={(e) => setField("classificationPendingReason", e.target.value)} /></Field></div>
-        : <TaxonomyPicker selectedId={draft.taxonomyId} onSelect={applyTaxonomy} error={errors.taxonomyId} />}
+        : <div className="taxonomy-picker-wrapper">
+          <TaxonomyPicker selectedId={draft.taxonomyId} onSelect={applyTaxonomy} error={errors.taxonomyId} />
+        </div>}
       {!draft.classificationPending && draft.taxonomyId && <div className="form-grid"><Field label="Código FM a asignar" hint="Se muestra el siguiente código disponible y puedes modificarlo antes de registrar." error={errors.fmCode}><input value={draft.fmCode} maxLength={32} placeholder={`${draft.taxonomyPrefix || "PREFIJO"}-0000`} onChange={(e) => setField("fmCode", e.target.value.toUpperCase().replace(/\s/g, ""))} /></Field></div>}
       <div className="conditional-fields">
         <h3>Gestión del catálogo</h3>
@@ -405,8 +407,8 @@ export function AssetEntryWizardPage() {
       </div></div>
     </div>;
     if (draft.currentStep === 3) return <div className="section-gap">
-      <aside className="privacy-notice"><Package size={22} /><p><strong>El bien quedará sin asignar</strong><span>Esta ubicación solo indica dónde se almacena inicialmente. El responsable y el acta de entrega se gestionan después desde el módulo Asignaciones.</span></p></aside>
-      <label className="switch-row"><input type="checkbox" checked={draft.locationPending} onChange={(e) => setDraft((current) => ({ ...current, locationPending: e.target.checked, locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))} /><span><strong>Ubicación por confirmar</strong><small>El bien quedará marcado como pendiente de ubicación.</small></span></label>
+      <aside className="privacy-notice"><Package size={22} /><p><strong>Ingreso como: No asignado</strong><span>Esta ubicación solo indica dónde se almacena inicialmente el bien. El usuario responsable (encargado) se gestionará posteriormente desde el módulo Asignaciones.</span></p></aside>
+      <label className="switch-row"><input type="checkbox" checked={draft.locationPending} onChange={(e) => setDraft((current) => ({ ...current, locationPending: e.target.checked, locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))} /><span><strong>No ubicado (ubicación pendiente)</strong><small>El bien quedará marcado sin una ubicación inicial definida en el mapa de activos.</small></span></label>
       {draft.locationPending ? <div className="form-grid"><Field label="Justificación" error={errors.locationPendingReason} required wide><textarea rows={3} value={draft.locationPendingReason} onChange={(e) => setField("locationPendingReason", e.target.value)} /></Field></div>
       : <>
         {locationsQuery.isPending ? <div className="loading-panel">Cargando ubicaciones oficiales…</div>
@@ -415,7 +417,7 @@ export function AssetEntryWizardPage() {
           <Field label="Zona" error={errors.zone} required><select value={draft.zone} onChange={(e) => setDraft((current) => ({ ...current, zone: e.target.value, building: "", locationArea: "", room: "", locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))}><option value="">Seleccionar</option>{zones.map((x) => <option key={x}>{x}</option>)}</select></Field>
           <Field label="Edificio" error={errors.building} required><select value={draft.building} disabled={!draft.zone} onChange={(e) => setDraft((current) => ({ ...current, building: e.target.value, locationArea: "", room: "", locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))}><option value="">Seleccionar</option>{buildings.map((x) => <option key={x}>{x}</option>)}</select></Field>
           <Field label="?rea" error={errors.locationArea} required><select value={draft.locationArea} disabled={!draft.building} onChange={(e) => setDraft((current) => ({ ...current, locationArea: e.target.value, room: "", locationId: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }))}><option value="">Seleccionar</option>{areas.map((x) => <option key={x}>{x}</option>)}</select></Field>
-          <Field label="Ambiente" error={errors.room} required><select value={draft.locationId} disabled={!draft.locationArea} onChange={(e) => {
+          <Field label="Ambiente" error={errors.room} hint={<span>¿El ambiente no existe? <Link to="/administracion/espacios/nuevo" target="_blank" style={{ fontWeight: 500, color: "var(--primary)" }}>Crear nuevo espacio</Link></span>} required><select value={draft.locationId} disabled={!draft.locationArea} onChange={(e) => {
             const match = roomOptions.find((item) => item.id === e.target.value);
             setDraft((current) => ({ ...current, room: match?.room ?? "", locationId: match?.id ?? "", locationMapId: match?.activeMap?.id ?? "", locationMarkerX: null, locationMarkerY: null }));
           }}><option value="">Seleccionar</option>{roomOptions.map((item) => <option key={item.id} value={item.id}>{item.locationCode ? `${item.locationCode} · ` : ""}{item.room}{item.requiresReview ? " · Revisar" : ""}</option>)}</select></Field>
@@ -445,18 +447,18 @@ export function AssetEntryWizardPage() {
     if (draft.currentStep === 5) return <div className="review-stack section-gap">
       <Review title="Origen" onEdit={() => setField("currentStep", 0)} rows={[["Tipo", entryTypeLabels[draft.entryType]], ["Documento", evidenceByCategory.origin[0]?.name ?? "—"], ["Fecha", draft.acquisitionDate || draft.completionDate || draft.receptionDate || draft.rentalStartDate]]} />
       <Review title="Bien" onEdit={() => setField("currentStep", 1)} rows={[["Nombre", draft.name], ["Marca / modelo", `${draft.brand || "—"} / ${draft.model || "—"}`], ["Serie", draft.serialNumber || "No consignada"], ["Condición", draft.condition]]} />
-      <Review title="Clasificación" onEdit={() => setField("currentStep", 2)} rows={[["Taxonomía", draft.classificationPending ? "Por confirmar" : `${draft.taxonomyPrefix} — ${draft.taxonomySnapshot?.name ?? draft.subcategory}`], ["Jerarquía", draft.classificationPending ? "Pendiente" : `${draft.assetType} / ${draft.category} / ${draft.subcategory}`], ["Criticidad", draft.criticality], ["Mantenimiento", draft.requiresMaintenance ? `Cada ${draft.preventiveFrequencyMonths} meses` : "No requerido"]]} />
-      <Review title="Ubicación inicial" onEdit={() => setField("currentStep", 3)} rows={[["Almacenamiento", draft.locationPending ? "Por confirmar" : `${draft.zone} / ${draft.building} / ${draft.locationArea} / ${draft.room}`], ["Referencia visual", draft.locationPending ? "Pendiente" : draft.locationMapId ? (draft.locationMarkerX !== null ? "Marcador definido" : "Falta marcador") : "Sin imagen disponible"], ["Estado de asignación", "Sin asignar"], ["Siguiente acción", "Gestionar desde Asignaciones"]]}/>
+      <Review title="Clasificación" onEdit={() => setField("currentStep", 2)} rows={[["Taxonomía", draft.classificationPending ? "Sin clasificar" : `${draft.taxonomyPrefix} — ${draft.taxonomySnapshot?.name ?? draft.subcategory}`], ["Jerarquía", draft.classificationPending ? "Sin clasificar" : `${draft.assetType} / ${draft.category} / ${draft.subcategory}`], ["Criticidad", draft.criticality], ["Mantenimiento", draft.requiresMaintenance ? `Cada ${draft.preventiveFrequencyMonths} meses` : "No requerido"]]} />
+      <Review title="Ubicación inicial" onEdit={() => setField("currentStep", 3)} rows={[["Almacenamiento", draft.locationPending ? "No ubicado" : `${draft.zone} / ${draft.building} / ${draft.locationArea} / ${draft.room}`], ["Referencia visual", draft.locationPending ? "No ubicado" : draft.locationMapId ? (draft.locationMarkerX !== null ? "Marcador definido" : "Falta marcador") : "Sin imagen disponible"], ["Estado de asignación", "No asignado"], ["Siguiente acción", "Gestionar desde Asignaciones"]]}/>
       <Review title="Evidencias" onEdit={() => setField("currentStep", 4)} rows={[["Archivos", `${draft.evidence.length} adjunto(s)`], ["Fotografías", `${evidenceByCategory.photo.length}`]]} />
       <div className="confirmation-box">
         <label className={errors.confirmInspected ? "has-error" : ""}><input type="checkbox" checked={draft.confirmInspected} onChange={(e) => setField("confirmInspected", e.target.checked)} /><span>Confirmo que verifiqué el bien físico y que sus datos son correctos.{errors.confirmInspected && <small className="field-error">{errors.confirmInspected}</small>}</span></label>
-        <label className={errors.confirmAssignment ? "has-error" : ""}><input type="checkbox" checked={draft.confirmAssignment} onChange={(e) => setField("confirmAssignment", e.target.checked)} /><span>Confirmo que la ubicación indicada corresponde al almacenamiento inicial del bien y que aún no tiene responsable asignado.{errors.confirmAssignment && <small className="field-error">{errors.confirmAssignment}</small>}</span></label>
+        <label className={errors.confirmAssignment ? "has-error" : ""}><input type="checkbox" checked={draft.confirmAssignment} onChange={(e) => setField("confirmAssignment", e.target.checked)} /><span>Confirmo la información registrada y entiendo que el bien ingresará como "No asignado" y se gestionará luego en Asignaciones.{errors.confirmAssignment && <small className="field-error">{errors.confirmAssignment}</small>}</span></label>
       </div>
     </div>;
     if (!registered) return <div className="loading-panel">Generando código seguro y QR…</div>;
     return <div className="success-panel">
       <div className="success-hero"><CheckCircle size={46} weight="fill" /><h2>Bien registrado correctamente</h2><p>El activo ingresó al sistema de gestión y se generó su identificador único.</p></div>
-      <div className="asset-result-stats"><div><small>Código FM</small><strong>{registered.fmCode ?? "Pendiente"}</strong></div><div><small>Identificador técnico</small><strong>{registered.code}</strong></div><div><small>Estado administrativo</small><span className="status status-success">Registrado</span></div><div><small>Asignación</small><strong>{registered.assignmentStatus}</strong></div></div>
+      <div className="asset-result-stats"><div><small>Código FM</small><strong>{registered.fmCode ?? "Pendiente"}</strong></div><div><small>Identificador técnico</small><strong>{registered.code}</strong></div><div><small>Estado administrativo</small><span className="status status-success">Registrado</span></div><div><small>Asignación</small><strong>No asignado</strong></div></div>
       <section className="asset-credentials"><h3>Credenciales del activo</h3><div className="qr-card"><div className="qr-visual"><img src={registered.qrDataUrl} alt={`QR público del bien ${registered.fmCode ?? registered.code}`} /><small>El QR no contiene información personal ni identificadores internos sensibles.</small></div><div className="label-preview"><small>Vista previa de etiqueta</small><div><span>FM INCALPACA</span><strong>{registered.fmCode ?? registered.code}</strong><p>{draft.name}</p><small>{registered.code}</small></div><p>El código FM identifica el bien en operación; el identificador técnico preserva la trazabilidad interna.</p></div></div></section>
       <div className="success-actions">
         <button className="button button-secondary" type="button" onClick={downloadQr}><DownloadSimple /> Descargar PNG</button>

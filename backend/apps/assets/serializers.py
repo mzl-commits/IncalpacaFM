@@ -472,6 +472,7 @@ class AssetDetailSerializer(AssetSerializer):
     def get_responsible_history(self, obj) -> list[dict]:
         return [{
             'id': str(item.id), 'responsible': item.responsible.display_name,
+            'code': item.responsible.external_reference,
             'type': item.responsible.type, 'area': item.responsible.area_name,
             'start_date': item.start_date, 'end_date': item.end_date,
             'status': item.status, 'reason': item.change_reason,

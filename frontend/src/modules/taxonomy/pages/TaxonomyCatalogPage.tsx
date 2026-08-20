@@ -214,9 +214,9 @@ export function TaxonomyCatalogPage() {
     <section className="spaces-page taxonomy-page">
       <div className="page-heading spaces-page-heading">
         <div>
-          <p className="breadcrumb">Administración / Taxonomía</p>
-          <h1>Taxonomía de bienes</h1>
-          <p>Organiza la jerarquía de los bienes (Familia, Tipo, Parte, Pieza).</p>
+          <p className="breadcrumb">Inicio / Administración / Estructura de clasificación</p>
+          <h1>Estructura de clasificación</h1>
+          <p>Organiza la jerarquía taxonómica de los bienes (Familia, Tipo, Parte, Pieza).</p>
         </div>
         <div className="spaces-page-actions">
           <button className="button button-primary" onClick={() => setMode("ADD_ROOT")}>

@@ -64,6 +64,7 @@ export type SpaceNode = {
   squareMeters: number | null;
   headcount: number | null;
   commonSpace: boolean;
+  photoUrl?: string | null;
   legacyLocation: LegacyLocation | null;
   usage: SpaceUsage;
   createdAt: string;

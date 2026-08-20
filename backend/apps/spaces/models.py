@@ -120,6 +120,7 @@ class SpaceNode(models.Model):
     square_meters = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     headcount = models.PositiveIntegerField(null=True, blank=True)
     common_space = models.BooleanField(default=False)
+    photo = models.ImageField(upload_to="space_photos/", null=True, blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

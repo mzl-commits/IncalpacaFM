@@ -17,7 +17,7 @@ import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { listRegisteredAssets } from "../assetEntryRepository";
-import { useLocationMapImage } from "../locationMapQueries";
+import { useLocationMapImage, useLocations } from "../locationMapQueries";
 import type { LocationOption } from "../locationMapTypes";
 import { listSpaceNodes } from "../../spaces/spacesRepository";
 import type { SpaceNode } from "../../spaces/types";
@@ -54,7 +54,7 @@ function areaLabel(squareMeters: number | null) {
  *  - MACRO_AREA shown only if it has no AREA children
  *  - AREA shown only if it has no MODULE children
  *  - MODULE always shown */
-function spaceNodesToLocations(nodes: SpaceNode[]): LocationOption[] {
+function spaceNodesToLocations(nodes: SpaceNode[], usersMap: Map<string, any[]>): LocationOption[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
   // Build a set of parent IDs that have children of a "deeper" type
@@ -115,7 +115,7 @@ function spaceNodesToLocations(nodes: SpaceNode[]): LocationOption[] {
         active: node.active,
         displayName: `${locationCode} · ${room}`,
         activeMap: null,
-        assignedUsers: [],
+        assignedUsers: node.legacyLocation ? usersMap.get(node.legacyLocation.id) || [] : [],
       } satisfies LocationOption;
     });
 }
@@ -125,6 +125,7 @@ export function AssetMapOverviewPage() {
     queryKey: ["space-nodes", "map"],
     queryFn: () => listSpaceNodes({ active: "true" }),
   });
+  const locationsQuery = useLocations();
   const assetsQuery = useQuery({ queryKey: ["assets", "map-overview"], queryFn: listRegisteredAssets });
   const [zone, setZone] = useState("");
   const [building, setBuilding] = useState("");
@@ -135,21 +136,29 @@ export function AssetMapOverviewPage() {
   const [activeTab, setActiveTab] = useState<"assets" | "users">("assets");
   const navigate = useNavigate();
 
-  const locations = useMemo(
-    () => spaceNodesToLocations(spaceNodesQuery.data ?? []),
-    [spaceNodesQuery.data],
-  );
+  const locationsData = locationsQuery.data ?? [];
+  const locations = useMemo(() => {
+    const usersMap = new Map(locationsData.map(l => [l.id, l.assignedUsers]));
+    return spaceNodesToLocations(spaceNodesQuery.data ?? [], usersMap);
+  }, [spaceNodesQuery.data, locationsData]);
   const assets = useMemo(() => assetsQuery.data ?? [], [assetsQuery.data]);
   const selectedLocation = locations.find((item) => item.id === selectedLocationId) ?? null;
   const locationImageQuery = useLocationMapImage(selectedLocation?.activeMap?.id);
   const assetsByLocation = useMemo(() => {
     const grouped = new Map<string, typeof assets>();
+    const locationToSpace = new Map<string, string>();
+    for (const node of spaceNodesQuery.data || []) {
+      if (node.legacyLocation?.id) locationToSpace.set(node.legacyLocation.id, node.id);
+    }
     for (const asset of assets) {
-      const id = asset.locationDetail?.id;
-      if (id) grouped.set(id, [...(grouped.get(id) ?? []), asset]);
+      const locId = asset.locationDetail?.id;
+      if (locId) {
+        const spaceId = locationToSpace.get(locId);
+        if (spaceId) grouped.set(spaceId, [...(grouped.get(spaceId) ?? []), asset]);
+      }
     }
     return grouped;
-  }, [assets]);
+  }, [assets, spaceNodesQuery.data]);
 
   const normalizedQuery = query.trim().toLocaleLowerCase("es-PE");
   const filteredLocations = useMemo(
@@ -165,6 +174,8 @@ export function AssetMapOverviewPage() {
   );
 
   const searchMode = normalizedQuery.length > 0;
+  const selectedAreaNode = (!searchMode && building) ? spaceNodesQuery.data?.find((n: SpaceNode) => n.name === building && (n.nodeType === "AREA" || n.nodeType === "MACRO_AREA")) : null;
+  const areaPhoto = selectedAreaNode ? (localStorage.getItem(`space_photo_${selectedAreaNode.id}`) || selectedAreaNode.photoUrl) : null;
   const scopedLocations = searchMode
     ? filteredLocations
     : filteredLocations.filter(
@@ -176,7 +187,7 @@ export function AssetMapOverviewPage() {
   const mappedCount = locations.filter((item) => item.activeMap).length;
   const selectedAssets = selectedLocation ? assetsByLocation.get(selectedLocation.id) ?? [] : [];
   const selectedAlerts = selectedAssets.filter(
-    (asset) => asset.draft.criticality === "Crítica" || asset.draft.condition === "Requiere revisión",
+    (asset: any) => asset.draft.criticality === "Crítica" || asset.draft.condition === "Requiere revisión",
   ).length;
   const ready = !spaceNodesQuery.isPending && !assetsQuery.isPending;
   const hasError = spaceNodesQuery.isError || assetsQuery.isError;
@@ -267,7 +278,7 @@ export function AssetMapOverviewPage() {
             {searchMode && <><CaretRight /><span>Búsqueda global</span></>}
           </nav>
 
-          <div className={`asset-map-grid-layout ${selectedLocation ? "has-inspector" : ""}`}>
+          <div className={`asset-map-grid-layout ${selectedLocation && searchMode ? "has-inspector" : ""}`}>
             <main className="asset-map-grid-panel">
               <header>
                 <div>
@@ -276,14 +287,16 @@ export function AssetMapOverviewPage() {
                 </div>
                 <span>{environmentLabel(scopedLocations.length)}</span>
               </header>
-              {searchMode || building
+              {searchMode
                 ? <EnvironmentGrid locations={scopedLocations} assetsByLocation={assetsByLocation} selectedId={selectedLocationId} onSelect={setSelectedLocationId} />
+                : building
+                ? <AreaModulesView locations={scopedLocations} assetsByLocation={assetsByLocation} photo={areaPhoto || null} areaName={building} />
                 : zone
                 ? <GroupGrid values={unique(scopedLocations.map((item) => item.building))} locations={scopedLocations} assetsByLocation={assetsByLocation} label="edificio" onOpen={openBuilding} />
                 : <GroupGrid values={unique(scopedLocations.map((item) => item.zone))} locations={scopedLocations} assetsByLocation={assetsByLocation} label="zona" onOpen={openZone} />}
             </main>
 
-            {selectedLocation && (
+            {selectedLocation && searchMode && (
               <aside className="asset-map-overview-inspector" aria-live="polite">
                 <header>
                   <button className="asset-map-inspector-back" type="button" onClick={() => setSelectedLocationId("")}>
@@ -413,6 +426,83 @@ function GroupGrid({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function AreaModulesView({
+  locations, assetsByLocation, photo, areaName
+}: {
+  locations: LocationOption[];
+  assetsByLocation: Map<string, any[]>;
+  photo: string | null;
+  areaName: string;
+}) {
+  if (!locations.length) return <EmptyGrid />;
+  return (
+    <div className="asset-map-area-view">
+      <div className="asset-map-area-photo" style={{ marginBottom: 24, borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e5e5', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: photo ? 'auto' : 200 }}>
+        {photo ? (
+          <img src={photo} alt={`Fotografía de ${areaName}`} style={{ width: '100%', maxHeight: 400, objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
+            <ImageSquare size={48} weight="duotone" style={{ marginBottom: 12, opacity: 0.5 }} />
+            <p style={{ margin: 0, fontSize: 14 }}>Sin imagen referencial de área</p>
+          </div>
+        )}
+      </div>
+      <div className="asset-map-modules-list" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {locations.map((location) => {
+          const assets = (assetsByLocation.get(location.id) || []) as any[];
+          const users = location.assignedUsers || [];
+          return (
+            <div key={location.id} className="asset-map-module-card" style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: 16, background: '#fff' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #f0f0f0', paddingBottom: 12 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#111827' }}>{location.room}</h3>
+                  <code style={{ fontSize: 12, color: '#6b7280' }}>{location.locationCode || 'Código pendiente'}</code>
+                </div>
+                <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#4b5563' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Package /> {assets.length} {assets.length === 1 ? 'bien' : 'bienes'}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Users /> {users.length} {users.length === 1 ? 'usuario' : 'usuarios'}</span>
+                </div>
+              </header>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                <div style={{ background: '#f9fafb', padding: 16, borderRadius: 8, border: '1px solid #f3f4f6' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#6b7280', letterSpacing: '0.05em' }}>Bienes asignados</h4>
+                  {assets.length > 0 ? (
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {assets.map(asset => (
+                        <li key={asset.id} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e5e5' }}>
+                          <Link to={`/bienes/${asset.id}`} style={{ color: '#0369a1', textDecoration: 'none', fontWeight: 600, marginRight: 8 }}>{asset.fmCode ?? asset.code}</Link>
+                          <span style={{ color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{asset.draft.name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>No hay bienes asignados.</p>
+                  )}
+                </div>
+                <div style={{ background: '#f9fafb', padding: 16, borderRadius: 8, border: '1px solid #f3f4f6' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#6b7280', letterSpacing: '0.05em' }}>Usuarios</h4>
+                  {users.length > 0 ? (
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {users.map(user => (
+                        <li key={user.id} style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e5e5' }}>
+                          <span style={{ color: '#111827', fontWeight: 600 }}>{user.name}</span>
+                          <span style={{ color: '#6b7280', fontSize: 12 }}>{user.area || 'Sin área'}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>No hay usuarios asignados.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

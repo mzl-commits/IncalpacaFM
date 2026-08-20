@@ -146,7 +146,7 @@ export const emptyAssetEntryDraft: AssetEntryDraft = {
   model: "",
   serialNumber: "",
   color: "",
-  manufactureYear: "",
+  manufactureYear: new Date().getFullYear().toString(),
   condition: "Nuevo",
   effectiveEntryDate: today,
   observations: "",

@@ -92,6 +92,7 @@ class SpaceNodeSerializer(serializers.ModelSerializer):
     kind = serializers.CharField(source="node_type", read_only=True)
     code = serializers.CharField(source="code_segment", read_only=True)
     legacy_location = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = SpaceNode
@@ -109,6 +110,8 @@ class SpaceNodeSerializer(serializers.ModelSerializer):
             "square_meters",
             "headcount",
             "common_space",
+            "photo",
+            "photo_url",
             "active",
             "legacy_location",
             "created_at",
@@ -130,6 +133,12 @@ class SpaceNodeSerializer(serializers.ModelSerializer):
         except ObjectDoesNotExist:
             return None
         return LegacyLocationSummarySerializer(location).data
+
+    def get_photo_url(self, obj):
+        if obj.photo:
+            request = self.context.get("request")
+            return request.build_absolute_uri(obj.photo.url) if request else obj.photo.url
+        return None
 
     def validate_code_segment(self, value):
         return value.strip().upper()

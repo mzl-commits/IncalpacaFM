@@ -14,7 +14,7 @@ import {
   Wrench,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import {
@@ -409,14 +409,56 @@ function AdministrativeDashboard() {
         </div>
       ) : (
         <>
-          {/* MAIN GRID: PRIORIDADES DE MANTENIMIENTO */}
+          {/* FRANJA EJECUTIVA (ESTADO GENERAL) */}
+          <section className="executive-banner" aria-label="Estado general de bienes">
+            <div className="banner-coverage-col">
+              <span className="banner-label">COBERTURA DE ASIGNACIÓN</span>
+              <div className="banner-big-number">{summary.assignmentCoverage}%</div>
+              <div
+                className="banner-progress-track"
+                role="progressbar"
+                aria-label="Cobertura de asignación"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={summary.assignmentCoverage}
+              >
+                <div
+                  className="banner-progress-fill"
+                  style={{ width: `${summary.assignmentCoverage}%` }}
+                />
+              </div>
+              <span className="banner-subtext">
+                {summary.assignedAssets} de {data.assets.length} con responsable
+              </span>
+            </div>
+
+            <div className="banner-kpis-grid">
+              <div className="banner-kpi-item">
+                <span className="kpi-item-label">BIENES REGISTRADOS</span>
+                <div className="kpi-item-number">{data.assets.length}</div>
+                <span className="kpi-item-sub">Inventario total</span>
+              </div>
+              <div className="banner-kpi-item">
+                <span className="kpi-item-label">ASIGNACIONES ACTIVAS</span>
+                <div className="kpi-item-number">{summary.activeAssignments}</div>
+                <span className="kpi-item-sub">Custodias vigentes</span>
+              </div>
+              <div className="banner-kpi-item">
+                <span className="kpi-item-label">EVALUACIONES DE BAJA</span>
+                <div className="kpi-item-number">{summary.pendingReview}</div>
+                <span className="kpi-item-sub">Pendientes de FM</span>
+              </div>
+            </div>
+          </section>
+
+          {/* MAIN GRID: PRIORIDADES DE HOY + ACCIONES RÁPIDAS */}
           <section className="platform-overview" aria-labelledby="platform-overview-title">
-            <header className="platform-overview-header"><div><h2 id="platform-overview-title">Vista general de mantenimiento</h2><p>Alertas y carga operativa de Facility Management.</p></div><span>{summary.pendingReports + summary.activeOrders} tareas activas</span></header>
+            <header className="platform-overview-header"><div><h2 id="platform-overview-title">Vista general de activos</h2><p>Alertas y carga operativa del módulo de Activos y Espacios.</p></div><span>{totalPendientes} alertas activas</span></header>
             <div className="platform-overview-grid">
-              <Link to="/incidencias" className={`platform-overview-item ${summary.pendingReports ? "is-alert" : ""}`}><WarningCircle size={22} /><div><strong>Reportes</strong><small>{summary.pendingReports} solicitudes abiertas</small></div><b>{summary.pendingReports}</b></Link>
-              <Link to="/ordenes-trabajo" className="platform-overview-item"><Wrench size={22} /><div><strong>Órdenes de trabajo</strong><small>En curso o programadas</small></div><b>{summary.activeOrders}</b></Link>
-              <Link to="/almacen/catalogo" className={`platform-overview-item ${summary.lowStock ? "is-alert" : ""}`}><Package size={22} /><div><strong>Stock</strong><small>{summary.lowStock ? `${summary.lowStock} materiales bajo mínimo` : "Niveles dentro del mínimo"}</small></div><b>{summary.lowStock}</b></Link>
-              <Link to="/administracion/tecnicos" className="platform-overview-item"><Clock size={22} /><div><strong>Equipo técnico</strong><small>Perfiles activos disponibles</small></div><b>{summary.technicianCount}</b></Link>
+              <Link to="/asignaciones/nueva" className={`platform-overview-item ${summary.unassignedAssets ? "is-alert" : ""}`}><Package size={22} /><div><strong>Bienes sin asignar</strong><small>{summary.unassignedAssets} pendientes de custodia</small></div><b>{summary.unassignedAssets}</b></Link>
+              <Link to="/bienes/ciclo-vida/bajas" className={`platform-overview-item ${summary.pendingReview ? "is-alert" : ""}`}><WarningCircle size={22} /><div><strong>Bajas por evaluar</strong><small>{summary.pendingReview} pendientes de revisión</small></div><b>{summary.pendingReview}</b></Link>
+              <Link to="/bienes/ciclo-vida/bajas" className={`platform-overview-item ${summary.pendingDisposal ? "is-alert" : ""}`}><Archive size={22} /><div><strong>Disposición final</strong><small>{summary.pendingDisposal} esperando disposición</small></div><b>{summary.pendingDisposal}</b></Link>
+              <Link to="/almacen/catalogo" className={`platform-overview-item ${summary.lowStock ? "is-alert" : ""}`}><ClipboardText size={22} /><div><strong>Stock bajo</strong><small>{summary.lowStock} alertas de inventario</small></div><b>{summary.lowStock}</b></Link>
             </div>
           </section>
 
@@ -425,72 +467,133 @@ function AdministrativeDashboard() {
             <section className="priorities-panel" aria-labelledby="priorities-panel-title">
               <header className="panel-header">
                 <h2 id="priorities-panel-title" className="panel-title">PRIORIDADES</h2>
-                <span className="panel-badge-counter">{summary.pendingReports} pendientes</span>
+                <span className="panel-badge-counter">{totalPendientes} pendientes</span>
               </header>
 
               <div className="priorities-list">
-                {summary.pendingReports > 0 && (
-                  <Link to="/incidencias" className="priority-row">
+                {summary.pendingDisposal > 0 && (
+                  <Link to="/bienes/ciclo-vida/bajas" className="priority-row">
                     <span className="priority-number">
-                      {String(summary.pendingReports).padStart(2, "0")}
+                      {String(summary.pendingDisposal).padStart(2, "0")}
                     </span>
-                    <span className="priority-text">Reportes pendientes de revisión</span>
+                    <span className="priority-text">Bienes esperan disposición final</span>
                     <CaretRight size={18} className="priority-arrow" />
                   </Link>
                 )}
-                {summary.pendingReports === 0 && (
-                  <div className="priority-row empty-state" style={{ justifyContent: "center", color: "#666" }}>
-                    No hay alertas críticas
+
+                {summary.pendingReview > 0 && (
+                  <Link to="/bienes/ciclo-vida/bajas" className="priority-row">
+                    <span className="priority-number">
+                      {String(summary.pendingReview).padStart(2, "0")}
+                    </span>
+                    <span className="priority-text">Solicitudes por evaluar</span>
+                    <CaretRight size={18} className="priority-arrow" />
+                  </Link>
+                )}
+
+                {summary.unassignedAssets > 0 && (
+                  <Link to="/asignaciones/nueva" className="priority-row">
+                    <span className="priority-number">
+                      {String(summary.unassignedAssets).padStart(2, "0")}
+                    </span>
+                    <span className="priority-text">Bienes sin responsable</span>
+                    <CaretRight size={18} className="priority-arrow" />
+                  </Link>
+                )}
+
+                {totalPendientes === 0 && (
+                  <div className="priority-empty-row">
+                    <CheckCircle size={22} weight="fill" />
+                    <span>Sin acciones críticas pendientes. La operación se encuentra al día.</span>
                   </div>
                 )}
               </div>
             </section>
 
-            {/* ACCIONES DE MANTENIMIENTO COMO MATRIZ 2x2 */}
+            {/* ACCIONES RÁPIDAS COMO MATRIZ 2x2 */}
             <section className="quick-actions-panel" aria-labelledby="actions-panel-title">
               <header className="panel-header">
-                <h2 id="actions-panel-title" className="panel-title">ACCIONES DE MANTENIMIENTO</h2>
+                <h2 id="actions-panel-title" className="panel-title">ACCIONES RÁPIDAS</h2>
               </header>
-              <nav className="actions-matrix" aria-label="Acciones de mantenimiento del panel">
-                <Link to="/incidencias" className="action-matrix-item">
-                  <WarningCircle size={22} />
-                  <span>Bandeja de reportes</span>
-                </Link>
-                <Link to="/ordenes-trabajo" className="action-matrix-item">
-                  <Wrench size={22} />
-                  <span>Órdenes de trabajo</span>
-                </Link>
-                <Link to="/administracion/tecnicos" className="action-matrix-item">
-                  <Clock size={22} />
-                  <span>Gestionar técnicos</span>
-                </Link>
-                <Link to="/almacen/catalogo" className="action-matrix-item">
+              <nav className="actions-matrix" aria-label="Acciones rápidas del panel">
+                <Link to="/bienes/entradas/nueva" className="action-matrix-item">
                   <Package size={22} />
-                  <span>Consultar almacén</span>
+                  <span>Registrar bien</span>
+                </Link>
+                <Link to="/asignaciones/nueva" className="action-matrix-item">
+                  <ClipboardText size={22} />
+                  <span>Nueva asignación</span>
+                </Link>
+                <Link to="/bienes/qr" className="action-matrix-item">
+                  <QrCode size={22} />
+                  <span>Gestionar QR</span>
+                </Link>
+                <Link to="/bienes/ciclo-vida/bajas" className="action-matrix-item">
+                  <Archive size={22} />
+                  <span>Evaluar bajas</span>
                 </Link>
               </nav>
             </section>
           </div>
+
+          {/* ACTIVIDAD RECIENTE (UNA SOLA LISTA CRONOLÓGICA) */}
+          <section className="activity-panel" aria-labelledby="activity-panel-title">
+            <header className="panel-header">
+              <h2 id="activity-panel-title" className="panel-title">Actividad reciente</h2>
+              {lastUpdated && (
+                <span className="panel-time-label">
+                  Actualizado a las{" "}
+                  {lastUpdated.toLocaleTimeString("es-PE", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </header>
+
+            {activities.length > 0 ? (
+              <div className="activity-list-container">
+                <table className="activity-table">
+                  <tbody>
+                    {activities.map((activity, idx) => (
+                      <tr key={activity.id} className={idx % 2 === 1 ? "row-alt" : ""}>
+                        <td className="activity-title-cell">
+                          <div className="activity-title-wrapper">
+                            {activity.type === "asset" && <Package size={16} />}
+                            {activity.type === "assignment" && <ClipboardText size={16} />}
+                            {activity.type === "retirement" && <Archive size={16} />}
+                            <strong>{activity.title}</strong>
+                          </div>
+                        </td>
+                        <td className="activity-detail-cell">{activity.detail}</td>
+                        <td className="activity-date-cell">{formatDate(activity.date)}</td>
+                        <td className="activity-action-cell">
+                          <Link to={activity.to} className="activity-row-btn" title="Ver detalle">
+                            <CaretRight size={16} />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="activity-empty-state">
+                <span>Aún no hay actividad registrada en la plataforma.</span>
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>
   );
 }
 
-
-
-export function MaintenanceDashboardPage() {
-  const { user } = useAuth();
-  return user?.role === "TECNICO" ? <TechnicianDashboard /> : <AdministrativeDashboard />;
-}
-
-export function DashboardPage() {
+export function AssetsDashboardPage() {
   const { user } = useAuth();
   if (user?.role === "SOLICITANTE") return <UserDashboardPage />;
   if (user?.role === "SUPERVISOR") return <SupervisorWorkOrderReviewPage />;
   if (user?.role === "ALMACENERO") return <AlmaceneroDashboardPage />;
   if (user?.role === "INSPECTOR") return <InspectorDashboardPage />;
-  
-  // For ADMINISTRADOR and TECNICO, the default page is now Bandeja de reportes
-  return <Navigate to="/incidencias" replace />;
+  return user?.role === "TECNICO" ? <TechnicianDashboard /> : <AdministrativeDashboard />;
 }

@@ -8,7 +8,7 @@ export type AssetDetailRecord = {
   taxonomy_detail: { id?: string; prefix?: string; name?: string; asset_type: string; category: string; subcategory: string; specialty: string } | null;
   location_detail: { zone: string; building: string; area: string; room: string; specific_location: string } | null;
   responsible_history: Array<{
-    id: string; responsible: string; type: string; area: string; start_date: string;
+    id: string; responsible: string; code?: string; type: string; area: string; start_date: string;
     end_date: string | null; status: string; reason: string;
   }>;
   repair_history: Array<{
@@ -74,7 +74,7 @@ export async function classifyAsset(id: string, taxonomyId: string) {
 
 import { generateAssetApaPdf } from "@/modules/assets/utils/assetReportPdf";
 
-export async function printAssetPdf(id: string, action: "print" | "download" = "print"): Promise<void> {
+export async function printAssetPdf(id: string, action: "print" | "download" = "print", adminName?: string): Promise<void> {
   try {
     const response = await api.get(`/assets/${id}/pdf/`, { responseType: "blob" });
     const blob = new Blob([response.data], { type: "application/pdf" });
@@ -103,5 +103,5 @@ export async function printAssetPdf(id: string, action: "print" | "download" = "
   }
 
   const asset = await getAssetDetail(id);
-  await generateAssetApaPdf({ asset, action });
+  await generateAssetApaPdf({ asset, action, adminName });
 }

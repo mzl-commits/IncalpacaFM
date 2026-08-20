@@ -2,294 +2,150 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowsClockwise,
-  Barcode,
+  MapPin,
   CaretRight,
   CheckCircle,
-  LinkBreak,
-  LinkSimple,
-  Plus,
-  QrCode,
-  SquaresFour,
+  Buildings,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   FilterSelect,
   ListFilterPanel,
   type ActiveFilter,
-  type FilterOption,
 } from "@/components/filters/ListFilterPanel";
 import { useListFilterParams } from "@/components/filters/filterUtils";
 import { TaxonomySectionNav } from "../components/TaxonomySectionNav";
-import { useFmCodeAssets, useFmCodeSummary } from "../fmCodeQueries";
-import type { FmCodeAsset, FmCodeSummaryOption } from "../types";
+import { useSpaces } from "@/modules/spaces/spacesQueries";
+import { spaceKindLabels, type SpaceKind } from "@/modules/spaces/types";
 
-const FILTER_KEYS = ["q", "taxonomy", "operational", "assignment", "page"] as const;
-const PAGE_SIZE = 25;
-const EMPTY_ASSETS: FmCodeAsset[] = [];
-
-function taxonomyLabel(asset: FmCodeAsset) {
-  return [asset.taxonomyPrefix, asset.taxonomyName].filter(Boolean).join(" — ") || "Sin taxonomía";
-}
-
-function summaryOptions(options: FmCodeSummaryOption[]): FilterOption[] {
-  return options.map((option) => ({
-    value: option.value,
-    label: option.label,
-    count: option.count,
-  }));
-}
-
-function administrativeStatusClass(status: string) {
-  const normalized = status
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("es-PE");
-  if (normalized.includes("revision") || normalized.includes("bloquead")) return "status-warning";
-  if (
-    normalized.includes("baja") ||
-    normalized.includes("inactiv") ||
-    normalized.includes("retirad")
-  )
-    return "status-neutral";
-  if (normalized.includes("registrad") || normalized.includes("activ")) return "status-success";
-  return "status-neutral";
-}
-
-function positivePage(value: string) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
+const FILTER_KEYS = ["q", "kind", "active", "page"] as const;
+const PAGE_SIZE = 50;
 
 export function FmCodeCatalogPage() {
-  const location = useLocation();
   const { values, setValues, clearFilters } = useListFilterParams(FILTER_KEYS);
-  const page = positivePage(values.page);
-  const filters = useMemo(
-    () => ({
-      state: "issued" as const,
-      search: values.q,
-      taxonomyId: values.taxonomy,
-      operationalStatus: values.operational,
-      assignmentStatus: values.assignment,
-      ordering: "fm_code" as const,
-      page,
-      pageSize: PAGE_SIZE,
-    }),
-    [page, values.assignment, values.operational, values.q, values.taxonomy],
-  );
-  const assetsQuery = useFmCodeAssets(filters);
-  const summaryQuery = useFmCodeSummary();
-  const pageData = assetsQuery.data;
-  const codes = pageData?.items ?? EMPTY_ASSETS;
-  const summary = summaryQuery.data;
-  const successMessage = (location.state as { message?: string } | null)?.message;
-  const taxonomyOptions = summaryOptions(summary?.taxonomies ?? []);
-  const operationalOptions = summaryOptions(summary?.operationalStatuses ?? []);
-  const assignmentOptions = summaryOptions(summary?.assignmentStatuses ?? []);
-  const hasFilters = Boolean(
-    values.q || values.taxonomy || values.operational || values.assignment,
-  );
-  const resultCount = pageData?.count ?? 0;
-  const totalCount = summary?.issuedCount ?? (!hasFilters ? resultCount : 0);
-  const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
-  const noIssuedCodes = summary
-    ? summary.issuedCount === 0
-    : !hasFilters && !assetsQuery.isPending && resultCount === 0;
+  
+  const page = Number(values.page) || 1;
+  const filters = useMemo(() => ({
+    q: values.q,
+    kind: values.kind as SpaceKind | "",
+    active: values.active as "true" | "false" | "",
+  }), [values.q, values.kind, values.active]);
 
-  useEffect(() => {
-    if (!assetsQuery.isSuccess || resultCount === 0 || page <= totalPages) return;
-    setValues({ page: totalPages === 1 ? "" : String(totalPages) });
-  }, [assetsQuery.isSuccess, page, resultCount, setValues, totalPages]);
+  const spacesQuery = useSpaces(filters);
+  const allSpaces = spacesQuery.data ?? [];
+  
+  const totalCount = allSpaces.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  
+  const firstResult = (page - 1) * PAGE_SIZE;
+  const spaces = allSpaces.slice(firstResult, firstResult + PAGE_SIZE);
 
-  function updateFilter(key: "q" | "taxonomy" | "operational" | "assignment", value: string) {
+  const activeCount = allSpaces.filter(s => s.active).length;
+  const archivedCount = allSpaces.filter(s => !s.active).length;
+
+  function updateFilter(key: "q" | "kind" | "active", value: string) {
     setValues({ [key]: value, page: "" });
   }
 
-  function setPage(nextPage: number) {
-    setValues({ page: nextPage <= 1 ? "" : String(nextPage) });
+  const activeFilters: ActiveFilter[] = [];
+  if (values.q) {
+    activeFilters.push({ key: "q", label: "Búsqueda", value: values.q, onRemove: () => updateFilter("q", "") });
+  }
+  if (values.kind) {
+    activeFilters.push({ key: "kind", label: "Clasificación", value: spaceKindLabels[values.kind as SpaceKind] || values.kind, onRemove: () => updateFilter("kind", "") });
+  }
+  if (values.active) {
+    activeFilters.push({ key: "active", label: "Estado", value: values.active === "true" ? "Operativo" : "Inactivo", onRemove: () => updateFilter("active", "") });
   }
 
-  const activeFilters: ActiveFilter[] = [];
-  if (values.q)
-    activeFilters.push({
-      key: "q",
-      label: "Búsqueda",
-      value: values.q,
-      onRemove: () => updateFilter("q", ""),
-    });
-  if (values.taxonomy)
-    activeFilters.push({
-      key: "taxonomy",
-      label: "Taxonomía",
-      value:
-        taxonomyOptions.find((option) => option.value === values.taxonomy)?.label ?? "Seleccionada",
-      onRemove: () => updateFilter("taxonomy", ""),
-    });
-  if (values.operational)
-    activeFilters.push({
-      key: "operational",
-      label: "Estado operativo",
-      value: values.operational,
-      onRemove: () => updateFilter("operational", ""),
-    });
-  if (values.assignment)
-    activeFilters.push({
-      key: "assignment",
-      label: "Asignación",
-      value: values.assignment,
-      onRemove: () => updateFilter("assignment", ""),
-    });
-
-  const firstResult = resultCount ? (page - 1) * PAGE_SIZE + 1 : 0;
-  const lastResult = resultCount ? Math.min(page * PAGE_SIZE, resultCount) : 0;
+  const kindOptions = Object.entries(spaceKindLabels).map(([value, label]) => ({ value, label }));
+  const stateOptions = [
+    { value: "true", label: "Operativo (Activo)" },
+    { value: "false", label: "Inactivo (Archivado)" }
+  ];
 
   return (
     <section className="taxonomy-page fm-code-page">
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Inicio / Taxonomía / Códigos FM</p>
-          <h1>Códigos FM</h1>
-          <p>Consulta y asignación de códigos FM.</p>
+          <p className="breadcrumb">Inicio / Administración / Directorio de espacios</p>
+          <h1>Directorio de espacios</h1>
+          <p>Consulta general de todos los ambientes, clasificaciones y estado operativo.</p>
         </div>
-        <Link className="button button-primary" to="/administracion/taxonomia/codigos/nuevo">
-          <Plus weight="bold" /> Asignar código
+        <Link className="button button-primary" to="/administracion/espacios/nuevo">
+          <Buildings weight="bold" /> Nuevo espacio
         </Link>
       </div>
 
       <TaxonomySectionNav />
 
-      {successMessage && (
-        <div className="taxonomy-page-message is-success" role="status">
-          <CheckCircle size={20} weight="fill" /> {successMessage}
-        </div>
-      )}
-
-      {summaryQuery.isError && (
-        <div className="taxonomy-page-message is-warning" role="status">
-          <WarningCircle size={20} weight="fill" />
-          <span>El resumen no está disponible; el listado puede seguir consultándose.</span>
-          <button type="button" onClick={() => summaryQuery.refetch()}>
-            Reintentar resumen
-          </button>
-        </div>
-      )}
-
-      <dl className="taxonomy-summary fm-code-summary" aria-label="Resumen de códigos FM">
+      <dl className="taxonomy-summary fm-code-summary" aria-label="Resumen de espacios">
         <div>
           <header className="taxonomy-summary-card-header">
-            <QrCode size={20} weight="bold" />
-            <dt>EMITIDOS</dt>
+            <Buildings size={20} weight="bold" />
+            <dt>TOTAL ESPACIOS</dt>
           </header>
-          <dd>{summaryQuery.isPending ? "—" : (summary?.issuedCount ?? "—")}</dd>
+          <dd>{spacesQuery.isPending ? "—" : totalCount}</dd>
         </div>
         <div>
           <header className="taxonomy-summary-card-header">
-            <SquaresFour size={20} weight="bold" />
-            <dt>CLASIFICACIONES</dt>
+            <CheckCircle size={20} weight="bold" />
+            <dt>OPERATIVOS</dt>
           </header>
-          <dd>{summaryQuery.isPending ? "—" : (summary?.taxonomyCount ?? "—")}</dd>
+          <dd>{spacesQuery.isPending ? "—" : activeCount}</dd>
         </div>
         <div>
           <header className="taxonomy-summary-card-header">
             <WarningCircle size={20} weight="bold" />
-            <dt>SIN CÓDIGO</dt>
+            <dt>INACTIVOS</dt>
           </header>
-          <dd>{summaryQuery.isPending ? "—" : (summary?.pendingCount ?? "—")}</dd>
-        </div>
-        <div>
-          <header className="taxonomy-summary-card-header">
-            <LinkBreak size={20} weight="bold" />
-            <dt>SIN ASIGNAR</dt>
-          </header>
-          <dd>{summaryQuery.isPending ? "—" : (summary?.unassignedCount ?? "—")}</dd>
+          <dd>{spacesQuery.isPending ? "—" : archivedCount}</dd>
         </div>
       </dl>
 
-      <div
-        className="data-panel taxonomy-data-panel"
-        aria-busy={assetsQuery.isFetching ? "true" : undefined}
-      >
-        {assetsQuery.isPending ? (
+      <div className="data-panel taxonomy-data-panel" aria-busy={spacesQuery.isFetching ? "true" : undefined}>
+        {spacesQuery.isPending ? (
           <div className="taxonomy-table-loading" aria-busy="true">
-            {Array.from({ length: 6 }, (_, index) => (
-              <span key={index} />
-            ))}
-            <span className="sr-only">Cargando códigos FM</span>
+            {Array.from({ length: 6 }, (_, index) => <span key={index} />)}
           </div>
-        ) : assetsQuery.isError ? (
+        ) : spacesQuery.isError ? (
           <div className="taxonomy-state-panel" role="alert">
             <WarningCircle size={32} weight="duotone" />
-            <strong>No se pudieron cargar los códigos FM</strong>
-            <p>La consulta no está disponible. No se modificó ningún bien.</p>
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={() => assetsQuery.refetch()}
-            >
+            <strong>No se pudieron cargar los espacios</strong>
+            <button className="button button-secondary" type="button" onClick={() => spacesQuery.refetch()}>
               <ArrowsClockwise /> Reintentar
             </button>
-          </div>
-        ) : noIssuedCodes ? (
-          <div className="taxonomy-state-panel">
-            <Barcode size={32} weight="duotone" />
-            <strong>Aún no hay códigos FM emitidos</strong>
-            <p>Asigna una clasificación a un bien existente para generar su primer código.</p>
-            <Link className="button button-primary" to="/administracion/taxonomia/codigos/nuevo">
-              <LinkSimple /> Asignar código
-            </Link>
           </div>
         ) : (
           <>
             <ListFilterPanel
-              title="Códigos emitidos"
-              description="Filtra por clasificación y situación operativa del bien."
+              title="Lista de ambientes"
+              description="Filtra por clasificación y estado operativo del sitio."
               searchLabel="Buscar"
-              searchPlaceholder="Buscar por código, bien, marca o modelo"
+              searchPlaceholder="Buscar por código o nombre"
               searchValue={values.q}
               onSearchChange={(value) => updateFilter("q", value)}
-              resultCount={resultCount}
+              resultCount={totalCount}
               totalCount={totalCount}
               activeFilters={activeFilters}
               onClear={clearFilters}
-              quickFilters={[
-                {
-                  key: "unassigned",
-                  label: "Sin asignar",
-                  count: summary?.unassignedCount,
-                  active: values.assignment === "Sin asignar",
-                  onSelect: () =>
-                    updateFilter(
-                      "assignment",
-                      values.assignment === "Sin asignar" ? "" : "Sin asignar",
-                    ),
-                },
-              ]}
+              quickFilters={[]}
             >
               <FilterSelect
-                label="Taxonomía"
-                value={values.taxonomy}
-                onChange={(value) => updateFilter("taxonomy", value)}
-                options={taxonomyOptions}
-                allLabel="Todas las taxonomías"
-                disabled={summaryQuery.isPending || summaryQuery.isError}
+                label="Clasificación"
+                value={values.kind}
+                onChange={(value) => updateFilter("kind", value)}
+                options={kindOptions}
+                allLabel="Cualquier clasificación"
               />
               <FilterSelect
                 label="Estado operativo"
-                value={values.operational}
-                onChange={(value) => updateFilter("operational", value)}
-                options={operationalOptions}
+                value={values.active}
+                onChange={(value) => updateFilter("active", value)}
+                options={stateOptions}
                 allLabel="Cualquier estado"
-                disabled={summaryQuery.isPending || summaryQuery.isError}
-              />
-              <FilterSelect
-                label="Asignación"
-                value={values.assignment}
-                onChange={(value) => updateFilter("assignment", value)}
-                options={assignmentOptions}
-                allLabel="Cualquier situación"
-                disabled={summaryQuery.isPending || summaryQuery.isError}
               />
             </ListFilterPanel>
 
@@ -297,53 +153,37 @@ export function FmCodeCatalogPage() {
               <table className="taxonomy-table fm-code-table">
                 <thead>
                   <tr>
-                    <th>Código FM</th>
-                    <th>Bien</th>
-                    <th>Taxonomía</th>
+                    <th>Código</th>
+                    <th>Ambiente</th>
+                    <th>Clasificación</th>
                     <th>Estado</th>
-                    <th>Asignación</th>
-                    <th>
-                      <span className="sr-only">Acciones</span>
-                    </th>
+                    <th>Bienes asignados</th>
+                    <th><span className="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {codes.map((asset) => (
-                    <tr key={asset.id}>
+                  {spaces.map((space) => (
+                    <tr key={space.id}>
                       <td>
-                        <code className="fm-code-value">{asset.fmCode}</code>
-                        <small>ID técnico: {asset.technicalCode}</small>
+                        <code className="fm-code-value">{space.pathCode || space.code}</code>
                       </td>
                       <td>
-                        <strong>{asset.name}</strong>
-                        <small>
-                          {[asset.brand, asset.model].filter(Boolean).join(" · ") ||
-                            "Sin marca o modelo"}
-                        </small>
+                        <strong>{space.name}</strong>
+                        <small>{space.legacyLocation?.displayName || "Sin referencia legacy"}</small>
                       </td>
                       <td>
-                        <strong>{taxonomyLabel(asset)}</strong>
-                        <small>
-                          {[asset.taxonomyCategory, asset.taxonomySubcategory]
-                            .filter(Boolean)
-                            .join(" / ")}
-                        </small>
+                        <strong>{spaceKindLabels[space.kind as SpaceKind] || space.kind}</strong>
                       </td>
                       <td>
-                        <span
-                          className={`status ${administrativeStatusClass(asset.administrativeStatus)}`}
-                        >
-                          {asset.administrativeStatus}
+                        <span className={`status ${space.active ? "status-success" : "status-neutral"}`}>
+                          {space.active ? "Operativo" : "Inactivo"}
                         </span>
-                        <small>{asset.operationalStatus}</small>
                       </td>
-                      <td>{asset.assignmentStatus}</td>
                       <td>
-                        <Link
-                          className="fm-code-detail-link"
-                          to={`/bienes/${asset.id}`}
-                          aria-label={`Ver detalle de ${asset.fmCode}`}
-                        >
+                        {space.usage?.activeAssignments || 0} bienes
+                      </td>
+                      <td>
+                        <Link className="fm-code-detail-link" to={`/administracion/espacios/${space.id}`}>
                           Ver detalle <CaretRight />
                         </Link>
                       </td>
@@ -353,72 +193,26 @@ export function FmCodeCatalogPage() {
               </table>
             </div>
 
-            <div className="taxonomy-mobile-list fm-code-mobile-list">
-              {codes.map((asset) => (
-                <article key={asset.id}>
-                  <header>
-                    <code>{asset.fmCode}</code>
-                    <span
-                      className={`status ${administrativeStatusClass(asset.administrativeStatus)}`}
-                    >
-                      {asset.administrativeStatus}
-                    </span>
-                  </header>
-                  <h2>{asset.name}</h2>
-                  <p>ID técnico: {asset.technicalCode}</p>
-                  <dl>
-                    <div>
-                      <dt>Taxonomía</dt>
-                      <dd>{taxonomyLabel(asset)}</dd>
-                    </div>
-                    <div>
-                      <dt>Asignación</dt>
-                      <dd>{asset.assignmentStatus}</dd>
-                    </div>
-                  </dl>
-                  <Link to={`/bienes/${asset.id}`} aria-label={`Ver detalle de ${asset.fmCode}`}>
-                    <CaretRight />
-                  </Link>
-                </article>
-              ))}
-            </div>
-
-            {!codes.length && (
+            {!spaces.length && (
               <div className="taxonomy-filter-empty">
-                <Barcode size={26} />
-                <strong>No hay códigos que coincidan</strong>
+                <MapPin size={26} />
+                <strong>No hay ambientes que coincidan</strong>
                 <p>Ajusta o restablece los filtros para ampliar la búsqueda.</p>
-                <button type="button" onClick={clearFilters}>
-                  Restablecer filtros
-                </button>
+                <button type="button" onClick={clearFilters}>Restablecer filtros</button>
               </div>
             )}
 
-            {resultCount > 0 && (
-              <nav className="fm-code-pagination" aria-label="Paginación de códigos FM">
+            {totalCount > PAGE_SIZE && (
+              <nav className="fm-code-pagination" aria-label="Paginación">
                 <p aria-live="polite">
-                  Mostrando{" "}
-                  <strong>
-                    {firstResult}–{lastResult}
-                  </strong>{" "}
-                  de {resultCount}
+                  Mostrando <strong>{firstResult + 1}–{Math.min(firstResult + PAGE_SIZE, totalCount)}</strong> de {totalCount}
                 </p>
                 <div>
-                  <button
-                    type="button"
-                    disabled={!pageData?.previous || assetsQuery.isFetching}
-                    onClick={() => setPage(page - 1)}
-                  >
+                  <button type="button" disabled={page <= 1} onClick={() => setValues({ page: String(page - 1) })}>
                     <ArrowLeft /> Anterior
                   </button>
-                  <span>
-                    Página <strong>{page}</strong> de {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={!pageData?.next || assetsQuery.isFetching}
-                    onClick={() => setPage(page + 1)}
-                  >
+                  <span>Página <strong>{page}</strong> de {totalPages}</span>
+                  <button type="button" disabled={page >= totalPages} onClick={() => setValues({ page: String(page + 1) })}>
                     Siguiente <ArrowRight />
                   </button>
                 </div>
