@@ -92,10 +92,11 @@ class Command(BaseCommand):
                 plan_actual = planes_cache[almacen.id]
                 criterios = list(plantilla.criterios.all())
 
-                # Frecuencia en meses y periodicidad en días
-                frecuencia_meses = getattr(material, "frecuencia_uso_meses", None) or 3
-                periodicidad_dias = frecuencia_meses * 30
-                proxima_fecha = fecha_base + relativedelta(months=frecuencia_meses)
+                # Periodicidad en días real del material (por defecto 60 días / 2 meses si fuera menor)
+                periodicidad_dias = max(material.periodicidad_inspeccion_dias or 60, 60)
+                from apps.inspeccion.planificacion import _ajustar_dia_laborable
+                from datetime import timedelta
+                proxima_fecha = _ajustar_dia_laborable(fecha_base + timedelta(days=periodicidad_dias))
 
                 # A) Control individual por piezas
                 if material.control_individual:
