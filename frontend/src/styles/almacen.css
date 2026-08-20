@@ -1050,6 +1050,72 @@
     gap: 10px;
     padding: 12px;
   }
+}
+/* ─── Historial de Inspecciones — tabla (desktop) vs tarjetas (móvil) ───────── */
+.inspecciones-table-desktop { display: block; }
+.inspecciones-cards-mobile { display: none; }
+
+.insp-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.insp-card.is-open { border-color: #cbd5e1; }
+.insp-card-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.insp-card-summary:active { background: #f9fafb; }
+.insp-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.insp-card-fecha {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.insp-card-nombre-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.insp-card-nombre { font-size: 14px; font-weight: 600; color: var(--text); }
+.insp-card-caret { flex-shrink: 0; color: var(--muted); transition: transform .15s ease; }
+.insp-card-caret.is-open { transform: rotate(180deg); }
+.insp-card-detalle {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.insp-card-field { display: flex; flex-direction: column; gap: 2px; }
+.insp-card-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.insp-card-value { font-size: 13px; color: var(--text); }
+.insp-card-ver { margin-top: 4px; justify-self: start; }
+
+@media (max-width: 768px) {
   .inspecciones-table-desktop { display: none; }
   .inspecciones-cards-mobile {
     display: grid;

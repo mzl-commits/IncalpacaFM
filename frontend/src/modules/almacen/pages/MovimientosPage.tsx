@@ -13,13 +13,11 @@ import { buildFilterOptions, useListFilterParams } from "@/components/filters/fi
 import {
   listCategorias,
   listSubcategorias,
-  listMateriales,
-  listPiezas,
 } from "@/modules/almacen/catalogoRepository";
 import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
 
 const FILTER_KEYS = [
-  "q", "categoria", "subcategoria", "material", "pieza",
+  "q", "categoria", "subcategoria",
   "tipo", "responsable", "fecha_desde", "fecha_hasta",
 ] as const;
 
@@ -52,28 +50,6 @@ function fechaMovimiento(mov: any): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function fmt(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function rangoHoy(): [string, string] {
-  const hoy = fmt(new Date());
-  return [hoy, hoy];
-}
-
-function rangoSemana(): [string, string] {
-  const hoy = new Date();
-  const inicio = new Date(hoy);
-  inicio.setDate(hoy.getDate() - hoy.getDay());
-  return [fmt(inicio), fmt(hoy)];
-}
-
-function rangoMes(): [string, string] {
-  const hoy = new Date();
-  const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  return [fmt(inicio), fmt(hoy)];
-}
-
 export function MovimientosPage() {
   const { almacenId } = useAlmacenActivo();
   const { user } = useAuth();
@@ -104,23 +80,6 @@ export function MovimientosPage() {
       listSubcategorias(almacenId, values.categoria ? Number(values.categoria) : undefined),
   });
 
-  const { data: materiales = [] } = useQuery({
-    queryKey: ["materiales", almacenId, values.categoria, values.subcategoria],
-    queryFn: () =>
-      listMateriales(almacenId, {
-        categoria: values.categoria ? Number(values.categoria) : undefined,
-        subcategoria: values.subcategoria ? Number(values.subcategoria) : undefined,
-      }),
-  });
-
-  const materialSeleccionado = materiales.find((m) => String(m.id) === values.material);
-
-  const { data: piezas = [] } = useQuery({
-    queryKey: ["piezas", values.material],
-    queryFn: () => listPiezas({ material: Number(values.material) }),
-    enabled: !!values.material && !!materialSeleccionado?.control_individual,
-  });
-
   const { data: usuarios = [] } = useQuery({ queryKey: ["usuarios"], queryFn: listUsuarios });
 
   const tipoOptions = buildFilterOptions(["entrada", "salida", "baja"], TIPO_LABELS);
@@ -131,14 +90,6 @@ export function MovimientosPage() {
   const subcategoriaOptions = buildFilterOptions(
     subcategorias.map((s) => String(s.id)),
     Object.fromEntries(subcategorias.map((s) => [String(s.id), s.nombre ?? ""])),
-  );
-  const materialOptions = buildFilterOptions(
-    materiales.map((m) => String(m.id)),
-    Object.fromEntries(materiales.map((m) => [String(m.id), `${m.codigo ?? ""} — ${m.nombre ?? ""}`])),
-  );
-  const piezaOptions = buildFilterOptions(
-    piezas.map((p) => String(p.id)),
-    Object.fromEntries(piezas.map((p) => [String(p.id), p.codigo ?? ""])),
   );
   const responsableOptions = buildFilterOptions(
     usuarios.map((u) => String(u.id)),
@@ -156,8 +107,6 @@ export function MovimientosPage() {
     queryFn: () =>
       listMovimientos(almacenId, {
         tipo: (values.tipo || undefined) as TipoMovimiento | undefined,
-        material: values.material ? Number(values.material) : undefined,
-        pieza: values.pieza ? Number(values.pieza) : undefined,
         responsable: values.responsable ? Number(values.responsable) : undefined,
         fecha_desde: values.fecha_desde || undefined,
         fecha_hasta: values.fecha_hasta || undefined,
@@ -186,6 +135,7 @@ export function MovimientosPage() {
     return base.filter((mov: any) => {
       const campos = [
         mov.material_codigo,
+        mov.material_codigo_ekipu,
         mov.material_nombre,
         mov.material_ubicacion,
         mov.pieza_codigo,
@@ -275,8 +225,6 @@ export function MovimientosPage() {
         onRemove: () => {
           setValue("categoria", "");
           setValue("subcategoria", "");
-          setValue("material", "");
-          setValue("pieza", "");
         },
       });
     }
@@ -288,29 +236,7 @@ export function MovimientosPage() {
         value: sub?.nombre ?? values.subcategoria,
         onRemove: () => {
           setValue("subcategoria", "");
-          setValue("material", "");
-          setValue("pieza", "");
         },
-      });
-    }
-    if (values.material) {
-      filters.push({
-        key: "material",
-        label: "Material",
-        value: materialSeleccionado ? `${materialSeleccionado.codigo ?? ""} — ${materialSeleccionado.nombre ?? ""}` : values.material,
-        onRemove: () => {
-          setValue("material", "");
-          setValue("pieza", "");
-        },
-      });
-    }
-    if (values.pieza) {
-      const pieza = piezas.find((p) => String(p.id) === values.pieza);
-      filters.push({
-        key: "pieza",
-        label: "Pieza",
-        value: pieza?.codigo ?? values.pieza,
-        onRemove: () => setValue("pieza", ""),
       });
     }
     if (values.tipo) {
@@ -342,33 +268,7 @@ export function MovimientosPage() {
       });
     }
     return filters;
-  }, [values, categorias, subcategorias, materialSeleccionado, piezas, usuarios, setValue]);
-
-  // ── Vistas rápidas de fecha (pills del ListFilterPanel) ─────────────────
-  const [hoyDesde, hoyHasta] = rangoHoy();
-  const [semanaDesde, semanaHasta] = rangoSemana();
-  const [mesDesde, mesHasta] = rangoMes();
-
-  const quickFilters = [
-    {
-      key: "hoy",
-      label: "Hoy",
-      active: values.fecha_desde === hoyDesde && values.fecha_hasta === hoyHasta,
-      onSelect: () => { setValue("fecha_desde", hoyDesde); setValue("fecha_hasta", hoyHasta); },
-    },
-    {
-      key: "semana",
-      label: "Esta semana",
-      active: values.fecha_desde === semanaDesde && values.fecha_hasta === semanaHasta,
-      onSelect: () => { setValue("fecha_desde", semanaDesde); setValue("fecha_hasta", semanaHasta); },
-    },
-    {
-      key: "mes",
-      label: "Este mes",
-      active: values.fecha_desde === mesDesde && values.fecha_hasta === mesHasta,
-      onSelect: () => { setValue("fecha_desde", mesDesde); setValue("fecha_hasta", mesHasta); },
-    },
-  ];
+  }, [values, categorias, subcategorias, usuarios, setValue]);
 
   const filasProcesadas = useMemo(
     () =>
@@ -449,39 +349,22 @@ export function MovimientosPage() {
         totalCount={movimientos?.length ?? 0}
         activeFilters={activeFilters}
         onClear={clearFilters}
-        quickFilters={quickFilters}
       >
         <FilterSelect
           label="Categoría"
           value={values.categoria}
-          onChange={(v) => { setValue("categoria", v); setValue("subcategoria", ""); setValue("material", ""); setValue("pieza", ""); }}
+          onChange={(v) => { setValue("categoria", v); setValue("subcategoria", ""); }}
           options={categoriaOptions}
           allLabel="Todas las categorías"
         />
         <FilterSelect
           label="Subcategoría"
           value={values.subcategoria}
-          onChange={(v) => { setValue("subcategoria", v); setValue("material", ""); setValue("pieza", ""); }}
+          onChange={(v) => { setValue("subcategoria", v); }}
           options={subcategoriaOptions}
           allLabel="Todas las subcategorías"
           disabled={!values.categoria}
         />
-        <FilterSelect
-          label="Material"
-          value={values.material}
-          onChange={(v) => { setValue("material", v); setValue("pieza", ""); }}
-          options={materialOptions}
-          allLabel="Todos los materiales"
-        />
-        {materialSeleccionado?.control_individual && (
-          <FilterSelect
-            label="Pieza"
-            value={values.pieza}
-            onChange={(v) => setValue("pieza", v)}
-            options={piezaOptions}
-            allLabel="Todas las piezas"
-          />
-        )}
         <FilterSelect
           label="Tipo"
           value={values.tipo}

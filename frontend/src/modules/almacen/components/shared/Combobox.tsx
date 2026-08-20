@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface ComboboxOption {
   id: number;
@@ -23,7 +24,15 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const fetchOptionsRef = useRef(fetchOptions);
+  // Identifica esta instancia para el evento global de "un combobox se
+  // abrió" — así cada renglón sabe si el que se abrió es él mismo o otro.
+  const instanceId = useId();
+  // El panel se renderiza vía portal (fuera de la fila de material), así que
+  // necesita su posición en coordenadas de viewport en vez de heredarla del
+  // flujo normal del documento.
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Los formularios suelen declarar fetchOptions en línea. Guardarla en una
   // referencia evita que cada render reinicie la búsqueda mientras el usuario
@@ -37,6 +46,7 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
     setQuery("");
     setDebounced("");
     setOptions([]);
+    setPanelPos(null);
   }
 
   function selectOption(option: ComboboxOption) {
@@ -65,12 +75,51 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
   }, [debounced, open]);
 
   useEffect(() => {
+    if (!open) return;
+    function updatePosition() {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (rect) setPanelPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+    updatePosition();
+    // capture=true para enterarnos también del scroll de contenedores internos
+    // (ej. una tabla con scroll propio), no solo del scroll de la ventana.
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open]);
+
+  useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) closePanel();
+      const target = event.target as Node;
+      const dentroInput = containerRef.current?.contains(target);
+      const dentroPanel = panelRef.current?.contains(target);
+      if (!dentroInput && !dentroPanel) closePanel();
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
+
+  // Solo un Combobox puede estar abierto a la vez. Si se abre otra instancia
+  // (ej. el renglón de abajo, o el buscador de estuche), esta se cierra sola.
+  // Sin esto, dos paneles quedaban renderizados al mismo tiempo con el mismo
+  // z-index y sus opciones se veían entrelazadas/"transparentes".
+  useEffect(() => {
+    const onOtherOpened = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: string }>).detail;
+      if (detail?.id !== instanceId) {
+        setOpen(false);
+        setQuery("");
+        setDebounced("");
+        setOptions([]);
+        setPanelPos(null);
+      }
+    };
+    document.addEventListener("combobox:open", onOtherOpened);
+    return () => document.removeEventListener("combobox:open", onOtherOpened);
+  }, [instanceId]);
 
   return (
     <div className="combobox" ref={containerRef} style={{ position: "relative" }}>
@@ -84,7 +133,11 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
         aria-autocomplete="list"
         aria-expanded={open}
         aria-controls="combobox-options"
-        onFocus={() => { setOpen(true); setQuery(""); }}
+        onFocus={() => {
+          setOpen(true);
+          setQuery("");
+          document.dispatchEvent(new CustomEvent("combobox:open", { detail: { id: instanceId } }));
+        }}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -98,16 +151,17 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
           }
         }}
       />
-      {open && (
+      {open && panelPos && createPortal(
         <div
+          ref={panelRef}
           id="combobox-options"
           role="listbox"
           className="combobox-panel"
           style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            right: 0,
+            position: "fixed",
+            top: panelPos.top,
+            left: panelPos.left,
+            width: panelPos.width,
             zIndex: 9999,
             background: "#ffffff",
             opacity: 1,
@@ -151,7 +205,8 @@ export function Combobox({ value, selectedLabel, onChange, fetchOptions, placeho
               {option.sublabel && <span>{option.sublabel}</span>}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

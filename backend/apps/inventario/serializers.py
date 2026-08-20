@@ -15,6 +15,7 @@ User = get_user_model()
 
 class MovimientoSerializer(serializers.ModelSerializer):
     material_codigo = serializers.CharField(source="material.codigo", read_only=True)
+    material_codigo_ekipu = serializers.CharField(source="material.codigo_ekipu", read_only=True, default=None)
     material_nombre = serializers.CharField(source="material.nombre", read_only=True)
     material_ubicacion = serializers.CharField(source="material.ubicacion_fisica", read_only=True, default="")
     material_stock_minimo = serializers.IntegerField(source="material.stock_minimo", read_only=True, default=0)
@@ -27,7 +28,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movimiento
         fields = [
-            "id", "material", "material_codigo", "material_nombre",
+            "id", "material", "material_codigo", "material_codigo_ekipu", "material_nombre",
             "material_ubicacion", "material_stock_minimo", "material_cantidad_total",
             "pieza", "pieza_codigo", "tipo", "tipo_display", "cantidad",
             "cantidad_cajas",
@@ -410,7 +411,6 @@ class GrupoSolicitudDetailSerializer(serializers.ModelSerializer):
             "supporting_technicians": tech_apoyo,
         }
 
-
 class ResolverParcialItemSerializer(serializers.Serializer):
     """Representa la decisión del administrador para un item individual del grupo."""
     solicitud_id = serializers.IntegerField()
@@ -423,7 +423,6 @@ class ResolverParcialItemSerializer(serializers.Serializer):
                 "motivo_no_entrega": "El motivo de no entrega es obligatorio si el material no es aprobado."
             })
         return attrs
-
 
 class ResolverParcialGrupoSerializer(serializers.Serializer):
     """Payload para aprobación/rechazo parcial de un grupo."""
