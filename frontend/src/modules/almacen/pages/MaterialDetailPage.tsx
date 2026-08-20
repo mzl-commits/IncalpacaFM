@@ -1,8 +1,8 @@
 import {
-  ArrowLeft, ArrowRight, ClipboardText, DownloadSimple, FileXls, Package, PencilSimple, Plus, Trash, WarningCircle,
+  ArrowLeft, ArrowRight, CaretDown, ClipboardText, DownloadSimple, FileXls, Package, PencilSimple, Plus, Trash, WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -20,6 +20,50 @@ import { AjustarStockPanel } from "@/modules/almacen/components/AjustarStockPane
 import { PiezaTreeRow } from "@/modules/almacen/components/PiezaTreeRow";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
+
+/** Tarjeta desplegable reutilizada por los historiales de Movimientos e Inspecciones. */
+function AccordionCard({
+  headerLeft,
+  headerRight,
+  children,
+  defaultOpen = false,
+}: {
+  headerLeft: ReactNode;
+  headerRight?: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="accordion-card">
+      <button
+        type="button"
+        className="accordion-card-header"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+      >
+        <span className="accordion-card-header-left">{headerLeft}</span>
+        <span className="accordion-card-header-right">
+          {headerRight}
+          <CaretDown
+            size={16}
+            style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s ease", flexShrink: 0, color: "var(--muted, #94a3b8)" }}
+          />
+        </span>
+      </button>
+      {open && <div className="accordion-card-body">{children}</div>}
+    </div>
+  );
+}
+
+function AccordionField({ label, value, full = false }: { label: string; value: ReactNode; full?: boolean }) {
+  return (
+    <div style={full ? { gridColumn: "1 / -1" } : undefined}>
+      <p className="accordion-field-label">{label}</p>
+      <p className="accordion-field-value">{value}</p>
+    </div>
+  );
+}
 
 export function MaterialDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -156,6 +200,67 @@ export function MaterialDetailPage() {
           align-items: center !important;
           gap: 10px !important;
           width: 100% !important;
+        }
+        .accordion-list {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 8px !important;
+        }
+        .accordion-card {
+          border: 1px solid var(--border, #e5e7eb) !important;
+          border-radius: 10px !important;
+          overflow: hidden !important;
+          background: var(--surface, #fff) !important;
+        }
+        .accordion-card-header {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          gap: 10px !important;
+          width: 100% !important;
+          padding: 12px 14px !important;
+          border: none !important;
+          background: none !important;
+          cursor: pointer !important;
+          text-align: left !important;
+        }
+        .accordion-card-header-left {
+          display: flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          flex-wrap: wrap !important;
+          min-width: 0 !important;
+        }
+        .accordion-card-header-right {
+          display: flex !important;
+          align-items: center !important;
+          gap: 8px !important;
+          flex-shrink: 0 !important;
+        }
+        .accordion-date {
+          font-size: 12px !important;
+          color: var(--muted, #64748b) !important;
+          white-space: nowrap !important;
+        }
+        .accordion-card-body {
+          display: grid !important;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+          gap: 12px !important;
+          padding: 4px 14px 14px !important;
+          border-top: 1px solid var(--border, #f1f5f9) !important;
+          padding-top: 12px !important;
+        }
+        .accordion-field-label {
+          margin: 0 !important;
+          font-size: 11px !important;
+          text-transform: uppercase !important;
+          letter-spacing: .03em !important;
+          color: var(--muted, #94a3b8) !important;
+        }
+        .accordion-field-value {
+          margin: 2px 0 0 !important;
+          font-size: 13px !important;
+          color: var(--text, #0f172a) !important;
         }
       `}</style>
 
@@ -483,44 +588,23 @@ export function MaterialDetailPage() {
                 </Link>
               </div>
             </div>
-            <div className="table-scroll">
-              <table className="tabla-detalle-mobile">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Pieza / Cant.</th>
-                    <th>Responsable</th>
-                    <th>Referencia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movimientos.slice(0, 5).map((mov) => (
-                    <tr key={mov.id}>
-                      <td className="col-fecha" style={{ fontSize: 12 }}>
-                        {new Date(mov.fecha).toLocaleDateString("es-PE")}
-                      </td>
-                      <td className="col-tipo">
-                        <StatusBadge value={mov.tipo} label={mov.tipo_display} />
-                      </td>
-                      <td className="col-detalle" data-label="Pieza/Cant." style={{ fontSize: 12 }}>
-                        {mov.pieza_codigo ?? `${mov.cantidad} u.`}
-                      </td>
-                      <td className="col-detalle" data-label="Responsable" style={{ fontSize: 12 }}>
-                        {mov.responsable_nombre}
-                      </td>
-                      <td className="col-detalle" data-label="Referencia" style={{ fontSize: 12, color: "var(--muted)" }}>
-                        {mov.referencia_externa || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                  {movimientos.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="empty-row">Sin movimientos.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="accordion-list">
+              {movimientos.slice(0, 5).map((mov) => (
+                <AccordionCard
+                  key={mov.id}
+                  headerLeft={
+                    <>
+                      <span className="accordion-date">{new Date(mov.fecha).toLocaleDateString("es-PE")}</span>
+                      <StatusBadge value={mov.tipo} label={mov.tipo_display} />
+                    </>
+                  }
+                >
+                  <AccordionField label="Pieza / Cant." value={mov.pieza_codigo ?? `${mov.cantidad} u.`} />
+                  <AccordionField label="Responsable" value={mov.responsable_nombre} />
+                  <AccordionField label="Referencia" value={mov.referencia_externa || "—"} />
+                </AccordionCard>
+              ))}
+              {movimientos.length === 0 && <p className="empty-row">Sin movimientos.</p>}
             </div>
           </div>
 
@@ -533,16 +617,14 @@ export function MaterialDetailPage() {
                   <>
                     <button
                       type="button"
-                      className="button button-secondary"
-                      style={{ fontSize: 13 }}
+                      className="button button-sm button-secondary"
                       onClick={() => exportarHistorialInspeccionesExcel(material.id, material.codigo)}
                     >
                       <DownloadSimple size={14} /> Excel
                     </button>
                     <button
                       type="button"
-                      className="button button-secondary"
-                      style={{ fontSize: 13 }}
+                      className="button button-sm button-secondary"
                       onClick={() => exportarHistorialInspeccionesPdf(material.id, material.codigo)}
                     >
                       <DownloadSimple size={14} /> PDF
@@ -554,50 +636,39 @@ export function MaterialDetailPage() {
                 </Link>
               </div>
             </div>
-            <div className="table-scroll">
-              <table className="tabla-detalle-mobile">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Resultado</th>
-                    <th>Inspector</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inspecciones.slice(0, 5).map((insp) => (
-                    <tr key={insp.id}>
-                      <td className="col-fecha" style={{ fontSize: 12 }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {new Date(insp.fecha).toLocaleDateString("es-PE")}
-                          <TrimestreBadge
-                            fecha={insp.fecha}
-                            periodicidadDias={material.periodicidad_inspeccion_dias}
-                          />
-                        </span>
-                      </td>
-                      <td className="col-detalle" data-label="Tipo" style={{ fontSize: 12 }}>
-                        {insp.tipo === "individual" ? "Individual" : "Grupal"}
-                      </td>
-                      <td className="col-tipo"><StatusBadge value={insp.resultado_general} /></td>
-                      <td className="col-detalle" data-label="Inspector" style={{ fontSize: 12 }}>
-                        {insp.inspector_nombre}
-                      </td>
-                      <td className="col-action">
-                        <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}`} className="table-action" aria-label="Ver inspección">
-                          <ArrowRight size={14} />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                  {inspecciones.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="empty-row">Sin inspecciones.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="accordion-list">
+              {inspecciones.slice(0, 5).map((insp) => (
+                <AccordionCard
+                  key={insp.id}
+                  headerLeft={
+                    <>
+                      <span className="accordion-date">{new Date(insp.fecha).toLocaleDateString("es-PE")}</span>
+                      <TrimestreBadge
+                        fecha={insp.fecha}
+                        periodicidadDias={material.periodicidad_inspeccion_dias}
+                      />
+                      <StatusBadge value={insp.resultado_general} />
+                    </>
+                  }
+                >
+                  <AccordionField label="Tipo" value={insp.tipo === "individual" ? "Individual" : "Grupal"} />
+                  <AccordionField label="Inspector" value={insp.inspector_nombre} />
+                  <AccordionField
+                    label="Detalle"
+                    full
+                    value={
+                      <Link
+                        to={`/almacen/${almacenId}/inspecciones/${insp.id}`}
+                        className="button button-secondary button-sm"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4 }}
+                      >
+                        Ver inspección completa <ArrowRight size={14} />
+                      </Link>
+                    }
+                  />
+                </AccordionCard>
+              ))}
+              {inspecciones.length === 0 && <p className="empty-row">Sin inspecciones.</p>}
             </div>
           </div>
         </div>

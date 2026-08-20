@@ -995,7 +995,7 @@ export function MovimientoFormPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <p style={{ fontSize: 13, color: "var(--muted, #6b7280)", margin: 0 }}>
                   {tipo === "salida"
-                    ? "Agrega los materiales que saldrán: indica cantidad o con control individual (elige la pieza o el estuche)."
+                    ? "Agrega los materiales que saldrán: indica cantidad o con control individual."
                     : "Agrega los materiales que se devuelven: consumibles (indica cantidad) o con control individual (elige qué pieza prestada devuelves)."}
                 </p>
 

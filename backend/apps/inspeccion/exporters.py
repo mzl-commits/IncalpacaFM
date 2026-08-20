@@ -1061,7 +1061,7 @@ def generar_pdf_inspeccion(inspeccion):
         logo_img = Paragraph("", styles["Normal"])
 
     marca_cell = Table(
-        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facilities Management</font>", empresa_style)]],
+        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facility Management</font>", empresa_style)]],
         colWidths=[1.3 * cm, 6 * cm],
     )
     marca_cell.setStyle(TableStyle([
@@ -1369,7 +1369,7 @@ def generar_excel_historial_material(material):
     ws["C1"] = "INCALPACA"
     ws["C1"].font = Font(bold=True, size=14, color=NEGRO_HEX)
     ws.merge_cells("C2:I2")
-    ws["C2"] = "Facilities Management · Sistema de Gestión de Almacén"
+    ws["C2"] = "Facility Management · Sistema de Gestión de Almacén"
     ws["C2"].font = Font(size=8.5, italic=True, color=GRIS_MEDIO_HEX)
 
     # ── Título del reporte ──
@@ -1526,7 +1526,7 @@ def generar_pdf_historial_material(material):
     else:
         logo_img = Paragraph("", styles["Normal"])
     marca_cell = Table(
-        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facilities Management</font>", empresa_style)]],
+        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facility Management</font>", empresa_style)]],
         colWidths=[1.35 * cm, 6 * cm],
     )
     marca_cell.setStyle(TableStyle([
