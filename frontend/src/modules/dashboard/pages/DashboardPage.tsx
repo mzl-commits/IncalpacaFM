@@ -472,6 +472,45 @@ function AdministrativeDashboard() {
               </nav>
             </section>
           </div>
+
+          {/* LOG DE ACCIONES DE AUDITORÍA (ENTRADAS, SALIDAS, BAJAS) */}
+          <section className="activity-panel data-panel" aria-labelledby="activity-panel-title" style={{ marginTop: "24px" }}>
+            <header className="panel-header">
+              <h2 id="activity-panel-title" className="panel-title">LOG DE AUDITORÍA Y MOVIMIENTOS</h2>
+              <span className="panel-badge-counter">{activities.length} registros recientes</span>
+            </header>
+            {activities.length > 0 ? (
+              <div className="activity-list-container">
+                <table className="activity-table" aria-label="Log de acciones recientes">
+                  <tbody>
+                    {activities.map((activity) => (
+                      <tr key={activity.id} onClick={() => window.location.href = activity.to} style={{ cursor: "pointer" }}>
+                        <td className="activity-title-cell">
+                          <div className="activity-title-wrapper">
+                            {activity.type === "asset" && <Package size={18} weight="bold" />}
+                            {activity.type === "assignment" && <Clock size={18} weight="bold" />}
+                            {activity.type === "retirement" && <WarningCircle size={18} weight="bold" />}
+                            <span>{activity.title}</span>
+                          </div>
+                        </td>
+                        <td className="activity-detail-cell">{activity.detail}</td>
+                        <td style={{ textAlign: "right", color: "#666", fontSize: "12.5px" }}>
+                          {formatDate(activity.date)}
+                        </td>
+                        <td style={{ width: "40px", textAlign: "center", color: "#999" }}>
+                          <CaretRight size={16} weight="bold" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: "40px 20px", textAlign: "center", color: "#666", fontSize: "14px" }}>
+                No hay movimientos recientes en el inventario o asignaciones.
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>
