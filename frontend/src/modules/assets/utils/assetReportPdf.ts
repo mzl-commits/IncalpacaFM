@@ -13,19 +13,6 @@ function formatDate(dateStr?: string | null) {
   }).format(date);
 }
 
-function formatDateLong(dateStr?: string | null) {
-  if (!dateStr) return "Fecha no registrada";
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return dateStr;
-  return new Intl.DateTimeFormat("es-PE", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
 function conditionLabel(val?: string | null) {
   const map: Record<string, string> = {
     BUENO: "Bueno",
@@ -46,6 +33,418 @@ function statusLabel(val?: string | null) {
     COMPLETADA: "Completada",
   };
   return val ? (map[val] ?? val) : "—";
+}
+
+function strVal(val: unknown, fallback = "—"): string {
+  if (val === null || val === undefined || val === "") return fallback;
+  return String(val);
+}
+
+/**
+ * Genera la FICHA DE ASIGNACIÓN DEL BIEN centrada exclusivamente en la custodia y asignación formal.
+ * Cumple con el estándar institucional de INCALPACA FM S.A.
+ */
+export async function generateAssetAssignmentPdf({
+  asset,
+  action = "print",
+  adminName,
+}: {
+  asset: AssetDetailRecord;
+  action?: "download" | "print";
+  adminName?: string;
+}) {
+  const publicUrl = asset.public_url || `${window.location.origin}/bienes/${asset.id}`;
+  const qrDataUrl = await QRCode.toDataURL(publicUrl, {
+    margin: 1,
+    width: 200,
+    color: { dark: "#000000", light: "#ffffff" },
+  });
+
+  const nowStr = formatDate(new Date().toISOString());
+  const payload = (asset as unknown as { entry_payload?: Record<string, unknown> }).entry_payload || {};
+
+  // 1. Identificación del bien
+  const technicalId = asset.code || "—";
+  const taxonomyCode = asset.display_code || asset.fm_code || asset.code;
+  const brandVal = asset.brand || (payload.brand as string) || "—";
+  const modelVal = asset.model || (payload.model as string) || "—";
+  const brandModel = (brandVal !== "—" || modelVal !== "—") ? `${brandVal} / ${modelVal}` : "—";
+  const descVal = asset.description || (payload.description as string) || "—";
+
+  // 2. Datos de asignación activa
+  const activeResponsible = asset.responsible_history?.find(r => r.status === "ACTIVA")
+    ?? asset.responsible_history?.[0]
+    ?? null;
+
+  const workerCode = (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.worker_code
+    || (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.workerCode
+    || (payload.assigneeId as string)
+    || (payload.workerCode as string)
+    || "—";
+
+  const respName = activeResponsible?.responsible
+    || (payload.assigneeName as string)
+    || (payload.responsibleName as string)
+    || (payload.responsible as string)
+    || "No asignado";
+
+  const areaVal = activeResponsible?.area
+    || asset.location_detail?.area
+    || (payload.locationArea as string)
+    || (payload.area as string)
+    || "—";
+
+  const costCenterVal = (activeResponsible as unknown as { cost_center?: string; costCenter?: string })?.cost_center
+    || (activeResponsible as unknown as { cost_center?: string; costCenter?: string })?.costCenter
+    || (payload.costCenter as string)
+    || "—";
+
+  const locParts: string[] = [];
+  if (asset.location_detail) {
+    if (asset.location_detail.zone) locParts.push(asset.location_detail.zone);
+    if (asset.location_detail.building) locParts.push(asset.location_detail.building);
+    if (asset.location_detail.area) locParts.push(asset.location_detail.area);
+    if (asset.location_detail.room) locParts.push(asset.location_detail.room);
+    if (asset.location_detail.specific_location) locParts.push(asset.location_detail.specific_location);
+  } else if (payload.site || payload.locationArea || payload.room) {
+    [payload.site, payload.building, payload.locationArea, payload.room].forEach(p => {
+      if (p) locParts.push(String(p));
+    });
+  }
+  const locationPhysical = locParts.length > 0 ? locParts.join(" · ") : "Ubicación en planta principal";
+
+  const asgDate = formatDate(activeResponsible?.start_date || (payload.assignmentDate as string) || asset.created_at);
+  const startDateStr = asgDate;
+  const endDateStr = activeResponsible?.end_date ? formatDate(activeResponsible.end_date) : "Vigente / Indefinida";
+  const asgStatusStr = statusLabel(activeResponsible?.status) || asset.assignment_status || "Asignado";
+
+  // 3. Motivo de asignación
+  const reasonVal = activeResponsible?.reason
+    || (payload.assignmentReason as string)
+    || "Asignación inicial de funciones y custodia operativa del bien.";
+
+  // 4. Condición y observaciones
+  const condStr = conditionLabel(asset.condition || (payload.condition as string) || "NUEVO");
+  const obsAsgStr = (payload.assignmentObservations as string)
+    || (payload.observations as string)
+    || "El bien se entrega en condiciones operativas conformes para el desempeño de sus funciones.";
+
+  const registeredByUser = asset.registered_by_name || (payload.registeredBy as string) || adminName || "Administración FM";
+
+  const photoHtml = asset.photo_url
+    ? `<img src="${asset.photo_url}" alt="Fotografía del bien" style="max-height: 100pt; max-width: 100%; object-fit: contain; border: 0.5pt solid #A0A0A0;" />`
+    : `<div style="width: 100%; height: 75pt; border: 0.5pt dashed #A0A0A0; display: flex; align-items: center; justify-content: center; background: #FAFAFA;">
+        <span style="font-style: italic; color: #777777; font-size: 8pt;">Sin registro fotográfico adjunto</span>
+       </div>`;
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ficha_Asignacion_${technicalId}_${nowStr.replace(/\//g, "-")}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 25.4mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 8.5pt;
+      line-height: 1.3;
+      color: #000000;
+      background: #ffffff;
+    }
+    .main-doc {
+      width: 100%;
+      max-width: 100%;
+    }
+    .header-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1.5pt solid #000000;
+      padding-bottom: 8pt;
+      margin-bottom: 8pt;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10pt;
+    }
+    .company-title {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #000000;
+      letter-spacing: 0.3px;
+    }
+    .company-sub {
+      font-size: 8pt;
+      color: #444444;
+    }
+    .doc-title {
+      font-size: 10pt;
+      font-weight: bold;
+      color: #000000;
+      margin-top: 2pt;
+      text-transform: uppercase;
+    }
+    .header-meta {
+      text-align: right;
+      font-size: 8pt;
+      line-height: 1.35;
+    }
+    .header-qr {
+      width: 44pt;
+      height: 44pt;
+      border: 0.5pt solid #000000;
+      padding: 1pt;
+      background: #ffffff;
+      margin-left: 8pt;
+    }
+    .section-title {
+      font-size: 9.5pt;
+      font-weight: bold;
+      color: #000000;
+      border-bottom: 0.75pt solid #000000;
+      padding-bottom: 2pt;
+      margin-top: 8pt;
+      margin-bottom: 4pt;
+      text-transform: uppercase;
+      page-break-after: avoid;
+    }
+    .table-data {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 4pt;
+      font-size: 8.5pt;
+    }
+    .table-data td {
+      border: 0.5pt solid #A0A0A0;
+      padding: 3.5pt 5pt;
+      vertical-align: middle;
+    }
+    .table-data td.lbl {
+      width: 23%;
+      font-weight: bold;
+      background-color: #F8F9FA;
+      color: #000000;
+    }
+    .table-data td.val {
+      width: 27%;
+      color: #111111;
+    }
+    .box-container {
+      border: 0.5pt solid #A0A0A0;
+      padding: 5pt;
+      background-color: #FFFFFF;
+      margin-bottom: 4pt;
+      font-size: 8.5pt;
+    }
+    .cond-grid {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 6pt;
+    }
+    .cond-grid td {
+      border: 0.5pt solid #A0A0A0;
+      padding: 5pt;
+      vertical-align: top;
+    }
+    .signatures-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 14pt;
+      page-break-inside: avoid;
+      gap: 8pt;
+    }
+    .sig-box {
+      flex: 1;
+      border: 0.5pt solid #A0A0A0;
+      padding: 6pt;
+      background-color: #FCFCFC;
+      font-size: 8pt;
+      line-height: 1.35;
+    }
+    .sig-line {
+      border-top: 0.75pt solid #000000;
+      margin: 18pt 0 4pt 0;
+    }
+    .footer-note {
+      margin-top: 14pt;
+      border-top: 0.5pt solid #000000;
+      padding-top: 4pt;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #444444;
+    }
+  </style>
+</head>
+<body>
+<div class="main-doc">
+
+  <!-- ENCABEZADO INSTITUCIONAL -->
+  <div class="header-box">
+    <div class="header-left">
+      ${INCALPACA_LOGO_SVG}
+      <div>
+        <div class="company-title">INCALPACA FM S.A.</div>
+        <div class="company-sub">Sistema de Gestión Técnica y Bienes</div>
+        <div class="doc-title">FICHA DE ASIGNACIÓN DEL BIEN</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center;">
+      <div class="header-meta">
+        <div>Fecha de Emisión: <strong>${nowStr}</strong></div>
+        <div>ID Técnico Único: <strong>${technicalId}</strong></div>
+        <div>Código Taxonomía: <strong>${taxonomyCode}</strong></div>
+      </div>
+      <img class="header-qr" src="${qrDataUrl}" alt="QR del bien" />
+    </div>
+  </div>
+
+  <!-- 1. IDENTIFICACIÓN DEL BIEN -->
+  <div class="section-title">1. IDENTIFICACIÓN DEL BIEN</div>
+  <table class="table-data">
+    <tbody>
+      <tr>
+        <td class="lbl">ID Técnico Único:</td>
+        <td class="val"><strong>${technicalId}</strong></td>
+        <td class="lbl">Código Taxonomía:</td>
+        <td class="val"><strong>${taxonomyCode}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Nombre del Bien:</td>
+        <td class="val"><strong>${asset.name}</strong></td>
+        <td class="lbl">Marca / Modelo:</td>
+        <td class="val">${brandModel}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Número de Serie:</td>
+        <td class="val">${asset.serial_number || (payload.serialNumber as string) || "—"}</td>
+        <td class="lbl">Descripción Breve:</td>
+        <td class="val">${descVal}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 2. DATOS DE ASIGNACIÓN -->
+  <div class="section-title">2. DATOS DE ASIGNACIÓN</div>
+  <table class="table-data">
+    <tbody>
+      <tr>
+        <td class="lbl">Código de Trabajador:</td>
+        <td class="val"><strong>${workerCode}</strong></td>
+        <td class="lbl">Responsable Asignado:</td>
+        <td class="val"><strong>${respName}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Área:</td>
+        <td class="val">${areaVal}</td>
+        <td class="lbl">Centro de Costo:</td>
+        <td class="val">${costCenterVal}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Ubicación Física:</td>
+        <td class="val">${locationPhysical}</td>
+        <td class="lbl">Estado Asignación:</td>
+        <td class="val"><strong>${asgStatusStr}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Fecha de Asignación:</td>
+        <td class="val">${asgDate}</td>
+        <td class="lbl">Fecha de Inicio:</td>
+        <td class="val">${startDateStr}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Fecha de Finalización:</td>
+        <td class="val" colspan="3">${endDateStr}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 3. MOTIVO DE ASIGNACIÓN -->
+  <div class="section-title">3. MOTIVO DE ASIGNACIÓN</div>
+  <div class="box-container">
+    <strong>Motivo Registrado:</strong> ${reasonVal}
+  </div>
+
+  <!-- 4. CONDICIÓN DEL BIEN AL MOMENTO DE LA ASIGNACIÓN -->
+  <div class="section-title">4. CONDICIÓN DEL BIEN AL MOMENTO DE LA ASIGNACIÓN</div>
+  <table class="cond-grid">
+    <tbody>
+      <tr>
+        <td style="width: 32%; text-align: center;">
+          <div style="font-weight: bold; margin-bottom: 3pt; font-size: 8pt;">FOTOGRAFÍA DEL BIEN</div>
+          ${photoHtml}
+        </td>
+        <td style="width: 68%;">
+          <div style="margin-bottom: 4pt;"><strong>Estado / Condición:</strong> ${condStr}</div>
+          <div style="font-weight: bold; margin-bottom: 2pt;">Observaciones de Entrega:</div>
+          <p style="font-size: 8.5pt; color: #222222; line-height: 1.35;">${obsAsgStr}</p>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 5. CONSTANCIA DE ENTREGA Y RECEPCIÓN -->
+  <div class="section-title">5. CONSTANCIA DE ENTREGA Y RECEPCIÓN</div>
+  <div class="signatures-row">
+    <div class="sig-box">
+      <strong>ENTREGA</strong><br/>
+      <span><strong>Nombre:</strong> ${registeredByUser}</span><br/>
+      <span><strong>Cargo:</strong> Control Patrimonial / FM</span>
+      <div class="sig-line"></div>
+      <span><strong>Firma</strong></span><br/>
+      <span><strong>Fecha:</strong> ${nowStr}</span>
+    </div>
+    <div class="sig-box">
+      <strong>RECIBE</strong><br/>
+      <span><strong>Responsable:</strong> ${respName}</span><br/>
+      <span><strong>Cód. Trabajador:</strong> ${workerCode}</span>
+      <div class="sig-line"></div>
+      <span><strong>Firma</strong></span><br/>
+      <span><strong>Fecha:</strong> ${asgDate}</span>
+    </div>
+    <div class="sig-box">
+      <strong>V°B° SUPERVISOR / ADM.</strong><br/>
+      <span><strong>Nombre:</strong> Rosa Medina</span><br/>
+      <span><strong>Cargo:</strong> Control Patrimonial &amp; FM</span>
+      <div class="sig-line"></div>
+      <span><strong>Firma</strong></span><br/>
+      <span><strong>Fecha:</strong> ${nowStr}</span>
+    </div>
+  </div>
+
+  <!-- PIE DE PÁGINA INSTITUCIONAL -->
+  <div class="footer-note">
+    <span>INCALPACA FM S.A. — Ficha de Asignación y Custodia de Bienes</span>
+    <span>Constancia de responsabilidad emitida por el sistema</span>
+  </div>
+
+</div>
+  <script>
+    if (${action === "print"}) {
+      window.onload = function() {
+        window.focus();
+        window.print();
+      };
+    }
+  </script>
+</body>
+</html>`;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  }
 }
 
 /**
@@ -538,13 +937,8 @@ export async function generateAssetEntryPdf({
   }
 }
 
-function strVal(val: unknown, fallback = "—"): string {
-  if (val === null || val === undefined || val === "") return fallback;
-  return String(val);
-}
-
 /**
- * Generador general (despacha a generateAssetEntryPdf si el tipo es 'entrada').
+ * Generador general (despacha a generateAssetEntryPdf si el tipo es 'entrada' y a generateAssetAssignmentPdf si es 'asignacion').
  */
 export async function generateAssetApaPdf({
   asset,
@@ -560,6 +954,9 @@ export async function generateAssetApaPdf({
   if (reportType === "entrada") {
     return generateAssetEntryPdf({ asset, action, adminName });
   }
+  if (reportType === "asignacion") {
+    return generateAssetAssignmentPdf({ asset, action, adminName });
+  }
 
   const publicUrl = asset.public_url || `${window.location.origin}/bienes/${asset.id}`;
   const qrDataUrl = await QRCode.toDataURL(publicUrl, {
@@ -568,9 +965,7 @@ export async function generateAssetApaPdf({
     color: { dark: "#111111", light: "#ffffff" },
   });
 
-  const displayCode = asset.display_code || asset.fm_code || asset.code;
   const nowStr = formatDate(new Date().toISOString());
-
   const payload = (asset as unknown as { entry_payload?: Record<string, unknown> }).entry_payload || {};
 
   const activeResponsible = asset.responsible_history?.find(r => r.status === "ACTIVA")
