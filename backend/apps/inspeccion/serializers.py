@@ -51,12 +51,15 @@ class InspeccionSerializer(serializers.ModelSerializer):
     # vivía en el Material, no llegaba junto con la Inspeccion.
     material_periodicidad_inspeccion_dias = serializers.SerializerMethodField()
     almacen_nombre = serializers.CharField(source="almacen.nombre", read_only=True)
+    piezas_lote_codigos = serializers.SerializerMethodField()
 
     class Meta:
         model = Inspeccion
         fields = [
-            "id", "tipo", "material", "material_codigo", "material_nombre",
-            "pieza", "pieza_codigo", "piezas_lote", "plantilla", "plantilla_nombre",
+            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "area", "frecuencia",
+            "material", "material_codigo", "material_nombre",
+            "pieza", "pieza_codigo", "piezas_lote", "piezas_lote_codigos",
+            "plantilla", "plantilla_nombre",
             "fecha", "proxima_inspeccion", "inspector", "inspector_nombre",
             "modalidad", "frecuencia", "area_trabajo", "tipos_herramientas",
             "cantidad_inspeccionada", "cantidad_apta", "cantidad_no_apta",
@@ -72,6 +75,9 @@ class InspeccionSerializer(serializers.ModelSerializer):
     def get_material_periodicidad_inspeccion_dias(self, obj) -> int | None:
         material = obj.pieza.material if obj.pieza else obj.material
         return material.periodicidad_inspeccion_dias if material else None
+
+    def get_piezas_lote_codigos(self, obj) -> list[str]:
+        return list(obj.piezas_lote.values_list("codigo", flat=True))
 
 class DocumentoInspeccionSerializer(serializers.ModelSerializer):
     subido_por_nombre = serializers.SerializerMethodField()
@@ -111,15 +117,17 @@ class DocumentoInspeccionSerializer(serializers.ModelSerializer):
 
 class InspeccionCrearSerializer(serializers.ModelSerializer):
     respuestas = RespuestaCriterioCrearSerializer(many=True, write_only=True, required=False, default=[])
+    codigo_inspeccion = serializers.CharField(read_only=True)
     inspector = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), required=False, allow_null=True, default=None
+        queryset=User.objects.all(), required=False, allow_null=True, default=None, 
     )
 
     class Meta:
         model = Inspeccion
         fields = [
-            "id", "tipo", "material", "pieza", "piezas_lote", "plantilla",
-            "proxima_inspeccion", "inspector", "modalidad", "frecuencia",
+            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "area", "frecuencia",
+            "material", "pieza", "piezas_lote", "plantilla",
+            "proxima_inspeccion", "inspector", "modalidad",
             "area_trabajo", "tipos_herramientas", "cantidad_inspeccionada",
             "cantidad_apta", "cantidad_no_apta", "resultado_general",
             "accion_tomada", "observaciones", "referencia_orden", "respuestas",

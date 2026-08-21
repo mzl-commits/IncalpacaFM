@@ -10,6 +10,7 @@ export type TipoControl = "retornable" | "no_retornable";
 export type EstadoPieza = "Disponible" | "Prestado" | "Mantenimiento" | "Baja";
 export type TipoMovimiento = "salida" | "entrada" | "baja";
 export type TipoInspeccion = "individual" | "grupal";
+export type TipoInspeccionNaturaleza = "planificada" | "no_planificada";
 
 export type ResultadoInspeccion =
   | "apta"
@@ -325,13 +326,18 @@ export interface RespuestaCriterio {
 
 export interface Inspeccion {
   id: number;
+  codigo_inspeccion: string;
   tipo: TipoInspeccion;
+  tipo_inspeccion?: "planificada" | "no_planificada";
+  area?: string;
+  frecuencia?: string;
   material: number;
   material_codigo: string;
   material_nombre: string;
   pieza: number | null;
   pieza_codigo: string | null;
   piezas_lote: number[];
+  piezas_lote_codigos?: string[];
   plantilla: number;
   plantilla_nombre: string;
   fecha: string;

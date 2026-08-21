@@ -103,6 +103,31 @@ export async function listVencidas(almacenId: number): Promise<VencidaItem[]> {
   return data;
 }
 
+export interface MaterialPendienteItem {
+  material_id: number;
+  material_codigo: string;
+  material_nombre: string;
+  pieza_id: number | null;
+  pieza_codigo: string | null;
+  plantilla_id: number;
+  plantilla_nombre: string;
+  estado_inspeccion: "pendiente" | "al_dia";
+  ultima_fecha: string | null;
+  ultimo_resultado: string | null;
+  ultima_inspeccion_id: number | null;
+}
+
+export async function listMaterialesPendientes(
+  almacenId: number,
+  incluirInspeccionados = false,
+  q?: string,
+): Promise<MaterialPendienteItem[]> {
+  const { data } = await api.get<MaterialPendienteItem[]>("/inspecciones/materiales-pendientes/", {
+    params: { almacen: almacenId, incluir_inspeccionados: incluirInspeccionados, q },
+  });
+  return data;
+}
+
 // ─── Payload de creación de inspección ───────────────────────────────────────
 
 export interface RespuestaInput {
@@ -113,13 +138,15 @@ export interface RespuestaInput {
 
 export interface InspeccionCreatePayload {
   tipo: TipoInspeccion;
+  tipo_inspeccion?: "planificada" | "no_planificada";
+  area?: string;
+  frecuencia?: string;
   material: number;
   pieza?: number | null;
   piezas_lote?: number[];
   plantilla: number;
   inspector: number;
   modalidad?: "planificada" | "no_planificada";
-  frecuencia?: string;
   area_trabajo?: string;
   referencia_orden?: string;
   tipos_herramientas?: string[];

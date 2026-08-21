@@ -174,6 +174,14 @@ export function InspeccionDetailPage() {
               <h2>Datos de la inspección</h2>
             </div>
             <dl style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 20px", margin: 0 }}>
+              {inspeccion.codigo_inspeccion && (
+                <div>
+                  <dt className="dt-label">Código de inspección</dt>
+                  <dd className="dd-value" style={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                    {inspeccion.codigo_inspeccion}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="dt-label">Fecha</dt>
                 <dd className="dd-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -191,6 +199,26 @@ export function InspeccionDetailPage() {
                   {inspeccion.tipo === "individual" ? "Individual" : "Grupal"}
                 </dd>
               </div>
+              {inspeccion.tipo_inspeccion && (
+                <div>
+                  <dt className="dt-label">Tipo de inspección</dt>
+                  <dd className="dd-value">
+                    {inspeccion.tipo_inspeccion === "planificada" ? "Planificada" : "No planificada"}
+                  </dd>
+                </div>
+              )}
+              {inspeccion.area && (
+                <div>
+                  <dt className="dt-label">Área</dt>
+                  <dd className="dd-value">{inspeccion.area}</dd>
+                </div>
+              )}
+              {inspeccion.frecuencia && (
+                <div>
+                  <dt className="dt-label">Frecuencia</dt>
+                  <dd className="dd-value">{inspeccion.frecuencia}</dd>
+                </div>
+              )}
               <div>
                 <dt className="dt-label">Material</dt>
                 <dd className="dd-value">
@@ -210,8 +238,30 @@ export function InspeccionDetailPage() {
               {inspeccion.piezas_lote.length > 0 && (
                 <div style={{ gridColumn: "1 / -1" }}>
                   <dt className="dt-label">Piezas del lote</dt>
-                  <dd style={{ margin: "4px 0 0", fontSize: 12 }}>
-                    {inspeccion.piezas_lote.length} piezas inspeccionadas en lote
+                  <dd style={{ margin: "6px 0 0", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {(inspeccion.piezas_lote_codigos && inspeccion.piezas_lote_codigos.length > 0)
+                      ? inspeccion.piezas_lote_codigos.map((code) => (
+                          <span
+                            key={code}
+                            style={{
+                              display: "inline-block",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              background: "#e0f2fe",
+                              color: "#0369a1",
+                              fontFamily: "ui-monospace, monospace",
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {code}
+                          </span>
+                        ))
+                      : (
+                          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                            {inspeccion.piezas_lote.length} piezas inspeccionadas en lote
+                          </span>
+                        )}
                   </dd>
                 </div>
               )}

@@ -113,7 +113,9 @@ def _fecha(valor):
     return valor.strftime("%d/%m/%Y") if valor else ""
 
 def _codigo_documento(inspeccion):
-    """Genera el código de documento SST: FOR-SST-00XXX (basado en el ID de la inspección)."""
+    """Genera el código de documento SST: usa inspeccion.codigo_inspeccion si existe, o FOR-SST-00XXX por defecto."""
+    if getattr(inspeccion, "codigo_inspeccion", None):
+        return inspeccion.codigo_inspeccion
     return f"FOR-SST-{inspeccion.id:05d}"
 
 def _fecha_emision_hoy():
@@ -202,12 +204,6 @@ def _insert_logo(ws, cell="A1", width=125, height=37):
             pass
 
 
-def _aplicar_estilo_oscuro_plantilla(ws):
-    """
-    Aplica diseño corporativo en negro estricto e inserta el logo oficial en la plantilla.
-    Reemplaza todos los fondos celestes pastel por la paleta institucional (#000000 / #18181B).
-    """
-    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
     # 1. Cabecera ejecutiva integrada en negro puro (Filas 1 a 5)
     dark_fill = _excel_fill("000000")
@@ -700,8 +696,10 @@ def _generar_excel_simple(inspeccion):
 
 
 
-    respuestas = list(inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"))
-    for idx, resp in enumerate(respuestas, start=1):
+    criterios_plantilla = list(inspeccion.plantilla.criterios.order_by("orden"))
+    respuestas_map = {r.criterio_id: r for r in inspeccion.respuestas.select_related("criterio").all()}
+
+    for idx, crit in enumerate(criterios_plantilla, start=1):
         r_num = header_row + idx
         ws.row_dimensions[r_num].height = 20
         is_alt = (idx % 2 == 0)
@@ -728,7 +726,7 @@ def _generar_excel_simple(inspeccion):
             if col_i in [5, 6, 7] and cell.value == "X":
                 cell.font = Font(bold=True, size=11, color="0F172A", name="Calibri")
 
-    curr_row = header_row + len(respuestas) + 2
+    curr_row = header_row + len(criterios_plantilla) + 2
 
     # 7. Sección de Resultados (Fila curr_row)
     ws.row_dimensions[curr_row].height = 24
@@ -1262,9 +1260,12 @@ def generar_pdf_inspeccion(inspeccion):
         ))
 
     # Título central
+    _subtitulo_area = f"Área: {inspeccion.area}" if getattr(inspeccion, "area", None) else ""
+    _titulo_filas = [[Paragraph(titulo, titulo_style)]]
+    if _subtitulo_area:
+        _titulo_filas.append([Paragraph(_subtitulo_area, subtitulo_style)])
     titulo_col = Table(
-        [[Paragraph(titulo, titulo_style)],
-         [Paragraph("Área: Facility Management", subtitulo_style)]],
+        _titulo_filas,
         colWidths=[11 * cm],
     )
     titulo_col.setStyle(TableStyle([
@@ -1310,7 +1311,6 @@ def generar_pdf_inspeccion(inspeccion):
 
 
 
-    # ── Datos generales ──
     inspector_nombre = (
         inspeccion.inspector.get_full_name() or inspeccion.inspector.username
         if inspeccion.inspector else ""
@@ -1325,7 +1325,7 @@ def generar_pdf_inspeccion(inspeccion):
     color_info = color_inspeccion_actual(para_fecha=inspeccion.fecha.date() if getattr(inspeccion, "fecha", None) else None)
     c_act = color_info["actual"]
 
-    if hoja_nombre == HOJA_MANUALES:
+    if inspeccion.tipo == "grupal":
         datos = [
             ["Tipo de herramienta / Material:", inspeccion.material.nombre, "Responsable:", inspector_nombre],
             ["Tipo de inspección:", modalidad_txt, "Fecha de inspección:", _fecha(inspeccion.fecha)],
@@ -1334,6 +1334,7 @@ def generar_pdf_inspeccion(inspeccion):
             ["Cantidad inspeccionada:", inspeccion.cantidad_inspeccionada or "-", "Cantidad apta / no apta:", f"{inspeccion.cantidad_apta or 0} aptas / {inspeccion.cantidad_no_apta or 0} no aptas"],
         ]
     else:
+        cod_pieza = inspeccion.pieza.codigo if getattr(inspeccion, "pieza", None) and inspeccion.pieza.codigo else "-"
         datos = [
             ["Código de la herramienta:", codigo_objetivo, "Próxima inspección:", _fecha(inspeccion.proxima_inspeccion)],
             ["Marca:", inspeccion.material.marca or "-", "Tipo de inspección:", modalidad_txt],
@@ -1480,15 +1481,21 @@ def generar_pdf_inspeccion(inspeccion):
     criterio_obs_style = ParagraphStyle(
         "CriterioObs", parent=styles["Normal"], fontSize=7.5, leading=9,
     )
-    data = [["N°", "Criterio de inspección", "Cumple", "No cumple", "No aplica", "Obs."]]
-    for resp in inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"):
+    criterios_plantilla = list(inspeccion.plantilla.criterios.order_by("orden"))
+    respuestas_map = {r.criterio_id: r for r in inspeccion.respuestas.select_related("criterio").all()}
+
+    data = [["N°", "Criterio de inspección", "Cumple", "No cumple", "No aplica", "Observación"]]
+    for crit in criterios_plantilla:
+        resp = respuestas_map.get(crit.id)
+        valor = resp.valor if resp else ""
+        obs = resp.observacion if resp and resp.observacion else ""
         data.append([
-            resp.criterio.orden,
-            Paragraph(resp.criterio.texto, criterio_texto_style),
-            "X" if resp.valor == "cumple" else "",
-            "X" if resp.valor == "no_cumple" else "",
-            "X" if resp.valor == "no_aplica" else "",
-            Paragraph(resp.observacion, criterio_obs_style) if resp.observacion else "",
+            crit.orden,
+            Paragraph(crit.texto, criterio_texto_style),
+            "X" if valor == "cumple" else "",
+            "X" if valor == "no_cumple" else "",
+            "X" if valor == "no_aplica" else "",
+            Paragraph(obs, criterio_obs_style) if obs else "",
         ])
 
     tabla = Table(data, colWidths=[1.2 * cm, 7.3 * cm, 1.9 * cm, 2.1 * cm, 1.9 * cm, 3.6 * cm], repeatRows=1)
@@ -1851,7 +1858,7 @@ def generar_pdf_historial_material(material):
     else:
         logo_img = Paragraph("", styles["Normal"])
     marca_cell = Table(
-        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facility Management</font>", empresa_style)]],
+        [[logo_img, Paragraph("INCALPACA", empresa_style)]],
         colWidths=[1.35 * cm, 6 * cm],
     )
     marca_cell.setStyle(TableStyle([

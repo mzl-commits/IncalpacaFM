@@ -1,7 +1,6 @@
 from rest_framework import viewsets, status
 from datetime import timedelta, date
 
-from datetime import timedelta, date
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -218,6 +217,32 @@ class InspeccionViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
                 })
 
         return Response(resultado)
+    @action(detail=False, methods=["get"], url_path="materiales-pendientes")
+    def materiales_pendientes(self, request):
+        """
+        GET /inspecciones/materiales-pendientes/?estado=pendientes|todos&q=...
+        Por defecto solo lista materiales/piezas SIN inspección vigente.
+        ?estado=todos (o ?incluir_inspeccionados=true) también incluye los
+        ya inspeccionados, con su última fecha/resultado, para re-inspección.
+        """
+        from apps.inspeccion.services import obtener_materiales_para_inspeccion
+
+        estado = request.query_params.get("estado", "pendientes")
+        incluir_inspeccionados = (
+            estado == "todos"
+            or request.query_params.get("incluir_inspeccionados", "").lower() == "true"
+        )
+        q = request.query_params.get("q")
+
+        almacen_forzado = self._almacen_forzado()
+        almacen_id = almacen_forzado if almacen_forzado is not None else request.query_params.get("almacen")
+
+        resultado = obtener_materiales_para_inspeccion(
+            almacen_id=almacen_id,
+            incluir_inspeccionados=incluir_inspeccionados,
+            q=q,
+        )
+        return Response(resultado)
 
     @action(detail=True, methods=["get"], url_path="exportar-excel")
     def exportar_excel(self, request, pk=None):
@@ -400,8 +425,6 @@ class ProgramacionInspeccionViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelVi
 
         serializer = self.get_serializer(prog)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
 
 class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = PlanInspeccionAnual.objects.select_related("almacen").all()

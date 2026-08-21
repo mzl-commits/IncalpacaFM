@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 class PlantillaCriterio(models.Model):
     """Ej. 'Manuales', 'Eléctricas Inalámbricas', 'Eléctricas con cable'."""
@@ -38,6 +39,10 @@ class Inspeccion(models.Model):
         ("dar_baja", "Dar de baja"),
         ("reemplazar", "Reemplazar"),
     ]
+    TIPO_INSPECCION_CHOICES = [
+        ("planificada", "Planificada"),
+        ("no_planificada", "No planificada"),
+    ]
 
     inspector = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -58,7 +63,7 @@ class Inspeccion(models.Model):
     )
 
     plantilla = models.ForeignKey("PlantillaCriterio", on_delete=models.PROTECT)
-    fecha = models.DateTimeField(auto_now_add=True)
+    fecha = models.DateTimeField(default=timezone.now)
     proxima_inspeccion = models.DateField(null=True, blank=True)
 
     # Solo para inspección grupal (según la hoja "Manuales")
@@ -75,6 +80,28 @@ class Inspeccion(models.Model):
         "catalogo.Almacen",
         on_delete=models.PROTECT,
         related_name="inspecciones",
+    )
+    codigo_inspeccion = models.CharField(
+        max_length=30,
+        unique=True,
+        blank=True,
+        help_text="Código correlativo mensual (ej. FOR-SST-2608-00001). Se genera automáticamente.",
+    )
+    tipo_inspeccion = models.CharField(
+        max_length=20,
+        choices=TIPO_INSPECCION_CHOICES,
+        default="planificada",
+        help_text="Naturaleza de la inspección: planificada o no planificada.",
+    )
+    area = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Área o sección de planta donde se realizó la inspección (ej. 'Hilandería').",
+    )
+    frecuencia = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Frecuencia aplicable a esta inspección (ej. 'Bimestral', 'Trimestral').",
     )
 
     MODALIDAD_CHOICES = [
@@ -134,6 +161,27 @@ class Inspeccion(models.Model):
     def __str__(self):
         objetivo = self.pieza.codigo if self.pieza else self.material.codigo
         return f"Inspección {objetivo} - {self.fecha.date()}"
+    
+    def save(self, *args, **kwargs):
+        if not self.codigo_inspeccion:
+            from django.utils import timezone
+            from apps.inspeccion.services import generar_codigo_inspeccion
+            self.codigo_inspeccion = generar_codigo_inspeccion(timezone.now())
+        if not self.frecuencia and self.material:
+            dias = getattr(self.material, "periodicidad_inspeccion_dias", 90) or 90
+            if dias <= 30:
+                self.frecuencia = "Mensual"
+            elif dias <= 60:
+                self.frecuencia = "Bimestral"
+            elif dias <= 90:
+                self.frecuencia = "Trimestral"
+            elif dias <= 180:
+                self.frecuencia = "Semestral"
+            elif dias <= 365:
+                self.frecuencia = "Anual"
+            else:
+                self.frecuencia = f"Cada {dias} días"
+        super().save(*args, **kwargs)
 
 class RespuestaCriterio(models.Model):
     VALOR_CHOICES = [

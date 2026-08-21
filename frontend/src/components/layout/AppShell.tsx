@@ -3,7 +3,6 @@ import {
   Barcode,
   Buildings,
   CalendarBlank,
-  CalendarPlus,
   CaretDown,
   CaretLeft,
   ChartBar,
@@ -117,23 +116,7 @@ const modules: ModuleGroup[] = [
       { to: "/administracion/taxonomia/codigos", label: "Directorio de espacios", icon: Tag },
     ],
   },
-  {
-    id: "almacen",
-    label: "Almacén",
-    shortLabel: "Almacén",
-    icon: Toolbox,
-    paths: ["/almacen"],
-    roles: ["ADMINISTRADOR", "ALMACENERO", "INSPECTOR"],
-    items: [
-      { to: "/almacen/catalogo", label: "Catálogo", icon: ListDashes, end: true },
-      { to: "/almacen/movimientos", label: "Movimientos", icon: ArrowRight },
-      { to: "/almacen/checklist", label: "Devolución", icon: ListChecks },
-      { to: "/almacen/inspecciones", label: "Inspecciones", icon: ClipboardText },
-      { to: "/almacen/plantillas", label: "Plantillas SST", icon: Files },
-      { to: "/almacen/calendario", label: "Calendario", icon: CalendarBlank },
-      { to: "/almacen/plan-anual", label: "Plan anual", icon: CalendarPlus },
-    ],
-  },
+
   {
     id: "reports",
     label: "Reportes",
@@ -425,6 +408,18 @@ export function AppShell() {
                   <div className="circle-btn"><Icon size={21} weight={isActive ? "bold" : "duotone"} /></div><span className="circle-label">{module.shortLabel}</span>
                 </button>;
               })}
+              {user && (["ADMINISTRADOR", "ALMACENERO", "INSPECTOR"] as const).includes(user.role as "ADMINISTRADOR" | "ALMACENERO" | "INSPECTOR") && (
+                <NavLink
+                  to="/almacen"
+                  title="Almacén"
+                  aria-label="Almacén de herramientas"
+                  className={({ isActive }) => `rail-circle-option ${isActive || location.pathname.startsWith("/almacen") ? "is-active" : ""}`}
+                  onClick={() => setFlyoutOpen(false)}
+                >
+                  <div className="circle-btn"><Toolbox size={21} weight={location.pathname.startsWith("/almacen") ? "bold" : "duotone"} /></div>
+                  <span className="circle-label">Almacén</span>
+                </NavLink>
+              )}
             </nav>
             <div className="rail-bottom-actions">
               {configModule && <button type="button" aria-label="Configuración" className={`rail-circle-option ${(flyoutOpen ? activeFlyoutModuleId : matchedModuleId) === "administration" ? "is-active" : ""}`} onClick={() => toggleModule(configModule)} title="Configuración"><div className="circle-btn"><GearSix size={21} weight="duotone" /></div><span className="circle-label">Configuración</span></button>}
