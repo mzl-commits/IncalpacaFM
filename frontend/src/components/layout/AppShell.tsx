@@ -225,35 +225,36 @@ function compactSupervisorLabel(path: string, label: string) {
 }
 
 function getRouteContext(pathname: string) {
-  if (pathname === "/") return ["Mantenimiento", "Panel operativo"];
+  if (pathname === "/") return ["Órdenes de trabajo", "Panel operativo"];
   if (pathname.startsWith("/mi-perfil")) return ["Solicitante", "Inicio"];
-  if (pathname.startsWith("/mi-jornada")) return ["Mi trabajo", "Agenda semanal"];
-  if (pathname.startsWith("/bienes/qr")) return ["Bienes", "Códigos QR"];
-  if (pathname.startsWith("/mapa")) return ["Activos y espacios", "Mapa de activos"];
-  if (pathname.startsWith("/bienes/entradas")) return ["Activos y espacios", "Entradas"];
-  if (pathname.startsWith("/bienes")) return ["Activos y espacios", "Inventario"];
-  if (pathname.startsWith("/asignaciones")) return ["Activos y espacios", "Asignaciones"];
-  if (pathname.startsWith("/incidencias")) return ["Mantenimiento", "Reportes"];
-  if (pathname.startsWith("/supervision")) return ["Mantenimiento", "Órdenes de trabajo"];
-  if (pathname.startsWith("/ordenes-trabajo")) return ["Mantenimiento", "Órdenes de trabajo"];
-  if (pathname.startsWith("/bienes/ciclo-vida")) return ["Bienes", "Ciclo de vida"];
-  if (pathname.startsWith("/informes")) return ["Inteligencia", "Informes"];
-  if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Taxonomía", "Códigos FM"];
-  if (pathname.startsWith("/administracion/tecnicos")) return ["Administración", "Técnicos"];
-  if (pathname.startsWith("/administracion/usuarios")) return ["Administración", "Usuarios"];
-  if (pathname.startsWith("/administracion/reportantes")) return ["Administración", "Reportantes"];
-  if (pathname.startsWith("/administracion/espacios")) return ["Administración", "Espacios y ambientes"];
-  if (pathname.startsWith("/administracion/taxonomia")) return ["Administración", "Taxonomía"];
-  if (pathname.startsWith("/documentos")) return ["Administración", "Documentos"];
-  if (pathname.startsWith("/auditoria")) return ["Administración", "Auditoría"];
+  if (pathname.startsWith("/mi-jornada")) return ["Órdenes de trabajo", "Mi jornada"];
+  if (pathname.startsWith("/incidencias")) return ["Órdenes de trabajo", "Bandeja de reportes"];
+  if (pathname.startsWith("/supervision")) return ["Órdenes de trabajo", "Órdenes de trabajo"];
+  if (pathname.startsWith("/ordenes-trabajo")) return ["Órdenes de trabajo", "Órdenes de trabajo"];
+  if (pathname.startsWith("/bienes/qr")) return ["Activos", "Códigos QR"];
+  if (pathname.startsWith("/mapa")) return ["Activos", "Mapa de ambientes"];
+  if (pathname.startsWith("/bienes/entradas")) return ["Activos", "Entradas"];
+  if (pathname.startsWith("/bienes/ciclo-vida")) return ["Activos", "Baja del bien"];
+  if (pathname.startsWith("/bienes")) return ["Activos", "Inventario general"];
+  if (pathname.startsWith("/asignaciones")) return ["Activos", "Asignaciones"];
+  if (pathname.startsWith("/informes")) return ["Reportes", "Informes"];
+  if (pathname.startsWith("/administracion/taxonomia/codigos")) return ["Gestión", "Directorio de espacios"];
+  if (pathname.startsWith("/administracion/tecnicos")) return ["Gestión", "Técnicos"];
+  if (pathname.startsWith("/administracion/usuarios")) return ["Gestión", "Usuarios"];
+  if (pathname.startsWith("/administracion/reportantes")) return ["Gestión", "Reportantes"];
+  if (pathname.startsWith("/administracion/espacios")) return ["Gestión", "Espacios y ambientes"];
+  if (pathname.startsWith("/administracion/taxonomia")) return ["Gestión", "Clasificación"];
   if (pathname.startsWith("/almacen/catalogo")) return ["Almacén", "Catálogo"];
   if (pathname.startsWith("/almacen/movimientos")) return ["Almacén", "Movimientos"];
   if (pathname.startsWith("/almacen/checklist")) return ["Almacén", "Devolución"];
   if (pathname.startsWith("/almacen/inspecciones")) return ["Almacén", "Inspecciones"];
   if (pathname.startsWith("/almacen/calendario")) return ["Almacén", "Calendario"];
   if (pathname.startsWith("/almacen/plan-anual")) return ["Almacén", "Plan anual"];
-  if (pathname.startsWith("/almacen")) return ["Almacén", "Almacén de herramientas"];
-  return ["FM Incalpaca", "Facility Management"];
+  if (pathname.startsWith("/almacen/plantillas")) return ["Almacén", "Plantillas SST"];
+  if (pathname.startsWith("/administracion/formularios")) return ["Configuración", "Formularios de inspección"];
+  if (pathname.startsWith("/documentos")) return ["Configuración", "Documentos"];
+  if (pathname.startsWith("/auditoria")) return ["Configuración", "Auditoría"];
+  return ["Incalpaca FM", "Plataforma"];
 }
 
 export function AppShell() {
