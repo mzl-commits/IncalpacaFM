@@ -108,7 +108,7 @@ export function UserManagementPage() {
       <div className="user-management-summary" aria-label="Resumen de usuarios">
         <div><UsersThree size={21} /><span><strong>{users.length}</strong><small>Usuarios registrados</small></span></div>
         <div><span><strong>{activeCount}</strong><small>Con acceso activo</small></span></div>
-        <div><span><strong>{users.filter((user) => user.role === "SOLICITANTE").length}</strong><small>Solicitantes</small></span></div>
+        <div><span><strong>{users.filter((user) => user.role === "USUARIO").length}</strong><small>Usuarios</small></span></div>
       </div>
       {editing !== undefined && (
         <form className="data-panel user-management-editor" onSubmit={save}>
