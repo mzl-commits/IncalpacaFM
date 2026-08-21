@@ -251,39 +251,37 @@ export function AssetInventoryPage() {
           />
         </ListFilterPanel>
 
-        <div className="asset-master-list">
+        <div className="asset-grid">
           {isLoading && (
             <div className="skeleton skeleton-block" style={{ gridColumn: "1 / -1", minHeight: "200px", borderRadius: "8px", border: "none" }} aria-label="Cargando inventario" />
           )}
           {!isLoading && filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((asset) => (
-            <Link to={`/bienes/${asset.id}`} key={asset.id} className="asset-master-row">
-              <div className="asset-master-icon">
-                {asset.photoUrl ? <img src={asset.photoUrl} alt="" /> : <Package />}
+            <Link to={`/bienes/${asset.id}`} key={asset.id} className="asset-card">
+              <div className="asset-card-image">
+                {asset.photoUrl ? <img src={asset.photoUrl} alt="" /> : <Package size={32} />}
               </div>
-              <div>
+              <div className="asset-card-content">
                 <strong>{asset.draft.name}</strong>
-                <span>
+                <p className="asset-card-code">
                   {getAssetDisplayCode(asset)}
-                  {asset.fmCode && <small> · {asset.code}</small>} ·{" "}
-                  {[asset.draft.brand, asset.draft.model].filter(Boolean).join(" ") ||
-                    "Sin marca o modelo"}
-                </span>
+                  {asset.fmCode && <small> · {asset.code}</small>}
+                </p>
+                <p className="asset-card-brand">
+                  {[asset.draft.brand, asset.draft.model].filter(Boolean).join(" ") || "Sin marca o modelo"}
+                </p>
+                <div className="asset-card-footer">
+                  <span className={`status ${asset.assignmentStatus === "Sin asignar" ? "status-neutral" : "status-success"}`}>
+                    {asset.assignmentStatus}
+                  </span>
+                  <span className="asset-card-qr">
+                    <QrCode size={14} /> Activo
+                  </span>
+                </div>
               </div>
-              <span
-                className={`status ${
-                  asset.assignmentStatus === "Sin asignar" ? "status-neutral" : "status-success"
-                }`}
-              >
-                {asset.assignmentStatus}
-              </span>
-              <span className="asset-master-qr">
-                <QrCode /> QR activo
-              </span>
-              <CaretRight className="asset-master-caret" />
             </Link>
           ))}
           {!isLoading && !filtered.length && (
-            <p className="empty-row">{error || "No encontramos bienes con esos criterios."}</p>
+            <p className="empty-row" style={{ gridColumn: "1 / -1" }}>{error || "No encontramos bienes con esos criterios."}</p>
           )}
         </div>
 
