@@ -4,6 +4,17 @@ import django.utils.timezone
 from django.db import migrations, models
 
 
+def poblar_codigos_inspecciones_existentes(apps, schema_editor):
+    Inspeccion = apps.get_model('inspeccion', 'Inspeccion')
+    qs = Inspeccion.objects.filter(models.Q(codigo_inspeccion__isnull=True) | models.Q(codigo_inspeccion="")).order_by('id')
+    for idx, insp in enumerate(qs, start=1):
+        f = getattr(insp, 'fecha', None) or django.utils.timezone.now()
+        yy = str(f.year)[-2:]
+        mm = f"{f.month:02d}"
+        insp.codigo_inspeccion = f"FOR-SST-{yy}{mm}-{idx:05d}"
+        insp.save(update_fields=['codigo_inspeccion'])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -19,8 +30,9 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='inspeccion',
             name='codigo_inspeccion',
-            field=models.CharField(blank=True, help_text='Código correlativo mensual (ej. FOR-SST-2608-00001). Se genera automáticamente.', max_length=30, unique=True),
+            field=models.CharField(blank=True, help_text='Código correlativo mensual (ej. FOR-SST-2608-00001). Se genera automáticamente.', max_length=30, null=True, unique=True),
         ),
+        migrations.RunPython(poblar_codigos_inspecciones_existentes, migrations.RunPython.noop),
         migrations.AddField(
             model_name='inspeccion',
             name='tipo_inspeccion',

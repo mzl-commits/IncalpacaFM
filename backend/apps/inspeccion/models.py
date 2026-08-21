@@ -84,6 +84,7 @@ class Inspeccion(models.Model):
     codigo_inspeccion = models.CharField(
         max_length=30,
         unique=True,
+        null=True,
         blank=True,
         help_text="Código correlativo mensual (ej. FOR-SST-2608-00001). Se genera automáticamente.",
     )
