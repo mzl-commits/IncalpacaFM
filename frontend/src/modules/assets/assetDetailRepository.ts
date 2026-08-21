@@ -103,5 +103,5 @@ export async function printAssetPdf(id: string, action: "print" | "download" = "
   }
 
   const asset = await getAssetDetail(id);
-  await generateAssetApaPdf({ asset, action, adminName });
+  await generateAssetApaPdf({ asset, action, adminName, reportType });
 }

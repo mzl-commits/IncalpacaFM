@@ -3,6 +3,17 @@ import type { AssetDetailRecord } from "../assetDetailRepository";
 import { INCALPACA_LOGO_SVG, getIncalpacaReportCSS } from "@/modules/reports/utils/incalpacaReportStyles";
 
 function formatDate(dateStr?: string | null) {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatDateLong(dateStr?: string | null) {
   if (!dateStr) return "Fecha no registrada";
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;
@@ -10,6 +21,8 @@ function formatDate(dateStr?: string | null) {
     day: "2-digit",
     month: "long",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
 }
 
@@ -35,7 +48,11 @@ function statusLabel(val?: string | null) {
   return val ? (map[val] ?? val) : "—";
 }
 
-export async function generateAssetApaPdf({
+/**
+ * Genera la Ficha de Entrada del Bien exclusivamente con los datos de ingreso al sistema.
+ * Cumple con el estándar institucional de INCALPACA FM S.A.
+ */
+export async function generateAssetEntryPdf({
   asset,
   action = "print",
   adminName,
@@ -44,6 +61,506 @@ export async function generateAssetApaPdf({
   action?: "download" | "print";
   adminName?: string;
 }) {
+  const publicUrl = asset.public_url || `${window.location.origin}/bienes/${asset.id}`;
+  const qrDataUrl = await QRCode.toDataURL(publicUrl, {
+    margin: 1,
+    width: 200,
+    color: { dark: "#000000", light: "#ffffff" },
+  });
+
+  const nowStr = formatDate(new Date().toISOString());
+  const payload = (asset as unknown as { entry_payload?: Record<string, unknown> }).entry_payload || {};
+
+  // MATRIZ DE 9 NIVELES
+  const n1Code = strVal(payload.n1_code || payload.site_code, "INC1").toUpperCase();
+  const n1Name = strVal(payload.site, asset.location_detail?.zone || "Sede Principal");
+
+  const n2Code = strVal(payload.n2_code || payload.macro_area_code, "AD").toUpperCase();
+  const n2Name = strVal(payload.macro_area, "Sectores Administrativos");
+
+  const n3Code = strVal(payload.n3_code || payload.area_code || payload.building_code, "—").toUpperCase();
+  const n3Name = strVal(asset.location_detail?.area || payload.locationArea || payload.area || payload.building, "—");
+
+  const n4Code = strVal(payload.n4_code || payload.room_code, "—").toUpperCase();
+  const n4Name = strVal(asset.location_detail?.room || asset.location_detail?.specific_location || payload.room || payload.specificLocation, "—");
+
+  const n5Code = strVal(payload.n5_code || payload.family_code, (asset.taxonomy_detail?.category?.slice(0, 3).toUpperCase() || "—"));
+  const n5Name = strVal(asset.taxonomy_detail?.category || payload.family || payload.category, "—");
+
+  const n6Code = strVal(payload.n6_code || payload.type_code || asset.taxonomy_detail?.prefix, "—");
+  const n6Name = strVal(asset.taxonomy_detail?.subcategory || asset.taxonomy_detail?.name || payload.subcategory, "—");
+
+  const n7Code = strVal(payload.n7_code || payload.part_code, "—");
+  const n7Name = strVal(payload.part || payload.partName, "—");
+
+  const n8Code = strVal(payload.n8_code || payload.piece_code, "—");
+  const n8Name = strVal(payload.piece || payload.pieceName, "—");
+
+  const rawSku = strVal(payload.n9_code || payload.sku || asset.fm_code, "—");
+  let n9Code = rawSku;
+  if (n9Code !== "—" && n9Code.includes("-")) {
+    const parts = n9Code.split("-");
+    n9Code = parts[parts.length - 1].trim();
+  }
+  if (n9Code !== "—" && !n9Code.toUpperCase().startsWith("SKU")) {
+    n9Code = `SKU${n9Code}`;
+  }
+  const n9Name = n9Code !== "—" ? "Correlativo de Inventario" : "—";
+
+  const fullTaxonomyCode = `${n1Code}-${n2Code}-${n3Code}-${n4Code}-${n5Code}-${n6Code}-${n7Code}-${n8Code}-${n9Code}`;
+
+  // 1. Identificación
+  const technicalId = asset.code || "—";
+  const brandVal = asset.brand || (payload.brand as string) || "—";
+  const modelVal = asset.model || (payload.model as string) || "—";
+  const brandModel = (brandVal !== "—" || modelVal !== "—") ? `${brandVal} / ${modelVal}` : "—";
+  const tipoBien = asset.taxonomy_detail?.category || (payload.category as string) || (payload.assetType as string) || "—";
+  const critVal = asset.criticality || (payload.criticality as string) || "Media";
+  const condVal = conditionLabel(asset.condition || (payload.condition as string) || "NUEVO");
+  const descVal = asset.description || (payload.description as string) || "—";
+
+  // 3. Datos de Ingreso
+  const entryTypeMap: Record<string, string> = {
+    purchase: "Compra",
+    own_creation: "Creación propia / Fabricación",
+    donation: "Regalo o donación",
+    rental: "Alquiler / Contrato temporal",
+  };
+  const rawEntryType = (payload.entryType as string) || "purchase";
+  const entryTypeLabel = entryTypeMap[rawEntryType] || rawEntryType;
+
+  const effectiveEntryDate = formatDate((payload.effectiveEntryDate as string) || asset.created_at);
+  const purchaseDate = formatDate(
+    (payload.acquisitionDate as string) ||
+    (payload.completionDate as string) ||
+    (payload.receptionDate as string) ||
+    null
+  );
+  const supplierVal = (payload.supplier as string) || (payload.donor as string) || "—";
+  const purchaseDoc = (payload.purchaseOrder as string) || (payload.donationDocument as string) || (payload.contractNumber as string) || (payload.internalOrder as string) || "—";
+  const voucherNum = (payload.voucherNumber as string) || (payload.contractNumber as string) || (payload.internalOrder as string) || "—";
+  const costVal = strVal(payload.cost as string, "").trim();
+  const currVal = strVal(payload.currency as string, "PEN").trim();
+  const costDisplay = costVal ? `${currVal} ${costVal}` : "—";
+  const costCenterVal = (payload.costCenter as string) || (payload.producingArea as string) || "—";
+  const registeredByUser = asset.registered_by_name || (payload.registeredBy as string) || adminName || "Administrador SGTB";
+
+  // 4. Ubicación Inicial
+  const initialResponsible = (payload.assigneeName as string) || (payload.responsibleName as string) || (payload.responsible as string) || "Sin asignar al ingreso";
+  const initialStatus = asset.operational_status || asset.administrative_status || "Registrado";
+
+  // 5. Registro Fotográfico y Evidencias
+  const evidenceList = (payload.evidence as Array<{ name?: string; category?: string; size?: number }>) || [];
+  const docsHtml = evidenceList.length > 0
+    ? `<ul style="margin: 4px 0 0 16px; padding: 0; font-size: 8.5pt;">
+        ${evidenceList.map(e => `<li>${e.name || "Documento"} (${e.category || "sustento"}${e.size ? ` · ${Math.round(e.size / 1024)} KB` : ""})</li>`).join("")}
+       </ul>`
+    : `<span style="font-style: italic; color: #666666; font-size: 8.5pt;">Sin documentos adicionales adjuntos.</span>`;
+
+  const obsVal = (payload.observations as string) || (payload.assignmentObservations as string) || "Sin observaciones adicionales registradas al momento del ingreso.";
+
+  const photoHtml = asset.photo_url
+    ? `<img src="${asset.photo_url}" alt="Fotografía del bien" style="max-height: 120pt; max-width: 100%; object-fit: contain; border: 0.5pt solid #A0A0A0;" />`
+    : `<div style="width: 100%; height: 90pt; border: 0.5pt dashed #A0A0A0; display: flex; align-items: center; justify-content: center; background: #FAFAFA;">
+        <span style="font-style: italic; color: #777777; font-size: 8.5pt;">Sin registro fotográfico adjunto</span>
+       </div>`;
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ficha_Entrada_${technicalId}_${nowStr.replace(/\//g, "-")}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 25.4mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 8.5pt;
+      line-height: 1.3;
+      color: #000000;
+      background: #ffffff;
+    }
+    .main-doc {
+      width: 100%;
+      max-width: 100%;
+    }
+    .header-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1.5pt solid #000000;
+      padding-bottom: 8pt;
+      margin-bottom: 8pt;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10pt;
+    }
+    .company-title {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #000000;
+      letter-spacing: 0.3px;
+    }
+    .company-sub {
+      font-size: 8pt;
+      color: #444444;
+    }
+    .doc-title {
+      font-size: 10pt;
+      font-weight: bold;
+      color: #000000;
+      margin-top: 2pt;
+      text-transform: uppercase;
+    }
+    .header-meta {
+      text-align: right;
+      font-size: 8pt;
+      line-height: 1.35;
+    }
+    .header-qr {
+      width: 44pt;
+      height: 44pt;
+      border: 0.5pt solid #000000;
+      padding: 1pt;
+      background: #ffffff;
+      margin-left: 8pt;
+    }
+    .section-title {
+      font-size: 9.5pt;
+      font-weight: bold;
+      color: #000000;
+      border-bottom: 0.75pt solid #000000;
+      padding-bottom: 2pt;
+      margin-top: 8pt;
+      margin-bottom: 4pt;
+      text-transform: uppercase;
+      page-break-after: avoid;
+    }
+    .table-data {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 4pt;
+      font-size: 8.5pt;
+    }
+    .table-data td {
+      border: 0.5pt solid #A0A0A0;
+      padding: 3.5pt 5pt;
+      vertical-align: middle;
+    }
+    .table-data td.lbl {
+      width: 23%;
+      font-weight: bold;
+      background-color: #F8F9FA;
+      color: #000000;
+    }
+    .table-data td.val {
+      width: 27%;
+      color: #111111;
+    }
+    .matrix-highlight {
+      background-color: #F0F0F0;
+      font-family: "Courier New", Courier, monospace;
+      font-weight: bold;
+      font-size: 8.5pt;
+      color: #000000;
+    }
+    .evidence-grid {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 6pt;
+    }
+    .evidence-grid td {
+      border: 0.5pt solid #A0A0A0;
+      padding: 5pt;
+      vertical-align: top;
+    }
+    .signatures-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 24pt;
+      page-break-inside: avoid;
+      gap: 12pt;
+    }
+    .sig-box {
+      flex: 1;
+      text-align: center;
+      font-size: 8pt;
+    }
+    .sig-line {
+      border-top: 0.75pt solid #000000;
+      margin-bottom: 3pt;
+      padding-top: 2pt;
+    }
+    .footer-note {
+      margin-top: 14pt;
+      border-top: 0.5pt solid #000000;
+      padding-top: 4pt;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #444444;
+    }
+  </style>
+</head>
+<body>
+<div class="main-doc">
+
+  <!-- ENCABEZADO INSTITUCIONAL -->
+  <div class="header-box">
+    <div class="header-left">
+      ${INCALPACA_LOGO_SVG}
+      <div>
+        <div class="company-title">INCALPACA FM S.A.</div>
+        <div class="company-sub">Sistema de Gestión Técnica y Bienes</div>
+        <div class="doc-title">FICHA DE ENTRADA DEL BIEN</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center;">
+      <div class="header-meta">
+        <div>Fecha de Emisión: <strong>${nowStr}</strong></div>
+        <div>ID Técnico Único: <strong>${technicalId}</strong></div>
+        <div>Código Taxonomía: <strong>${fullTaxonomyCode}</strong></div>
+      </div>
+      <img class="header-qr" src="${qrDataUrl}" alt="QR del bien" />
+    </div>
+  </div>
+
+  <!-- 1. IDENTIFICACIÓN DEL BIEN -->
+  <div class="section-title">1. IDENTIFICACIÓN DEL BIEN</div>
+  <table class="table-data">
+    <tbody>
+      <tr>
+        <td class="lbl">ID Técnico Único:</td>
+        <td class="val"><strong>${technicalId}</strong></td>
+        <td class="lbl">Código Taxonomía:</td>
+        <td class="val"><strong>${fullTaxonomyCode}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Nombre del Bien:</td>
+        <td class="val"><strong>${asset.name}</strong></td>
+        <td class="lbl">Tipo de Bien:</td>
+        <td class="val">${tipoBien}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Marca / Modelo:</td>
+        <td class="val">${brandModel}</td>
+        <td class="lbl">Número de Serie:</td>
+        <td class="val">${asset.serial_number || (payload.serialNumber as string) || "—"}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Criticidad:</td>
+        <td class="val">${critVal}</td>
+        <td class="lbl">Condición Inicial:</td>
+        <td class="val">${condVal}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Descripción:</td>
+        <td class="val" colspan="3">${descVal}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 2. ESTRUCTURA TAXONÓMICA Y UBICACIÓN (9 NIVELES) -->
+  <div class="section-title">2. ESTRUCTURA TAXONÓMICA Y UBICACIÓN (9 NIVELES)</div>
+  <table class="table-data">
+    <tbody>
+      <tr>
+        <td class="lbl">1. Sede:</td>
+        <td class="val"><strong>[${n1Code}]</strong> ${n1Name}</td>
+        <td class="lbl">2. Área Macro:</td>
+        <td class="val"><strong>[${n2Code}]</strong> ${n2Name}</td>
+      </tr>
+      <tr>
+        <td class="lbl">3. Área:</td>
+        <td class="val"><strong>[${n3Code}]</strong> ${n3Name}</td>
+        <td class="lbl">4. Módulo:</td>
+        <td class="val"><strong>[${n4Code}]</strong> ${n4Name}</td>
+      </tr>
+      <tr>
+        <td class="lbl">5. Tipo de Bien:</td>
+        <td class="val"><strong>[${n5Code}]</strong> ${n5Name}</td>
+        <td class="lbl">6. Bien:</td>
+        <td class="val"><strong>[${n6Code}]</strong> ${n6Name}</td>
+      </tr>
+      <tr>
+        <td class="lbl">7. Característica:</td>
+        <td class="val"><strong>[${n7Code}]</strong> ${n7Name}</td>
+        <td class="lbl">8. Variante / Modelo:</td>
+        <td class="val"><strong>[${n8Code}]</strong> ${n8Name}</td>
+      </tr>
+      <tr>
+        <td class="lbl">9. SKU:</td>
+        <td class="val" colspan="3"><strong>[${n9Code}]</strong> ${n9Name}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Código de Taxonomía Completo:</td>
+        <td class="val matrix-highlight" colspan="3">${fullTaxonomyCode}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 3. DATOS DE INGRESO -->
+  <div class="section-title">3. DATOS DE INGRESO</div>
+  <table class="table-data">
+    <tbody>
+      <tr>
+        <td class="lbl">Fecha de Ingreso:</td>
+        <td class="val">${effectiveEntryDate}</td>
+        <td class="lbl">Tipo de Ingreso:</td>
+        <td class="val"><strong>${entryTypeLabel}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Proveedor / Donante:</td>
+        <td class="val">${supplierVal}</td>
+        <td class="lbl">Documento de Compra:</td>
+        <td class="val">${purchaseDoc}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Número de Documento:</td>
+        <td class="val">${voucherNum}</td>
+        <td class="lbl">Fecha de Compra:</td>
+        <td class="val">${purchaseDate}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Costo / Valor:</td>
+        <td class="val">${costDisplay}</td>
+        <td class="lbl">Moneda:</td>
+        <td class="val">${costVal ? currVal : "—"}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Centro de Costo:</td>
+        <td class="val">${costCenterVal}</td>
+        <td class="lbl">Usuario que Registró:</td>
+        <td class="val">${registeredByUser}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 4. UBICACIÓN INICIAL -->
+  <div class="section-title">4. UBICACIÓN INICIAL</div>
+  <table class="table-data">
+    <tbody>
+      <tr>
+        <td class="lbl">Sede:</td>
+        <td class="val">${n1Name}</td>
+        <td class="lbl">Área:</td>
+        <td class="val">${n3Name}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Módulo / Ubicación:</td>
+        <td class="val">${n4Name}</td>
+        <td class="lbl">Responsable Inicial:</td>
+        <td class="val">${initialResponsible}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Estado Inicial:</td>
+        <td class="val" colspan="3">${initialStatus}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 5. REGISTRO FOTOGRÁFICO Y EVIDENCIAS -->
+  <div class="section-title">5. REGISTRO FOTOGRÁFICO Y EVIDENCIAS</div>
+  <table class="evidence-grid">
+    <tbody>
+      <tr>
+        <td style="width: 38%; text-align: center;">
+          <div style="font-weight: bold; margin-bottom: 3pt; font-size: 8pt;">FOTOGRAFÍA INICIAL</div>
+          ${photoHtml}
+        </td>
+        <td style="width: 62%;">
+          <div style="font-weight: bold; margin-bottom: 2pt;">Documentos Asociados:</div>
+          ${docsHtml}
+          <div style="font-weight: bold; margin-top: 6pt; margin-bottom: 2pt;">Observaciones de Ingreso:</div>
+          <p style="font-size: 8.5pt; color: #222222; line-height: 1.35;">${obsVal}</p>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 6. FIRMAS -->
+  <div class="signatures-row">
+    <div class="sig-box">
+      <div style="height: 28pt;"></div>
+      <div class="sig-line">
+        <strong>Responsable de Registro</strong><br/>
+        <span style="font-size: 7.5pt; color: #444444;">${registeredByUser}</span>
+      </div>
+    </div>
+    <div class="sig-box">
+      <div style="height: 28pt;"></div>
+      <div class="sig-line">
+        <strong>Responsable de Recepción</strong><br/>
+        <span style="font-size: 7.5pt; color: #444444;">${initialResponsible}</span>
+      </div>
+    </div>
+    <div class="sig-box">
+      <div style="height: 28pt;"></div>
+      <div class="sig-line">
+        <strong>V°B° Supervisor / Administración</strong><br/>
+        <span style="font-size: 7.5pt; color: #444444;">Control Patrimonial &amp; FM</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIE DE PÁGINA INSTITUCIONAL -->
+  <div class="footer-note">
+    <span>INCALPACA FM S.A. — Ficha de Entrada de Bienes Patrimoniales</span>
+    <span>Documento generado con validación QR</span>
+  </div>
+
+</div>
+  <script>
+    if (${action === "print"}) {
+      window.onload = function() {
+        window.focus();
+        window.print();
+      };
+    }
+  </script>
+</body>
+</html>`;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  }
+}
+
+function strVal(val: unknown, fallback = "—"): string {
+  if (val === null || val === undefined || val === "") return fallback;
+  return String(val);
+}
+
+/**
+ * Generador general (despacha a generateAssetEntryPdf si el tipo es 'entrada').
+ */
+export async function generateAssetApaPdf({
+  asset,
+  action = "print",
+  adminName,
+  reportType = "completo",
+}: {
+  asset: AssetDetailRecord;
+  action?: "download" | "print";
+  adminName?: string;
+  reportType?: string;
+}) {
+  if (reportType === "entrada") {
+    return generateAssetEntryPdf({ asset, action, adminName });
+  }
+
   const publicUrl = asset.public_url || `${window.location.origin}/bienes/${asset.id}`;
   const qrDataUrl = await QRCode.toDataURL(publicUrl, {
     margin: 1,
@@ -73,7 +590,7 @@ export async function generateAssetApaPdf({
   const n4Code = (payload.n4_code as string) || (payload.room_code as string) || "—";
   const n4Name = asset.location_detail?.room || asset.location_detail?.specific_location || (payload.room as string) || "No ubicado";
 
-  const n5Code = (payload.n5_code as string) || (payload.family_code as string) || (asset.taxonomy_detail ? "—" : "—");
+  const n5Code = (payload.n5_code as string) || (payload.family_code as string) || "—";
   const n5Name = asset.taxonomy_detail?.category || (payload.family as string) || "Sin clasificar";
 
   const n6Code = (payload.n6_code as string) || (payload.type_code as string) || asset.taxonomy_detail?.prefix || "—";
@@ -93,19 +610,12 @@ export async function generateAssetApaPdf({
   }
   const n9Code = cleanSku === "—" ? "—" : (cleanSku.toUpperCase().startsWith("SKU") ? cleanSku : `SKU ${cleanSku}`);
 
-  // CADENA MATRIZ COMPLETA DE 9 NIVELES
   const fullMatrixCode = `${n1Code} - ${n2Code} - ${n3Code} - ${n4Code} - ${n5Code} - ${n6Code} - ${n7Code} - ${n8Code} - ${n9Code}`;
 
-  // CUSTODIA Y RESPONSABLE
   const responsibleName = activeResponsible?.responsible 
     || (payload.responsibleName as string) 
     || (payload.responsible as string) 
     || "No asignado";
-
-  const workerCode = (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.worker_code
-    || (activeResponsible as unknown as { worker_code?: string; workerCode?: string })?.workerCode
-    || (payload.workerCode as string)
-    || "—";
 
   const costCenter = (activeResponsible as unknown as { cost_center?: string; costCenter?: string })?.cost_center
     || (activeResponsible as unknown as { cost_center?: string; costCenter?: string })?.costCenter
@@ -215,7 +725,7 @@ export async function generateAssetApaPdf({
       <div class="company-block">
         <div class="company-name">INCALPACA FM S.A.</div>
         <div class="company-subtitle">Sistema de Gestión Técnica y Bienes</div>
-        <div class="report-name">FICHA DE REGISTRO DEL BIEN<br/>MATRIZ 9 NIVELES</div>
+        <div class="report-name">FICHA DETALLADA DEL BIEN</div>
       </div>
     </div>
     <div class="header-right qr-header">

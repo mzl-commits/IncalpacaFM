@@ -5,7 +5,10 @@ from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import cm
+from reportlab.lib.units import cm, mm
+from reportlab.pdfgen import canvas
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
 from reportlab.platypus import (
     HRFlowable,
     Image,
@@ -20,20 +23,640 @@ from reportlab.platypus import (
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "workorders", "logo_brand.png")
 
 
-def _get_logo_image():
+def _get_logo_image(width=1.5 * cm, height=1.5 * cm):
     if os.path.exists(LOGO_PATH):
         try:
-            return Image(LOGO_PATH, width=1.6 * cm, height=1.6 * cm, kind="proportional")
+            return Image(LOGO_PATH, width=width, height=height, kind="proportional")
         except Exception:
             pass
     return None
 
 
+class NumberedCanvas(canvas.Canvas):
+    """Canvas de dos pasadas para calcular y numerar 'Página X de Y' con pie de página institucional."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_footer(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_footer(self, page_count):
+        self.saveState()
+        self.setFont("Times-Roman", 8)
+        self.setFillColor(colors.HexColor("#444444"))
+        self.setStrokeColor(colors.HexColor("#000000"))
+        self.setLineWidth(0.5)
+
+        margin = 25.4 * mm  # Margen real de 25.4 mm (72 pt)
+        page_width, _ = A4
+        y_line = 42
+        y_text = 30
+
+        self.line(margin, y_line, page_width - margin, y_line)
+        self.drawString(margin, y_text, "INCALPACA FM S.A. — Ficha de Entrada de Bienes Patrimoniales")
+        page_text = f"Página {self._pageNumber} de {page_count}"
+        self.drawRightString(page_width - margin, y_text, page_text)
+        self.restoreState()
+
+
+def _format_date(date_val):
+    if not date_val:
+        return "—"
+    if hasattr(date_val, "strftime"):
+        return date_val.strftime("%d/%m/%Y")
+    val_str = str(date_val)
+    if "T" in val_str:
+        return val_str.split("T")[0]
+    return val_str
+
+
+def build_asset_entry_pdf(asset):
+    """
+    Construye la Ficha de Entrada del Bien exclusivamente con los datos de ingreso al sistema.
+    Cumple con el estándar institucional de INCALPACA FM S.A.:
+    - Márgenes reales de 25.4 mm (1 pulgada)
+    - Blanco y negro sobrio
+    - Encabezado con logo, QR, ID Técnico y Código Taxonomía
+    - 6 Secciones estrictas: Identificación, Taxonomía 9 Niveles, Datos de Ingreso, Ubicación Inicial, Evidencias, Firmas.
+    - Sin mezclar datos de mantenimiento o historial de custodias posteriores.
+    """
+    output = BytesIO()
+
+    # Margen real exacto de 25.4 mm (1 pulgada = 72 pt)
+    margin = 25.4 * mm
+
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=A4,
+        rightMargin=margin,
+        leftMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+    )
+
+    styles = getSampleStyleSheet()
+
+    doc_header_title = ParagraphStyle(
+        "DocHeaderTitleEntry",
+        parent=styles["Normal"],
+        fontName="Times-Bold",
+        fontSize=12,
+        leading=15,
+        textColor=colors.HexColor("#000000"),
+    )
+
+    doc_header_right = ParagraphStyle(
+        "DocHeaderRightEntry",
+        parent=styles["Normal"],
+        fontName="Times-Roman",
+        fontSize=8.5,
+        leading=12,
+        alignment=2,
+        textColor=colors.HexColor("#111111"),
+    )
+
+    section_heading = ParagraphStyle(
+        "SectionHeadingEntry",
+        parent=styles["Heading2"],
+        fontName="Times-Bold",
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor("#000000"),
+        spaceBefore=10,
+        spaceAfter=4,
+        keepWithNext=True,
+    )
+
+    cell_bold = ParagraphStyle(
+        "CellBoldEntry",
+        parent=styles["Normal"],
+        fontName="Times-Bold",
+        fontSize=8.5,
+        leading=11.5,
+        textColor=colors.HexColor("#000000"),
+    )
+
+    cell_normal = ParagraphStyle(
+        "CellNormalEntry",
+        parent=styles["Normal"],
+        fontName="Times-Roman",
+        fontSize=8.5,
+        leading=11.5,
+        textColor=colors.HexColor("#111111"),
+    )
+
+    code_matrix_style = ParagraphStyle(
+        "CodeMatrixStyleEntry",
+        parent=styles["Normal"],
+        fontName="Courier-Bold",
+        fontSize=8.5,
+        leading=11.5,
+        textColor=colors.HexColor("#000000"),
+    )
+
+    story = []
+
+    # DATOS BÁSICOS
+    payload = asset.entry_payload or {}
+    now_str = timezone.localtime().strftime("%d/%m/%Y %H:%M")
+    technical_id = asset.code or "—"
+    taxonomy_code = asset.full_assignment_code or "—"
+
+    # LOGO Y ENCABEZADO
+    logo_img = _get_logo_image(width=1.3 * cm, height=1.3 * cm)
+
+    brand_text = Paragraph(
+        "<b>INCALPACA FM S.A.</b><br/>"
+        "<font color='#444444' size='8'>Sistema de Gestión Técnica y Bienes</font><br/>"
+        "<font size='10.5'><b>FICHA DE ENTRADA DEL BIEN</b></font>",
+        doc_header_title,
+    )
+
+    # QR FUNCTIONAL
+    public_url = getattr(asset, "public_url", None) or f"http://localhost:8008/bienes/{asset.id}"
+    qr_drawing = Drawing(48, 48)
+    qr_widget = QrCodeWidget(public_url)
+    qr_widget.barWidth = 44
+    qr_widget.barHeight = 44
+    qr_widget.barBorder = 0
+    qr_drawing.add(qr_widget)
+
+    meta_text = Paragraph(
+        f"<b>Fecha de Emisión:</b> {now_str}<br/>"
+        f"<b>ID Técnico Único:</b> {technical_id}<br/>"
+        f"<b>Código Taxonomía:</b> {taxonomy_code}",
+        doc_header_right,
+    )
+
+    # Ancho utilizable en A4 con margen de 25.4mm a cada lado: 210mm - 50.8mm = 159.2mm (~15.92 cm)
+    content_width = A4[0] - (2 * margin)
+
+    if logo_img:
+        header_table = Table(
+            [[logo_img, brand_text, meta_text, qr_drawing]],
+            colWidths=[1.5 * cm, 6.2 * cm, 6.4 * cm, 1.8 * cm],
+        )
+    else:
+        header_table = Table(
+            [[brand_text, meta_text, qr_drawing]],
+            colWidths=[7.7 * cm, 6.4 * cm, 1.8 * cm],
+        )
+
+    header_table.setStyle(
+        TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (3, 0), (3, 0), "RIGHT"),
+            ("PADDING", (0, 0), (-1, -1), 1),
+        ])
+    )
+
+    story.append(header_table)
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#000000"), spaceBefore=2, spaceAfter=6))
+
+    # 1. IDENTIFICACIÓN DEL BIEN
+    story.append(Paragraph("1. IDENTIFICACIÓN DEL BIEN", section_heading))
+
+    brand_val = asset.brand or payload.get("brand") or "—"
+    model_val = asset.model or payload.get("model") or "—"
+    brand_model_str = f"{brand_val} / {model_val}" if (brand_val != "—" or model_val != "—") else "—"
+
+    taxonomy_obj = getattr(asset, "taxonomy", None)
+    tipo_bien = (
+        (taxonomy_obj.category if taxonomy_obj else None)
+        or payload.get("category")
+        or payload.get("assetType")
+        or (taxonomy_obj.name if taxonomy_obj else None)
+        or "—"
+    )
+
+    crit_val = asset.criticality or payload.get("criticality") or "Media"
+    cond_val = asset.condition or payload.get("condition") or "Nuevo"
+    desc_val = asset.description or payload.get("description") or "—"
+
+    col_w1 = 3.6 * cm
+    col_w2 = 4.36 * cm
+    col_w3 = 3.6 * cm
+    col_w4 = 4.36 * cm
+
+    sec1_data = [
+        [
+            Paragraph("<b>ID Técnico Único:</b>", cell_bold),
+            Paragraph(f"<b>{technical_id}</b>", cell_normal),
+            Paragraph("<b>Código Taxonomía:</b>", cell_bold),
+            Paragraph(f"<b>{taxonomy_code}</b>", cell_normal),
+        ],
+        [
+            Paragraph("<b>Nombre del Bien:</b>", cell_bold),
+            Paragraph(f"<b>{asset.name}</b>", cell_normal),
+            Paragraph("<b>Tipo de Bien:</b>", cell_bold),
+            Paragraph(tipo_bien, cell_normal),
+        ],
+        [
+            Paragraph("<b>Marca / Modelo:</b>", cell_bold),
+            Paragraph(brand_model_str, cell_normal),
+            Paragraph("<b>Número de Serie:</b>", cell_bold),
+            Paragraph(asset.serial_number or payload.get("serialNumber") or "—", cell_normal),
+        ],
+        [
+            Paragraph("<b>Criticidad:</b>", cell_bold),
+            Paragraph(crit_val, cell_normal),
+            Paragraph("<b>Condición Inicial:</b>", cell_bold),
+            Paragraph(cond_val, cell_normal),
+        ],
+        [
+            Paragraph("<b>Descripción:</b>", cell_bold),
+            Paragraph(desc_val, cell_normal),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+    ]
+
+    t_sec1 = Table(sec1_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec1.setStyle(
+        TableStyle([
+            ("SPAN", (1, 4), (3, 4)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3.5),
+        ])
+    )
+    story.append(t_sec1)
+    story.append(Spacer(1, 0.25 * cm))
+
+    # 2. ESTRUCTURA TAXONÓMICA Y UBICACIÓN (9 NIVELES)
+    story.append(Paragraph("2. ESTRUCTURA TAXONÓMICA Y UBICACIÓN (9 NIVELES)", section_heading))
+
+    location_obj = getattr(asset, "location", None)
+
+    n1_code = str(payload.get("n1_code") or payload.get("site_code") or "INC1").upper()
+    n1_name = str(payload.get("site") or (location_obj.site if location_obj else None) or "Sede Principal")
+
+    n2_code = str(payload.get("n2_code") or payload.get("macro_area_code") or "AD").upper()
+    n2_name = str(payload.get("macro_area") or "Sectores Administrativos")
+
+    n3_code = str(payload.get("n3_code") or payload.get("area_code") or payload.get("building_code") or "—").upper()
+    n3_name = str(
+        (location_obj.area if location_obj else None)
+        or payload.get("locationArea")
+        or payload.get("area")
+        or payload.get("building")
+        or "—"
+    )
+
+    n4_code = str(payload.get("n4_code") or payload.get("room_code") or "—").upper()
+    n4_name = str(
+        (location_obj.room if location_obj else None)
+        or (location_obj.specific_location if location_obj else None)
+        or payload.get("room")
+        or payload.get("specificLocation")
+        or "—"
+    )
+
+    n5_code = str(payload.get("n5_code") or payload.get("family_code") or (taxonomy_obj.category[:3].upper() if taxonomy_obj and taxonomy_obj.category else "—"))
+    n5_name = str((taxonomy_obj.category if taxonomy_obj else None) or payload.get("family") or payload.get("category") or "—")
+
+    n6_code = str(payload.get("n6_code") or payload.get("type_code") or (taxonomy_obj.prefix if taxonomy_obj else "—"))
+    n6_name = str((taxonomy_obj.subcategory if taxonomy_obj else None) or (taxonomy_obj.name if taxonomy_obj else None) or payload.get("subcategory") or "—")
+
+    n7_code = str(payload.get("n7_code") or payload.get("part_code") or "—")
+    n7_name = str(payload.get("part") or payload.get("partName") or "—")
+
+    n8_code = str(payload.get("n8_code") or payload.get("piece_code") or "—")
+    n8_name = str(payload.get("piece") or payload.get("pieceName") or "—")
+
+    raw_sku = str(payload.get("n9_code") or payload.get("sku") or asset.fm_sequence_value or "—")
+    if "-" in raw_sku:
+        sku_num = raw_sku.split("-")[-1].strip()
+    else:
+        sku_num = raw_sku.replace("SKU", "").replace("sku", "").strip()
+    n9_code = f"SKU{sku_num}" if sku_num and sku_num != "—" else (raw_sku if raw_sku != "None" else "—")
+    n9_name = "Correlativo de Inventario" if n9_code != "—" else "—"
+
+    sec2_data = [
+        [
+            Paragraph("<b>1. Sede:</b>", cell_bold),
+            Paragraph(f"<b>[{n1_code}]</b> {n1_name}", cell_normal),
+            Paragraph("<b>2. Área Macro:</b>", cell_bold),
+            Paragraph(f"<b>[{n2_code}]</b> {n2_name}", cell_normal),
+        ],
+        [
+            Paragraph("<b>3. Área:</b>", cell_bold),
+            Paragraph(f"<b>[{n3_code}]</b> {n3_name}", cell_normal),
+            Paragraph("<b>4. Módulo:</b>", cell_bold),
+            Paragraph(f"<b>[{n4_code}]</b> {n4_name}", cell_normal),
+        ],
+        [
+            Paragraph("<b>5. Tipo de Bien:</b>", cell_bold),
+            Paragraph(f"<b>[{n5_code}]</b> {n5_name}", cell_normal),
+            Paragraph("<b>6. Bien:</b>", cell_bold),
+            Paragraph(f"<b>[{n6_code}]</b> {n6_name}", cell_normal),
+        ],
+        [
+            Paragraph("<b>7. Característica:</b>", cell_bold),
+            Paragraph(f"<b>[{n7_code}]</b> {n7_name}", cell_normal),
+            Paragraph("<b>8. Variante / Modelo:</b>", cell_bold),
+            Paragraph(f"<b>[{n8_code}]</b> {n8_name}", cell_normal),
+        ],
+        [
+            Paragraph("<b>9. SKU:</b>", cell_bold),
+            Paragraph(f"<b>[{n9_code}]</b> {n9_name}", cell_normal),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+        [
+            Paragraph("<b>Código de Taxonomía Completo:</b>", cell_bold),
+            Paragraph(f"<b>{taxonomy_code}</b>", code_matrix_style),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+    ]
+
+    t_sec2 = Table(sec2_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec2.setStyle(
+        TableStyle([
+            ("SPAN", (1, 4), (3, 4)),
+            ("SPAN", (1, 5), (3, 5)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (1, 5), (3, 5), colors.HexColor("#F0F0F0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3.5),
+        ])
+    )
+    story.append(t_sec2)
+    story.append(Spacer(1, 0.25 * cm))
+
+    # 3. DATOS DE INGRESO
+    story.append(Paragraph("3. DATOS DE INGRESO", section_heading))
+
+    entry_type_map = {
+        "purchase": "Compra",
+        "own_creation": "Creación propia / Fabricación",
+        "donation": "Regalo o donación",
+        "rental": "Alquiler / Contrato temporal",
+    }
+    raw_entry_type = asset.entry_type or payload.get("entryType") or "purchase"
+    entry_type_label = entry_type_map.get(raw_entry_type, raw_entry_type.capitalize())
+
+    effective_entry_date = _format_date(payload.get("effectiveEntryDate") or asset.created_at)
+    purchase_date = _format_date(
+        payload.get("acquisitionDate")
+        or payload.get("completionDate")
+        or payload.get("receptionDate")
+        or None
+    )
+
+    doc_compra = (
+        payload.get("purchaseOrder")
+        or payload.get("donationDocument")
+        or payload.get("contractNumber")
+        or payload.get("internalOrder")
+        or "—"
+    )
+    num_doc = (
+        payload.get("voucherNumber")
+        or payload.get("contractNumber")
+        or payload.get("internalOrder")
+        or "—"
+    )
+
+    cost_val = str(payload.get("cost") or "").strip()
+    curr_val = str(payload.get("currency") or "PEN").strip()
+    cost_display = f"{curr_val} {cost_val}" if cost_val else "—"
+
+    cost_center = str(payload.get("costCenter") or payload.get("producingArea") or "—")
+
+    registered_by_user = (
+        (asset.registered_by.get_full_name() if asset.registered_by else None)
+        or (asset.registered_by.username if asset.registered_by else None)
+        or str(payload.get("registeredBy") or "Administrador SGTB")
+    )
+
+    sec3_data = [
+        [
+            Paragraph("<b>Fecha de Ingreso:</b>", cell_bold),
+            Paragraph(effective_entry_date, cell_normal),
+            Paragraph("<b>Tipo de Ingreso:</b>", cell_bold),
+            Paragraph(f"<b>{entry_type_label}</b>", cell_normal),
+        ],
+        [
+            Paragraph("<b>Proveedor:</b>", cell_bold),
+            Paragraph(str(payload.get("supplier") or payload.get("donor") or "—"), cell_normal),
+            Paragraph("<b>Documento de Compra:</b>", cell_bold),
+            Paragraph(doc_compra, cell_normal),
+        ],
+        [
+            Paragraph("<b>Número de Documento:</b>", cell_bold),
+            Paragraph(num_doc, cell_normal),
+            Paragraph("<b>Fecha de Compra:</b>", cell_bold),
+            Paragraph(purchase_date, cell_normal),
+        ],
+        [
+            Paragraph("<b>Costo / Valor:</b>", cell_bold),
+            Paragraph(cost_display, cell_normal),
+            Paragraph("<b>Moneda:</b>", cell_bold),
+            Paragraph(curr_val if cost_val else "—", cell_normal),
+        ],
+        [
+            Paragraph("<b>Centro de Costo:</b>", cell_bold),
+            Paragraph(cost_center, cell_normal),
+            Paragraph("<b>Registrado Por:</b>", cell_bold),
+            Paragraph(registered_by_user, cell_normal),
+        ],
+    ]
+
+    t_sec3 = Table(sec3_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec3.setStyle(
+        TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3.5),
+        ])
+    )
+    story.append(t_sec3)
+    story.append(Spacer(1, 0.25 * cm))
+
+    # 4. UBICACIÓN INICIAL
+    story.append(Paragraph("4. UBICACIÓN INICIAL", section_heading))
+
+    initial_responsible = str(
+        payload.get("assigneeName")
+        or payload.get("responsibleName")
+        or payload.get("responsible")
+        or "Sin asignar al ingreso"
+    )
+    initial_status = str(
+        asset.operational_status
+        or asset.administrative_status
+        or payload.get("condition")
+        or "Registrado"
+    )
+
+    sec4_data = [
+        [
+            Paragraph("<b>Sede:</b>", cell_bold),
+            Paragraph(n1_name, cell_normal),
+            Paragraph("<b>Área:</b>", cell_bold),
+            Paragraph(n3_name, cell_normal),
+        ],
+        [
+            Paragraph("<b>Módulo / Ubicación:</b>", cell_bold),
+            Paragraph(n4_name, cell_normal),
+            Paragraph("<b>Responsable Inicial:</b>", cell_bold),
+            Paragraph(initial_responsible, cell_normal),
+        ],
+        [
+            Paragraph("<b>Estado Inicial:</b>", cell_bold),
+            Paragraph(initial_status, cell_normal),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+    ]
+
+    t_sec4 = Table(sec4_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec4.setStyle(
+        TableStyle([
+            ("SPAN", (1, 2), (3, 2)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3.5),
+        ])
+    )
+    story.append(t_sec4)
+    story.append(Spacer(1, 0.25 * cm))
+
+    # 5. REGISTRO FOTOGRÁFICO Y EVIDENCIAS
+    story.append(Paragraph("5. REGISTRO FOTOGRÁFICO Y EVIDENCIAS", section_heading))
+
+    evidence_list = payload.get("evidence") or []
+    if evidence_list:
+        doc_names = [f"• {e.get('name', 'Documento')} ({e.get('category', 'sustento')})" for e in evidence_list]
+        docs_str = "<br/>".join(doc_names)
+    else:
+        docs_str = "Sin documentos adicionales adjuntos."
+
+    obs_val = str(payload.get("observations") or payload.get("assignmentObservations") or "Sin observaciones adicionales registradas al momento del ingreso.")
+
+    # Photo block
+    empty_photo_style = ParagraphStyle(
+        "EmptyPhotoEntry",
+        parent=cell_normal,
+        fontName="Times-Italic",
+        textColor=colors.HexColor("#777777"),
+        alignment=1,
+    )
+
+    photo_col_width = 4.8 * cm
+    info_col_width = content_width - photo_col_width
+
+    # Intentar cargar foto si existe
+    photo_element = Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
+    if hasattr(asset, "photo") and asset.photo and os.path.exists(getattr(asset.photo, "path", "")):
+        try:
+            photo_element = Image(asset.photo.path, width=4.4 * cm, height=3.2 * cm, kind="proportional")
+        except Exception:
+            pass
+
+    evidence_table_data = [
+        [
+            Paragraph("<b>Fotografía Inicial</b>", cell_bold),
+            Paragraph("<b>Documentos Asociados y Observaciones</b>", cell_bold),
+        ],
+        [
+            photo_element,
+            Paragraph(
+                f"<b>Documentos Asociados:</b><br/>{docs_str}<br/><br/>"
+                f"<b>Observaciones de Ingreso:</b><br/>{obs_val}",
+                cell_normal,
+            ),
+        ],
+    ]
+
+    t_evidence = Table(evidence_table_data, colWidths=[photo_col_width, info_col_width])
+    t_evidence.setStyle(
+        TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 1), (0, 1), "CENTER"),
+            ("PADDING", (0, 0), (-1, -1), 4),
+        ])
+    )
+    story.append(t_evidence)
+    story.append(Spacer(1, 0.4 * cm))
+
+    # 6. FIRMAS (3 Columnas Equilibradas)
+    sig_col_w = content_width / 3.0
+    sig_block = []
+
+    sig_data = [
+        [
+            Paragraph(
+                f"<br/><br/><br/>___________________________________<br/>"
+                f"<b>Responsable de Registro</b><br/>"
+                f"<font size='7.5'>{registered_by_user}</font>",
+                ParagraphStyle("Sig1Entry", parent=cell_normal, alignment=1, fontSize=8),
+            ),
+            Paragraph(
+                f"<br/><br/><br/>___________________________________<br/>"
+                f"<b>Responsable de Recepción</b><br/>"
+                f"<font size='7.5'>{initial_responsible}</font>",
+                ParagraphStyle("Sig2Entry", parent=cell_normal, alignment=1, fontSize=8),
+            ),
+            Paragraph(
+                f"<br/><br/><br/>___________________________________<br/>"
+                f"<b>V°B° Supervisor / Administración</b><br/>"
+                f"<font size='7.5'>Control Patrimonial &amp; FM</font>",
+                ParagraphStyle("Sig3Entry", parent=cell_normal, alignment=1, fontSize=8),
+            ),
+        ]
+    ]
+
+    t_sig = Table(sig_data, colWidths=[sig_col_w, sig_col_w, sig_col_w])
+    t_sig.setStyle(
+        TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("PADDING", (0, 0), (-1, -1), 2),
+        ])
+    )
+    sig_block.append(t_sig)
+    story.append(KeepTogether(sig_block))
+
+    # Construir con NumberedCanvas
+    doc.build(story, canvasmaker=NumberedCanvas)
+    output.seek(0)
+    return output
+
+
 def build_asset_pdf(asset, report_type="completo"):
     """
-    Construye el PDF detallado del activo usando ReportLab de manera transaccional.
-    Incluye todos los detalles (incluyendo imágenes temporales, reportes de bajas, etc).
+    Construye el PDF correspondiente según el tipo solicitado.
+    - 'entrada': Ficha de Entrada del Bien (exclusiva de datos de ingreso).
+    - 'completo' o default: Ficha Técnica Detallada.
     """
+    if str(report_type).lower() == "entrada":
+        return build_asset_entry_pdf(asset)
+
+    # Fallback al reporte técnico general
     output = BytesIO()
 
     doc = SimpleDocTemplate(
@@ -110,17 +733,10 @@ def build_asset_pdf(asset, report_type="completo"):
     # MEMBRETE OFICIAL
     logo_img = _get_logo_image()
 
-    if report_type == "asignacion":
-        title_str = "FICHA DE ASIGNACIÓN DE BIEN"
-    elif report_type == "entrada":
-        title_str = "FICHA DE ENTRADA AL INVENTARIO"
-    else:
-        title_str = "FICHA TÉCNICA DETALLADA DEL BIEN"
-
     brand_text = Paragraph(
         "<b>INCALPACA FM S.A.</b><br/>"
         "<font color='#555555' size='8.5'>Sistema de Gestión Técnica y Bienes</font><br/>"
-        f"<b>{title_str}</b>",
+        "<b>FICHA TÉCNICA DE BIEN</b>",
         doc_header_title
     )
 
@@ -250,231 +866,111 @@ def build_asset_pdf(asset, report_type="completo"):
     story.append(t_sec1)
     story.append(Spacer(1, 0.4 * cm))
 
-    # SECCIÓN DE CUSTODIA (Para 'asignacion' y 'completo')
-    if report_type in ("asignacion", "completo"):
-        story.append(Paragraph("2. CUSTODIA Y ASIGNACIÓN DE PERSONAL", section_heading))
+    # SECCIÓN 2: CUSTODIA Y RESPONSABLE
+    story.append(Paragraph("2. CUSTODIA Y ASIGNACIÓN DE PERSONAL", section_heading))
 
-        sec2_data = [
-            [
-                Paragraph("<b>ID Técnico Único:</b>", cell_bold),
-                Paragraph(technical_id, cell_normal),
-                Paragraph("<b>Código de Trabajador:</b>", cell_bold),
-                Paragraph(worker_code, cell_normal),
-            ],
-            [
-                Paragraph("<b>Responsable Asignado:</b>", cell_bold),
-                Paragraph(resp_name, cell_normal),
-                Paragraph("<b>Centro de Costo:</b>", cell_bold),
-                Paragraph(cost_center, cell_normal),
-            ],
+    sec2_data = [
+        [
+            Paragraph("<b>ID Técnico Único:</b>", cell_bold),
+            Paragraph(technical_id, cell_normal),
+            Paragraph("<b>1. Código de Trabajador:</b>", cell_bold),
+            Paragraph(worker_code, cell_normal),
+        ],
+        [
+            Paragraph("<b>2. Responsable Asignado:</b>", cell_bold),
+            Paragraph(resp_name, cell_normal),
+            Paragraph("<b>3. Centro de Costo:</b>", cell_bold),
+            Paragraph(cost_center, cell_normal),
+        ],
+    ]
+
+    t_sec2 = Table(sec2_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
+    t_sec2.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("PADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(t_sec2)
+    story.append(Spacer(1, 0.4 * cm))
+
+    # SECCIÓN 3: ESPECIFICACIONES TÉCNICAS Y DESCRIPCIÓN
+    story.append(Paragraph("3. ESPECIFICACIONES TÉCNICAS Y CONDICIÓN", section_heading))
+    desc_text = asset.description or "Archivador fabricado por mantenimiento."
+
+    sec3_data = [
+        [
+            Paragraph("<b>Marca / Modelo:</b>", cell_bold),
+            Paragraph(f"{brand_name} — {model_name}", cell_normal),
+            Paragraph("<b>Número de Serie:</b>", cell_bold),
+            Paragraph(serial_num, cell_normal),
+        ],
+        [
+            Paragraph("<b>Condición Operativa:</b>", cell_bold),
+            Paragraph(str(cond_name).capitalize(), cell_normal),
+            Paragraph("<b>Criticidad:</b>", cell_bold),
+            Paragraph(str(crit_name).capitalize(), cell_normal),
+        ],
+        [
+            Paragraph("<b>Descripción Técnica:</b>", cell_bold),
+            Paragraph(desc_text, cell_normal),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+    ]
+
+    t_sec3 = Table(sec3_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
+    t_sec3.setStyle(TableStyle([
+        ("SPAN", (1, 2), (3, 2)),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("PADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(t_sec3)
+    story.append(Spacer(1, 0.4 * cm))
+
+    # SECCIÓN 4: REGISTRO FOTOGRÁFICO
+    story.append(Paragraph("4. REGISTRO FOTOGRÁFICO Y EVIDENCIAS DE CAMPO", section_heading))
+
+    empty_photo_style = ParagraphStyle(
+        "EmptyPhotoAsset",
+        parent=cell_normal,
+        fontName="Times-Italic",
+        textColor=colors.HexColor("#808080"),
+        alignment=1,
+    )
+    photo_title_style = ParagraphStyle(
+        "PhotoTitleAsset",
+        parent=cell_bold,
+        alignment=1,
+    )
+
+    photo_data = [
+        [
+            Paragraph("ESTADO INICIAL (ANTES)", photo_title_style),
+            Paragraph("ESTADO FINAL (DESPUÉS)", photo_title_style)
+        ],
+        [
+            Paragraph("Sin registro fotográfico adjunto", empty_photo_style),
+            Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
         ]
+    ]
+    t_photo = Table(photo_data, colWidths=[7.95 * cm, 7.95 * cm], rowHeights=[None, 3.2 * cm])
+    t_photo.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("BOX", (0, 1), (0, 1), 0.5, colors.HexColor("#A0A0A0")),
+        ("BOX", (1, 1), (1, 1), 0.5, colors.HexColor("#A0A0A0")),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FFFFFF")),
+    ]))
+    story.append(t_photo)
+    story.append(Spacer(1, 0.4 * cm))
 
-        t_sec2 = Table(sec2_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
-        t_sec2.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 5),
-        ]))
-        story.append(t_sec2)
-        story.append(Spacer(1, 0.4 * cm))
-
-    # SECCIÓN DE ADQUISICIÓN Y ENTRADA (Para 'entrada' y 'completo')
-    if report_type in ("entrada", "completo"):
-        sec_num = "2" if report_type == "entrada" else "3"
-        story.append(Paragraph(f"{sec_num}. REGISTRO DE ADQUISICIÓN Y ENTRADA AL INVENTARIO", section_heading))
-
-        cost_val = str(payload.get("cost") or payload.get("price") or "S/ 0.00")
-        buy_date = str(payload.get("purchaseDate") or payload.get("date") or now_str)
-        supplier = str(payload.get("supplier") or payload.get("provider") or "Proveedor Registrado")
-
-        sec_ent_data = [
-            [
-                Paragraph("<b>Fecha de Compra/Entrada:</b>", cell_bold),
-                Paragraph(buy_date, cell_normal),
-                Paragraph("<b>Costo de Adquisición:</b>", cell_bold),
-                Paragraph(cost_val, cell_normal),
-            ],
-            [
-                Paragraph("<b>Centro de Costo:</b>", cell_bold),
-                Paragraph(cost_center, cell_normal),
-                Paragraph("<b>Proveedor / Factura:</b>", cell_bold),
-                Paragraph(supplier, cell_normal),
-            ],
-        ]
-
-        t_sec_ent = Table(sec_ent_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
-        t_sec_ent.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 5),
-        ]))
-        story.append(t_sec_ent)
-        story.append(Spacer(1, 0.4 * cm))
-
-    # SECCIÓN DE ESPECIFICACIONES TÉCNICAS (Para 'entrada' y 'completo')
-    if report_type in ("entrada", "completo"):
-        sec_num = "3" if report_type == "entrada" else "4"
-        story.append(Paragraph(f"{sec_num}. ESPECIFICACIONES TÉCNICAS Y CONDICIÓN", section_heading))
-        desc_text = asset.description or "Bien registrado en la plataforma de gestión FM."
-
-        sec3_data = [
-            [
-                Paragraph("<b>Marca / Modelo:</b>", cell_bold),
-                Paragraph(f"{brand_name} — {model_name}", cell_normal),
-                Paragraph("<b>Número de Serie:</b>", cell_bold),
-                Paragraph(serial_num, cell_normal),
-            ],
-            [
-                Paragraph("<b>Condición Operativa:</b>", cell_bold),
-                Paragraph(str(cond_name).capitalize(), cell_normal),
-                Paragraph("<b>Criticidad:</b>", cell_bold),
-                Paragraph(str(crit_name).capitalize(), cell_normal),
-            ],
-            [
-                Paragraph("<b>Descripción Técnica:</b>", cell_bold),
-                Paragraph(desc_text, cell_normal),
-                Paragraph("", cell_normal),
-                Paragraph("", cell_normal),
-            ],
-        ]
-
-        t_sec3 = Table(sec3_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
-        t_sec3.setStyle(TableStyle([
-            ("SPAN", (1, 2), (3, 2)),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 5),
-        ]))
-        story.append(t_sec3)
-        story.append(Spacer(1, 0.4 * cm))
-
-    # EVIDENCIAS Y HISTORIALES (Solo 'completo')
-    if report_type == "completo":
-        story.append(Paragraph("5. REGISTRO FOTOGRÁFICO Y EVIDENCIAS DE CAMPO", section_heading))
-
-        empty_photo_style = ParagraphStyle(
-            "EmptyPhotoAsset",
-            parent=cell_normal,
-            fontName="Times-Italic",
-            textColor=colors.HexColor("#808080"),
-            alignment=1,
-        )
-        photo_title_style = ParagraphStyle(
-            "PhotoTitleAsset",
-            parent=cell_bold,
-            alignment=1,
-        )
-
-        photo_data = [
-            [
-                Paragraph("ESTADO INICIAL (ANTES)", photo_title_style),
-                Paragraph("ESTADO FINAL (DESPUÉS)", photo_title_style)
-            ],
-            [
-                Paragraph("Sin registro fotográfico adjunto", empty_photo_style),
-                Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
-            ]
-        ]
-        t_photo = Table(photo_data, colWidths=[7.95 * cm, 7.95 * cm], rowHeights=[None, 3.2 * cm])
-        t_photo.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("BOX", (0, 1), (0, 1), 0.5, colors.HexColor("#A0A0A0")),
-            ("BOX", (1, 1), (1, 1), 0.5, colors.HexColor("#A0A0A0")),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FFFFFF")),
-        ]))
-        story.append(t_photo)
-        story.append(Spacer(1, 0.4 * cm))
-
-    # HISTORIAL DE CUSTODIA (Para 'asignacion' y 'completo')
-    if report_type in ("asignacion", "completo"):
-        sec_num = "3" if report_type == "asignacion" else "6"
-        story.append(Paragraph(f"{sec_num}. HISTORIAL DE CUSTODIA Y RESPONSABLES", section_heading))
-
-        custody_rows = [
-            [
-                Paragraph("<b>Responsable</b>", cell_bold),
-                Paragraph("<b>Área</b>", cell_bold),
-                Paragraph("<b>Fecha Inicio</b>", cell_bold),
-                Paragraph("<b>Fecha Fin</b>", cell_bold),
-                Paragraph("<b>Estado</b>", cell_bold),
-                Paragraph("<b>Motivo</b>", cell_bold),
-            ],
-            [
-                Paragraph(resp_name, cell_bold),
-                Paragraph("Facility Management", cell_normal),
-                Paragraph(now_str, cell_normal),
-                Paragraph("<i>Vigente</i>", cell_normal),
-                Paragraph("Activa", cell_normal),
-                Paragraph("Asignación de funciones", cell_normal),
-            ],
-        ]
-
-        t_custody = Table(custody_rows, colWidths=[2.8 * cm, 2.6 * cm, 2.7 * cm, 2.5 * cm, 2.0 * cm, 3.3 * cm])
-        t_custody.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 5),
-        ]))
-        story.append(t_custody)
-        story.append(Spacer(1, 0.4 * cm))
-
-    # HISTORIAL DE MANTENIMIENTO (Solo 'completo')
-    if report_type == "completo":
-        story.append(Paragraph("7. HISTORIAL DE MANTENIMIENTO Y ATENCIONES A NIVEL DE PIEZA", section_heading))
-
-        maint_rows = [
-            [
-                Paragraph("<b>N.° Orden</b>", cell_bold),
-                Paragraph("<b>Tipo</b>", cell_bold),
-                Paragraph("<b>Problema / Trabajo</b>", cell_bold),
-                Paragraph("<b>Técnico</b>", cell_bold),
-                Paragraph("<b>Condición Resultante</b>", cell_bold),
-                Paragraph("<b>Costo</b>", ParagraphStyle("M6Header", parent=cell_bold, alignment=2)),
-            ],
-            [
-                Paragraph("OT-DEMO-000190-02", cell_bold),
-                Paragraph("CORRECTIVO", cell_normal),
-                Paragraph("Desgaste detectado durante la operación.", cell_normal),
-                Paragraph("Luis Fernández", cell_normal),
-                Paragraph("Operativo", cell_normal),
-                Paragraph("S/ 344.00", ParagraphStyle("M6R", parent=cell_normal, alignment=2)),
-            ],
-            [
-                Paragraph("OT-DEMO-000190-01", cell_bold),
-                Paragraph("PREVENTIVO", cell_normal),
-                Paragraph("Mantenimiento preventivo programado.", cell_normal),
-                Paragraph("Carlos Mendoza", cell_normal),
-                Paragraph("Bueno", cell_normal),
-                Paragraph("S/ 195.00", ParagraphStyle("M6R2", parent=cell_normal, alignment=2)),
-            ],
-        ]
-
-        t_maint = Table(maint_rows, colWidths=[2.8 * cm, 2.4 * cm, 3.8 * cm, 3.2 * cm, 2.0 * cm, 1.7 * cm])
-        t_maint.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 5),
-        ]))
-        story.append(t_maint)
-        story.append(Spacer(1, 0.4 * cm))
-
-    # FIRMAS Y APROBACIONES
+    # FIRMAS
     sig_block = []
-    if report_type == "asignacion":
-        sig1_title = "Firma del Responsable / Custodio"
-        sig2_title = "V°B° Supervisor / Control Patrimonial"
-    elif report_type == "entrada":
-        sig1_title = "Firma Recepción Almacén"
-        sig2_title = "V°B° Control Patrimonial"
-    else:
-        sig1_title = "Técnico Responsable"
-        sig2_title = "V°B° Supervisor / Administración"
-
     sig_data = [
         [
-            Paragraph(f"<br/><br/>___________________________________<br/><b>{sig1_title}</b><br/>{resp_name}", ParagraphStyle("S1AssetRep", parent=cell_normal, alignment=1)),
-            Paragraph(f"<br/><br/>___________________________________<br/><b>{sig2_title}</b><br/>Control Patrimonial & FM", ParagraphStyle("S2AssetRep", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>___________________________________<br/><b>Técnico Responsable</b><br/>" + resp_name, ParagraphStyle("S1AssetRep", parent=cell_normal, alignment=1)),
+            Paragraph("<br/><br/>___________________________________<br/><b>V°B° Supervisor / Administración</b><br/>Control Patrimonial & FM", ParagraphStyle("S2AssetRep", parent=cell_normal, alignment=1)),
         ]
     ]
     t_sig = Table(sig_data, colWidths=[8.5 * cm, 8.5 * cm])
