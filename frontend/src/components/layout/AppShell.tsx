@@ -23,6 +23,7 @@ import {
   SignOut,
   SquaresFour,
   TreeStructure,
+  Warehouse,
   Tag,
   Toolbox,
   UserCircle,
@@ -107,10 +108,12 @@ const modules: ModuleGroup[] = [
     label: "Gestión",
     shortLabel: "Gestión",
     icon: TreeStructure,
+  Warehouse,
     paths: ["/administracion/taxonomia", "/administracion/espacios", "/administracion/usuarios", "/administracion/tecnicos"],
     roles: ["ADMINISTRADOR"],
     items: [
-      { to: "/administracion/taxonomia", label: "Clasificación", icon: TreeStructure, end: true },
+      { to: "/administracion/taxonomia", label: "Clasificación", icon: TreeStructure,
+  Warehouse, end: true },
       { to: "/administracion/espacios", label: "Espacios y ambientes", icon: Buildings },
       { to: "/administracion/usuarios", label: "Usuarios", icon: UserCircle },
       { to: "/administracion/tecnicos", label: "Técnicos", icon: UsersThree },
@@ -163,10 +166,10 @@ const modules: ModuleGroup[] = [
 ];
 
 const mobilePrimary: NavItem[] = [
-  { to: "/", label: "Inicio", icon: House, end: true },
-  { to: "/bienes", label: "Bienes", icon: Package, end: false },
-  { to: "/asignaciones", label: "Asignaciones", icon: ClipboardText, end: false },
-  { to: "/incidencias", label: "Reportes", icon: ListChecks, end: false },
+  { to: "/incidencias", label: "Órdenes", icon: ListChecks, end: false },
+  { to: "/bienes", label: "Activos", icon: Package, end: false },
+  { to: "/administracion/taxonomia", label: "Gestión", icon: TreeStructure, end: false },
+  { to: "/almacen/catalogo", label: "Almacén", icon: Warehouse, end: false },
 ];
 
 const quickActions: NavItem[] = [
