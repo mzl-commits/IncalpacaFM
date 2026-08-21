@@ -923,13 +923,17 @@ export async function generateAssetAssignmentPdf({
 
   // 1. Identificación del bien
   const technicalId = asset.code || "—";
+  const fmCodeVal = asset.fm_code || strVal(payload.sku, "—");
   const taxonomyCode = asset.display_code || asset.fm_code || asset.code;
   const brandVal = asset.brand || (payload.brand as string) || "—";
   const modelVal = asset.model || (payload.model as string) || "—";
   const brandModel = (brandVal !== "—" || modelVal !== "—") ? `${brandVal} / ${modelVal}` : "—";
+  const tipoBien = asset.taxonomy_detail?.category || (payload.category as string) || (payload.assetType as string) || "—";
+  const serialVal = asset.serial_number || (payload.serialNumber as string) || "—";
+  const skuVal = strVal(payload.sku || payload.n9_code || fmCodeVal);
   const descVal = asset.description || (payload.description as string) || "—";
 
-  // 2. Datos de asignación activa
+  // 2. Ubicación y Custodia
   const activeResponsible = asset.responsible_history?.find(r => r.status === "ACTIVA")
     ?? asset.responsible_history?.[0]
     ?? null;
@@ -946,6 +950,8 @@ export async function generateAssetAssignmentPdf({
     || (payload.responsible as string)
     || "No asignado";
 
+  const respRole = strVal((activeResponsible as unknown as { role?: string })?.role || payload.assigneeRole, "Custodio / Responsable de Puesto");
+
   const areaVal = activeResponsible?.area
     || asset.location_detail?.area
     || (payload.locationArea as string)
@@ -957,42 +963,44 @@ export async function generateAssetAssignmentPdf({
     || (payload.costCenter as string)
     || "—";
 
-  const locParts: string[] = [];
-  if (asset.location_detail) {
-    if (asset.location_detail.zone) locParts.push(asset.location_detail.zone);
-    if (asset.location_detail.building) locParts.push(asset.location_detail.building);
-    if (asset.location_detail.area) locParts.push(asset.location_detail.area);
-    if (asset.location_detail.room) locParts.push(asset.location_detail.room);
-    if (asset.location_detail.specific_location) locParts.push(asset.location_detail.specific_location);
-  } else if (payload.site || payload.locationArea || payload.room) {
-    [payload.site, payload.building, payload.locationArea, payload.room].forEach(p => {
-      if (p) locParts.push(String(p));
-    });
-  }
-  const locationPhysical = locParts.length > 0 ? locParts.join(" · ") : "Ubicación en planta principal";
+  const siteName = strVal(payload.site, asset.location_detail?.zone || "Sede Principal");
+  const moduleName = strVal(asset.location_detail?.room || asset.location_detail?.specific_location || payload.room || payload.specificLocation, "—");
+  const specificLoc = strVal(payload.specificLocation || asset.location_detail?.specific_location || "Ubicación en planta principal");
 
+  // 4. Datos de Asignación
   const asgDate = formatDate(activeResponsible?.start_date || (payload.assignmentDate as string) || asset.created_at);
   const startDateStr = asgDate;
   const endDateStr = activeResponsible?.end_date ? formatDate(activeResponsible.end_date) : "Vigente / Indefinida";
-  const asgStatusStr = statusLabel(activeResponsible?.status) || asset.assignment_status || "Asignado";
-
-  // 3. Motivo de asignación
+  const asgStatusStr = statusLabel(activeResponsible?.status) || asset.assignment_status || "ACTIVA";
+  const asgTypeStr = strVal(payload.assignmentType, "Asignación Individual Directa");
   const reasonVal = activeResponsible?.reason
     || (payload.assignmentReason as string)
     || "Asignación inicial de funciones y custodia operativa del bien.";
 
-  // 4. Condición y observaciones
-  const condStr = conditionLabel(asset.condition || (payload.condition as string) || "NUEVO");
-  const obsAsgStr = (payload.assignmentObservations as string)
-    || (payload.observations as string)
-    || "El bien se entrega en condiciones operativas conformes para el desempeño de sus funciones.";
+  const registeredByUser = asset.registered_by_name || (payload.registeredBy as string) || adminName || "Rosa Medina (Control Patrimonial FM)";
 
-  const registeredByUser = asset.registered_by_name || (payload.registeredBy as string) || adminName || "Administración FM";
+  // 5. Condición del bien al momento de entrega
+  const condFisica = "Conforme / Bueno";
+  const condOperativa = asset.operational_status || "Operativo";
+  const estadoAdmin = asset.administrative_status || "Asignado en Custodia";
+  const obsEntrega = strVal(
+    payload.assignmentObservations || payload.observations,
+    "El bien se entrega en condiciones operativas conformes para el desempeño de sus funciones."
+  );
+  const accesoriosVal = strVal(payload.accessories, "Cables de alimentación, manuales y accesorios estándar de fábrica.");
+
+  // 8. Evidencia
+  const evidenceList = (payload.evidence as Array<{ name?: string; category?: string; size?: number }>) || [];
+  const docsHtml = evidenceList.length > 0
+    ? `<ul style="margin: 3px 0 0 14px; padding: 0; font-size: 8pt;">
+        ${evidenceList.map(e => `<li>${e.name || "Documento"} (${e.category || "sustento"}${e.size ? ` · ${Math.round(e.size / 1024)} KB` : ""})</li>`).join("")}
+       </ul>`
+    : `<span style="font-style: italic; color: #666666; font-size: 8pt;">Sin documentos adicionales adjuntos a la asignación.</span>`;
 
   const photoHtml = asset.photo_url
-    ? `<img src="${asset.photo_url}" alt="Fotografía del bien" style="max-height: 100pt; max-width: 100%; object-fit: contain; border: 0.5pt solid #A0A0A0;" />`
-    : `<div style="width: 100%; height: 75pt; border: 0.5pt dashed #A0A0A0; display: flex; align-items: center; justify-content: center; background: #FAFAFA;">
-        <span style="font-style: italic; color: #777777; font-size: 8pt;">Sin registro fotográfico adjunto</span>
+    ? `<img src="${asset.photo_url}" alt="Fotografía del bien" style="max-height: 85pt; max-width: 100%; object-fit: contain; border: 0.5pt solid #A0A0A0;" />`
+    : `<div style="width: 100%; height: 65pt; border: 0.5pt dashed #A0A0A0; display: flex; align-items: center; justify-content: center; background: #FAFAFA;">
+        <span style="font-style: italic; color: #777777; font-size: 8pt;">Sin fotografía adjunta</span>
        </div>`;
 
   const htmlContent = `<!DOCTYPE html>
@@ -1013,8 +1021,8 @@ export async function generateAssetAssignmentPdf({
     }
     body {
       font-family: "Times New Roman", Times, serif;
-      font-size: 8.5pt;
-      line-height: 1.3;
+      font-size: 8pt;
+      line-height: 1.25;
       color: #000000;
       background: #ffffff;
     }
@@ -1027,64 +1035,64 @@ export async function generateAssetAssignmentPdf({
       justify-content: space-between;
       align-items: center;
       border-bottom: 1.5pt solid #000000;
-      padding-bottom: 8pt;
-      margin-bottom: 8pt;
+      padding-bottom: 6pt;
+      margin-bottom: 6pt;
     }
     .header-left {
       display: flex;
       align-items: center;
-      gap: 10pt;
+      gap: 8pt;
     }
     .company-title {
-      font-size: 12pt;
+      font-size: 11.5pt;
       font-weight: bold;
       color: #000000;
       letter-spacing: 0.3px;
     }
     .company-sub {
-      font-size: 8pt;
+      font-size: 7.5pt;
       color: #444444;
     }
     .doc-title {
-      font-size: 10pt;
+      font-size: 9.5pt;
       font-weight: bold;
       color: #000000;
-      margin-top: 2pt;
+      margin-top: 1pt;
       text-transform: uppercase;
     }
     .header-meta {
       text-align: right;
-      font-size: 8pt;
-      line-height: 1.35;
+      font-size: 7.5pt;
+      line-height: 1.3;
     }
     .header-qr {
-      width: 44pt;
-      height: 44pt;
+      width: 42pt;
+      height: 42pt;
       border: 0.5pt solid #000000;
       padding: 1pt;
       background: #ffffff;
-      margin-left: 8pt;
+      margin-left: 6pt;
     }
     .section-title {
-      font-size: 9.5pt;
+      font-size: 8.5pt;
       font-weight: bold;
       color: #000000;
       border-bottom: 0.75pt solid #000000;
-      padding-bottom: 2pt;
-      margin-top: 8pt;
-      margin-bottom: 4pt;
+      padding-bottom: 1.5pt;
+      margin-top: 6pt;
+      margin-bottom: 3pt;
       text-transform: uppercase;
       page-break-after: avoid;
     }
     .table-data {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 4pt;
-      font-size: 8.5pt;
+      margin-bottom: 3pt;
+      font-size: 8pt;
     }
     .table-data td {
       border: 0.5pt solid #A0A0A0;
-      padding: 3.5pt 5pt;
+      padding: 3pt 4.5pt;
       vertical-align: middle;
     }
     .table-data td.lbl {
@@ -1099,47 +1107,47 @@ export async function generateAssetAssignmentPdf({
     }
     .box-container {
       border: 0.5pt solid #A0A0A0;
-      padding: 5pt;
+      padding: 4.5pt;
       background-color: #FFFFFF;
-      margin-bottom: 4pt;
-      font-size: 8.5pt;
+      margin-bottom: 3pt;
+      font-size: 8pt;
     }
-    .cond-grid {
+    .evidence-grid {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 6pt;
+      margin-bottom: 4pt;
     }
-    .cond-grid td {
+    .evidence-grid td {
       border: 0.5pt solid #A0A0A0;
-      padding: 5pt;
+      padding: 4.5pt;
       vertical-align: top;
     }
     .signatures-row {
       display: flex;
       justify-content: space-between;
-      margin-top: 14pt;
+      margin-top: 10pt;
       page-break-inside: avoid;
-      gap: 8pt;
+      gap: 6pt;
     }
     .sig-box {
       flex: 1;
       border: 0.5pt solid #A0A0A0;
-      padding: 6pt;
+      padding: 5pt;
       background-color: #FCFCFC;
-      font-size: 8pt;
-      line-height: 1.35;
+      font-size: 7.5pt;
+      line-height: 1.3;
     }
     .sig-line {
       border-top: 0.75pt solid #000000;
-      margin: 18pt 0 4pt 0;
+      margin: 14pt 0 3pt 0;
     }
     .footer-note {
-      margin-top: 14pt;
+      margin-top: 8pt;
       border-top: 0.5pt solid #000000;
-      padding-top: 4pt;
+      padding-top: 3pt;
       display: flex;
       justify-content: space-between;
-      font-size: 7.5pt;
+      font-size: 7pt;
       color: #444444;
     }
   </style>
@@ -1174,46 +1182,86 @@ export async function generateAssetAssignmentPdf({
       <tr>
         <td class="lbl">ID Técnico Único:</td>
         <td class="val"><strong>${technicalId}</strong></td>
-        <td class="lbl">Código Taxonomía:</td>
-        <td class="val"><strong>${taxonomyCode}</strong></td>
+        <td class="lbl">Código FM:</td>
+        <td class="val"><strong>${fmCodeVal}</strong></td>
       </tr>
       <tr>
+        <td class="lbl">Código Taxonomía:</td>
+        <td class="val"><strong>${taxonomyCode}</strong></td>
         <td class="lbl">Nombre del Bien:</td>
         <td class="val"><strong>${asset.name}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Tipo de Bien:</td>
+        <td class="val">${tipoBien}</td>
         <td class="lbl">Marca / Modelo:</td>
         <td class="val">${brandModel}</td>
       </tr>
       <tr>
         <td class="lbl">Número de Serie:</td>
-        <td class="val">${asset.serial_number || (payload.serialNumber as string) || "—"}</td>
+        <td class="val"><strong>${serialVal}</strong></td>
+        <td class="lbl">SKU:</td>
+        <td class="val">${skuVal}</td>
+      </tr>
+      <tr>
         <td class="lbl">Descripción Breve:</td>
-        <td class="val">${descVal}</td>
+        <td class="val" colspan="3">${descVal}</td>
       </tr>
     </tbody>
   </table>
 
-  <!-- 2. DATOS DE ASIGNACIÓN -->
-  <div class="section-title">2. DATOS DE ASIGNACIÓN</div>
+  <!-- 2. UBICACIÓN Y CUSTODIA -->
+  <div class="section-title">2. UBICACIÓN Y CUSTODIA</div>
   <table class="table-data">
     <tbody>
       <tr>
-        <td class="lbl">Código de Trabajador:</td>
-        <td class="val"><strong>${workerCode}</strong></td>
+        <td class="lbl">Sede:</td>
+        <td class="val">${siteName}</td>
+        <td class="lbl">Área:</td>
+        <td class="val">${areaVal}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Módulo / Ambiente:</td>
+        <td class="val">${moduleName}</td>
+        <td class="lbl">Ubicación Física:</td>
+        <td class="val">${specificLoc}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Centro de Costo:</td>
+        <td class="val">${costCenterVal}</td>
         <td class="lbl">Responsable Asignado:</td>
         <td class="val"><strong>${respName}</strong></td>
       </tr>
+    </tbody>
+  </table>
+
+  <!-- 3. DATOS DEL RESPONSABLE -->
+  <div class="section-title">3. DATOS DEL RESPONSABLE</div>
+  <table class="table-data">
+    <tbody>
       <tr>
+        <td class="lbl">Nombre Completo:</td>
+        <td class="val"><strong>${respName}</strong></td>
+        <td class="lbl">Código de Trabajador:</td>
+        <td class="val"><strong>${workerCode}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Cargo:</td>
+        <td class="val">${respRole}</td>
         <td class="lbl">Área:</td>
         <td class="val">${areaVal}</td>
-        <td class="lbl">Centro de Costo:</td>
-        <td class="val">${costCenterVal}</td>
       </tr>
       <tr>
-        <td class="lbl">Ubicación Física:</td>
-        <td class="val">${locationPhysical}</td>
-        <td class="lbl">Estado Asignación:</td>
-        <td class="val"><strong>${asgStatusStr}</strong></td>
+        <td class="lbl">Centro de Costo:</td>
+        <td class="val" colspan="3">${costCenterVal}</td>
       </tr>
+    </tbody>
+  </table>
+
+  <!-- 4. DATOS DE ASIGNACIÓN -->
+  <div class="section-title">4. DATOS DE ASIGNACIÓN</div>
+  <table class="table-data">
+    <tbody>
       <tr>
         <td class="lbl">Fecha de Asignación:</td>
         <td class="val">${asgDate}</td>
@@ -1222,37 +1270,76 @@ export async function generateAssetAssignmentPdf({
       </tr>
       <tr>
         <td class="lbl">Fecha de Finalización:</td>
-        <td class="val" colspan="3">${endDateStr}</td>
+        <td class="val">${endDateStr}</td>
+        <td class="lbl">Estado de Asignación:</td>
+        <td class="val"><strong>${asgStatusStr}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Tipo de Asignación:</td>
+        <td class="val">${asgTypeStr}</td>
+        <td class="lbl">Usuario Asignador:</td>
+        <td class="val">${registeredByUser}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Motivo de Asignación:</td>
+        <td class="val" colspan="3">${reasonVal}</td>
       </tr>
     </tbody>
   </table>
 
-  <!-- 3. MOTIVO DE ASIGNACIÓN -->
-  <div class="section-title">3. MOTIVO DE ASIGNACIÓN</div>
+  <!-- 5. CONDICIÓN DEL BIEN AL MOMENTO DE ENTREGA -->
+  <div class="section-title">5. CONDICIÓN DEL BIEN AL MOMENTO DE ENTREGA</div>
+  <table class="table-data">
+    <tbody>
+      <tr>
+        <td class="lbl">Condición Física:</td>
+        <td class="val">${condFisica}</td>
+        <td class="lbl">Condición Operativa:</td>
+        <td class="val"><strong>${condOperativa}</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Estado Administrativo:</td>
+        <td class="val">${estadoAdmin}</td>
+        <td class="lbl">Accesorios Entregados:</td>
+        <td class="val">${accesoriosVal}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Observaciones de Entrega:</td>
+        <td class="val" colspan="3">${obsEntrega}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 6. DECLARACIÓN DE CUSTODIA -->
+  <div class="section-title">6. DECLARACIÓN DE CUSTODIA</div>
   <div class="box-container">
-    <strong>Motivo Registrado:</strong> ${reasonVal}
+    Por medio del presente documento, se deja constancia formal de que el bien identificado con ID Técnico Único
+    <strong>${technicalId}</strong> y Código de Taxonomía <strong>${taxonomyCode}</strong> queda asociado bajo la custodia, uso
+    y responsabilidad operativa de <strong>${respName}</strong> (Cód. Trabajador: <strong>${workerCode}</strong>), en el área y módulo
+    <strong>${areaVal} · ${moduleName}</strong>, de acuerdo con los registros activos en el Sistema de Gestión Técnica y Bienes (SGTB).
   </div>
 
-  <!-- 4. CONDICIÓN DEL BIEN AL MOMENTO DE LA ASIGNACIÓN -->
-  <div class="section-title">4. CONDICIÓN DEL BIEN AL MOMENTO DE LA ASIGNACIÓN</div>
-  <table class="cond-grid">
+  <!-- 8. EVIDENCIA -->
+  <div class="section-title">8. EVIDENCIA FOTOGRÁFICA Y DOCUMENTAL</div>
+  <table class="evidence-grid">
     <tbody>
       <tr>
         <td style="width: 32%; text-align: center;">
-          <div style="font-weight: bold; margin-bottom: 3pt; font-size: 8pt;">FOTOGRAFÍA DEL BIEN</div>
+          <div style="font-weight: bold; margin-bottom: 2pt; font-size: 7.5pt;">Fotografía del Bien</div>
           ${photoHtml}
         </td>
         <td style="width: 68%;">
-          <div style="margin-bottom: 4pt;"><strong>Estado / Condición:</strong> ${condStr}</div>
-          <div style="font-weight: bold; margin-bottom: 2pt;">Observaciones de Entrega:</div>
-          <p style="font-size: 8.5pt; color: #222222; line-height: 1.35;">${obsAsgStr}</p>
+          <div style="font-weight: bold; margin-bottom: 2pt;">Documentos y Evidencias de Asignación:</div>
+          ${docsHtml}
+          <div style="font-weight: bold; margin-top: 4pt; margin-bottom: 2pt;">Registro Digital:</div>
+          <p style="font-size: 7.5pt; color: #222222;">Asignación vinculada formalmente al SGTB con verificación QR.</p>
         </td>
       </tr>
     </tbody>
   </table>
 
-  <!-- 5. CONSTANCIA DE ENTREGA Y RECEPCIÓN -->
-  <div class="section-title">5. CONSTANCIA DE ENTREGA Y RECEPCIÓN</div>
+  <!-- 7. CONSTANCIA DE ENTREGA Y RECEPCIÓN -->
+  <div class="section-title">7. CONSTANCIA DE ENTREGA Y RECEPCIÓN</div>
   <div class="signatures-row">
     <div class="sig-box">
       <strong>ENTREGA</strong><br/>
@@ -1263,7 +1350,7 @@ export async function generateAssetAssignmentPdf({
       <span><strong>Fecha:</strong> ${nowStr}</span>
     </div>
     <div class="sig-box">
-      <strong>RECIBE</strong><br/>
+      <strong>RECEPCIÓN</strong><br/>
       <span><strong>Responsable:</strong> ${respName}</span><br/>
       <span><strong>Cód. Trabajador:</strong> ${workerCode}</span>
       <div class="sig-line"></div>
@@ -1283,7 +1370,7 @@ export async function generateAssetAssignmentPdf({
   <!-- PIE DE PÁGINA INSTITUCIONAL -->
   <div class="footer-note">
     <span>INCALPACA FM S.A. — Ficha de Asignación y Custodia de Bienes</span>
-    <span>Constancia de responsabilidad emitida por el sistema</span>
+    <span>Constancia formal emitida por el sistema con verificación QR</span>
   </div>
 
 </div>

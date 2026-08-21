@@ -750,7 +750,16 @@ def build_asset_entry_pdf(asset):
 
 def build_asset_assignment_pdf(asset):
     """
-    Construye la FICHA DE ASIGNACIÓN DEL BIEN centrada exclusivamente en la custodia y asignación formal.
+    Construye la FICHA DE ASIGNACIÓN DEL BIEN como CONSTANCIA FORMAL DE ASIGNACIÓN Y CUSTODIA.
+    Estructura formal de 8 secciones:
+    1. Identificación del Bien
+    2. Ubicación y Custodia
+    3. Datos del Responsable
+    4. Datos de Asignación
+    5. Condición del Bien al Momento de Entrega
+    6. Declaración de Custodia
+    7. Entrega y Recepción (Firmas formales)
+    8. Evidencia
     """
     output = BytesIO()
     margin = 25.4 * mm
@@ -789,11 +798,11 @@ def build_asset_assignment_pdf(asset):
         "SectionHeadingAsg",
         parent=styles["Heading2"],
         fontName="Times-Bold",
-        fontSize=10,
-        leading=14,
+        fontSize=9.5,
+        leading=13,
         textColor=colors.HexColor("#000000"),
-        spaceBefore=10,
-        spaceAfter=4,
+        spaceBefore=8,
+        spaceAfter=3,
         keepWithNext=True,
     )
 
@@ -801,8 +810,8 @@ def build_asset_assignment_pdf(asset):
         "CellBoldAsg",
         parent=styles["Normal"],
         fontName="Times-Bold",
-        fontSize=8.5,
-        leading=11.5,
+        fontSize=8,
+        leading=11,
         textColor=colors.HexColor("#000000"),
     )
 
@@ -810,8 +819,8 @@ def build_asset_assignment_pdf(asset):
         "CellNormalAsg",
         parent=styles["Normal"],
         fontName="Times-Roman",
-        fontSize=8.5,
-        leading=11.5,
+        fontSize=8,
+        leading=11,
         textColor=colors.HexColor("#111111"),
     )
 
@@ -820,6 +829,7 @@ def build_asset_assignment_pdf(asset):
     payload = asset.entry_payload or {}
     now_str = timezone.localtime().strftime("%d/%m/%Y %H:%M")
     technical_id = asset.code or "—"
+    fm_code_val = asset.fm_code or payload.get("sku") or "—"
     taxonomy_code = asset.full_assignment_code or "—"
 
     logo_img = _get_logo_image(width=1.3 * cm, height=1.3 * cm)
@@ -827,7 +837,7 @@ def build_asset_assignment_pdf(asset):
     brand_text = Paragraph(
         "<b>INCALPACA FM S.A.</b><br/>"
         "<font color='#444444' size='8'>Sistema de Gestión Técnica y Bienes</font><br/>"
-        "<font size='10.5'><b>FICHA DE ASIGNACIÓN DEL BIEN</b></font>",
+        "<font size='10'><b>FICHA DE ASIGNACIÓN DEL BIEN</b></font>",
         doc_header_title,
     )
 
@@ -851,12 +861,12 @@ def build_asset_assignment_pdf(asset):
     if logo_img:
         header_table = Table(
             [[logo_img, brand_text, meta_text, qr_drawing]],
-            colWidths=[1.5 * cm, 6.2 * cm, 6.4 * cm, 1.8 * cm],
+            colWidths=[1.5 * cm, 6.0 * cm, 6.6 * cm, 1.8 * cm],
         )
     else:
         header_table = Table(
             [[brand_text, meta_text, qr_drawing]],
-            colWidths=[7.7 * cm, 6.4 * cm, 1.8 * cm],
+            colWidths=[7.5 * cm, 6.6 * cm, 1.8 * cm],
         )
 
     header_table.setStyle(
@@ -868,57 +878,15 @@ def build_asset_assignment_pdf(asset):
     )
 
     story.append(header_table)
-    story.append(Spacer(1, 0.2 * cm))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#000000"), spaceBefore=2, spaceAfter=6))
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#000000"), spaceBefore=2, spaceAfter=5))
 
-    col_w1 = 3.6 * cm
-    col_w2 = 4.36 * cm
-    col_w3 = 3.6 * cm
-    col_w4 = 4.36 * cm
+    col_w1 = 3.5 * cm
+    col_w2 = 4.46 * cm
+    col_w3 = 3.5 * cm
+    col_w4 = 4.46 * cm
 
-    # 1. IDENTIFICACIÓN DEL BIEN
-    story.append(Paragraph("1. IDENTIFICACIÓN DEL BIEN", section_heading))
-
-    brand_val = asset.brand or payload.get("brand") or "—"
-    model_val = asset.model or payload.get("model") or "—"
-    brand_model_str = f"{brand_val} / {model_val}" if (brand_val != "—" or model_val != "—") else "—"
-    desc_val = asset.description or payload.get("description") or "—"
-
-    sec1_data = [
-        [
-            Paragraph("<b>ID Técnico Único:</b>", cell_bold),
-            Paragraph(f"<b>{technical_id}</b>", cell_normal),
-            Paragraph("<b>Código Taxonomía:</b>", cell_bold),
-            Paragraph(f"<b>{taxonomy_code}</b>", cell_normal),
-        ],
-        [
-            Paragraph("<b>Nombre del Bien:</b>", cell_bold),
-            Paragraph(f"<b>{asset.name}</b>", cell_normal),
-            Paragraph("<b>Marca / Modelo:</b>", cell_bold),
-            Paragraph(brand_model_str, cell_normal),
-        ],
-        [
-            Paragraph("<b>Número de Serie:</b>", cell_bold),
-            Paragraph(asset.serial_number or payload.get("serialNumber") or "—", cell_normal),
-            Paragraph("<b>Descripción Breve:</b>", cell_bold),
-            Paragraph(desc_val, cell_normal),
-        ],
-    ]
-
-    t_sec1 = Table(sec1_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
-    t_sec1.setStyle(
-        TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
-            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 3.5),
-        ])
-    )
-    story.append(t_sec1)
-    story.append(Spacer(1, 0.25 * cm))
-
-    # OBTENER ASIGNACIÓN ACTIVA REAL
+    # OBTENER ASIGNACIÓN ACTIVA REAL Y DATOS DE RESPONSABLE
     active_asg = None
     if hasattr(asset, "assignments"):
         active_asg = asset.assignments.filter(status="ACTIVA").select_related("responsible", "location").first()
@@ -942,13 +910,7 @@ def build_asset_assignment_pdf(asset):
         or "No asignado"
     )
 
-    area_val = (
-        (resp_obj.area_name if resp_obj and resp_obj.area_name else None)
-        or (asset.location.area if asset.location else None)
-        or payload.get("locationArea")
-        or payload.get("area")
-        or "—"
-    )
+    resp_role = str(getattr(resp_obj, "role", "") or payload.get("assigneeRole") or "Custodio / Responsable de Puesto")
 
     cost_center_val = (
         payload.get("costCenter")
@@ -956,50 +918,185 @@ def build_asset_assignment_pdf(asset):
         or "—"
     )
 
-    loc_parts = []
-    if asset.location:
-        if asset.location.site:
-            loc_parts.append(asset.location.site)
-        if asset.location.building:
-            loc_parts.append(asset.location.building)
-        if asset.location.area:
-            loc_parts.append(asset.location.area)
-        if asset.location.room:
-            loc_parts.append(asset.location.room)
-        if asset.location.specific_location:
-            loc_parts.append(asset.location.specific_location)
-    elif payload.get("site") or payload.get("locationArea") or payload.get("room"):
-        loc_parts = [p for p in [payload.get("site"), payload.get("building"), payload.get("locationArea"), payload.get("room")] if p]
+    location_obj = getattr(asset, "location", None)
 
-    location_physical_str = " · ".join(loc_parts) if loc_parts else "Ubicación en planta principal"
+    n1_name = str(payload.get("site") or (location_obj.site if location_obj else None) or "Sede Principal")
+    n3_name = str(
+        (location_obj.area if location_obj else None)
+        or (resp_obj.area_name if resp_obj else None)
+        or payload.get("locationArea")
+        or payload.get("area")
+        or "—"
+    )
+    n4_name = str(
+        (location_obj.room if location_obj else None)
+        or (location_obj.specific_location if location_obj else None)
+        or payload.get("room")
+        or payload.get("specificLocation")
+        or "—"
+    )
+    specific_loc_str = str(payload.get("specificLocation") or (location_obj.specific_location if location_obj else None) or "Ubicación en planta principal")
+
+    taxonomy_obj = getattr(asset, "taxonomy", None)
+    tipo_bien = (
+        (taxonomy_obj.category if taxonomy_obj else None)
+        or payload.get("category")
+        or payload.get("assetType")
+        or (taxonomy_obj.name if taxonomy_obj else None)
+        or "—"
+    )
+
+    brand_val = asset.brand or payload.get("brand") or "—"
+    model_val = asset.model or payload.get("model") or "—"
+    serial_val = asset.serial_number or payload.get("serialNumber") or "—"
+    sku_val = payload.get("sku") or payload.get("n9_code") or fm_code_val or "—"
+    desc_val = asset.description or payload.get("description") or "—"
+
+    # 1. IDENTIFICACIÓN DEL BIEN
+    story.append(Paragraph("1. IDENTIFICACIÓN DEL BIEN", section_heading))
+
+    sec1_data = [
+        [
+            Paragraph("<b>ID Técnico Único:</b>", cell_bold),
+            Paragraph(f"<b>{technical_id}</b>", cell_normal),
+            Paragraph("<b>Código FM:</b>", cell_bold),
+            Paragraph(f"<b>{fm_code_val}</b>", cell_normal),
+        ],
+        [
+            Paragraph("<b>Código Taxonomía:</b>", cell_bold),
+            Paragraph(f"<b>{taxonomy_code}</b>", cell_normal),
+            Paragraph("<b>Nombre del Bien:</b>", cell_bold),
+            Paragraph(f"<b>{asset.name}</b>", cell_normal),
+        ],
+        [
+            Paragraph("<b>Tipo de Bien:</b>", cell_bold),
+            Paragraph(tipo_bien, cell_normal),
+            Paragraph("<b>Marca / Modelo:</b>", cell_bold),
+            Paragraph(f"{brand_val} / {model_val}" if (brand_val != "—" or model_val != "—") else "—", cell_normal),
+        ],
+        [
+            Paragraph("<b>Número de Serie:</b>", cell_bold),
+            Paragraph(f"<b>{serial_val}</b>", cell_normal),
+            Paragraph("<b>SKU:</b>", cell_bold),
+            Paragraph(str(sku_val), cell_normal),
+        ],
+        [
+            Paragraph("<b>Descripción Breve:</b>", cell_bold),
+            Paragraph(desc_val, cell_normal),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+    ]
+
+    t_sec1 = Table(sec1_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec1.setStyle(
+        TableStyle([
+            ("SPAN", (1, 4), (3, 4)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3),
+        ])
+    )
+    story.append(t_sec1)
+    story.append(Spacer(1, 0.18 * cm))
+
+    # 2. UBICACIÓN Y CUSTODIA
+    story.append(Paragraph("2. UBICACIÓN Y CUSTODIA", section_heading))
+
+    sec2_data = [
+        [
+            Paragraph("<b>Sede:</b>", cell_bold),
+            Paragraph(n1_name, cell_normal),
+            Paragraph("<b>Área:</b>", cell_bold),
+            Paragraph(n3_name, cell_normal),
+        ],
+        [
+            Paragraph("<b>Módulo / Ambiente:</b>", cell_bold),
+            Paragraph(n4_name, cell_normal),
+            Paragraph("<b>Ubicación Física:</b>", cell_bold),
+            Paragraph(specific_loc_str, cell_normal),
+        ],
+        [
+            Paragraph("<b>Centro de Costo:</b>", cell_bold),
+            Paragraph(cost_center_val, cell_normal),
+            Paragraph("<b>Responsable Asignado:</b>", cell_bold),
+            Paragraph(f"<b>{resp_name}</b>", cell_normal),
+        ],
+    ]
+
+    t_sec2 = Table(sec2_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec2.setStyle(
+        TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3),
+        ])
+    )
+    story.append(t_sec2)
+    story.append(Spacer(1, 0.18 * cm))
+
+    # 3. DATOS DEL RESPONSABLE
+    story.append(Paragraph("3. DATOS DEL RESPONSABLE", section_heading))
+
+    sec3_data = [
+        [
+            Paragraph("<b>Nombre Completo:</b>", cell_bold),
+            Paragraph(f"<b>{resp_name}</b>", cell_normal),
+            Paragraph("<b>Código de Trabajador:</b>", cell_bold),
+            Paragraph(f"<b>{worker_code}</b>", cell_normal),
+        ],
+        [
+            Paragraph("<b>Cargo:</b>", cell_bold),
+            Paragraph(resp_role, cell_normal),
+            Paragraph("<b>Área:</b>", cell_bold),
+            Paragraph(n3_name, cell_normal),
+        ],
+        [
+            Paragraph("<b>Centro de Costo:</b>", cell_bold),
+            Paragraph(cost_center_val, cell_normal),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+    ]
+
+    t_sec3 = Table(sec3_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec3.setStyle(
+        TableStyle([
+            ("SPAN", (1, 2), (3, 2)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3),
+        ])
+    )
+    story.append(t_sec3)
+    story.append(Spacer(1, 0.18 * cm))
+
+    # 4. DATOS DE ASIGNACIÓN
+    story.append(Paragraph("4. DATOS DE ASIGNACIÓN", section_heading))
 
     asg_date = _format_date(active_asg.start_date if active_asg else (payload.get("assignmentDate") or asset.created_at))
     start_date_str = asg_date
     end_date_str = _format_date(active_asg.end_date) if (active_asg and active_asg.end_date) else "Vigente / Indefinida"
-    asg_status_str = (active_asg.status if active_asg else asset.assignment_status) or "Asignado"
+    asg_status_str = (active_asg.status if active_asg else asset.assignment_status) or "ACTIVA"
+    asg_type_str = str(payload.get("assignmentType") or "Asignación Individual Directa")
+    reason_val = (
+        (active_asg.change_reason if active_asg and active_asg.change_reason else None)
+        or payload.get("assignmentReason")
+        or "Asignación inicial de funciones y custodia operativa del bien."
+    )
+    registered_by_user = (
+        (asset.registered_by.get_full_name() if asset.registered_by else None)
+        or (asset.registered_by.username if asset.registered_by else None)
+        or str(payload.get("registeredBy") or "Rosa Medina (Control Patrimonial FM)")
+    )
 
-    # 2. DATOS DE ASIGNACIÓN
-    story.append(Paragraph("2. DATOS DE ASIGNACIÓN", section_heading))
-
-    sec2_data = [
-        [
-            Paragraph("<b>Código de Trabajador:</b>", cell_bold),
-            Paragraph(f"<b>{worker_code}</b>", cell_normal),
-            Paragraph("<b>Responsable Asignado:</b>", cell_bold),
-            Paragraph(f"<b>{resp_name}</b>", cell_normal),
-        ],
-        [
-            Paragraph("<b>Área:</b>", cell_bold),
-            Paragraph(area_val, cell_normal),
-            Paragraph("<b>Centro de Costo:</b>", cell_bold),
-            Paragraph(cost_center_val, cell_normal),
-        ],
-        [
-            Paragraph("<b>Ubicación Física:</b>", cell_bold),
-            Paragraph(location_physical_str, cell_normal),
-            Paragraph("<b>Estado Asignación:</b>", cell_bold),
-            Paragraph(f"<b>{asg_status_str}</b>", cell_normal),
-        ],
+    sec4_data = [
         [
             Paragraph("<b>Fecha de Asignación:</b>", cell_bold),
             Paragraph(asg_date, cell_normal),
@@ -1009,39 +1106,100 @@ def build_asset_assignment_pdf(asset):
         [
             Paragraph("<b>Fecha de Finalización:</b>", cell_bold),
             Paragraph(end_date_str, cell_normal),
+            Paragraph("<b>Estado de Asignación:</b>", cell_bold),
+            Paragraph(f"<b>{asg_status_str}</b>", cell_normal),
+        ],
+        [
+            Paragraph("<b>Tipo de Asignación:</b>", cell_bold),
+            Paragraph(asg_type_str, cell_normal),
+            Paragraph("<b>Usuario Asignador:</b>", cell_bold),
+            Paragraph(registered_by_user, cell_normal),
+        ],
+        [
+            Paragraph("<b>Motivo de Asignación:</b>", cell_bold),
+            Paragraph(reason_val, cell_normal),
             Paragraph("", cell_normal),
             Paragraph("", cell_normal),
         ],
     ]
 
-    t_sec2 = Table(sec2_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
-    t_sec2.setStyle(
+    t_sec4 = Table(sec4_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec4.setStyle(
         TableStyle([
-            ("SPAN", (1, 4), (3, 4)),
+            ("SPAN", (1, 3), (3, 3)),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
             ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
             ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 3.5),
+            ("PADDING", (0, 0), (-1, -1), 3),
         ])
     )
-    story.append(t_sec2)
-    story.append(Spacer(1, 0.25 * cm))
+    story.append(t_sec4)
+    story.append(Spacer(1, 0.18 * cm))
 
-    # 3. MOTIVO DE ASIGNACIÓN
-    story.append(Paragraph("3. MOTIVO DE ASIGNACIÓN", section_heading))
+    # 5. CONDICIÓN DEL BIEN AL MOMENTO DE ENTREGA
+    story.append(Paragraph("5. CONDICIÓN DEL BIEN AL MOMENTO DE ENTREGA", section_heading))
 
-    reason_val = (
-        (active_asg.change_reason if active_asg and active_asg.change_reason else None)
-        or payload.get("assignmentReason")
-        or "Asignación inicial de funciones y custodia operativa del bien."
+    cond_fisica = "Conforme / Bueno"
+    cond_operativa = asset.operational_status or "Operativo"
+    estado_admin = asset.administrative_status or "Asignado en Custodia"
+    obs_entrega = str(
+        payload.get("assignmentObservations")
+        or payload.get("observations")
+        or "El bien se entrega en condiciones operativas conformes para el desempeño de sus funciones."
+    )
+    accesorios_val = str(payload.get("accessories") or "Cables de alimentación, manuales y accesorios estándar de fábrica.")
+
+    sec5_data = [
+        [
+            Paragraph("<b>Condición Física:</b>", cell_bold),
+            Paragraph(cond_fisica, cell_normal),
+            Paragraph("<b>Condición Operativa:</b>", cell_bold),
+            Paragraph(f"<b>{cond_operativa}</b>", cell_normal),
+        ],
+        [
+            Paragraph("<b>Estado Administrativo:</b>", cell_bold),
+            Paragraph(estado_admin, cell_normal),
+            Paragraph("<b>Accesorios Entregados:</b>", cell_bold),
+            Paragraph(accesorios_val, cell_normal),
+        ],
+        [
+            Paragraph("<b>Observaciones de Entrega:</b>", cell_bold),
+            Paragraph(obs_entrega, cell_normal),
+            Paragraph("", cell_normal),
+            Paragraph("", cell_normal),
+        ],
+    ]
+
+    t_sec5 = Table(sec5_data, colWidths=[col_w1, col_w2, col_w3, col_w4])
+    t_sec5.setStyle(
+        TableStyle([
+            ("SPAN", (1, 2), (3, 2)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8F9FA")),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F8F9FA")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 3),
+        ])
+    )
+    story.append(t_sec5)
+    story.append(Spacer(1, 0.18 * cm))
+
+    # 6. DECLARACIÓN DE CUSTODIA
+    story.append(Paragraph("6. DECLARACIÓN DE CUSTODIA", section_heading))
+
+    declaracion_texto = (
+        f"Por medio del presente documento, se deja constancia formal de que el bien identificado con ID Técnico Único "
+        f"<b>{technical_id}</b> y Código de Taxonomía <b>{taxonomy_code}</b> queda asociado bajo la custodia, uso "
+        f"y responsabilidad operativa de <b>{resp_name}</b> (Cód. Trabajador: <b>{worker_code}</b>), en el área y módulo "
+        f"<b>{n3_name} · {n4_name}</b>, de acuerdo con los registros activos en el Sistema de Gestión Técnica y Bienes (SGTB)."
     )
 
-    t_reason = Table(
-        [[Paragraph(f"<b>Motivo Registrado:</b> {reason_val}", cell_normal)]],
+    t_declaracion = Table(
+        [[Paragraph(declaracion_texto, cell_normal)]],
         colWidths=[content_width],
     )
-    t_reason.setStyle(
+    t_declaracion.setStyle(
         TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FFFFFF")),
@@ -1049,18 +1207,18 @@ def build_asset_assignment_pdf(asset):
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ])
     )
-    story.append(t_reason)
-    story.append(Spacer(1, 0.25 * cm))
+    story.append(t_declaracion)
+    story.append(Spacer(1, 0.18 * cm))
 
-    # 4. CONDICIÓN DEL BIEN AL MOMENTO DE LA ASIGNACIÓN
-    story.append(Paragraph("4. CONDICIÓN DEL BIEN AL MOMENTO DE LA ASIGNACIÓN", section_heading))
+    # 8. EVIDENCIA
+    story.append(Paragraph("8. EVIDENCIA FOTOGRÁFICA Y DOCUMENTAL", section_heading))
 
-    cond_str = asset.condition or payload.get("condition") or "Bueno"
-    obs_asg_str = (
-        payload.get("assignmentObservations")
-        or payload.get("observations")
-        or "El bien se entrega en condiciones operativas conformes para el desempeño de sus funciones."
-    )
+    evidence_list = payload.get("evidence") or []
+    if evidence_list:
+        doc_names = [f"• {e.get('name', 'Documento')} ({e.get('category', 'sustento')})" for e in evidence_list]
+        docs_str = "<br/>".join(doc_names)
+    else:
+        docs_str = "Sin documentos adicionales adjuntos a la asignación."
 
     empty_photo_style = ParagraphStyle(
         "EmptyPhotoAsg",
@@ -1073,49 +1231,43 @@ def build_asset_assignment_pdf(asset):
     photo_col_width = 4.8 * cm
     info_col_width = content_width - photo_col_width
 
-    photo_element = Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
+    photo_element = Paragraph("Sin fotografía adjunta", empty_photo_style)
     if hasattr(asset, "photo") and asset.photo and os.path.exists(getattr(asset.photo, "path", "")):
         try:
-            photo_element = Image(asset.photo.path, width=4.4 * cm, height=3.0 * cm, kind="proportional")
+            photo_element = Image(asset.photo.path, width=4.4 * cm, height=2.8 * cm, kind="proportional")
         except Exception:
             pass
 
-    cond_table_data = [
+    evidence_table_data = [
         [
             Paragraph("<b>Fotografía del Bien</b>", cell_bold),
-            Paragraph("<b>Estado / Condición y Observaciones</b>", cell_bold),
+            Paragraph("<b>Documentos y Evidencias de Asignación</b>", cell_bold),
         ],
         [
             photo_element,
             Paragraph(
-                f"<b>Estado / Condición:</b> {cond_str}<br/><br/>"
-                f"<b>Observaciones de Entrega:</b><br/>{obs_asg_str}",
+                f"<b>Documentos de Sustento:</b><br/>{docs_str}<br/><br/>"
+                f"<b>Registro Digital:</b> Asignación vinculada formalmente al SGTB.",
                 cell_normal,
             ),
         ],
     ]
 
-    t_cond = Table(cond_table_data, colWidths=[photo_col_width, info_col_width])
-    t_cond.setStyle(
+    t_evidence = Table(evidence_table_data, colWidths=[photo_col_width, info_col_width])
+    t_evidence.setStyle(
         TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F8F9FA")),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 1), (0, 1), "CENTER"),
-            ("PADDING", (0, 0), (-1, -1), 4),
+            ("PADDING", (0, 0), (-1, -1), 3.5),
         ])
     )
-    story.append(t_cond)
-    story.append(Spacer(1, 0.4 * cm))
+    story.append(t_evidence)
+    story.append(Spacer(1, 0.25 * cm))
 
-    # 5. CONSTANCIA DE ENTREGA Y RECEPCIÓN (Firmas formales estructuradas)
-    story.append(Paragraph("5. CONSTANCIA DE ENTREGA Y RECEPCIÓN", section_heading))
-
-    registered_by_user = (
-        (asset.registered_by.get_full_name() if asset.registered_by else None)
-        or (asset.registered_by.username if asset.registered_by else None)
-        or str(payload.get("registeredBy") or "Administración FM")
-    )
+    # 7. ENTREGA Y RECEPCIÓN (Firmas formales estructuradas)
+    story.append(Paragraph("7. CONSTANCIA DE ENTREGA Y RECEPCIÓN", section_heading))
 
     sig_col_w = content_width / 3.0
     sig_block = []
@@ -1132,7 +1284,7 @@ def build_asset_assignment_pdf(asset):
                 ParagraphStyle("Sig1Asg", parent=cell_normal, fontSize=8, leading=11),
             ),
             Paragraph(
-                f"<b>RECIBE</b><br/>"
+                f"<b>RECEPCIÓN</b><br/>"
                 f"<b>Responsable:</b> {resp_name}<br/>"
                 f"<b>Cód. Trabajador:</b> {worker_code}<br/><br/>"
                 f"___________________________________<br/>"
@@ -1158,7 +1310,7 @@ def build_asset_assignment_pdf(asset):
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FCFCFC")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("PADDING", (0, 0), (-1, -1), 5),
+            ("PADDING", (0, 0), (-1, -1), 4),
         ])
     )
     sig_block.append(t_sig)
@@ -1167,6 +1319,7 @@ def build_asset_assignment_pdf(asset):
     doc.build(story, canvasmaker=AssignmentNumberedCanvas)
     output.seek(0)
     return output
+
 
 
 # =========================================================================
