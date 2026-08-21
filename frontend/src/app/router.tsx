@@ -373,6 +373,35 @@ export const router = createBrowserRouter([
           "TaxonomyCatalogPage",
         ),
       },
+      {
+        path: "administracion/espacios",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpacesCatalogPage"),
+          "SpacesCatalogPage",
+        ),
+      },
+      {
+        path: "administracion/espacios/nuevo",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceFormPage"),
+          "SpaceFormPage",
+        ),
+      },
+      {
+        path: "administracion/espacios/:id",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceDetailPage"),
+          "SpaceDetailPage",
+        ),
+      },
+      {
+        path: "administracion/espacios/:id/editar",
+        lazy: administratorLazyRoute(
+          () => import("@/modules/spaces/pages/SpaceFormPage"),
+          "SpaceFormPage",
+        ),
+      },
+
 
       {
         path: "administracion/tecnicos",
