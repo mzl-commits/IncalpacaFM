@@ -117,14 +117,29 @@ export function TechnicianDetailPage() {
     }
   }
 
-  async function assignPendingOrder(order: WorkOrder) {
-    if (!id) return;
-    setAssigningOrderId(order.id);
+  const [assigningOrder, setAssigningOrder] = useState<WorkOrder | undefined>(undefined);
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledStartTime, setScheduledStartTime] = useState("");
+  const [plannedHours, setPlannedHours] = useState("");
+
+  function openAssignmentModal(order: WorkOrder) {
+    setAssigningOrder(order);
+    setScheduledDate(order.scheduledDate || new Date().toISOString().split("T")[0]);
+    setScheduledStartTime(order.scheduledStartTime?.slice(0, 5) || "08:00");
+    setPlannedHours(order.plannedHours?.toString() || "2");
+    setAssignmentNotice("");
+  }
+
+  async function submitAssignment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !assigningOrder) return;
+    setAssigningOrderId(assigningOrder.id);
     setAssignmentNotice("");
     try {
-      const updated = await quickAssignWorkOrder(order.id, id);
+      const updated = await quickAssignWorkOrder(assigningOrder.id, id, scheduledDate, scheduledStartTime, parseFloat(plannedHours));
       setOrders((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setAssignmentNotice(`${updated.code} quedó asignada a ${technician?.full_name ?? "el técnico"}.`);
+      setAssigningOrder(undefined);
     } catch (error) {
       setAssignmentNotice(
         assignmentError(error) ?? "No se pudo asignar la OT. Revisa los cruces de horario e inténtalo otra vez.",
@@ -189,7 +204,7 @@ export function TechnicianDetailPage() {
                     <small>{formatDate(order.scheduledDate)} · {order.scheduledStartTime?.slice(0, 5) || "08:00"} · {order.plannedHours} h</small>
                     <small>{getWorkOrderStatusLabel(order)}</small>
                   </div>
-                  <button className="button button-primary" type="button" disabled={assigningOrderId === order.id} onClick={() => void assignPendingOrder(order)}>
+                  <button className="button button-primary" type="button" disabled={assigningOrderId === order.id} onClick={() => openAssignmentModal(order)}>
                     <Plus size={16} />{assigningOrderId === order.id ? "Asignando…" : "Asignar"}
                   </button>
                 </article>
@@ -218,6 +233,43 @@ export function TechnicianDetailPage() {
         <header><div><Star size={22} weight="fill" /><div><h2>Satisfacción del servicio</h2><p>Registro privado de las evaluaciones del solicitante.</p></div></div><strong>{rating ? `${rating.toFixed(1)} / 5` : "Sin evaluaciones"}<small>{evaluations.length} respuestas</small></strong></header>
         {evaluations.length ? <div className="satisfaction-records">{evaluations.map((order) => <article key={order.id}><div><Link to={`/ordenes-trabajo/${order.id}`}>{order.code}</Link><span>{order.satisfaction?.accepted ? "Atención confirmada" : "Solicitó revisión"}</span></div><div className="satisfaction-score"><Star size={17} weight="fill" /><strong>{order.satisfaction?.rating}/5</strong></div><p>{order.satisfaction?.comment || "Sin comentario."}</p></article>)}</div> : <div className="technician-satisfaction-empty">Aún no hay evaluaciones registradas.</div>}
       </section>
+
+      {assigningOrder && (
+        <dialog open className="assignment-modal" style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", justifyContent: "center", alignItems: "center", background: "rgba(0,0,0,0.5)", border: "none", width: "100%", height: "100%" }}>
+          <form onSubmit={submitAssignment} className="data-panel" style={{ width: "400px", padding: "24px", background: "white", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column" }}>
+            <h2 style={{ marginBottom: "8px", fontSize: "1.1rem", marginTop: 0 }}>Configurar tiempo para {assigningOrder.code}</h2>
+            <p style={{ fontSize: "0.85rem", color: "#666", marginBottom: "20px" }}>Define el horario de asignación. El sistema bloqueará solapamientos con otras OT.</p>
+            
+            <label className="field" style={{ marginBottom: "12px" }}>
+              <span>Fecha programada</span>
+              <input type="date" required value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            </label>
+            
+            <label className="field" style={{ marginBottom: "12px" }}>
+              <span>Hora de inicio (00:00 - 23:59)</span>
+              <input type="time" required value={scheduledStartTime} onChange={(e) => setScheduledStartTime(e.target.value)} />
+            </label>
+            
+            <label className="field" style={{ marginBottom: "24px" }}>
+              <span>Duración (Horas)</span>
+              <input type="number" required min="0.5" max="16" step="0.5" value={plannedHours} onChange={(e) => setPlannedHours(e.target.value)} />
+            </label>
+
+            {assignmentNotice && (
+              <div style={{ color: "#D32F2F", padding: "10px", background: "#FFEBEE", borderRadius: "6px", marginBottom: "20px", fontSize: "0.85rem" }}>
+                {assignmentNotice}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button type="button" className="button" disabled={assigningOrderId === assigningOrder.id} onClick={() => { setAssigningOrder(undefined); setAssignmentNotice(""); }}>Cancelar</button>
+              <button type="submit" className="button button-primary" disabled={assigningOrderId === assigningOrder.id}>
+                {assigningOrderId === assigningOrder.id ? "Asignando..." : "Confirmar asignación"}
+              </button>
+            </div>
+          </form>
+        </dialog>
+      )}
     </section>
   );
 }

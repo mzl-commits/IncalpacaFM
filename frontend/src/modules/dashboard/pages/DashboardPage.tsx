@@ -493,5 +493,5 @@ export function DashboardPage() {
   if (user?.role === "INSPECTOR") return <InspectorDashboardPage />;
   
   // For ADMINISTRADOR and TECNICO, the default page is now Bandeja de reportes
-  return <Navigate to="/incidencias" replace />;
+  return user?.role === "ADMINISTRADOR" ? <AdministrativeDashboard /> : (user?.role === "TECNICO" ? <TechnicianDashboard /> : <Navigate to="/incidencias" replace />);
 }

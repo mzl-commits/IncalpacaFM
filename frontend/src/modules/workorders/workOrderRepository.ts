@@ -60,8 +60,19 @@ export async function updateWorkOrderPlanning(
   return data;
 }
 
-export async function quickAssignWorkOrder(id: string, technicianId: string): Promise<WorkOrder> {
-  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/quick-assign/`, { technicianId });
+export async function quickAssignWorkOrder(
+  id: string, 
+  technicianId: string,
+  scheduledDate?: string,
+  scheduledStartTime?: string,
+  plannedHours?: number
+): Promise<WorkOrder> {
+  const { data } = await api.post<WorkOrder>(`/work-orders/${id}/quick-assign/`, { 
+    technicianId,
+    scheduledDate,
+    scheduledStartTime,
+    plannedHours
+  });
   notifyChanges();
   return data;
 }

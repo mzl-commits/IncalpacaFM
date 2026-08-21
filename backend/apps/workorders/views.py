@@ -132,19 +132,37 @@ class WorkOrderQuickAssignView(views.APIView):
             is_active=True,
             account_profile__active=True,
         )
+
+        from datetime import date, time
+        scheduled_date_raw = request.data.get("scheduledDate")
+        scheduled_start_raw = request.data.get("scheduledStartTime")
+        planned_hours_raw = request.data.get("plannedHours")
+
+        try:
+            new_date = date.fromisoformat(str(scheduled_date_raw)) if scheduled_date_raw else order.scheduled_date
+            # Some browsers append :00, we just take the first 5 chars for HH:MM if it's a string, or parse it properly
+            new_time_str = str(scheduled_start_raw)[:5] if scheduled_start_raw else None
+            new_time = time.fromisoformat(new_time_str) if new_time_str else order.scheduled_start_time
+            new_hours = float(planned_hours_raw) if planned_hours_raw else order.planned_hours
+        except (ValueError, TypeError):
+            return response.Response({"detail": "Formato de fecha/hora inválido."}, status=400)
+
         validate_technician_availability(
             technician,
-            order.scheduled_date,
-            order.scheduled_start_time,
-            order.planned_hours,
+            new_date,
+            new_time,
+            new_hours,
             exclude_order_id=order.id,
         )
 
         previous_technician = order.technician
         order.technician = technician
+        order.scheduled_date = new_date
+        order.scheduled_start_time = new_time
+        order.planned_hours = new_hours
         if order.status == WorkOrder.Status.PENDING_RESCHEDULE:
             order.status = WorkOrder.Status.SCHEDULED
-        order.save(update_fields=("technician", "status", "updated_at"))
+        order.save(update_fields=("technician", "scheduled_date", "scheduled_start_time", "planned_hours", "status", "updated_at"))
 
         from apps.audit.services import record_audit
         from apps.notifications.services import queue_notification
