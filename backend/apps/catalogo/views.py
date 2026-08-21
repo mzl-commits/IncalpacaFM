@@ -214,7 +214,16 @@ class SubcategoriaViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         serializer.save()
 
 class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
-    queryset = Material.objects.select_related("subcategoria__categoria").all()
+    queryset = Material.objects.select_related(
+        "subcategoria__categoria",
+        "subcategoria__plantilla_inspeccion",
+        "almacen",
+        "unidad_manejo",
+        "unidad_movimiento_base",
+    ).prefetch_related(
+        "medidas__tipo",
+        "medidas__unidad_medida",
+    ).all()
     serializer_class = MaterialSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
     almacen_lookup = "almacen"

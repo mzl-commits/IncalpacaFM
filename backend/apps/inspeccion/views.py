@@ -404,7 +404,7 @@ class ProgramacionInspeccionViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelVi
 
 
 class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = PlanInspeccionAnual.objects.all()
+    queryset = PlanInspeccionAnual.objects.select_related("almacen").all()
     serializer_class = PlanInspeccionAnualSerializer
     permission_classes = [IsInspectorOrAdministratorWrite]
     almacen_lookup = "almacen"
