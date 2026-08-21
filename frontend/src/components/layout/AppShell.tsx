@@ -108,12 +108,10 @@ const modules: ModuleGroup[] = [
     label: "Gestión",
     shortLabel: "Gestión",
     icon: TreeStructure,
-  Warehouse,
     paths: ["/administracion/taxonomia", "/administracion/espacios", "/administracion/usuarios", "/administracion/tecnicos"],
     roles: ["ADMINISTRADOR"],
     items: [
-      { to: "/administracion/taxonomia", label: "Clasificación", icon: TreeStructure,
-  Warehouse, end: true },
+      { to: "/administracion/taxonomia", label: "Clasificación", icon: TreeStructure, end: true },
       { to: "/administracion/espacios", label: "Espacios y ambientes", icon: Buildings },
       { to: "/administracion/usuarios", label: "Usuarios", icon: UserCircle },
       { to: "/administracion/tecnicos", label: "Técnicos", icon: UsersThree },

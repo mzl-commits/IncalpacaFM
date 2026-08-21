@@ -390,7 +390,7 @@ a { color: inherit; text-decoration: none; }
 .user-management-editor h2 { margin: 0; font-size: 19px; }
 .user-management-editor header p { margin: 5px 0 0; font-size: 14px; }
 .field-toggle { display: flex; align-items: center; gap: 9px; min-height: 44px; padding-top: 24px; }
-.field-toggle input { inline-size: 17px; block-size: 17px; }
+.field-toggle input { inline-size: 20px; block-size: 20px; width: 20px !important; min-height: 20px !important; flex: none; margin: 0; }
 .user-management-list { overflow: hidden; }
 .user-management-empty { display: grid; min-height: 180px; justify-items: center; align-content: center; gap: 8px; padding: 28px; color: var(--muted); text-align: center; }
 .user-management-empty strong { color: var(--text); }
