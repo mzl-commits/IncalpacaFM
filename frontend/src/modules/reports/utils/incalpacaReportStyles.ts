@@ -1,16 +1,10 @@
-export const INCALPACA_LOGO_SVG = `<svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100" height="100" rx="8" fill="#000000"/>
-  <path d="M25 25H38V75H25V25Z" fill="#FFFFFF"/>
-  <path d="M45 25H58V75H45V25Z" fill="#FFFFFF"/>
-  <path d="M65 25H78V75H65V25Z" fill="#FFFFFF"/>
-  <path d="M25 45H78V55H25V45Z" fill="#FFFFFF"/>
-</svg>`;
+export const INCALPACA_LOGO_SVG = `<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHQAAAB0CAYAAABUmhYnAAAEqklEQVR4Aeycv0ozQRTFLxEUwcraysrGyspC0mhjYeUT+AI2FlZKOgvBdxA7QRB8EBvBwgewCqiFIMr3eS7sxxfJbnbc3cmZyQle82dm7j1zfjsZidnt/dEtKwd6pltWDghoVjjNBDRHoF9fXz6t29tbYwtoQ7hA/ZroQA9mIdDz/Pzc9vf37eDgYOoBHUdHR1Zogz7FZAd6c3NzNj8/b8Xt8/PThsPh1AM6FhYWDPoQhT7dVzugPbTan+RaHare1qJz66ygA+0suxJHd0BAo1vebUEHqj86ujU5ZnYHqj00puXd1nKg3ZZQ9pgOCGhMtyPUcqDaQyM4HamEA9UeGsntCGUcaIQ6iZZIT7aApsesUrED1R5a6VFSjQ5Ue2hSzCrFOtDKHmpMwgEsSoSAJoFrskhsmwgHigeTh6gHqwNYmdCGeweKB3hBkaYDxYLEvQNNcxpSPc6BPICOm9mMvuZAsVRndP5ZTRtbpwPFg6xmNqOTwcJ0oDM6/yynLaCZYXWgWKqZzWtmp+NAtYfmw9+B5jMdzURAMzoG8E7rQGPtoRl5RzsVBwqytAolLMgBBxo0Qp2pHRBQajzh4vwMbvY9lGFLgAbEx8eHn1WOx+F2dz/CVyhEotTi4qItLy/bysrK1AM6cGY5jGOK9/d3B8q6CHoQhrDv22AwsJubG7u6app6QMfp6aldXFx44PoP0wzoODs7s/v7e79MwLddlD++Qgugm5ub1u/3aWJ9fd2Oj49pAgfY4+MjJchClAMtnjDe462XSRe2ASY9P7WMA/qzj54n5ICAJgSrjlQBreNSQn0ENCFYdaQKaB2XEuojoAnBqiNVQOu4lFAfAU0I1iSp+IBIQCe5FK+9lUoC2oqNPEkElIdFK0oEtBUbeZIIKA+LVpQIaCs28iQRUB4WrSgR0FZs5EiCr+oIKAeLxioAUx8s/MpGzkGAiS/7aYVy8vmVKkAV0F9ZxzlIQDm5NFKlFdrIPr7BAsrHpJEiAW1kH99gAeVj0kiRgDayj29wvkD5vI6iSECj2ByviIDG8zpKJQGNYnO8IgIaz+solQQ0is3xitADfX19jedGzUr4ELxm1+jdKIHin7VwAv/f293dtb29PYrY2dmBLHt+fqaKl5cXv5AHxFECxQoA1NXVVbu8vLTr62uKuLu7MxxkW1tbtr29TRE44P+/kMfUgeKoKguAXVpaMlzXgCmenp7s4eGBIt7e3kbsowUKmEWMKNaTSgdogVaqVmOpAwJaak2aDQKaJrdS1QJaak2aDQKaJrdS1QJaak2aDQKaJrdS1XWBliZQA5cDAsrFo7EaAW1sIVcCAeXi0ViNgDa2kCuBgHLxaKxGQBtbyJVAQLl4NFYjoI0t7DRBcHIBDbaMe4CAcvMJViegwZZxDxBQbj7B6gQ02DLuAQLKzSdYnYAGW8Y9QEC5+QSrE9Bgy8YN4HlNQHlYtKJEQFuxkSeJgPKwaEWJgLZiI08SAeVh0YoSAW3FRp4kAhrIAmdwBw6J2l1Aa9rNCnI4HI7MYLaAjkw97AnOJseItbU1GwwGNHF4eGi4bAG0IQQULgREv9+3k5MTqtjY2Ph3FZS/AAAA//9hKo7vAAAABklEQVQDAJeiK2EAzJfaAAAAAElFTkSuQmCC" alt="Incalpaca FM" style="width:60pt; height:60pt; object-fit:contain;">`;
 
 export function getIncalpacaReportCSS() {
   return `
     @page {
       size: A4;
-      margin: 1.2cm 1.5cm;
+      margin: 1.5cm 1.5cm 1.2cm 1.5cm;
     }
     * {
       box-sizing: border-box;
@@ -23,6 +17,7 @@ export function getIncalpacaReportCSS() {
       line-height: 1.35;
       color: #111111;
       background: #ffffff;
+      padding-top: 10pt;
     }
     .main-report {
       width: 100%;
@@ -32,21 +27,22 @@ export function getIncalpacaReportCSS() {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 1.5pt solid #000000;
-      padding-bottom: 8pt;
-      margin-bottom: 12pt;
+      border-bottom: 2pt solid #000000;
+      padding-bottom: 14pt;
+      margin-bottom: 18pt;
     }
     .logo-area {
       display: flex;
       align-items: center;
-      gap: 10pt;
+      gap: 16pt;
     }
     .company-block {
       display: flex;
       flex-direction: column;
+      gap: 3pt;
     }
     .company-name {
-      font-size: 13pt;
+      font-size: 14pt;
       font-weight: bold;
       letter-spacing: 0.5px;
       color: #000000;
