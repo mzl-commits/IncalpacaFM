@@ -168,7 +168,7 @@ export function WorkOrderReportsPage() {
               <div style={{ border: 0, padding: 0 }}>
                 <dt style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Estado</dt>
                 <dd style={{ margin: "3px 0 0" }}>
-                  <span className={`status ${selected.status === "COMPLETADA" ? "status-success" : selected.status === "EN_PROCESO" ? "status-warning" : "status-neutral"}`} style={{ fontSize: 11, padding: "2px 8px" }}>
+                  <span className={`status ${selected.status === "CERRADA" || selected.status === "APROBADA_POR_SUPERVISOR" ? "status-success" : selected.status === "EN_PROCESO" ? "status-warning" : "status-neutral"}`} style={{ fontSize: 11, padding: "2px 8px" }}>
                     {selected.status}
                   </span>
                 </dd>
