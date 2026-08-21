@@ -1,8 +1,9 @@
 import QRCode from "qrcode";
 import type { WorkRequest } from "../types";
+import { requestPriorityLabels, requestStatusLabels, requestTypeLabels } from "../incidentModel";
 import { INCALPACA_LOGO_SVG, getIncalpacaReportCSS } from "@/modules/reports/utils/incalpacaReportStyles";
 
-function formatDate(dateStr?: string | null) {
+function formatDateLong(dateStr?: string | null) {
   if (!dateStr) return "Fecha no registrada";
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;
@@ -15,27 +16,15 @@ function formatDate(dateStr?: string | null) {
   }).format(date);
 }
 
-function priorityLabel(p?: string) {
-  const map: Record<string, string> = {
-    BAJA: "Baja",
-    MEDIA: "Media",
-    ALTA: "Alta",
-    URGENTE: "Urgente",
-    EMERGENCIA: "Emergencia",
-  };
-  return p ? (map[p] ?? p) : "Normal";
-}
-
-function statusLabel(s?: string) {
-  const map: Record<string, string> = {
-    PENDIENTE: "Pendiente",
-    EN_EVALUACION: "En evaluación",
-    APROBADA: "Aprobada",
-    CONVERTIDA_EN_OT: "Convertida en OT",
-    RECHAZADA: "Rechazada",
-    CANCELADA: "Cancelada",
-  };
-  return s ? (map[s] ?? s) : "Pendiente";
+function formatDateShort(dateStr?: string | null) {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 export async function generateWorkRequestPdf({
@@ -48,11 +37,64 @@ export async function generateWorkRequestPdf({
   const publicUrl = `${window.location.origin}/incidencias/${request.id}`;
   const qrDataUrl = await QRCode.toDataURL(publicUrl, {
     margin: 1,
-    width: 180,
+    width: 200,
     color: { dark: "#111111", light: "#ffffff" },
   });
 
-  const nowStr = formatDate(new Date().toISOString());
+  const nowStr = formatDateShort(new Date().toISOString());
+
+  // Evidencias fotográficas
+  const evidencias = request.evidence ?? [];
+  const fotoHtml = evidencias.length > 0
+    ? evidencias.slice(0, 2).map((ev, i) =>
+        `<div class="photo-col">
+          <div class="photo-title">${i === 0 ? "EVIDENCIA ADJUNTA (1)" : "EVIDENCIA ADJUNTA (2)"}</div>
+          <div class="photo-frame">
+            ${ev.dataUrl
+              ? `<img src="${ev.dataUrl}" alt="${ev.name}"/>`
+              : `<span class="photo-empty">${ev.name || "Archivo adjunto"}</span>`
+            }
+          </div>
+        </div>`
+      ).join("")
+    : `<div class="photo-col">
+        <div class="photo-title">EVIDENCIA ADJUNTA</div>
+        <div class="photo-frame">
+          <span class="photo-empty">Sin registro fotográfico adjunto</span>
+        </div>
+      </div>`;
+
+  // Evaluación de impacto / respuestas del formulario
+  const impact = request.impactAssessment;
+  const answers = impact?.answers;
+  const impactRows = impact
+    ? `
+      <tr>
+        <td class="label">Prioridad Sugerida por Sistema:</td>
+        <td class="value">${requestPriorityLabels[impact.suggestedPriority ?? "NORMAL"] ?? (impact.suggestedPriority || "—")}</td>
+        <td class="label">¿Para trabajo operativo?:</td>
+        <td class="value">${answers?.stopsWork === "SI" ? "Sí, paraliza actividades" : answers?.stopsWork === "NO" ? "No" : "—"}</td>
+      </tr>
+      <tr>
+        <td class="label">¿Riesgo de seguridad?:</td>
+        <td class="value">${answers?.safetyRisk === "SI" ? "Sí" : "No"}</td>
+        <td class="label">¿Personas afectadas?:</td>
+        <td class="value">${answers?.affectedPeople === "TODA_EL_AREA" ? "Toda el área" : answers?.affectedPeople === "VARIAS_PERSONAS" ? "Varias personas" : "Solo el solicitante"}</td>
+      </tr>`
+    : `<tr><td colspan="4" style="font-style:italic; color:#808080; text-align:center;">Sin evaluación de impacto registrada.</td></tr>`;
+
+  // Motivo de rechazo si aplica
+  const rejectionHtml = request.rejectionReason
+    ? `<div class="section-block">
+        <div class="section-heading">MOTIVO DE RECHAZO / OBSERVACIÓN</div>
+        <table class="data-table"><tbody>
+          <tr>
+            <td class="label" style="width:24%">Motivo:</td>
+            <td class="value" colspan="3">${request.rejectionReason}</td>
+          </tr>
+        </tbody></table>
+      </div>`
+    : "";
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="es">
@@ -62,121 +104,116 @@ export async function generateWorkRequestPdf({
   <title>Solicitud de Trabajo — ${request.code} | Incalpaca FM</title>
   <style>
     ${getIncalpacaReportCSS()}
-    .request-summary-table td {
-      padding: 6pt 8pt;
-    }
   </style>
 </head>
 <body>
 <div class="main-report">
 
-  <!-- ENCABEZADO INSTITUCIONAL -->
+  <!-- ENCABEZADO INSTITUCIONAL (igual que workOrderReportPdf) -->
   <div class="page-header">
     <div class="logo-area">
       ${INCALPACA_LOGO_SVG}
       <div class="company-block">
         <div class="company-name">INCALPACA FM S.A.</div>
-        <div class="company-subtitle">Sistema de Gestión de Mantenimiento y Servicios</div>
-        <div class="report-name">SOLICITUD DE TRABAJO DE CAMPO</div>
+        <div class="company-subtitle">Sistema de Gestión Técnica y Facility Management</div>
+        <div class="report-name">SOLICITUD DE TRABAJO N° ${request.code}</div>
       </div>
     </div>
     <div class="header-right">
-      <span>Fecha Emisión: ${nowStr}</span><br/>
-      <span>Código Solicitud: <strong>${request.code}</strong></span><br/>
-      <span>Estado: <strong>${statusLabel(request.status)}</strong></span><br/>
-      <span>Prioridad: <strong>${priorityLabel(request.requesterPriority)}</strong></span>
+      <span>Fecha de Emisión: ${nowStr}</span><br/>
+      <span>Estado: <strong>${requestStatusLabels[request.status] ?? request.status}</strong></span><br/>
+      <span>Prioridad: <strong>${requestPriorityLabels[request.requesterPriority] ?? request.requesterPriority}</strong></span>
     </div>
   </div>
 
-  <!-- SECCIÓN 1: DATOS GENERALES Y SOLICITANTE -->
+  <!-- 1. DATOS DE IDENTIFICACIÓN Y UBICACIÓN DEL BIEN -->
   <div class="section-block">
-    <div class="section-heading">1. DATOS DE IDENTIFICACIÓN Y SOLICITANTE</div>
-    <table class="data-table request-summary-table">
+    <div class="section-heading">1. DATOS DE IDENTIFICACIÓN Y UBICACIÓN DEL BIEN</div>
+    <table class="data-table">
       <tbody>
         <tr>
           <td class="label" style="width:24%">Código Solicitud:</td>
           <td class="value" style="width:26%"><strong>${request.code}</strong></td>
           <td class="label" style="width:24%">Fecha de Registro:</td>
-          <td class="value" style="width:26%">${formatDate(request.reportedAt)}</td>
+          <td class="value" style="width:26%">${formatDateLong(request.reportedAt)}</td>
         </tr>
         <tr>
           <td class="label">Solicitante:</td>
           <td class="value"><strong>${request.requesterName}</strong></td>
-          <td class="label">Correo Electrónico:</td>
-          <td class="value">${request.requesterEmail || "—"}</td>
+          <td class="label">Correo / Teléfono:</td>
+          <td class="value">${request.requesterEmail || "—"}${request.requesterPhone ? ` · ${request.requesterPhone}` : ""}</td>
+        </tr>
+        <tr>
+          <td class="label">Bien / Activo:</td>
+          <td class="value">${request.assetDisplayCode || request.assetCode || "Sin bien asignado"}</td>
+          <td class="label">Ubicación Física:</td>
+          <td class="value">${[request.building, request.area, request.room].filter(Boolean).join(" / ") || "—"}</td>
         </tr>
         <tr>
           <td class="label">Tipo de Solicitud:</td>
-          <td class="value"><strong>${request.requestType || "Mantenimiento General"}</strong></td>
-          <td class="label">Prioridad Declarada:</td>
-          <td class="value"><strong>${priorityLabel(request.requesterPriority)}</strong></td>
+          <td class="value"><strong>${requestTypeLabels[request.requestType] ?? request.requestType}</strong></td>
+          <td class="label">¿Trato como Proyecto?:</td>
+          <td class="value">${request.project ? "Sí, tratamiento como proyecto" : "No"}</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- SECCIÓN 2: UBICACIÓN Y BIEN VINCULADO -->
+  <!-- 2. DESCRIPCIÓN Y FALLA REPORTADA -->
   <div class="section-block">
-    <div class="section-heading">2. UBICACIÓN FÍSICA Y ACTIVO RELACIONADO</div>
-    <table class="data-table request-summary-table">
-      <tbody>
-        <tr>
-          <td class="label" style="width:24%">Edificio / Sector:</td>
-          <td class="value" style="width:26%"><strong>${request.building || "Planta Principal"}</strong></td>
-          <td class="label" style="width:24%">Área / Departamento:</td>
-          <td class="value" style="width:26%">${request.area || "General"}</td>
-        </tr>
-        <tr>
-          <td class="label">Módulo / Ambiente:</td>
-          <td class="value">${request.room || "Oficina / Sala"}</td>
-          <td class="label">Bien / Activo Afectado:</td>
-          <td class="value"><strong>${request.assetName || request.assetCode || "Mueble o equipo general"}</strong></td>
-        </tr>
-        ${request.assetCode ? `
-        <tr>
-          <td class="label">ID Técnico Bien:</td>
-          <td class="value" colspan="3"><code>${request.assetCode}</code></td>
-        </tr>` : ''}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- SECCIÓN 3: DESCRIPCIÓN DEL REQUERIMIENTO / PROBLEMA -->
-  <div class="section-block">
-    <div class="section-heading">3. DESCRIPCIÓN TÉCNICA DEL REQUERIMIENTO</div>
+    <div class="section-heading">2. DESCRIPCIÓN Y DETALLE DEL REQUERIMIENTO</div>
     <table class="data-table">
       <tbody>
         <tr>
-          <td class="label" style="width:24%">Asunto / Requerimiento:</td>
-          <td class="value" colspan="3" style="font-size:10pt;">
-            <strong>${request.description}</strong>
-          </td>
+          <td class="label" style="width:24%; vertical-align:top;">Descripción:</td>
+          <td class="value" colspan="3" style="font-size:9.5pt; line-height:1.5;">${request.description}</td>
         </tr>
-        ${request.observations ? `
-        <tr>
-          <td class="label">Observaciones Adicionales:</td>
-          <td class="value" colspan="3">${request.observations}</td>
-        </tr>` : ''}
       </tbody>
     </table>
   </div>
 
-  <!-- SECCIÓN 4: EVIDENCIA FOTOGRÁFICA -->
-  <div class="section-block" style="page-break-inside: avoid;">
-    <div class="section-heading">4. REGISTRO FOTOGRÁFICO DE LA SOLICITUD</div>
+  <!-- 3. EVALUACIÓN DE IMPACTO -->
+  <div class="section-block">
+    <div class="section-heading">3. EVALUACIÓN DE IMPACTO Y DIAGNÓSTICO INICIAL</div>
+    <table class="data-table">
+      <tbody>
+        ${impactRows}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 4. EVIDENCIA FOTOGRÁFICA DE CAMPO -->
+  <div class="section-block" style="page-break-inside:avoid; break-inside:avoid;">
+    <div class="section-heading">4. EVIDENCIA FOTOGRÁFICA DE CAMPO</div>
     <div class="photo-grid">
-      <div class="photo-col">
-        <div class="photo-title">EVIDENCIA REGISTRADA</div>
-        <div class="photo-frame">
-          ${request.photoUrl ? `<img src="${request.photoUrl}" alt="Evidencia de solicitud"/>` : `<span class="photo-empty">Sin evidencia fotográfica adjunta</span>`}
-        </div>
-      </div>
+      ${fotoHtml}
     </div>
   </div>
 
-  <!-- SECCIÓN 5: TRAZABILIDAD Y QR -->
+  <!-- 5. PROGRAMACIÓN Y ESTADO DE ATENCIÓN -->
   <div class="section-block">
-    <div class="section-heading">5. TRAZABILIDAD DIGITAL Y VERIFICACIÓN</div>
+    <div class="section-heading">5. PROGRAMACIÓN Y ESTADO DE ATENCIÓN</div>
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <td class="label" style="width:24%">Estado Actual:</td>
+          <td class="value" style="width:26%"><strong>${requestStatusLabels[request.status] ?? request.status}</strong></td>
+          <td class="label" style="width:24%">Última Actualización:</td>
+          <td class="value" style="width:26%">${formatDateLong(request.updatedAt)}</td>
+        </tr>
+        <tr>
+          <td class="label">Orden de Trabajo Asignada:</td>
+          <td class="value" colspan="3">${request.workOrderId ? `OT vinculada: ${request.workOrderId}` : "Sin orden de trabajo asignada aún."}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  ${rejectionHtml}
+
+  <!-- 6. TRAZABILIDAD DIGITAL Y QR -->
+  <div class="section-block">
+    <div class="section-heading">6. TRAZABILIDAD DIGITAL Y VERIFICACIÓN</div>
     <div class="qr-block">
       <div class="qr-cell">
         <img src="${qrDataUrl}" alt="QR vinculado a ${request.code}">
@@ -190,11 +227,11 @@ export async function generateWorkRequestPdf({
               <td class="value"><strong>${request.code}</strong></td>
             </tr>
             <tr>
-              <td class="label" style="width:35%">Estado en Sistema:</td>
-              <td class="value"><strong>${statusLabel(request.status)}</strong></td>
+              <td class="label">Estado en Sistema:</td>
+              <td class="value"><strong>${requestStatusLabels[request.status] ?? request.status}</strong></td>
             </tr>
             <tr>
-              <td class="label" style="width:35%">URL de Validación:</td>
+              <td class="label">URL de Validación:</td>
               <td class="value">${publicUrl}</td>
             </tr>
           </tbody>
@@ -203,7 +240,7 @@ export async function generateWorkRequestPdf({
     </div>
   </div>
 
-  <!-- FIRMAS -->
+  <!-- FIRMAS (igual que workOrderReportPdf) -->
   <div class="signatures-block">
     <div class="sig-cell">
       <div class="sig-line"></div>
@@ -218,7 +255,6 @@ export async function generateWorkRequestPdf({
   </div>
 
 </div>
-
   <script>
     if (${action === "print"}) {
       window.onload = function() {
