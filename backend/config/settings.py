@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "apps.documents",
     "apps.assets",
     "apps.taxonomy",
+    "apps.spaces",
     "apps.assignments",
     "apps.notifications",
     "apps.incidents",

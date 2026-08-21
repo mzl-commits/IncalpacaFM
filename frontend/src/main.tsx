@@ -10,6 +10,7 @@ import "@/styles/typography.css";
 import "@/styles/surfaces.css";
 import "@/styles/filters.css";
 import "@/styles/taxonomy.css";
+import "@/styles/spaces.css";
 import "@/styles/facility-map.css";
 import "@/styles/location-maps.css";
 import "@/styles/asset-map-overview.css";
