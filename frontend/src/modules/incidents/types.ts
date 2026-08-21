@@ -35,7 +35,10 @@ export interface WorkRequest {
   code: string;
   assetId?: string | null;
   assetCode?: string | null;
+  assetName?: string | null;
   assetDisplayCode?: string | null;
+  observations?: string | null;
+  photoUrl?: string | null;
 
   requesterId: string;
   requesterName: string;
