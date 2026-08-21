@@ -103,6 +103,31 @@ export async function listVencidas(almacenId: number): Promise<VencidaItem[]> {
   return data;
 }
 
+export interface MaterialPendienteItem {
+  material_id: number;
+  material_codigo: string;
+  material_nombre: string;
+  pieza_id: number | null;
+  pieza_codigo: string | null;
+  plantilla_id: number;
+  plantilla_nombre: string;
+  estado_inspeccion: "pendiente" | "al_dia";
+  ultima_fecha: string | null;
+  ultimo_resultado: string | null;
+  ultima_inspeccion_id: number | null;
+}
+
+export async function listMaterialesPendientes(
+  almacenId: number,
+  incluirInspeccionados = false,
+  q?: string,
+): Promise<MaterialPendienteItem[]> {
+  const { data } = await api.get<MaterialPendienteItem[]>("/inspecciones/materiales-pendientes/", {
+    params: { almacen: almacenId, incluir_inspeccionados: incluirInspeccionados, q },
+  });
+  return data;
+}
+
 // ─── Payload de creación de inspección ───────────────────────────────────────
 
 export interface RespuestaInput {
@@ -113,11 +138,18 @@ export interface RespuestaInput {
 
 export interface InspeccionCreatePayload {
   tipo: TipoInspeccion;
+  tipo_inspeccion?: "planificada" | "no_planificada";
+  area?: string;
+  frecuencia?: string;
   material: number;
   pieza?: number | null;
   piezas_lote?: number[];
   plantilla: number;
   inspector: number;
+  modalidad?: "planificada" | "no_planificada";
+  area_trabajo?: string;
+  referencia_orden?: string;
+  tipos_herramientas?: string[];
   proxima_inspeccion?: string | null;
   cantidad_inspeccionada?: number | null;
   cantidad_apta?: number | null;
@@ -126,6 +158,37 @@ export interface InspeccionCreatePayload {
   accion_tomada: AccionInspeccion;
   observaciones?: string;
   respuestas: RespuestaInput[];
+}
+
+export async function getChecklistContexto(materialId?: number, almacenId?: number) {
+  const params: Record<string, string | number> = {};
+  if (materialId) params["material"] = materialId;
+  if (almacenId) params["almacen"] = almacenId;
+  const { data } = await api.get("/checklist-contexto/", { params });
+  return data as {
+    color_mes: { hex: string; nombre: string; meses: string; rgb_excel: string };
+    leyenda_colores: { trimestre: number; nombre: string; meses: string; hex: string }[];
+    frecuencia_sugerida: {
+      frecuencia_sugerida: string;
+      frecuencia?: string;
+      label?: string;
+      categoria_abc?: string;
+      total_salidas_90d?: number;
+      usos_por_mes?: number;
+      dias_sin_uso?: number | null;
+      tasa_incidencias?: number;
+      total_inspecciones?: number;
+      total_hallazgos?: number;
+    } | null;
+
+    fecha_actual: string;
+    proxima_fecha_calculada: string;
+    inspecciones_hoy: number;
+    inspecciones_en_proxima_fecha: number;
+    es_herramienta_manual: boolean;
+    ordenes_disponibles: { codigo: string; label: string; tipo: string }[];
+    tipos_orden: { codigo: string; nombre: string }[];
+  };
 }
 
 export async function createInspeccion(

@@ -89,7 +89,41 @@ export function InspectionTemplatesAdminPage() {
   };
 
   return (
-    <section>
+    <section className="inspection-templates-admin">
+      <style>{`
+        .inspection-templates-admin .templates-grid {
+          display: grid;
+          grid-template-columns: minmax(280px, .8fr) minmax(0, 1.6fr);
+          gap: 16px;
+          align-items: start;
+        }
+        @media (max-width: 860px) {
+          .inspection-templates-admin .templates-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+        }
+        .inspection-templates-admin .question-item {
+          padding: 10px 12px;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          background: var(--surface);
+        }
+        .inspection-templates-admin .question-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+        }
+        .inspection-templates-admin .question-text {
+          flex: 1;
+          font-size: 14px;
+          word-break: break-word;
+          overflow-wrap: anywhere;
+          min-width: 0;
+        }
+      `}</style>
+
       <div className="page-heading">
         <div>
           <p className="breadcrumb">Administración / Formularios / Inspecciones</p>
@@ -107,7 +141,7 @@ export function InspectionTemplatesAdminPage() {
       )}
       {notice && <p className="text-muted-sm mb-16" role="status">{notice}</p>}
 
-      <div className="grid-2col" style={{ gridTemplateColumns: "minmax(280px, .8fr) minmax(0, 1.6fr)", alignItems: "start" }}>
+      <div className="templates-grid">
         {/* ── Lista de formularios ───────────────────────────────────────── */}
         <div className="data-panel">
           <div className="table-toolbar">
@@ -276,18 +310,10 @@ export function InspectionTemplatesAdminPage() {
                 ) : (
                   <ol style={{ display: "grid", gap: 8, margin: 0, paddingLeft: 20 }}>
                     {selected.criterios.map((item) => (
-                      <li
-                        key={item.id}
-                        style={{
-                          padding: "8px 12px",
-                          border: "1px solid var(--border)",
-                          borderRadius: 6,
-                          background: "var(--surface)",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                          <span style={{ flex: 1, fontSize: 14 }}>{item.texto}</span>
-                          <div style={{ display: "flex", gap: 4 }}>
+                      <li key={item.id} className="question-item">
+                        <div className="question-content">
+                          <span className="question-text">{item.texto}</span>
+                          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                             <button
                               type="button"
                               className="icon-button"

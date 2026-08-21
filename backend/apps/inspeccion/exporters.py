@@ -3,7 +3,7 @@ import unicodedata
 from pathlib import Path
 
 from openpyxl import load_workbook
-from openpyxl.styles import Font
+from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
 
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
@@ -113,7 +113,9 @@ def _fecha(valor):
     return valor.strftime("%d/%m/%Y") if valor else ""
 
 def _codigo_documento(inspeccion):
-    """Genera el código de documento SST: FOR-SST-00XXX (basado en el ID de la inspección)."""
+    """Genera el código de documento SST: usa inspeccion.codigo_inspeccion si existe, o FOR-SST-00XXX por defecto."""
+    if getattr(inspeccion, "codigo_inspeccion", None):
+        return inspeccion.codigo_inspeccion
     return f"FOR-SST-{inspeccion.id:05d}"
 
 def _fecha_emision_hoy():
@@ -123,122 +125,12 @@ def _fecha_emision_hoy():
 # ─── EXCEL ─────────────────────────────────────────────────────────────────
 
 def generar_excel_inspeccion(inspeccion):
-    hoja_nombre = _detectar_hoja(inspeccion.plantilla.nombre)
+    """
+    Genera el formato Excel institucional completo con metadatos SST,
+    color trimestral 5S, datos generales y firmas de conformidad.
+    """
+    return _generar_excel_simple(inspeccion)
 
-    if hoja_nombre is None or not TEMPLATE_PATH.exists():
-        return _generar_excel_simple(inspeccion)
-
-    wb = load_workbook(TEMPLATE_PATH)
-    for nombre in list(wb.sheetnames):
-        if nombre != hoja_nombre:
-            del wb[nombre]
-    ws = wb[hoja_nombre]
-
-    config = CONFIG_HOJAS[hoja_nombre]
-    campos = config["campos"]
-
-    inspector_nombre = (
-        inspeccion.inspector.get_full_name() or inspeccion.inspector.username
-        if inspeccion.inspector else ""
-    )
-    codigo_objetivo = inspeccion.pieza.codigo if inspeccion.pieza else inspeccion.material.codigo
-
-    # Código del documento SST (H1) y fecha de emisión (H3)
-    try:
-        ws["H1"] = _codigo_documento(inspeccion)
-        ws["H3"] = _fecha_emision_hoy()
-    except Exception:
-        pass
-
-    if config["tipo"] == "grupal":
-        ws[campos["tipo_herramienta"]] = inspeccion.material.nombre
-        ws[campos["responsable"]] = inspector_nombre
-        ws[campos["cant_inspeccionada"]] = inspeccion.cantidad_inspeccionada or ""
-        ws[campos["fecha_inspeccion"]] = _fecha(inspeccion.fecha)
-        ws[campos["cant_apta"]] = inspeccion.cantidad_apta or ""
-        ws[campos["proxima_inspeccion"]] = _fecha(inspeccion.proxima_inspeccion)
-        ws[campos["cant_no_apta"]] = inspeccion.cantidad_no_apta or ""
-    else:
-        ws[campos["codigo_herramienta"]] = codigo_objetivo
-        ws[campos["proxima_inspeccion"]] = _fecha(inspeccion.proxima_inspeccion)
-        ws[campos["marca"]] = inspeccion.material.marca
-        ws[campos["inspector"]] = inspector_nombre
-        ws[campos["fecha_inspeccion"]] = _fecha(inspeccion.fecha)
-        ws[campos["nombre_herramienta"]] = inspeccion.material.nombre
-
-    # Criterios: se apoya en el orden del criterio para ubicar la fila correcta.
-    # Para plantillas "prestadas" (EPP, escaleras...) que usan una hoja cuya plantilla
-    # original tiene criterios distintos, primero borramos los textos existentes en el
-    # rango de datos y después escribimos los de la inspección.
-    col_valor = {"cumple": "C", "no_cumple": "D", "no_aplica": "E"}
-    fila_base = config["criterio_data_start"] - 1  # criterio orden=1 → primera fila de datos
-
-    respuestas = list(inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"))
-    num_criterios_plantilla_nativa = config.get("num_criterios_nativos", 0)
-    # Si la plantilla tiene más criterios fijos que las respuestas de esta inspección,
-    # limpiamos los excedentes del template para que no queden textos fantasma.
-    max_fila_usada = fila_base + len(respuestas)
-    if num_criterios_plantilla_nativa > len(respuestas):
-        for orden_extra in range(len(respuestas) + 1, num_criterios_plantilla_nativa + 1):
-            fila_extra = fila_base + orden_extra
-            for col_limpiar in ["A", "B", "C", "D", "E", "F"]:
-                ws[f"{col_limpiar}{fila_extra}"] = None
-
-    for resp in respuestas:
-        fila = fila_base + resp.criterio.orden
-        # Siempre sobreescribir número y texto del criterio (importante para plantillas no nativas)
-        ws[f"A{fila}"] = resp.criterio.orden
-        ws[f"B{fila}"] = resp.criterio.texto
-        # Limpiar las tres columnas de valor antes de marcar
-        for c in ["C", "D", "E"]:
-            ws[f"{c}{fila}"] = None
-        col = col_valor.get(resp.valor)
-        if col:
-            ws[f"{col}{fila}"] = "X"
-        if resp.observacion:
-            ws[f"F{fila}"] = resp.observacion
-
-    if config["tipo"] == "grupal":
-        aptas_row = config["resultado_aptas_row"]
-        obs_row = config["resultado_observaciones_row"]
-        if inspeccion.cantidad_no_apta:
-            ws[f"A{aptas_row}"] = "\u2610 Todas las herramientas inspeccionadas se encuentran aptas."
-            ws[f"A{obs_row}"] = "\u2611 Existen herramientas con observaciones (ver tabla anterior)."
-        else:
-            ws[f"A{aptas_row}"] = "\u2611 Todas las herramientas inspeccionadas se encuentran aptas."
-            ws[f"A{obs_row}"] = "\u2610 Existen herramientas con observaciones (ver tabla anterior)."
-    else:
-        col_resultado = RESULTADO_COLS.get(inspeccion.resultado_general)
-        if col_resultado:
-            celda = ws[f"{col_resultado}{config['resultado_row']}"]
-            celda.value = "X"
-            celda.font = Font(bold=True, size=14)
-
-        col_accion = ACCION_COLS.get(inspeccion.accion_tomada)
-        if col_accion:
-            celda = ws[f"{col_accion}{config['accion_row']}"]
-            celda.value = "X"
-            celda.font = Font(bold=True, size=14)
-
-    if inspeccion.observaciones:
-        ws[config["observaciones_generales"]] = inspeccion.observaciones
-
-    # Insertar 5 filas de espacio en blanco antes de los cargos para que haya amplio espacio de firma manuscrita
-    for r in range(1, ws.max_row + 1):
-        val = str(ws.cell(row=r, column=1).value or "").upper()
-        if "FIRMAS DE CONFORMIDAD" in val:
-            ws.insert_rows(r + 1, 5)
-            for empty_r in range(r + 1, r + 6):
-                ws.row_dimensions[empty_r].height = 20
-            break
-
-    # Aplicar diseño oscuro institucional, bordes finos e insertar logo oficial
-    _aplicar_estilo_oscuro_plantilla(ws)
-
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    return buffer
 
 # ─── Estilos y funciones auxiliares para Excel de Inspecciones ───────────────
 
@@ -257,6 +149,32 @@ EXCEL_REPARACION_BG = "92400E"  # Ámbar oscuro
 EXCEL_REPARACION_TXT = "FFFFFF"
 EXCEL_FUERA_BG = "991B1B"       # Rojo borgoña oscuro
 EXCEL_FUERA_TXT = "FFFFFF"
+
+
+def _get_logo_cubos_path():
+    """Retorna la ruta al icono recortado de los 3 cubos de Incalpaca (sin texto)."""
+    from pathlib import Path
+    p0 = Path(__file__).resolve().parent / "logo_incalpaca_cubos.png"
+    p1 = Path(__file__).resolve().parent / "logo_incalpaca.png"
+    p2 = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "public" / "logo-incalpaca.png"
+    for p in [p0, p1, p2]:
+        if p.exists():
+            return p
+    return None
+
+
+def _insert_logo_cubos(ws, cell="F1", width=36, height=36):
+    """Inserta el isotipo de 3 cubos de Incalpaca en la celda indicada (ej. lado derecho del encabezado)."""
+    from openpyxl.drawing.image import Image as OpenpyxlImage
+    p = _get_logo_cubos_path()
+    if p:
+        try:
+            img = OpenpyxlImage(str(p))
+            img.width = width
+            img.height = height
+            ws.add_image(img, cell)
+        except Exception:
+            pass
 
 
 def _get_logo_path():
@@ -286,12 +204,6 @@ def _insert_logo(ws, cell="A1", width=125, height=37):
             pass
 
 
-def _aplicar_estilo_oscuro_plantilla(ws):
-    """
-    Aplica diseño corporativo en negro estricto e inserta el logo oficial en la plantilla.
-    Reemplaza todos los fondos celestes pastel por la paleta institucional (#000000 / #18181B).
-    """
-    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
     # 1. Cabecera ejecutiva integrada en negro puro (Filas 1 a 5)
     dark_fill = _excel_fill("000000")
@@ -309,6 +221,9 @@ def _aplicar_estilo_oscuro_plantilla(ws):
             cell = ws.cell(row=r, column=c)
             cell.fill = dark_fill
             cell.border = header_border
+            # Quitar texto redundante "INCALPACA" de la celda central superior
+            if cell.value and "INCALPACA" in str(cell.value).upper() and "FORMATO" not in str(cell.value).upper():
+                cell.value = None
             if cell.value:
                 cell.font = Font(bold=True, size=11 if r <= 2 else 9.5, color="FFFFFF", name="Calibri")
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -326,8 +241,21 @@ def _aplicar_estilo_oscuro_plantilla(ws):
                 cell.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
                 cell.alignment = Alignment(horizontal="left", vertical="center")
 
-    # Insertar Logo oficial horizontal en A1
-    _insert_logo(ws, cell="A1", width=125, height=37)
+    # Insertar Logo FM (A1) y Logo Incalpaca 3 cubos (A3/A4) en la columna izquierda
+    from openpyxl.drawing.image import Image as OpenpyxlImage
+    from pathlib import Path
+    fm_p = Path(__file__).resolve().parent / "logo_fm.png"
+    if fm_p.exists():
+        try:
+            fm_img = OpenpyxlImage(str(fm_p))
+            fm_img.width = 54
+            fm_img.height = 38
+            ws.add_image(fm_img, "A1")
+        except Exception:
+            pass
+
+    _insert_logo_cubos(ws, cell="A3", width=44, height=36)
+
 
     # 2. Paleta institucional para el resto de la hoja
     fill_section = _excel_fill("000000")      # Negro puro
@@ -473,15 +401,17 @@ def _excel_freeze(ws, cell="A2"):
 
 def _generar_excel_simple(inspeccion):
     """
-    Respaldo con diseño oscuro profesional: usado para plantillas que no coincidan
-    con ninguna hoja conocida de la plantilla oficial INCALPACA.
+    Formato institucional completo del CHECK LIST DE HERRAMIENTAS MANUALES
+    conforme al estándar de Facility Management y SST de Incalpaca.
     """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Side
 
+    from apps.inspeccion.utils import color_inspeccion_actual, LEYENDA_COLORES
+
     wb = Workbook()
     ws = wb.active
-    ws.title = "Inspección"
+    ws.title = "Check List Manuales"
 
     objetivo = (
         inspeccion.pieza.codigo
@@ -489,7 +419,7 @@ def _generar_excel_simple(inspeccion):
         else (inspeccion.material.codigo if getattr(inspeccion, "material", None) else "—")
     )
     mat_nombre = inspeccion.material.nombre if getattr(inspeccion, "material", None) else "—"
-    plantilla_nombre = inspeccion.plantilla.nombre if getattr(inspeccion, "plantilla", None) else "—"
+    plantilla_nombre = inspeccion.plantilla.nombre if getattr(inspeccion, "plantilla", None) else "Herramientas Manuales"
     codigo_doc = _codigo_documento(inspeccion)
     fecha_emision = _fecha_emision_hoy()
     inspector_nombre = (
@@ -497,191 +427,441 @@ def _generar_excel_simple(inspeccion):
         if getattr(inspeccion, "inspector", None)
         else "N/A"
     )
+    modalidad_label = "Planificada" if getattr(inspeccion, "modalidad", "planificada") == "planificada" else "No planificada"
+    frecuencia_label = (getattr(inspeccion, "frecuencia", "trimestral") or "trimestral").capitalize()
+    area_label = getattr(inspeccion, "area_trabajo", "") or "Facility Management"
+    referencia_ot = getattr(inspeccion, "referencia_orden", "") or "—"
+    color_info = color_inspeccion_actual(para_fecha=inspeccion.fecha.date() if getattr(inspeccion, "fecha", None) else None)
+    color_actual = color_info["actual"]
 
-    # 1. Encabezado principal y Logo (A1..F1)
-    _insert_logo(ws, cell="A1", width=125, height=35)
-    ws.merge_cells("C1:F1")
-    title_cell = ws["C1"]
-    title_cell.value = "INCALPACA TOPS S.A. — FORMATO DE INSPECCIÓN DE HERRAMIENTAS"
-    title_cell.font = Font(bold=True, size=12.5, color="FFFFFF", name="Calibri")
-    title_cell.fill = _excel_fill(EXCEL_HEADER_BG)
-    title_cell.alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[1].height = 32
+    # 1. Encabezado principal: [Logo FM izq A1:A5] | Título central B1:E5 | Metadatos F1:H5
+    ws.merge_cells("A1:A5")
+    fm_cell = ws["A1"]
+    fm_cell.fill = _excel_fill("000000")
+    fm_cell.alignment = Alignment(horizontal="center", vertical="center")
+    for r in range(1, 6):
+        ws[f"A{r}"].fill = _excel_fill("000000")
+        ws[f"A{r}"].border = _excel_thin_border()
 
-    # 2. Bloque de Metadatos
-    metadata_rows = [
-        [("Código documento:", True), (codigo_doc, False), ("Fecha emisión:", True), (fecha_emision, False)],
-        [("Código herramienta:", True), (objetivo, False), ("Material:", True), (mat_nombre, False)],
-        [("Tipo inspección:", True), (inspeccion.get_tipo_display(), False), ("Plantilla:", True), (plantilla_nombre, False)],
-        [("Inspector:", True), (inspector_nombre, False), ("Fecha inspección:", True), (_fecha(inspeccion.fecha), False)],
+    try:
+        from pathlib import Path
+        from openpyxl.drawing.image import Image as OpenpyxlImage
+        fm_logo_path = Path(__file__).resolve().parent / "logo_fm.png"
+        if fm_logo_path.exists():
+            fm_img = OpenpyxlImage(str(fm_logo_path))
+            fm_img.width = 56
+            fm_img.height = 42
+            ws.add_image(fm_img, "A1")
+        else:
+            fm_cell.value = "FM"
+            fm_cell.font = Font(bold=True, size=14, color="FFFFFF", name="Calibri")
+    except Exception:
+        fm_cell.value = "FM"
+        fm_cell.font = Font(bold=True, size=14, color="FFFFFF", name="Calibri")
+
+    # Centro B1:E2 (Logo 3 cubos + INCALPACA)
+    ws.merge_cells("B1:E2")
+    b1_cell = ws["B1"]
+    b1_cell.value = "INCALPACA"
+    b1_cell.font = Font(bold=True, size=13, color="FFFFFF", name="Calibri")
+    b1_cell.fill = _excel_fill("000000")
+    b1_cell.alignment = Alignment(horizontal="center", vertical="center")
+    for r in [1, 2]:
+        for col_t in ["B", "C", "D", "E"]:
+            ws[f"{col_t}{r}"].fill = _excel_fill("000000")
+            ws[f"{col_t}{r}"].border = _excel_thin_border()
+
+    _insert_logo_cubos(ws, cell="B1", width=38, height=30)
+
+    # Centro B3:E5 (Título del formato + Área)
+    ws.merge_cells("B3:E5")
+    b3_cell = ws["B3"]
+    b3_cell.value = f"FORMATO DE INSPECCIÓN GRUPAL DE HERRAMIENTAS MANUALES\nÁrea: {area_label}"
+    b3_cell.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
+    b3_cell.fill = _excel_fill("000000")
+    b3_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for r in [3, 4, 5]:
+        for col_t in ["B", "C", "D", "E"]:
+            ws[f"{col_t}{r}"].fill = _excel_fill("000000")
+            ws[f"{col_t}{r}"].border = _excel_thin_border()
+
+    for r in range(1, 6):
+        ws.row_dimensions[r].height = 16
+
+    # 2. Bloque de Metadatos SST (F1:H5)
+    meta_cabecera = [
+        ("Código:", codigo_doc),
+        ("Versión:", "01"),
+        ("Fecha de emisión:", fecha_emision),
+        ("Frecuencia:", frecuencia_label),
+        ("Proceso:", "Inspección de Herramientas"),
     ]
+    for r_offset, (lbl, val) in enumerate(meta_cabecera, start=1):
+        ws.merge_cells(start_row=r_offset, start_column=6, end_row=r_offset, end_column=7)
+        c_lbl = ws.cell(row=r_offset, column=6, value=lbl)
+        c_lbl.font = Font(bold=True, size=8.5, color="A1A1AA", name="Calibri")
+        c_lbl.fill = _excel_fill("18181B")
+        c_lbl.alignment = Alignment(horizontal="left", vertical="center")
+        ws.cell(row=r_offset, column=7).fill = _excel_fill("18181B")
 
-    for r_offset, (lbl1, val1, lbl2, val2) in enumerate(metadata_rows, start=3):
-        ws.row_dimensions[r_offset].height = 20
-        # A & B (merge B:C)
-        c_lbl1 = ws.cell(row=r_offset, column=1, value=lbl1[0])
-        c_lbl1.font = Font(bold=True, size=10, color="334155", name="Calibri")
-        c_lbl1.fill = _excel_fill("F8FAFC")
-        c_lbl1.border = _excel_thin_border()
-        c_lbl1.alignment = Alignment(horizontal="left", vertical="center")
+        c_val = ws.cell(row=r_offset, column=8, value=val)
+        c_val.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
+        c_val.fill = _excel_fill("000000")
+        c_val.alignment = Alignment(horizontal="left", vertical="center")
 
-        ws.merge_cells(start_row=r_offset, start_column=2, end_row=r_offset, end_column=3)
-        c_val1 = ws.cell(row=r_offset, column=2, value=val1[0])
-        c_val1.font = Font(bold=False, size=10, color="0F172A", name="Calibri")
-        c_val1.fill = _excel_fill("FFFFFF")
-        c_val1.alignment = Alignment(horizontal="left", vertical="center")
-        for col_i in range(2, 4):
+        for col_i in range(6, 9):
             ws.cell(row=r_offset, column=col_i).border = _excel_thin_border()
 
-        # D & E (merge E:F)
-        c_lbl2 = ws.cell(row=r_offset, column=4, value=lbl2[0])
-        c_lbl2.font = Font(bold=True, size=10, color="334155", name="Calibri")
-        c_lbl2.fill = _excel_fill("F8FAFC")
-        c_lbl2.border = _excel_thin_border()
-        c_lbl2.alignment = Alignment(horizontal="left", vertical="center")
+    # 3. Sección DATOS GENERALES DE LA INSPECCIÓN (Fila 7)
+    ws.merge_cells("A7:H7")
+    sec1 = ws["A7"]
+    sec1.value = "DATOS GENERALES DE LA INSPECCIÓN"
+    sec1.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    sec1.fill = _excel_fill(EXCEL_HEADER_BG)
+    sec1.alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[7].height = 22
+    for c in range(1, 9):
+        ws.cell(row=7, column=c).border = _excel_thin_border()
 
+    datos_generales_rows = [
+        [("Tipo de herramienta / Material:", True), (mat_nombre, False), ("Responsable:", True), (inspector_nombre, False)],
+        [("Tipo de inspección:", True), (modalidad_label, False), ("Fecha de inspección:", True), (_fecha(inspeccion.fecha), False)],
+        [("Frecuencia planificada:", True), (frecuencia_label, False), ("Próxima inspección:", True), (_fecha(inspeccion.proxima_inspeccion), False)],
+        [("Área de trabajo / Lugar:", True), (area_label, False), ("Referencia (OT/OL/OP):", True), (referencia_ot, False)],
+        [("Cantidad inspeccionada:", True), (inspeccion.cantidad_inspeccionada or "—", False), ("Cantidad apta / no apta:", True), (f"{inspeccion.cantidad_apta or 0} aptas / {inspeccion.cantidad_no_apta or 0} no aptas", False)],
+    ]
+    for r_offset, (lbl1, val1, lbl2, val2) in enumerate(datos_generales_rows, start=8):
+        ws.row_dimensions[r_offset].height = 20
+        # Columna 1 (A:B)
+        ws.merge_cells(start_row=r_offset, start_column=1, end_row=r_offset, end_column=2)
+        c_lbl1 = ws.cell(row=r_offset, column=1, value=lbl1[0])
+        c_lbl1.font = Font(bold=True, size=9, color="334155", name="Calibri")
+        c_lbl1.fill = _excel_fill("F8FAFC")
+        for col_i in range(1, 3):
+            ws.cell(row=r_offset, column=col_i).border = _excel_thin_border()
+
+        # Columna 2 (C:D)
+        ws.merge_cells(start_row=r_offset, start_column=3, end_row=r_offset, end_column=4)
+        c_val1 = ws.cell(row=r_offset, column=3, value=val1[0])
+        c_val1.font = Font(bold=False, size=9.5, color="0F172A", name="Calibri")
+        c_val1.fill = _excel_fill("FFFFFF")
+        for col_i in range(3, 5):
+            ws.cell(row=r_offset, column=col_i).border = _excel_thin_border()
+
+        # Columna 3 (E:F)
         ws.merge_cells(start_row=r_offset, start_column=5, end_row=r_offset, end_column=6)
-        c_val2 = ws.cell(row=r_offset, column=5, value=val2[0])
-        c_val2.font = Font(bold=False, size=10, color="0F172A", name="Calibri")
-        c_val2.fill = _excel_fill("FFFFFF")
-        c_val2.alignment = Alignment(horizontal="left", vertical="center")
+        c_lbl2 = ws.cell(row=r_offset, column=5, value=lbl2[0])
+        c_lbl2.font = Font(bold=True, size=9, color="334155", name="Calibri")
+        c_lbl2.fill = _excel_fill("F8FAFC")
         for col_i in range(5, 7):
             ws.cell(row=r_offset, column=col_i).border = _excel_thin_border()
 
-    # 3. Tabla de Criterios (Fila 8)
-    header_row = 8
-    cols_criterios = ["N°", "Criterio de evaluación", "Cumple", "No cumple", "No aplica", "Observaciones"]
-    _excel_write_header_row(ws, header_row, cols_criterios, bg_color=EXCEL_HEADER_BG)
+        # Columna 4 (G:H)
+        ws.merge_cells(start_row=r_offset, start_column=7, end_row=r_offset, end_column=8)
+        c_val2 = ws.cell(row=r_offset, column=7, value=val2[0])
+        c_val2.font = Font(bold=False, size=9.5, color="0F172A", name="Calibri")
+        c_val2.fill = _excel_fill("FFFFFF")
+        for col_i in range(7, 9):
+            ws.cell(row=r_offset, column=col_i).border = _excel_thin_border()
 
-    respuestas = list(inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"))
-    for idx, resp in enumerate(respuestas, start=1):
+    # 4. Sección CÓDIGO TRIMESTRAL DE INSPECCIÓN (COLOR DEL MES + LEYENDA 5S)
+    ws.merge_cells("A13:H13")
+    sec_color = ws["A13"]
+    sec_color.value = "CÓDIGO TRIMESTRAL DE INSPECCIÓN (COLOR DEL MES - SISTEMA 5S)"
+    sec_color.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
+    sec_color.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+    sec_color.alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[13].height = 20
+    for c in range(1, 9):
+        ws.cell(row=13, column=c).border = _excel_thin_border()
+
+    # Fila 14: Color actual destacado (span cols A-B label, C-D color)
+    ws.row_dimensions[14].height = 26
+    ws.merge_cells("A14:B14")
+    lbl_c_act = ws.cell(row=14, column=1, value="Color del trimestre:")
+    lbl_c_act.font = Font(bold=True, size=8.5, color="1E293B", name="Calibri")
+    lbl_c_act.fill = _excel_fill("F8FAFC")
+    lbl_c_act.alignment = Alignment(horizontal="left", vertical="center")
+    for c in [1, 2]:
+        ws.cell(row=14, column=c).border = _excel_thin_border()
+
+    ws.merge_cells("C14:D14")
+    c_box = ws.cell(row=14, column=3, value=f"{color_actual['nombre'].upper()} ({color_actual['meses']})")
+    c_box.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    c_box.fill = _excel_fill(color_actual["rgb_excel"])
+    c_box.alignment = Alignment(horizontal="center", vertical="center")
+    for c in [3, 4]:
+        ws.cell(row=14, column=c).fill = _excel_fill(color_actual["rgb_excel"])
+        ws.cell(row=14, column=c).border = _excel_thin_border()
+
+    # Fila 15: Leyenda visual — 4 trimestres coloreados
+    ws.row_dimensions[15].height = 22
+    ws.merge_cells("A15:B15")
+    lbl_ley = ws.cell(row=15, column=1, value="Leyenda trimestral:")
+    lbl_ley.font = Font(bold=True, size=8.5, color="1E293B", name="Calibri")
+    lbl_ley.fill = _excel_fill("F8FAFC")
+    lbl_ley.alignment = Alignment(horizontal="left", vertical="center")
+    for c in [1, 2]:
+        ws.cell(row=15, column=c).border = _excel_thin_border()
+
+    leyenda_cells = [
+        {"col_start": 3, "col_end": 3, "q": 1, "nombre": "Amarillo", "meses": "Ene–Mar", "rgb": "EAB308"},
+        {"col_start": 4, "col_end": 4, "q": 2, "nombre": "Verde",    "meses": "Abr–Jun", "rgb": "22C55E"},
+        {"col_start": 5, "col_end": 6, "q": 3, "nombre": "Azul",     "meses": "Jul–Sep", "rgb": "2563EB"},
+        {"col_start": 7, "col_end": 8, "q": 4, "nombre": "Rojo",     "meses": "Oct–Dic", "rgb": "DC2626"},
+    ]
+    for litem in leyenda_cells:
+        if litem["col_start"] != litem["col_end"]:
+            ws.merge_cells(start_row=15, start_column=litem["col_start"], end_row=15, end_column=litem["col_end"])
+        cel = ws.cell(row=15, column=litem["col_start"], value=f"Q{litem['q']}: {litem['nombre']} ({litem['meses']})")
+        is_active = (litem["rgb"] == color_actual["rgb_excel"])
+        cel.font = Font(bold=is_active, size=8.5, color="FFFFFF", name="Calibri")
+        cel.alignment = Alignment(horizontal="center", vertical="center")
+        for col_k in range(litem["col_start"], litem["col_end"] + 1):
+            c_k = ws.cell(row=15, column=col_k)
+            c_k.fill = _excel_fill(litem["rgb"])
+            side_w = "medium" if is_active else "thin"
+            c_k.border = Border(
+                left=Side(style=side_w, color="0F172A"),
+                right=Side(style=side_w, color="0F172A"),
+                top=Side(style=side_w, color="0F172A"),
+                bottom=Side(style=side_w, color="0F172A"),
+            )
+
+    ws.row_dimensions[16].height = 4  # espaciador
+
+    # 5. Sección TIPO DE HERRAMIENTAS MANUALES — SOLO si se seleccionaron tipos
+    tipos_marcados = getattr(inspeccion, "tipos_herramientas", []) or []
+    if len(tipos_marcados) > 0:
+        ws.merge_cells("A17:H17")
+        sec_tipos = ws["A17"]
+        sec_tipos.value = "TIPO DE HERRAMIENTAS MANUALES (Marcar las que aplican a la inspección)"
+        sec_tipos.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
+        sec_tipos.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+        sec_tipos.alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[17].height = 20
+        for c in range(1, 9):
+            ws.cell(row=17, column=c).border = _excel_thin_border()
+
+        grupos_h = [
+            ("Herramientas de golpe", "Herramientas de medición"),
+            ("Herramientas de corte", "Herramientas de sujeción"),
+            ("Herramientas de cohesión", "Herramientas de pintura"),
+            ("Herramientas de torsión y ajuste", "Otras herramientas"),
+        ]
+        for idx, (g1, g2) in enumerate(grupos_h, start=18):
+            ws.row_dimensions[idx].height = 19
+            # Columna izquierda (g1 en cols A:D)
+            marca1 = "[X]" if g1 in tipos_marcados else "[  ]"
+            ws.merge_cells(start_row=idx, start_column=1, end_row=idx, end_column=4)
+            c_g1 = ws.cell(row=idx, column=1, value=f"  {marca1}  {g1}")
+            c_g1.font = Font(bold=marca1 == "[X]", size=9, color="0F172A", name="Calibri")
+            c_g1.fill = _excel_fill("FFFFFF" if marca1 != "[X]" else "FEF3C7")
+            c_g1.alignment = Alignment(horizontal="left", vertical="center")
+            for col_i in range(1, 5):
+                ws.cell(row=idx, column=col_i).border = _excel_thin_border()
+
+            # Columna derecha (g2 en cols E:H)
+            marca2 = "[X]" if g2 in tipos_marcados else "[  ]"
+            ws.merge_cells(start_row=idx, start_column=5, end_row=idx, end_column=8)
+            c_g2 = ws.cell(row=idx, column=5, value=f"  {marca2}  {g2}")
+            c_g2.font = Font(bold=marca2 == "[X]", size=9, color="0F172A", name="Calibri")
+            c_g2.fill = _excel_fill("FFFFFF" if marca2 != "[X]" else "FEF3C7")
+            c_g2.alignment = Alignment(horizontal="left", vertical="center")
+            for col_i in range(5, 9):
+                ws.cell(row=idx, column=col_i).border = _excel_thin_border()
+
+        ws.row_dimensions[22].height = 4  # espaciador
+        header_row = 23
+    else:
+        header_row = 17
+
+    # 6. Tabla de Criterios
+    ws.row_dimensions[header_row].height = 22
+    ws.cell(row=header_row, column=1, value="N°")
+    ws.merge_cells(start_row=header_row, start_column=2, end_row=header_row, end_column=4)
+    ws.cell(row=header_row, column=2, value="Criterio de inspección")
+    ws.cell(row=header_row, column=5, value="Cumple")
+    ws.cell(row=header_row, column=6, value="No cumple")
+    ws.cell(row=header_row, column=7, value="No aplica")
+    ws.cell(row=header_row, column=8, value="Observaciones")
+
+    for c_i in range(1, 9):
+        cell = ws.cell(row=header_row, column=c_i)
+        cell.fill = _excel_fill(EXCEL_HEADER_BG)
+        cell.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
+        cell.border = _excel_thin_border()
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+
+
+
+    criterios_plantilla = list(inspeccion.plantilla.criterios.order_by("orden"))
+    respuestas_map = {r.criterio_id: r for r in inspeccion.respuestas.select_related("criterio").all()}
+
+    for idx, crit in enumerate(criterios_plantilla, start=1):
         r_num = header_row + idx
         ws.row_dimensions[r_num].height = 20
         is_alt = (idx % 2 == 0)
         bg = EXCEL_ROW_ALT if is_alt else EXCEL_ROW_BASE
 
-        row_vals = [
-            resp.criterio.orden,
-            resp.criterio.texto,
-            "X" if resp.valor == "cumple" else "",
-            "X" if resp.valor == "no_cumple" else "",
-            "X" if resp.valor == "no_aplica" else "",
-            resp.observacion or "",
-        ]
+        c_ord = ws.cell(row=r_num, column=1, value=resp.criterio.orden)
+        c_ord.alignment = Alignment(horizontal="center", vertical="center")
+        c_ord.font = Font(bold=True, size=9.5, color="0F172A", name="Calibri")
 
-        for col_i, val in enumerate(row_vals, start=1):
-            cell = ws.cell(row=r_num, column=col_i, value=val)
+        ws.merge_cells(start_row=r_num, start_column=2, end_row=r_num, end_column=4)
+        c_txt = ws.cell(row=r_num, column=2, value=resp.criterio.texto)
+        c_txt.font = Font(size=9.5, color="0F172A", name="Calibri")
+        c_txt.alignment = Alignment(horizontal="left", vertical="center")
+
+        ws.cell(row=r_num, column=5, value="X" if resp.valor == "cumple" else "").alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=r_num, column=6, value="X" if resp.valor == "no_cumple" else "").alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=r_num, column=7, value="X" if resp.valor == "no_aplica" else "").alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=r_num, column=8, value=resp.observacion or "").alignment = Alignment(horizontal="left", vertical="center")
+
+        for col_i in range(1, 9):
+            cell = ws.cell(row=r_num, column=col_i)
             cell.border = _excel_thin_border()
             cell.fill = _excel_fill(bg)
-            align = "center" if col_i in [1, 3, 4, 5] else "left"
-            is_bold = (col_i in [3, 4, 5] and val == "X") or (col_i == 1)
-            cell.font = Font(bold=is_bold, size=10, color="0F172A", name="Calibri")
-            cell.alignment = Alignment(horizontal=align, vertical="center")
+            if col_i in [5, 6, 7] and cell.value == "X":
+                cell.font = Font(bold=True, size=11, color="0F172A", name="Calibri")
 
-    curr_row = header_row + len(respuestas) + 2
+    curr_row = header_row + len(criterios_plantilla) + 2
 
-    # 4. Sección de Resultados
-    # Resultado general
+    # 7. Sección de Resultados (Fila curr_row)
     ws.row_dimensions[curr_row].height = 24
+    ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
     lbl_res = ws.cell(row=curr_row, column=1, value="Resultado general:")
-    lbl_res.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
+    lbl_res.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
     lbl_res.fill = _excel_fill(EXCEL_SUBHEADER_BG)
-    lbl_res.border = _excel_thin_border()
     lbl_res.alignment = Alignment(horizontal="left", vertical="center")
+    for c in [1, 2]:
+        ws.cell(row=curr_row, column=c).border = _excel_thin_border()
 
-    ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=3)
-    val_res = ws.cell(row=curr_row, column=2, value=inspeccion.get_resultado_general_display() or "No definido")
-
-    # Resaltar color según resultado (consistente con paleta oscura del sistema)
+    ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
+    val_res = ws.cell(row=curr_row, column=3, value=inspeccion.get_resultado_general_display() or "No definido")
     res_color_map = {
         "apta": (EXCEL_APTA_BG, EXCEL_APTA_TXT),
         "requiere_reparacion": (EXCEL_REPARACION_BG, EXCEL_REPARACION_TXT),
         "fuera_servicio": (EXCEL_FUERA_BG, EXCEL_FUERA_TXT),
     }
     bg_res, txt_res = res_color_map.get(inspeccion.resultado_general, (EXCEL_SUBHEADER_BG, "FFFFFF"))
-    val_res.font = Font(bold=True, size=11, color=txt_res, name="Calibri")
+    val_res.font = Font(bold=True, size=10, color=txt_res, name="Calibri")
     val_res.fill = _excel_fill(bg_res)
     val_res.alignment = Alignment(horizontal="center", vertical="center")
-    for c in range(2, 4):
+    for c in [3, 4]:
         ws.cell(row=curr_row, column=c).border = _excel_thin_border()
 
-    # Acción tomada
-    lbl_acc = ws.cell(row=curr_row, column=4, value="Acción tomada:")
-    lbl_acc.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
-    lbl_acc.fill = _excel_fill(EXCEL_SUBHEADER_BG)
-    lbl_acc.border = _excel_thin_border()
-    lbl_acc.alignment = Alignment(horizontal="left", vertical="center")
-
     ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=6)
-    val_acc = ws.cell(row=curr_row, column=5, value=inspeccion.get_accion_tomada_display() or "—")
-    val_acc.font = Font(bold=True, size=10, color="0F172A", name="Calibri")
+    lbl_acc = ws.cell(row=curr_row, column=5, value="Acción tomada:")
+    lbl_acc.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
+    lbl_acc.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+    lbl_acc.alignment = Alignment(horizontal="left", vertical="center")
+    for c in [5, 6]:
+        ws.cell(row=curr_row, column=c).border = _excel_thin_border()
+
+    ws.merge_cells(start_row=curr_row, start_column=7, end_row=curr_row, end_column=8)
+    val_acc = ws.cell(row=curr_row, column=7, value=inspeccion.get_accion_tomada_display() or "—")
+    val_acc.font = Font(bold=True, size=9.5, color="0F172A", name="Calibri")
     val_acc.fill = _excel_fill("F1F5F9")
-    val_acc.alignment = Alignment(horizontal="left", vertical="center")
-    for c in range(5, 7):
+    val_acc.alignment = Alignment(horizontal="center", vertical="center")
+    for c in [7, 8]:
         ws.cell(row=curr_row, column=c).border = _excel_thin_border()
 
     # Observaciones generales
     curr_row += 1
     ws.row_dimensions[curr_row].height = 22
+    ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
     lbl_obs = ws.cell(row=curr_row, column=1, value="Observaciones:")
-    lbl_obs.font = Font(bold=True, size=10, color="334155", name="Calibri")
+    lbl_obs.font = Font(bold=True, size=9.5, color="334155", name="Calibri")
     lbl_obs.fill = _excel_fill("F8FAFC")
-    lbl_obs.border = _excel_thin_border()
     lbl_obs.alignment = Alignment(horizontal="left", vertical="center")
-
-    ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=6)
-    val_obs = ws.cell(row=curr_row, column=2, value=inspeccion.observaciones or "Sin observaciones.")
-    val_obs.font = Font(bold=False, size=10, color="0F172A", name="Calibri")
-    val_obs.fill = _excel_fill("FFFFFF")
-    val_obs.alignment = Alignment(horizontal="left", vertical="center")
-    for c in range(2, 7):
+    for c in [1, 2]:
         ws.cell(row=curr_row, column=c).border = _excel_thin_border()
 
-    # 5. Sección de Firmas de Conformidad (con 5 filas de espacio para firma física)
+    ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=8)
+    val_obs = ws.cell(row=curr_row, column=3, value=inspeccion.observaciones or "Sin observaciones.")
+    val_obs.font = Font(bold=False, size=9.5, color="0F172A", name="Calibri")
+    val_obs.fill = _excel_fill("FFFFFF")
+    val_obs.alignment = Alignment(horizontal="left", vertical="center")
+    for c in range(3, 9):
+        ws.cell(row=curr_row, column=c).border = _excel_thin_border()
+
+    # 8. Sección de Firmas de Conformidad (4 bloques oficiales)
     curr_row += 2
-    ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=6)
+    ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=8)
     firma_title = ws.cell(row=curr_row, column=1, value="FIRMAS DE CONFORMIDAD")
     firma_title.font = Font(bold=True, size=10, color="FFFFFF", name="Calibri")
     firma_title.fill = _excel_fill(EXCEL_HEADER_BG)
     firma_title.alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[curr_row].height = 22
+    for c in range(1, 9):
+        ws.cell(row=curr_row, column=c).border = _excel_thin_border()
 
-    for _ in range(5):
+    # Espacio para firmas 1 y 2
+    for _ in range(3):
         curr_row += 1
-        ws.row_dimensions[curr_row].height = 20
+        ws.row_dimensions[curr_row].height = 16
 
     curr_row += 1
     ws.row_dimensions[curr_row].height = 20
     top_line = Border(top=Side(style="medium", color="1E293B"))
 
-    cargos = [
-        (1, 2, "Inspector"),
-        (3, 4, "Supervisor SST / Mantenimiento"),
-        (5, 6, "Responsable del Área"),
+    bloques_r1 = [
+        (1, 4, "1. Encargado de la actividad"),
+        (5, 8, "2. Supervisor del trabajo"),
     ]
-    for start_c, end_c, cargo_txt in cargos:
+    for start_c, end_c, cargo_txt in bloques_r1:
         ws.merge_cells(start_row=curr_row, start_column=start_c, end_row=curr_row, end_column=end_c)
         c_cargo = ws.cell(row=curr_row, column=start_c, value=cargo_txt)
-        c_cargo.font = Font(bold=True, size=10, color="1E293B", name="Calibri")
+        c_cargo.font = Font(bold=True, size=9.5, color="1E293B", name="Calibri")
         c_cargo.alignment = Alignment(horizontal="center", vertical="center")
         for col_k in range(start_c, end_c + 1):
             ws.cell(row=curr_row, column=col_k).border = top_line
 
     curr_row += 1
     ws.row_dimensions[curr_row].height = 18
-    for start_c, end_c, _ in cargos:
+    for start_c, end_c, _ in bloques_r1:
         ws.merge_cells(start_row=curr_row, start_column=start_c, end_row=curr_row, end_column=end_c)
-        c_f = ws.cell(row=curr_row, column=start_c, value="Fecha: ____ / ____ / ______")
-        c_f.font = Font(bold=False, size=9, color="64748B", name="Calibri")
+        c_f = ws.cell(row=curr_row, column=start_c, value="Nombre: ______________________  Fecha: ____/____/______")
+        c_f.font = Font(bold=False, size=8.5, color="64748B", name="Calibri")
         c_f.alignment = Alignment(horizontal="center", vertical="center")
 
-    widths = [8, 42, 12, 14, 12, 32]
+    # Espacio para firmas 3 y 4
+    for _ in range(3):
+        curr_row += 1
+        ws.row_dimensions[curr_row].height = 16
+
+    curr_row += 1
+    ws.row_dimensions[curr_row].height = 20
+    bloques_r2 = [
+        (1, 4, "3. Responsable del área FM"),
+        (5, 8, "4. Responsable de seguridad"),
+    ]
+    for start_c, end_c, cargo_txt in bloques_r2:
+        ws.merge_cells(start_row=curr_row, start_column=start_c, end_row=curr_row, end_column=end_c)
+        c_cargo = ws.cell(row=curr_row, column=start_c, value=cargo_txt)
+        c_cargo.font = Font(bold=True, size=9.5, color="1E293B", name="Calibri")
+        c_cargo.alignment = Alignment(horizontal="center", vertical="center")
+        for col_k in range(start_c, end_c + 1):
+            ws.cell(row=curr_row, column=col_k).border = top_line
+
+    curr_row += 1
+    ws.row_dimensions[curr_row].height = 18
+    for start_c, end_c, _ in bloques_r2:
+        ws.merge_cells(start_row=curr_row, start_column=start_c, end_row=curr_row, end_column=end_c)
+        c_f = ws.cell(row=curr_row, column=start_c, value="Nombre: ______________________  Fecha: ____/____/______")
+        c_f.font = Font(bold=False, size=8.5, color="64748B", name="Calibri")
+        c_f.alignment = Alignment(horizontal="center", vertical="center")
+
+    widths = [6, 24, 14, 14, 10, 10, 10, 24]
     _excel_set_col_widths(ws, widths)
 
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
     return buffer
+
 
 
 # ─── Reporte General Consolidado de Inspecciones ──────────────────────────────
@@ -1056,75 +1236,111 @@ def generar_pdf_inspeccion(inspeccion):
     )
 
     if LOGO_PATH.exists():
-        logo_img = Image(str(LOGO_PATH), width=1.05 * cm, height=1.05 * cm)
+        logo_incalpaca_img = Image(str(LOGO_PATH), width=1.1 * cm, height=1.1 * cm)
     else:
-        logo_img = Paragraph("", styles["Normal"])
+        logo_incalpaca_img = Paragraph("", styles["Normal"])
 
-    marca_cell = Table(
-        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facility Management</font>", empresa_style)]],
-        colWidths=[1.3 * cm, 6 * cm],
+    # Logo FM (izquierda) + Logo Incalpaca (derecha)
+    fm_logo_path = Path(__file__).resolve().parent / "logo_fm.png"
+    if fm_logo_path.exists():
+        fm_logo_img = Image(str(fm_logo_path), width=1.4 * cm, height=1.0 * cm)
+    else:
+        fm_logo_img = Paragraph("<b>FM</b>", ParagraphStyle(
+            "FMPlaceholder", parent=styles["Normal"],
+            fontSize=11, fontName="Helvetica-Bold", textColor=NEGRO_TEXTO,
+        ))
+
+    # ── Encabezado: 3 columnas — Logo FM | Título + Área | Logo Incalpaca ──
+    # Logo FM (izquierda) — proporción correcta, sin aplastar
+    if fm_logo_path.exists():
+        fm_logo_header = Image(str(fm_logo_path), width=2.0 * cm, height=1.45 * cm)
+    else:
+        fm_logo_header = Paragraph("<b>FM</b>", ParagraphStyle(
+            "FMH", parent=styles["Normal"], fontSize=13, fontName="Helvetica-Bold",
+        ))
+
+    # Título central
+    _subtitulo_area = f"Área: {inspeccion.area}" if getattr(inspeccion, "area", None) else ""
+    _titulo_filas = [[Paragraph(titulo, titulo_style)]]
+    if _subtitulo_area:
+        _titulo_filas.append([Paragraph(_subtitulo_area, subtitulo_style)])
+    titulo_col = Table(
+        _titulo_filas,
+        colWidths=[11 * cm],
     )
-    marca_cell.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (0, 0), 0),
+    titulo_col.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.5, GRIS_BORDE),
     ]))
 
-    meta_cell = Paragraph(
-        f"Código: <b>{codigo_doc}</b><br/>Fecha de emisión: <b>{fecha_emision}</b>", meta_style
+    # Columna derecha: Logo Incalpaca (3 cubos oficial) + Código/Fecha
+    cubos_logo_path = Path(__file__).resolve().parent / "logo_incalpaca_cubos.png"
+    if cubos_logo_path.exists():
+        incalpaca_header = Image(str(cubos_logo_path), width=1.5 * cm, height=1.23 * cm)
+    elif LOGO_PATH.exists():
+        incalpaca_header = Image(str(LOGO_PATH), width=1.5 * cm, height=1.5 * cm)
+    else:
+        incalpaca_header = Paragraph("INCALPACA", styles["Normal"])
+
+    meta_col = Table(
+        [[incalpaca_header],
+         [Paragraph(f"Código: <b>{codigo_doc}</b><br/>Emisión: <b>{fecha_emision}</b>", meta_style)]],
+        colWidths=[5 * cm],
     )
+    meta_col.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ]))
 
     fila_superior = Table(
-        [[marca_cell, meta_cell]],
-        colWidths=[11 * cm, 7 * cm],
+        [[fm_logo_header, titulo_col, meta_col]],
+        colWidths=[2.4 * cm, 11 * cm, 5 * cm],
     )
     fila_superior.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
     elementos.append(fila_superior)
     elementos.append(Spacer(1, 6))
 
-    encabezado = Table(
-        [[Paragraph(titulo, titulo_style)],
-         [Paragraph("Área: Mantenimiento de Servicios Generales", subtitulo_style)]],
-        colWidths=[18 * cm],
-    )
-    encabezado.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("LINEBELOW", (0, -1), (-1, -1), 1, GRIS_OSCURO),
-    ]))
-    elementos.append(encabezado)
-    elementos.append(Spacer(1, 7))
 
-    # ── Datos generales ──
+
     inspector_nombre = (
         inspeccion.inspector.get_full_name() or inspeccion.inspector.username
         if inspeccion.inspector else ""
     )
     codigo_objetivo = inspeccion.pieza.codigo if inspeccion.pieza else inspeccion.material.codigo
+    modalidad_txt = "Planificada" if getattr(inspeccion, "modalidad", "planificada") == "planificada" else "No planificada"
+    frecuencia_txt = (getattr(inspeccion, "frecuencia", "trimestral") or "trimestral").capitalize()
+    area_txt = getattr(inspeccion, "area_trabajo", "") or "Facility Management"
+    referencia_ot_txt = getattr(inspeccion, "referencia_orden", "") or "—"
 
-    if hoja_nombre == HOJA_MANUALES:
+    from apps.inspeccion.utils import color_inspeccion_actual, LEYENDA_COLORES
+    color_info = color_inspeccion_actual(para_fecha=inspeccion.fecha.date() if getattr(inspeccion, "fecha", None) else None)
+    c_act = color_info["actual"]
+
+    if inspeccion.tipo == "grupal":
         datos = [
-            ["Tipo de herramienta:", inspeccion.material.nombre, "Responsable:", inspector_nombre],
-            ["Cantidad inspeccionada:", inspeccion.cantidad_inspeccionada or "-", "Fecha de inspección:", _fecha(inspeccion.fecha)],
-            ["Cantidad apta:", inspeccion.cantidad_apta or "-", "Próxima inspección:", _fecha(inspeccion.proxima_inspeccion)],
-            ["Cantidad no apta:", inspeccion.cantidad_no_apta or "-", "", ""],
+            ["Tipo de herramienta / Material:", inspeccion.material.nombre, "Responsable:", inspector_nombre],
+            ["Tipo de inspección:", modalidad_txt, "Fecha de inspección:", _fecha(inspeccion.fecha)],
+            ["Frecuencia planificada:", frecuencia_txt, "Próxima inspección:", _fecha(inspeccion.proxima_inspeccion)],
+            ["Área de trabajo / Lugar:", area_txt, "Referencia (OT/OL/OP):", referencia_ot_txt],
+            ["Cantidad inspeccionada:", inspeccion.cantidad_inspeccionada or "-", "Cantidad apta / no apta:", f"{inspeccion.cantidad_apta or 0} aptas / {inspeccion.cantidad_no_apta or 0} no aptas"],
         ]
     else:
+        cod_pieza = inspeccion.pieza.codigo if getattr(inspeccion, "pieza", None) and inspeccion.pieza.codigo else "-"
         datos = [
             ["Código de la herramienta:", codigo_objetivo, "Próxima inspección:", _fecha(inspeccion.proxima_inspeccion)],
-            ["Marca:", inspeccion.material.marca or "-", "", ""],
-            ["Inspector responsable:", inspector_nombre, "", ""],
-            ["Fecha de inspección:", _fecha(inspeccion.fecha), "", ""],
-            ["Nombre de la herramienta:", inspeccion.material.nombre, "", ""],
+            ["Marca:", inspeccion.material.marca or "-", "Tipo de inspección:", modalidad_txt],
+            ["Inspector responsable:", inspector_nombre, "Frecuencia planificada:", frecuencia_txt],
+            ["Fecha de inspección:", _fecha(inspeccion.fecha), "Área de trabajo / Lugar:", area_txt],
+            ["Nombre de la herramienta:", inspeccion.material.nombre, "Referencia (OT/OL/OP):", referencia_ot_txt],
         ]
 
     tabla_datos = Table(datos, colWidths=[4.3 * cm, 4.7 * cm, 4.3 * cm, 4.7 * cm])
@@ -1140,11 +1356,123 @@ def generar_pdf_inspeccion(inspeccion):
         ("BACKGROUND", (0, 0), (0, -1), GRIS_CLARO),
         ("BACKGROUND", (2, 0), (2, -1), GRIS_CLARO),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]))
     elementos.append(tabla_datos)
-    elementos.append(Spacer(1, 7))
+    elementos.append(Spacer(1, 5))
+
+    # ── Código de color 5S — leyenda visual ──
+    from reportlab.graphics.shapes import Drawing, Circle, Rect, String
+    from reportlab.lib.units import mm
+
+    _pdf_leyenda_colores = [
+        {"q": 1, "nombre": "Amarillo", "meses": "Ene – Mar", "hex": "#EAB308", "rl": colors.HexColor("#EAB308")},
+        {"q": 2, "nombre": "Verde",    "meses": "Abr – Jun", "hex": "#22C55E", "rl": colors.HexColor("#22C55E")},
+        {"q": 3, "nombre": "Azul",     "meses": "Jul – Sep", "hex": "#2563EB", "rl": colors.HexColor("#2563EB")},
+        {"q": 4, "nombre": "Rojo",     "meses": "Oct – Dic", "hex": "#DC2626", "rl": colors.HexColor("#DC2626")},
+    ]
+
+    # Determinar el trimestre activo
+    actual_hex = c_act["hex"]
+
+    _color_badge_style = ParagraphStyle(
+        "ColorBadge", parent=styles["Normal"], fontSize=7.5, leading=9,
+        fontName="Helvetica-Bold", textColor=colors.white, alignment=1,
+    )
+    _color_sub_style = ParagraphStyle(
+        "ColorSub", parent=styles["Normal"], fontSize=6.5, leading=8,
+        fontName="Helvetica", textColor=colors.white, alignment=1,
+    )
+    _color_label_style = ParagraphStyle(
+        "ColorLabel", parent=styles["Normal"], fontSize=7.5, leading=9,
+        fontName="Helvetica-Bold", textColor=GRIS_OSCURO,
+    )
+
+    # Construir tabla de 5 columnas: Label | Q1 | Q2 | Q3 | Q4
+    color_row = [Paragraph("<b>Código de color del trimestre:</b>", _color_label_style)]
+    for litem in _pdf_leyenda_colores:
+        is_active = (litem["hex"] == actual_hex)
+        badge_text = f"<b>Q{litem['q']}: {litem['nombre']}</b>"
+        sub_text = litem["meses"]
+        bg_color = litem["rl"]
+        # Celda con dos líneas de texto
+        p_badge = Paragraph(badge_text, _color_badge_style)
+        p_sub = Paragraph(sub_text, _color_sub_style)
+        inner = Table([[p_badge], [p_sub]], colWidths=[3.2 * cm])
+        inner.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), bg_color),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ]))
+        if is_active:
+            inner.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), bg_color),
+                ("BOX", (0, 0), (-1, -1), 2.0, colors.HexColor("#0F172A")),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ]))
+        color_row.append(inner)
+
+    color_banner = Table(
+        [color_row],
+        colWidths=[5.0 * cm, 3.2 * cm, 3.2 * cm, 3.2 * cm, 3.2 * cm],
+    )
+    color_banner.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("GRID", (0, 0), (-1, -1), 0.4, GRIS_BORDE),
+        ("BACKGROUND", (0, 0), (0, 0), GRIS_CLARO),
+    ]))
+    elementos.append(color_banner)
+    elementos.append(Spacer(1, 5))
+
+
+
+    # ── Tipo de herramientas manuales — SOLO si el usuario marcó al menos un tipo ──
+    tipos_marcados = getattr(inspeccion, "tipos_herramientas", []) or []
+    if len(tipos_marcados) > 0:
+        def _chk(nombre_grupo):
+            return "[X]" if nombre_grupo in tipos_marcados else "[  ]"
+
+        tabla_tipos_h = Table(
+            [
+                [Paragraph("<b>TIPO DE HERRAMIENTAS MANUALES</b>", styles["Normal"]), ""],
+                [
+                    Paragraph(f"{_chk('Herramientas de golpe')} Herramientas de golpe &nbsp;&nbsp;&nbsp; {_chk('Herramientas de corte')} Herramientas de corte &nbsp;&nbsp;&nbsp; {_chk('Herramientas de cohesión')} Herramientas de cohesión &nbsp;&nbsp;&nbsp; {_chk('Herramientas de torsión y ajuste')} Torsión y ajuste", styles["Normal"]),
+                    ""
+                ],
+                [
+                    Paragraph(f"{_chk('Herramientas de medición')} Herramientas de medición &nbsp;&nbsp;&nbsp; {_chk('Herramientas de sujeción')} Herramientas de sujeción &nbsp;&nbsp;&nbsp; {_chk('Herramientas de pintura')} Herramientas de pintura &nbsp;&nbsp;&nbsp; {_chk('Otras herramientas')} Otras herramientas", styles["Normal"]),
+                    ""
+                ],
+            ],
+            colWidths=[18 * cm, 0 * cm],
+        )
+        tabla_tipos_h.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GRIS_OSCURO),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+            ("GRID", (0, 0), (0, -1), 0.4, GRIS_BORDE),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        elementos.append(tabla_tipos_h)
+        elementos.append(Spacer(1, 5))
+
+
+
 
     # ── Criterios ──
     criterio_texto_style = ParagraphStyle(
@@ -1153,15 +1481,21 @@ def generar_pdf_inspeccion(inspeccion):
     criterio_obs_style = ParagraphStyle(
         "CriterioObs", parent=styles["Normal"], fontSize=7.5, leading=9,
     )
-    data = [["N°", "Criterio de inspección", "Cumple", "No cumple", "No aplica", "Obs."]]
-    for resp in inspeccion.respuestas.select_related("criterio").order_by("criterio__orden"):
+    criterios_plantilla = list(inspeccion.plantilla.criterios.order_by("orden"))
+    respuestas_map = {r.criterio_id: r for r in inspeccion.respuestas.select_related("criterio").all()}
+
+    data = [["N°", "Criterio de inspección", "Cumple", "No cumple", "No aplica", "Observación"]]
+    for crit in criterios_plantilla:
+        resp = respuestas_map.get(crit.id)
+        valor = resp.valor if resp else ""
+        obs = resp.observacion if resp and resp.observacion else ""
         data.append([
-            resp.criterio.orden,
-            Paragraph(resp.criterio.texto, criterio_texto_style),
-            "X" if resp.valor == "cumple" else "",
-            "X" if resp.valor == "no_cumple" else "",
-            "X" if resp.valor == "no_aplica" else "",
-            Paragraph(resp.observacion, criterio_obs_style) if resp.observacion else "",
+            crit.orden,
+            Paragraph(crit.texto, criterio_texto_style),
+            "X" if valor == "cumple" else "",
+            "X" if valor == "no_cumple" else "",
+            "X" if valor == "no_aplica" else "",
+            Paragraph(obs, criterio_obs_style) if obs else "",
         ])
 
     tabla = Table(data, colWidths=[1.2 * cm, 7.3 * cm, 1.9 * cm, 2.1 * cm, 1.9 * cm, 3.6 * cm], repeatRows=1)
@@ -1179,12 +1513,9 @@ def generar_pdf_inspeccion(inspeccion):
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, GRIS_CLARO]),
     ]))
     elementos.append(tabla)
-    elementos.append(Spacer(1, 6))
+    elementos.append(Spacer(1, 5))
 
     # ── Resultado y acción ──
-    # Nota: se usa notación de casilla en texto plano "[X]" / "[ ]" en vez de
-    # los caracteres unicode ☑/☐, que no existen en Helvetica y se imprimían
-    # como recuadros negros sólidos (glifo faltante).
     def _marca(activo):
         return "[X]" if activo else "[  ]"
 
@@ -1230,43 +1561,44 @@ def generar_pdf_inspeccion(inspeccion):
     elementos.append(Spacer(1, 4))
     elementos.append(Paragraph("OBSERVACIONES GENERALES", obs_heading_style))
     elementos.append(Paragraph(inspeccion.observaciones or "-", obs_style))
-    elementos.append(Spacer(1, 3))
+    elementos.append(Spacer(1, 4))
 
-    # ── Firmas (más espacio en blanco para firmar a mano, letras reducidas) ──
-    # Se agrupa en KeepTogether para que la fila de nombres/roles nunca quede
-    # separada del resto del bloque en un salto de página.
+    # ── Firmas de Conformidad (4 bloques oficiales) ──
     firma_label_style = ParagraphStyle(
-        "FirmaLabel", parent=styles["Normal"], fontSize=8, fontName="Helvetica-Bold",
+        "FirmaLabel", parent=styles["Normal"], fontSize=7.5, fontName="Helvetica-Bold",
         textColor=NEGRO_TEXTO, alignment=TA_CENTER,
     )
     firma_dato_style = ParagraphStyle(
-        "FirmaDato", parent=styles["Normal"], fontSize=7.5, textColor=GRIS_MEDIO,
-        alignment=TA_CENTER, leading=11,
+        "FirmaDato", parent=styles["Normal"], fontSize=7, textColor=GRIS_MEDIO,
+        alignment=TA_CENTER, leading=9,
     )
     firmas = Table(
         [
-            ["", "", ""],  # espacio amplio (5 renglones) para la firma manuscrita y sello
-            [Paragraph("Inspector", firma_label_style),
-             Paragraph("Supervisor SST / Mantenimiento", firma_label_style),
-             Paragraph("Responsable del Área", firma_label_style)],
-            [Paragraph("Nombre: _____________________", firma_dato_style),
-             Paragraph("Nombre: _____________________", firma_dato_style),
-             Paragraph("Nombre: _____________________", firma_dato_style)],
-            [Paragraph("Fecha: ____ / ____ / ______", firma_dato_style),
-             Paragraph("Fecha: ____ / ____ / ______", firma_dato_style),
-             Paragraph("Fecha: ____ / ____ / ______", firma_dato_style)],
+            ["", "", "", ""],  # espacio amplio para firma manuscrita
+            [Paragraph("1. Encargado de la actividad", firma_label_style),
+             Paragraph("2. Supervisor del trabajo", firma_label_style),
+             Paragraph("3. Responsable del área FM", firma_label_style),
+             Paragraph("4. Responsable de seguridad", firma_label_style)],
+            [Paragraph("Nombre: ________________", firma_dato_style),
+             Paragraph("Nombre: ________________", firma_dato_style),
+             Paragraph("Nombre: ________________", firma_dato_style),
+             Paragraph("Nombre: ________________", firma_dato_style)],
+            [Paragraph("Fecha: ___/___/______", firma_dato_style),
+             Paragraph("Fecha: ___/___/______", firma_dato_style),
+             Paragraph("Fecha: ___/___/______", firma_dato_style),
+             Paragraph("Fecha: ___/___/______", firma_dato_style)],
         ],
-        colWidths=[6 * cm, 6 * cm, 6 * cm],
-        rowHeights=[1.8 * cm, None, None, None],
+        colWidths=[4.5 * cm, 4.5 * cm, 4.5 * cm, 4.5 * cm],
+        rowHeights=[1.4 * cm, None, None, None],
     )
     firmas.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("LINEABOVE", (0, 1), (-1, 1), 0.8, GRIS_OSCURO),
-        ("TOPPADDING", (0, 1), (-1, 1), 3),
-        ("TOPPADDING", (0, 2), (-1, -1), 4),
+        ("TOPPADDING", (0, 1), (-1, 1), 2),
+        ("TOPPADDING", (0, 2), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 0),
-        ("BOTTOMPADDING", (0, 1), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 1.5),
     ]))
     elementos.append(KeepTogether(firmas))
 
@@ -1526,7 +1858,7 @@ def generar_pdf_historial_material(material):
     else:
         logo_img = Paragraph("", styles["Normal"])
     marca_cell = Table(
-        [[logo_img, Paragraph("INCALPACA<br/><font size=6.5 color='#6b7280'>Facility Management</font>", empresa_style)]],
+        [[logo_img, Paragraph("INCALPACA", empresa_style)]],
         colWidths=[1.35 * cm, 6 * cm],
     )
     marca_cell.setStyle(TableStyle([

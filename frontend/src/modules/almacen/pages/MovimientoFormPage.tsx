@@ -205,6 +205,7 @@ function PiezaPickerRenglon({
           <label key={p.id} className="pieza-checkbox-row">
             <input type="checkbox" checked={renglon.piezasSeleccionadas.has(p.id)} onChange={() => togglePieza(p.id)} />
             <span className="pieza-code">{p.codigo}</span>
+            {p.detalle && <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>— {p.detalle}</span>}
           </label>
         ))}
       </div>
@@ -253,7 +254,11 @@ function PiezaPickerRenglon({
             value={renglon.estuchePiezaId}
             selectedLabel={estuche ? `${estuche.codigo} — ${estuche.material_nombre ?? ""}` : ""}
             placeholder="Buscar estuche por código…"
-            onChange={(id) => onUpdate({ estuchePiezaId: id, estucheTodasHijas: true, estucheHijasSeleccionadas: new Set() })}
+            onChange={(id) => {
+              // Cuando se selecciona un estuche, forzamos estucheTodasHijas: false
+              // y pre-seleccionamos todas las hijas (el useEffect las cargará en hijasDisponibles).
+              onUpdate({ estuchePiezaId: id, estucheTodasHijas: false, estucheHijasSeleccionadas: new Set() });
+            }}
             fetchOptions={async (q) => {
               const res = await listPiezas({ material: materialId, estado: "Disponible", sin_padre: true, q });
               return res
@@ -266,36 +271,74 @@ function PiezaPickerRenglon({
               {hijasDisponibles.length === 0 ? (
                 <p style={{ fontSize: 12, color: "var(--muted)" }}>No hay items disponibles en este estuche.</p>
               ) : (
-                <div className="pieza-multiselect">
-                  <label className="pieza-checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={renglon.estucheTodasHijas}
-                      onChange={(e) => onUpdate({ estucheTodasHijas: e.target.checked, estucheHijasSeleccionadas: new Set() })}
-                    />
-                    <strong style={{ fontSize: 13 }}>Todas las disponibles ({hijasDisponibles.length})</strong>
-                  </label>
-                  {!renglon.estucheTodasHijas &&
-                    hijasDisponibles.map((h) => (
-                      <label key={h.id} className="pieza-checkbox-row" style={{ marginLeft: 24 }}>
-                        <input type="checkbox" checked={renglon.estucheHijasSeleccionadas.has(h.id)} onChange={() => toggleHija(h.id)} />
-                        <span className="pieza-code" style={{ fontSize: 13 }}>{h.codigo}</span>
-                        {(h.material_nombre || h.material_medida) && (
-                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>
-                            {[h.material_nombre, h.material_medida].filter(Boolean).join(" · ")}
-                          </span>
-                        )}
-                        {h.detalle && (
-                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>({h.detalle})</span>
-                        )}
-                      </label>
-                    ))}
-                </div>
+                <AutoSelectEstucheHijas
+                  hijasDisponibles={hijasDisponibles}
+                  renglon={renglon}
+                  onUpdate={onUpdate}
+                  toggleHija={toggleHija}
+                />
               )}
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Componente auxiliar que auto-selecciona todas las hijas disponibles al
+// montar y permite desmarcar individualmente las que no se vayan a mover.
+function AutoSelectEstucheHijas({
+  hijasDisponibles,
+  renglon,
+  onUpdate,
+  toggleHija,
+}: {
+  hijasDisponibles: Array<{ id: number; codigo: string | null; material_nombre?: string | null; material_medida?: string | null; detalle?: string | null }>;
+  renglon: RenglonMovimiento;
+  onUpdate: (patch: Partial<RenglonMovimiento>) => void;
+  toggleHija: (id: number) => void;
+}) {
+  const hijasIds = hijasDisponibles.map((h) => h.id).join(",");
+
+  // Pre-marcar todas las hijas disponibles al cargar / cambiar el listado
+  useEffect(() => {
+    onUpdate({ estucheTodasHijas: false, estucheHijasSeleccionadas: new Set(hijasDisponibles.map((h) => h.id)) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hijasIds]);
+
+  const selAll = renglon.estucheHijasSeleccionadas.size === hijasDisponibles.length;
+  const selNone = renglon.estucheHijasSeleccionadas.size === 0;
+
+  return (
+    <div className="pieza-multiselect">
+      <label className="pieza-checkbox-row">
+        <input
+          type="checkbox"
+          checked={selAll}
+          ref={(el) => { if (el) el.indeterminate = !selAll && !selNone; }}
+          onChange={() =>
+            onUpdate({
+              estucheHijasSeleccionadas: selAll ? new Set() : new Set(hijasDisponibles.map((h) => h.id)),
+            })
+          }
+        />
+        <strong style={{ fontSize: 13 }}>Todas las disponibles ({hijasDisponibles.length})</strong>
+      </label>
+      {hijasDisponibles.map((h) => (
+        <label key={h.id} className="pieza-checkbox-row" style={{ marginLeft: 24 }}>
+          <input type="checkbox" checked={renglon.estucheHijasSeleccionadas.has(h.id)} onChange={() => toggleHija(h.id)} />
+          <span className="pieza-code" style={{ fontSize: 13 }}>{h.codigo}</span>
+          {(h.material_nombre || h.material_medida) && (
+            <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>
+              {[h.material_nombre, h.material_medida].filter(Boolean).join(" · ")}
+            </span>
+          )}
+          {h.detalle && (
+            <span style={{ fontSize: 12, color: "var(--text)", marginLeft: 4 }}>— {h.detalle}</span>
+          )}
+        </label>
+      ))}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import { agregarHijaInline, deletePieza } from "@/modules/almacen/catalogoRepository";
 import type { PiezaAnidada } from "@/modules/almacen/types";
 import { PiezaHijaRow } from "@/modules/almacen/components/PiezaHijaRow";
+import { PiezaDetalleEditor } from "@/modules/almacen/components/PiezaDetalleEditor";
 
 export function PiezaTreeRow({
   pieza,
@@ -77,11 +78,11 @@ export function PiezaTreeRow({
         )}
 
         {/* Nombre / nota personalizada de esta pieza física (campo "detalle") */}
-        {pieza.detalle && (
-          <span style={{ fontSize: 12, color: "var(--text)" }}>
-            {pieza.detalle}
-          </span>
-        )}
+        <PiezaDetalleEditor
+          piezaId={pieza.id}
+          initialDetalle={pieza.detalle}
+          queryKeys={[["material", materialId]]}
+        />
 
         <StatusBadge value={pieza.estado} />
         {mostrarTrimestre && pieza.estado !== "Baja" && (

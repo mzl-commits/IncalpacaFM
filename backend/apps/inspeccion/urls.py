@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from apps.inspeccion.views import (
@@ -8,6 +9,9 @@ from apps.inspeccion.views import (
     ProgramacionInspeccionViewSet,
     PlanInspeccionAnualViewSet,
     DocumentoInspeccionViewSet,
+    color_mes_view,
+    frecuencia_uso_view,
+    checklist_contexto_view,
 )
 
 router = DefaultRouter()
@@ -19,4 +23,8 @@ router.register("programaciones-inspeccion", ProgramacionInspeccionViewSet, base
 router.register("plan-anual", PlanInspeccionAnualViewSet, basename="plan-anual")
 router.register("documentos-inspeccion", DocumentoInspeccionViewSet)
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path("color-mes/", color_mes_view, name="color-mes"),
+    path("frecuencia-uso/", frecuencia_uso_view, name="frecuencia-uso"),
+    path("checklist-contexto/", checklist_contexto_view, name="checklist-contexto"),
+]

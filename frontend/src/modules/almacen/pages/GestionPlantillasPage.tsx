@@ -154,7 +154,6 @@ export function GestionPlantillasPage() {
   }
 
   const activePlantilla = selectedPlantilla;
-
   return (
     <section className="gestion-plantillas">
       <style>{`
@@ -162,14 +161,92 @@ export function GestionPlantillasPage() {
           display: grid;
           grid-template-columns: 340px 1fr;
           gap: 16px;
+          align-items: start;
         }
+        .gestion-plantillas .criterio-form-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .gestion-plantillas .criterio-form-row input {
+          flex: 1 1 200px;
+          min-width: 0;
+        }
+        .gestion-plantillas .criterio-form-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .gestion-plantillas .criterios-desktop-table {
+          display: table;
+          width: 100%;
+        }
+        .gestion-plantillas .criterios-mobile-list {
+          display: none;
+        }
+
         @media (max-width: 860px) {
           .gestion-plantillas .plantillas-grid {
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 16px;
           }
           .gestion-plantillas .form-panel {
             margin: 0 12px 12px !important;
+          }
+        }
+
+        @media (max-width: 680px) {
+          .gestion-plantillas .criterios-desktop-table {
+            display: none;
+          }
+          .gestion-plantillas .criterios-mobile-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 0 12px 16px;
+          }
+          .gestion-plantillas .criterio-card {
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 8px;
+            background: var(--surface, #ffffff);
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .gestion-plantillas .criterio-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 6px;
+          }
+          .gestion-plantillas .criterio-card-badge {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted, #64748b);
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 4px;
+          }
+          .gestion-plantillas .criterio-card-text {
+            font-size: 13.5px;
+            color: var(--text, #0f172a);
+            line-height: 1.4;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+          }
+          .gestion-plantillas .criterio-form-row {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .gestion-plantillas .criterio-form-row input {
+            width: 100%;
+          }
+          .gestion-plantillas .criterio-form-actions {
+            justify-content: flex-end;
           }
         }
       `}</style>
@@ -258,11 +335,11 @@ export function GestionPlantillasPage() {
                     background: isSelected ? "var(--surface-raised, #f9fafb)" : undefined,
                   }}
                 >
-                  <div>
-                    <strong className="text-base" style={{ display: "block" }}>{p.nombre}</strong>
+                  <div style={{ minWidth: 0 }}>
+                    <strong className="text-base" style={{ display: "block", wordBreak: "break-word" }}>{p.nombre}</strong>
                     <small className="text-muted-sm">{p.criterios?.length || 0} criterios</small>
                   </div>
-                  <div className="flex-row">
+                  <div className="flex-row" style={{ flexShrink: 0 }}>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleEditPlantilla(p); }}
@@ -303,7 +380,7 @@ export function GestionPlantillasPage() {
                 <div>
                   <strong style={{ fontSize: 15 }}>{activePlantilla.nombre}</strong>
                   <p className="text-muted-sm" style={{ margin: "2px 0 0" }}>
-                    Lista de preguntas/criterios evaluados en esta plantilla
+                    Lista de preguntas/criterios evaluados en esta plantilla ({activePlantilla.criterios?.length || 0})
                   </p>
                 </div>
                 {editCriterio && (
@@ -321,32 +398,33 @@ export function GestionPlantillasPage() {
               <div className="form-panel" style={{ margin: "0 16px 16px" }}>
                 <label className="field">
                   <span>{editCriterio ? "Editar criterio" : "Agregar nuevo criterio de inspección"}</span>
-                  <div className="flex-row">
+                  <div className="criterio-form-row">
                     <input
                       type="text"
                       placeholder="Ej. Estado del casco, Ausencia de grietas..."
                       value={criterioTexto}
                       onChange={(e) => setCriterioTexto(e.target.value)}
-                      style={{ flex: 1 }}
                     />
-                    {editCriterio && (
+                    <div className="criterio-form-actions">
+                      {editCriterio && (
+                        <button
+                          type="button"
+                          onClick={resetCriterioForm}
+                          className="button button-secondary"
+                        >
+                          Cancelar
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={resetCriterioForm}
-                        className="button button-secondary"
+                        onClick={() => criterioMut.mutate()}
+                        disabled={criterioMut.isPending}
+                        className="button button-primary"
                       >
-                        Cancelar
+                        <Plus size={16} />
+                        {criterioMut.isPending ? "Guardando…" : editCriterio ? "Guardar" : "Agregar criterio"}
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => criterioMut.mutate()}
-                      disabled={criterioMut.isPending}
-                      className="button button-primary"
-                    >
-                      <Plus size={16} />
-                      {criterioMut.isPending ? "Guardando…" : editCriterio ? "Guardar" : "Agregar criterio"}
-                    </button>
+                    </div>
                   </div>
                 </label>
                 {criterioError && (
@@ -356,9 +434,9 @@ export function GestionPlantillasPage() {
                 )}
               </div>
 
-              {/* Lista de Criterios */}
+              {/* Lista de Criterios — Versión Desktop */}
               <div className="table-scroll">
-                <table className="tabla-detalle-mobile">
+                <table className="criterios-desktop-table">
                   <thead>
                     <tr>
                       <th style={{ width: 60 }}>Orden</th>
@@ -375,8 +453,8 @@ export function GestionPlantillasPage() {
                     )}
                     {(activePlantilla.criterios || []).map((c, index) => (
                       <tr key={c.id}>
-                        <td className="text-muted-sm">#{c.orden || index + 1}</td>
-                        <td className="text-base">{c.texto}</td>
+                        <td className="text-muted-sm" style={{ fontWeight: 600 }}>#{c.orden || index + 1}</td>
+                        <td className="text-base" style={{ wordBreak: "break-word" }}>{c.texto}</td>
                         <td style={{ textAlign: "center" }}>
                           <div className="flex-row" style={{ justifyContent: "center" }}>
                             <button
@@ -431,6 +509,69 @@ export function GestionPlantillasPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Lista de Criterios — Versión Mobile Cards */}
+              <div className="criterios-mobile-list">
+                {(activePlantilla.criterios || []).length === 0 && (
+                  <p className="empty-row">Esta plantilla no contiene criterios asignados aún.</p>
+                )}
+                {(activePlantilla.criterios || []).map((c, index) => (
+                  <div key={c.id} className="criterio-card">
+                    <div className="criterio-card-header">
+                      <span className="criterio-card-badge">#{c.orden || index + 1}</span>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <button
+                          type="button"
+                          disabled={index === 0}
+                          onClick={() => moveCriterio(index, "up")}
+                          className="button button-sm button-secondary"
+                          title="Subir"
+                          aria-label={`Subir criterio ${c.orden || index + 1}`}
+                          style={{ padding: "4px 8px" }}
+                        >
+                          <ArrowUp size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === (activePlantilla.criterios.length - 1)}
+                          onClick={() => moveCriterio(index, "down")}
+                          className="button button-sm button-secondary"
+                          title="Bajar"
+                          aria-label={`Bajar criterio ${c.orden || index + 1}`}
+                          style={{ padding: "4px 8px" }}
+                        >
+                          <ArrowDown size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEditCriterio(c)}
+                          className="button button-sm button-secondary"
+                          title="Editar criterio"
+                          aria-label={`Editar criterio ${c.texto}`}
+                          style={{ padding: "4px 8px" }}
+                        >
+                          <PencilSimple size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`¿Eliminar criterio '${c.texto}'?`)) {
+                              delCriterioMut.mutate(c.id);
+                            }
+                          }}
+                          className="icon-button-danger"
+                          title="Eliminar criterio"
+                          aria-label={`Eliminar criterio ${c.texto}`}
+                          style={{ padding: "4px 8px" }}
+                        >
+                          <Trash size={15} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="criterio-card-text">{c.texto}</div>
+                  </div>
+                ))}
               </div>
             </>
           )}

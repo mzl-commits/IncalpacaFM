@@ -5,6 +5,7 @@ import { useState } from "react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { desvinculaPieza } from "@/modules/almacen/catalogoRepository";
 import type { PiezaBase } from "@/modules/almacen/types";
+import { PiezaDetalleEditor } from "@/modules/almacen/components/PiezaDetalleEditor";
 
 export function PiezaHijaRow({
   pieza,
@@ -37,11 +38,11 @@ export function PiezaHijaRow({
       )}
 
       {/* Nombre / nota personalizada de esta pieza física (campo "detalle") */}
-      {pieza.detalle && (
-        <span style={{ fontSize: 11, color: "var(--text)" }}>
-          {pieza.detalle}
-        </span>
-      )}
+      <PiezaDetalleEditor
+        piezaId={pieza.id}
+        initialDetalle={pieza.detalle}
+        queryKeys={[["material", materialId]]}
+      />
 
       <StatusBadge value={pieza.estado} />
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>

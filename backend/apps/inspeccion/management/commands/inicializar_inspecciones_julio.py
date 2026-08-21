@@ -98,15 +98,65 @@ class Command(BaseCommand):
                 from datetime import timedelta
                 proxima_fecha = _ajustar_dia_laborable(fecha_base + timedelta(days=periodicidad_dias))
 
-                # A) Control individual por piezas
+                # A) Control individual por piezas (estuches como grupal, sueltas como individual)
                 if material.control_individual:
-                    piezas = material.piezas.exclude(estado="Baja")
-                    for pieza in piezas:
+                    # 1. Estuches (padres con hijas) -> Inspección GRUPAL
+                    estuches = material.piezas.filter(tiene_hijas=True).exclude(estado="Baja")
+                    for estuche in estuches:
+                        if Inspeccion.objects.filter(pieza=estuche, fecha__date=fecha_base).exists():
+                            continue
+
+                        hijas = list(estuche.hijas.exclude(estado="Baja"))
+                        cant_hijas = len(hijas) if len(hijas) > 0 else 1
+
+                        if not dry_run:
+                            insp = Inspeccion.objects.create(
+                                inspector=inspector,
+                                tipo="grupal",
+                                almacen=almacen,
+                                material=material,
+                                pieza=estuche,
+                                plantilla=plantilla,
+                                cantidad_inspeccionada=cant_hijas,
+                                cantidad_apta=cant_hijas,
+                                cantidad_no_apta=0,
+                                resultado_general="apta",
+                                accion_tomada="continua_servicio",
+                                observaciones="Inspección periódica inicial de juego/estuche completo.",
+                                proxima_inspeccion=proxima_fecha,
+                            )
+                            Inspeccion.objects.filter(pk=insp.pk).update(fecha=fecha_dt_aware)
+                            if hijas:
+                                insp.piezas_lote.set(hijas)
+
+                            for crit in criterios:
+                                RespuestaCriterio.objects.create(
+                                    inspeccion=insp,
+                                    criterio=crit,
+                                    valor="cumple",
+                                )
+
+                            ProgramacionInspeccion.objects.get_or_create(
+                                material=material,
+                                pieza=estuche,
+                                fecha_programada=proxima_fecha,
+                                defaults={
+                                    "plan": plan_actual,
+                                    "estado": "pendiente",
+                                    "periodicidad_dias": periodicidad_dias,
+                                },
+                            )
+
+                        creadas_inspecciones += 1
+                        creadas_programaciones += 1
+
+                    # 2. Piezas sueltas (sin padre y sin hijas) -> Inspección INDIVIDUAL
+                    piezas_sueltas = material.piezas.filter(padre__isnull=True, tiene_hijas=False).exclude(estado="Baja")
+                    for pieza in piezas_sueltas:
                         if Inspeccion.objects.filter(pieza=pieza, fecha__date=fecha_base).exists():
                             continue
 
                         if not dry_run:
-                            # 1. Crear Inspección Realizada del 21 de Julio
                             insp = Inspeccion.objects.create(
                                 inspector=inspector,
                                 tipo="individual",
@@ -116,7 +166,7 @@ class Command(BaseCommand):
                                 plantilla=plantilla,
                                 resultado_general="apta",
                                 accion_tomada="continua_servicio",
-                                observaciones="Inspección inicial periódica de planta.",
+                                observaciones="Inspección inicial periódica de herramienta individual.",
                                 proxima_inspeccion=proxima_fecha,
                             )
                             Inspeccion.objects.filter(pk=insp.pk).update(fecha=fecha_dt_aware)
@@ -128,7 +178,6 @@ class Command(BaseCommand):
                                     valor="cumple",
                                 )
 
-                            # 2. Siguiente programación vinculada al Plan
                             ProgramacionInspeccion.objects.get_or_create(
                                 material=material,
                                 pieza=pieza,

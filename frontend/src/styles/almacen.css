@@ -120,18 +120,52 @@
 /* ─── Formulario de inspección — fila de criterio ───────────────────────────── */
 .criterio-row {
   display: grid;
-  grid-template-columns: 1fr 180px;
+  grid-template-columns: 1fr 200px;
   align-items: start;
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid #f0f0f0;
 }
 .criterio-row:last-child { border-bottom: 0; }
-.criterio-texto { font-size: 13px; color: var(--text); padding-top: 12px; }
+.criterio-texto {
+  font-size: 13.5px;
+  color: var(--text);
+  padding-top: 8px;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
 .criterio-controls { display: grid; gap: 6px; }
-.criterio-controls select { width: 100%; min-height: 40px; border: 1px solid #a8a8a8; border-radius: 4px; padding: 8px 10px; font: inherit; font-size: 13px; }
-.criterio-controls input[type="text"] { width: 100%; min-height: 36px; border: 1px solid #a8a8a8; border-radius: 4px; padding: 6px 10px; font: inherit; font-size: 12px; color: var(--muted); }
-@media (max-width: 600px) { .criterio-row { grid-template-columns: 1fr; } }
+.criterio-controls select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--surface, #ffffff);
+}
+.criterio-controls input[type="text"] {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+}
+@media (max-width: 768px) {
+  .criterio-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 0;
+  }
+  .criterio-texto {
+    padding-top: 0;
+  }
+}
 
 /* ─── Card de material vencido ───────────────────────────────────────────────── */
 .vencida-card {
@@ -766,108 +800,7 @@
   }
 }
 
-/* ─── ResumenCarrito — Carrito unificado (consumibles + piezas) ──────────── */
-.resumen-carrito {
-  border: 1px solid var(--accent, #2563eb);
-  border-radius: 8px;
-  background: #f0f7ff;
-  overflow: hidden;
-  margin-top: 16px;
-}
-.resumen-carrito-header {
-  padding: 10px 14px;
-  background: rgba(37, 99, 235, 0.07);
-  border-bottom: 1px solid rgba(37, 99, 235, 0.15);
-}
-.resumen-carrito-titulo {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent, #2563eb);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.resumen-carrito-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  background: var(--accent, #2563eb);
-  color: #fff;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.resumen-carrito-lista {
-  list-style: none;
-  margin: 0;
-  padding: 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.resumen-carrito-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 6px;
-  background: #fff;
-  border: 1px solid rgba(37, 99, 235, 0.12);
-  font-size: 13px;
-}
-.rci-tipo {
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-.rci-tipo-consumible {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-.rci-tipo-pieza {
-  background: #d1fae5;
-  color: #065f46;
-}
-.rci-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text);
-}
-.rci-cantidad {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.rci-quitar {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.15s, color 0.15s;
-}
-.rci-quitar:hover {
-  background: #fee2e2;
-  color: #dc2626;
-}
+
 
 /* ─── Checkbox de OT (Tarea 5) ───────────────────────────────────────────── */
 .ot-checkbox-row {

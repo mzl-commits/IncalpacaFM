@@ -1,6 +1,6 @@
 import { ArrowLeft, Package, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { labelPieza } from "@/utils/pieza";
 
@@ -12,6 +12,8 @@ import {
 } from "@/modules/almacen/catalogoRepository";
 import {
   createInspeccion,
+  getChecklistContexto,
+  listMaterialesPendientes,
   listPlantillasCriterios,
   listUsuarios,
 } from "@/modules/almacen/inspeccionRepository";
@@ -35,6 +37,17 @@ import { Combobox } from "../components/shared/Combobox";
 import { Field } from "@/modules/almacen/components/shared/Field";
 import { EstucheGroup } from "@/modules/almacen/components/EstucheGroup";
 
+const GRUPOS_HERRAMIENTAS = [
+  "Herramientas de golpe",
+  "Herramientas de corte",
+  "Herramientas de cohesión",
+  "Herramientas de torsión y ajuste",
+  "Herramientas de medición",
+  "Herramientas de sujeción",
+  "Herramientas de pintura",
+  "Otras herramientas",
+];
+
 export function InspeccionFormPage() {
   const qc = useQueryClient();
   const { almacenId } = useAlmacenActivo();
@@ -48,6 +61,11 @@ export function InspeccionFormPage() {
   const [tipo, setTipo] = useState<TipoInspeccion>(
     preselPiezasLote.length > 0 ? "grupal" : "individual",
   );
+  const [modalidad, setModalidad] = useState<"planificada" | "no_planificada">("planificada");
+  const [frecuencia, setFrecuencia] = useState<string>("trimestral");
+  const [areaTrabajo, setAreaTrabajo] = useState<string>("Facility Management");
+  const [referenciaOrden, setReferenciaOrden] = useState<string>("");
+  const [tiposHerramientas, setTiposHerramientas] = useState<string[]>([]);
   const [materialId, setMaterialId] = useState<number>(preselMaterial);
   const [piezaId, setPiezaId] = useState<number>(0);
   const [piezasLote, setPiezasLote] = useState<Set<number>>(new Set(preselPiezasLote));
@@ -56,7 +74,9 @@ export function InspeccionFormPage() {
   const [respuestas, setRespuestas] = useState<Record<number, { valor: ValorRespuesta | ""; observacion: string }>>({});
   const [resultado, setResultado] = useState<ResultadoInspeccion>("apta");
   const [accion, setAccion] = useState<AccionInspeccion>("continua_servicio");
-  const [proximaInspeccion, setProximaInspeccion] = useState("");
+  const [incluirInspeccionados, setIncluirInspeccionados] = useState(false);
+  const [tipoInspeccion, setTipoInspeccion] = useState<"planificada" | "no_planificada">("planificada");
+  const [area, setArea] = useState("");
   const [cantInspeccionada, setCantInspeccionada] = useState<number>(0);
   const [cantApta, setCantApta] = useState<number>(0);
   const [cantNoApta, setCantNoApta] = useState<number>(0);
@@ -64,21 +84,32 @@ export function InspeccionFormPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [exito, setExito] = useState<number | null>(null);
 
-  // Queries
+  const { data: contexto } = useQuery({
+    queryKey: ["checklist-contexto", materialId, almacenId],
+    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined),
+  });
+
   const { data: materiales = [] } = useQuery({
     queryKey: ["materiales", almacenId],
     queryFn: () => listMateriales(almacenId),
     enabled: !!almacenId,
   });
+
   const { data: materialDetalle } = useQuery({
     queryKey: ["material-detalle", materialId],
     queryFn: () => getMaterialDetalle(materialId),
     enabled: materialId > 0,
   });
+  const { data: materialesPendientes = [] } = useQuery({
+    queryKey: ["materiales-pendientes", almacenId, incluirInspeccionados],
+    queryFn: () => listMaterialesPendientes(almacenId, incluirInspeccionados),
+    enabled: !!almacenId,
+  });
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listUsuarios,
   });
+
   const { data: plantillas = [] } = useQuery({
     queryKey: ["plantillas-criterios"],
     queryFn: listPlantillasCriterios,
@@ -86,11 +117,64 @@ export function InspeccionFormPage() {
 
   const material = materialDetalle ?? materiales.find((m) => m.id === materialId);
 
+  // Auto-poblar frecuencia sugerida cuando el backend la calcula
+  useEffect(() => {
+    if (contexto?.frecuencia_sugerida?.frecuencia_sugerida) {
+      setFrecuencia(contexto.frecuencia_sugerida.frecuencia_sugerida.toLowerCase());
+    }
+  }, [contexto]);
+
+  const toggleTipoHerramienta = (item: string) => {
+    setTiposHerramientas((prev) =>
+      prev.includes(item) ? prev.filter((t) => t !== item) : [...prev, item],
+    );
+  };
+
+  // Detectar si el material es de subcategoría "Herramientas Manuales" (del backend o por nombre/código)
+  const isHerramientaManual: boolean = Boolean(
+    contexto?.es_herramienta_manual ||
+    tiposHerramientas.length > 0 ||
+    (material?.codigo?.toUpperCase().startsWith("H") &&
+      !material?.subcategoria_nombre?.toLowerCase().includes("inalámbric") &&
+      !material?.subcategoria_nombre?.toLowerCase().includes("eléctric")) ||
+    (material?.nombre &&
+      /alicate|destornillador|llave|martillo|sierra|cincel|lima|pinza|tenaza|cizalla|cutter|flexometro|huincha|nivel|brocha|rodillo|espatula|prensa|comba|manual|cortafrío/i.test(
+        material.nombre,
+      ))
+  );
+
+  const frecuenciaTexto = useMemo(() => {
+    if (!material) return "Trimestral";
+    const dias = material.periodicidad_inspeccion_dias || 90;
+    if (dias <= 30) return "Mensual";
+    if (dias <= 60) return "Bimestral";
+    if (dias <= 90) return "Trimestral";
+    if (dias <= 180) return "Semestral";
+    if (dias <= 365) return "Anual";
+    return `Cada ${dias} días`;
+  }, [material]);
+
+
   const { data: piezas = [] } = useQuery({
     queryKey: ["piezas", materialId],
     queryFn: () => listPiezas({ material: materialId }),
     enabled: !!materialId && material?.control_individual === true,
   });
+
+  // IDs de piezas pendientes para este material
+  const pendingPiezaIds = useMemo(() => {
+    return new Set(
+      materialesPendientes
+        .filter((item) => item.material_id === materialId && item.pieza_id !== null)
+        .map((item) => item.pieza_id as number),
+    );
+  }, [materialesPendientes, materialId]);
+
+  // Filtrado de piezas: solo pendientes a menos que se active incluirInspeccionados
+  const piezasFiltradas = useMemo(() => {
+    if (incluirInspeccionados) return piezas;
+    return piezas.filter((p) => pendingPiezaIds.has(p.id) || (p.tiene_hijas && !p.padre));
+  }, [piezas, incluirInspeccionados, pendingPiezaIds]);
 
   // Hijas activas de la pieza seleccionada (modo individual).
   const { data: hijasActivas = [] } = useQuery({
@@ -114,7 +198,7 @@ export function InspeccionFormPage() {
     }
   }, [material, plantillas]);
 
-  // Auto-poblar piezas_lote cuando se detecta estuche.
+  // Auto-poblar piezas_lote cuando se detecta estuche en individual.
   useEffect(() => {
     if (esEstuche) {
       const idsDisponibles = new Set(
@@ -123,6 +207,19 @@ export function InspeccionFormPage() {
       setPiezasLote(idsDisponibles);
     }
   }, [esEstuche, piezaId, hijasActivas]);
+
+  // En modo grupal: auto-seleccionar por defecto TODO el juego / lote de piezas disponibles
+  useEffect(() => {
+    if (tipo === "grupal" && piezas.length > 0) {
+      const disponibles = piezas.filter((p) => p.estado === "Disponible");
+      const hijasOsueltas = disponibles.filter((p) => p.padre !== null || !p.tiene_hijas);
+      const target = incluirInspeccionados
+        ? hijasOsueltas
+        : hijasOsueltas.filter((p) => pendingPiezaIds.size === 0 || pendingPiezaIds.has(p.id));
+      const sel = target.length > 0 ? target : hijasOsueltas;
+      setPiezasLote(new Set(sel.map((p) => p.id)));
+    }
+  }, [tipo, materialId, piezas, incluirInspeccionados, pendingPiezaIds]);
 
   // Recalcula el total inspeccionado automáticamente según el lote
   useEffect(() => {
@@ -222,12 +319,19 @@ export function InspeccionFormPage() {
 
       return createInspeccion({
         tipo,
+        tipo_inspeccion: tipoInspeccion,
+        area: area.trim() || undefined,
         material: materialId,
         pieza: tipo === "individual" ? piezaId : null,
         piezas_lote: tipo === "grupal" ? Array.from(piezasLote) : [],
         plantilla: plantillaId,
         inspector: inspectorId,
-        proxima_inspeccion: proximaInspeccion || null,
+        modalidad,
+        frecuencia: modalidad === "planificada" ? frecuencia : frecuenciaTexto,
+        area_trabajo: areaTrabajo,
+        referencia_orden: referenciaOrden,
+        tipos_herramientas: tiposHerramientas,
+        proxima_inspeccion: null,
         cantidad_inspeccionada: tipo === "grupal" ? cantInspeccionada : null,
         cantidad_apta: tipo === "grupal" ? cantApta : null,
         cantidad_no_apta: tipo === "grupal" ? cantNoApta : null,
@@ -289,19 +393,47 @@ export function InspeccionFormPage() {
       >
         <div style={{ display: "grid", gap: 20 }}>
 
-          {/* Tipo */}
+          {/* Paso 1: Solo Alcance + Tipo de inspección */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 1</span>
               <h2>Tipo de inspección</h2>
             </div>
-            <div className="segmented-control segmented-2">
-              <button type="button" className={tipo === "individual" ? "is-active" : ""} onClick={() => setTipo("individual")}>
-                Individual (por pieza)
-              </button>
-              <button type="button" className={tipo === "grupal" ? "is-active" : ""} onClick={() => setTipo("grupal")}>
-                Grupal (lote)
-              </button>
+
+            {/* Alcance */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Alcance
+              </label>
+              <div className="segmented-control segmented-2">
+                <button
+                  type="button"
+                  className={tipo === "individual" ? "is-active" : ""}
+                  onClick={() => setTipo("individual")}
+                >
+                  Individual (por pieza)
+                </button>
+                <button
+                  type="button"
+                  className={tipo === "grupal" ? "is-active" : ""}
+                  onClick={() => setTipo("grupal")}
+                >
+                  Grupal (lote / varias piezas)
+                </button>
+              </div>
+            </div>
+
+            {/* Modalidad: Planificada / No planificada */}
+            <div className="form-grid">
+              <Field label="Modalidad">
+                <select
+                  value={modalidad}
+                  onChange={(e) => setModalidad(e.target.value as "planificada" | "no_planificada")}
+                >
+                  <option value="planificada">Planificada</option>
+                  <option value="no_planificada">No planificada</option>
+                </select>
+              </Field>
             </div>
           </div>
 
@@ -314,15 +446,65 @@ export function InspeccionFormPage() {
             <div className="form-grid">
               <Field label="Material" required error={errors.material}>
                 <Combobox
+                  key={`${almacenId}-${incluirInspeccionados}`}
                   value={materialId}
                   selectedLabel={material ? `${material.codigo} — ${material.nombre}` : ""}
                   placeholder="Buscar por código o nombre…"
                   onChange={(id) => { setMaterialId(id); setPiezaId(0); setPiezasLote(new Set()); }}
                   fetchOptions={async (q) => {
-                    const res = await listMateriales(almacenId, { q, inspeccionable: true });
-                    return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
+                    const res = await listMaterialesPendientes(almacenId, incluirInspeccionados, q);
+                    const seen = new Set<number>();
+                    const uniqueOptions: { id: number; label: string }[] = [];
+                    for (const item of res) {
+                      if (!seen.has(item.material_id)) {
+                        seen.add(item.material_id);
+                        uniqueOptions.push({
+                          id: item.material_id,
+                          label: `${item.material_codigo} — ${item.material_nombre}`,
+                        });
+                      }
+                    }
+                    return uniqueOptions;
                   }}
                 />
+                <div style={{ marginTop: 8 }}>
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 13,
+                      color: "var(--text, #334155)",
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={incluirInspeccionados}
+                      onChange={(e) => setIncluirInspeccionados(e.target.checked)}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        minWidth: 16,
+                        maxWidth: 16,
+                        margin: 0,
+                        padding: 0,
+                        cursor: "pointer",
+                        accentColor: "var(--accent, #6366f1)",
+                      }}
+                    />
+                    <span>Incluir herramientas ya inspeccionadas (para re-inspección)</span>
+                  </label>
+                </div>
+                {material && (
+                  <div className="tool-confirmation-card" style={{ marginTop: 12, padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 6, background: "#f8fafc" }}>
+                    <div style={{ fontSize: 11, color: "#64748b", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.05em" }}>Herramienta Seleccionada</div>
+                    <div style={{ fontSize: 15, fontWeight: "bold", color: "#0f172a", marginTop: 2 }}>
+                      {material.codigo} <span style={{ fontWeight: "normal", color: "#64748b", marginLeft: 4 }}>— {material.nombre}</span>
+                    </div>
+                  </div>
+                )}
               </Field>
 
               {tipo === "individual" && material?.control_individual && (
@@ -337,13 +519,21 @@ export function InspeccionFormPage() {
                     placeholder="Buscar por código…"
                     onChange={(id) => { setPiezaId(id); setPiezasLote(new Set()); }}
                     fetchOptions={async (q) => {
-                      const res = await listPiezas({ material: materialId, sin_padre: true, q });
-                      return res.map((p) => ({
-                        id: p.id,
-                        label: `${labelPieza(p)}${p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}`,
-                      }));
+                      const term = (q || "").trim().toLowerCase();
+                      return piezasFiltradas
+                        .filter((p: PiezaBase) => !p.padre)
+                        .filter((p: PiezaBase) => !term || (p.codigo && p.codigo.toLowerCase().includes(term)) || (p.detalle && p.detalle.toLowerCase().includes(term)))
+                        .map((p: PiezaBase) => ({
+                          id: p.id,
+                          label: `${labelPieza(p)}${p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}`,
+                        }));
                     }}
                   />
+                  {!incluirInspeccionados && piezasFiltradas.filter((p: PiezaBase) => !p.padre).length === 0 && (
+                    <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                      Todas las piezas están al día con sus inspecciones. Marca "Incluir herramientas ya inspeccionadas" para re-inspeccionar.
+                    </small>
+                  )}
                 </Field>
               )}
 
@@ -358,6 +548,192 @@ export function InspeccionFormPage() {
                 </div>
               )}
             </div>
+
+            {/* ── Campos adicionales que dependen del material seleccionado ── */}
+            {materialId > 0 && (
+              <div style={{ marginTop: 16, display: "grid", gap: 16 }}>
+
+                {/* Frecuencia + Área + OT en grid */}
+                <div className="form-grid">
+                  {modalidad === "planificada" && (
+                    <Field label="Frecuencia planificada">
+                      <select value={frecuencia} onChange={(e) => setFrecuencia(e.target.value)}>
+                        <option value="semanal">Semanal</option>
+                        <option value="quincenal">Quincenal</option>
+                        <option value="mensual">Mensual</option>
+                        <option value="trimestral">Trimestral</option>
+                        <option value="anual">Anual</option>
+                      </select>
+                      {contexto?.frecuencia_sugerida && (
+                        <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                          Rotación ABC: <strong>{contexto.frecuencia_sugerida.label || contexto.frecuencia_sugerida.frecuencia_sugerida}</strong>
+                          {typeof contexto.frecuencia_sugerida.total_salidas_90d === "number" && (
+                            <span> ({contexto.frecuencia_sugerida.total_salidas_90d} salidas en 90 días)</span>
+                          )}
+                          {typeof contexto.frecuencia_sugerida.tasa_incidencias === "number" && contexto.frecuencia_sugerida.tasa_incidencias > 0 && (
+                            <span style={{ color: "#DC2626", marginLeft: 4 }}>
+                              · {Math.round((contexto.frecuencia_sugerida.tasa_incidencias ?? 0) * 100)}% fallas previas
+                            </span>
+                          )}
+                        </small>
+                      )}
+                    </Field>
+
+
+                  )}
+
+                  <Field label="Área de trabajo / Lugar">
+                    <input
+                      type="text"
+                      value={areaTrabajo}
+                      onChange={(e) => setAreaTrabajo(e.target.value)}
+                      placeholder="ej. Facility Management, Taller Eléctrico…"
+                    />
+                  </Field>
+
+                  <Field label="Referencia OT / OL / OP (opcional)">
+                    <input
+                      list="ordenes-disponibles-list"
+                      type="text"
+                      value={referenciaOrden}
+                      onChange={(e) => setReferenciaOrden(e.target.value)}
+                      placeholder="ej. OT-2026-045, OL-2026-012, OP-2026-003"
+                    />
+                    {contexto?.ordenes_disponibles && contexto.ordenes_disponibles.length > 0 && (
+                      <datalist id="ordenes-disponibles-list">
+                        {contexto.ordenes_disponibles.map((o) => (
+                          <option key={o.codigo} value={o.codigo}>{o.label}</option>
+                        ))}
+                      </datalist>
+                    )}
+                    {contexto?.inspecciones_en_proxima_fecha !== undefined && contexto.inspecciones_en_proxima_fecha > 0 && (
+                      <small style={{ display: "block", marginTop: 4, color: "#F59E0B", fontSize: 11 }}>
+                        ⚠️ {contexto.inspecciones_en_proxima_fecha} inspección(es) ya programadas para {contexto.proxima_fecha_calculada}
+                      </small>
+                    )}
+                  </Field>
+                </div>
+
+                {/* Banner de Color del Mes 5S */}
+                {contexto?.color_mes && (
+                  <div
+                    style={{
+                      background: "#F8FAFC",
+                      border: "1px solid #E2E8F0",
+                      borderRadius: 8,
+                      padding: "12px 16px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 18,
+                          height: 18,
+                          borderRadius: "50%",
+                          backgroundColor: contexto.color_mes.hex,
+                          border: "2px solid #00000022",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
+                          Color del Trimestre: {contexto.color_mes.nombre.toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: 12, color: "#64748B", marginLeft: 6 }}>
+                          ({contexto.color_mes.meses})
+                        </span>
+                        {contexto.inspecciones_hoy !== undefined && (
+                          <span style={{ fontSize: 11, color: "#64748B", marginLeft: 8, background: "#F1F5F9", borderRadius: 4, padding: "1px 6px" }}>
+                            {contexto.inspecciones_hoy} inspección(es) hoy
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11 }}>
+                      {(contexto.leyenda_colores ?? []).map((l) => (
+                        <span
+                          key={l.trimestre}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            background: "#FFFFFF",
+                            padding: "3px 8px",
+                            borderRadius: 4,
+                            border: l.hex === contexto.color_mes.hex
+                              ? `2px solid ${l.hex}`
+                              : "1px solid #CBD5E1",
+                            fontWeight: l.hex === contexto.color_mes.hex ? 700 : 400,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              backgroundColor: l.hex,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <strong>Q{l.trimestre}:</strong> {l.nombre} ({l.meses})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tipos de herramientas manuales — SOLO si el material es de esa subcategoría */}
+                {isHerramientaManual && (
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                      Tipo de herramientas manuales (marcar las que aplican):
+                    </label>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                        gap: 8,
+                      }}
+                    >
+                      {GRUPOS_HERRAMIENTAS.map((grupo) => {
+                        const seleccionado = tiposHerramientas.includes(grupo);
+                        return (
+                          <label
+                            key={grupo}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "8px 12px",
+                              borderRadius: 6,
+                              border: seleccionado ? "1.5px solid #0284C7" : "1px solid #CBD5E1",
+                              background: seleccionado ? "#F0F9FF" : "#FFFFFF",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: seleccionado ? 600 : 400,
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={seleccionado}
+                              onChange={() => toggleTipoHerramienta(grupo)}
+                            />
+                            <span>{grupo}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Lote de piezas (grupal) */}
             {tipo === "grupal" && material?.control_individual && (
@@ -417,13 +793,54 @@ export function InspeccionFormPage() {
             )}
           </div>
 
-          {/* Plantilla e inspector */}
+          {/* Datos generales de la inspección */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 3</span>
-              <h2>Plantilla e inspector</h2>
+              <h2>Datos generales de la inspección</h2>
             </div>
             <div className="form-grid">
+              <Field label="Código de inspección">
+                <input
+                  type="text"
+                  value="FOR-SST-XXXXX"
+                  disabled
+                  readOnly
+                  style={{ background: "#f1f5f9", cursor: "not-allowed" }}
+                />
+                <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                  Se asigna correlativamente de forma automática al guardar.
+                </small>
+              </Field>
+
+              <Field label="Tipo de inspección" required>
+                <select
+                  value={tipoInspeccion}
+                  onChange={(e) => setTipoInspeccion(e.target.value as "planificada" | "no_planificada")}
+                >
+                  <option value="planificada">Planificada</option>
+                  <option value="no_planificada">No planificada</option>
+                </select>
+              </Field>
+
+              <Field label="Área de inspección" error={errors.area} hint="Ej. Hilandería, Tintorería, Oficinas...">
+                <input
+                  type="text"
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                  placeholder="Área o sección donde se realiza..."
+                />
+              </Field>
+
+              <Field label="Frecuencia">
+                <div style={{ padding: "8px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 14, fontWeight: 600, color: "#334155" }}>
+                  {material ? frecuenciaTexto : "Selecciona un material en el Paso 2…"}
+                </div>
+                <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                  Asignada automáticamente según la periodicidad configurada en el material.
+                </small>
+              </Field>
+
               <Field label="Plantilla de criterios" required error={errors.plantilla}>
                 <select
                   value={plantillaId || ""}
@@ -442,6 +859,7 @@ export function InspeccionFormPage() {
                     : "Selecciona la plantilla de criterios que corresponda."}
                 </small>
               </Field>
+
               <Field label="Inspector" required error={errors.inspector}>
                 <select value={inspectorId || ""} onChange={(e) => setInspectorId(Number(e.target.value))}>
                   <option value="">Seleccionar inspector…</option>
@@ -449,22 +867,6 @@ export function InspeccionFormPage() {
                     <option key={u.id} value={u.id}>{u.full_name} ({u.role_display})</option>
                   ))}
                 </select>
-              </Field>
-              <Field label="Próxima inspección">
-                <small style={{ display: "block", marginBottom: 8, color: "#666" }}>
-                  Se calcula automáticamente según la frecuencia de inspección configurada en el material.
-                </small>
-                <details>
-                  <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--accent)" }}>
-                    Asignar una fecha manual (opcional)
-                  </summary>
-                  <input
-                    type="date"
-                    value={proximaInspeccion}
-                    onChange={(e) => setProximaInspeccion(e.target.value)}
-                    style={{ marginTop: 8 }}
-                  />
-                </details>
               </Field>
             </div>
           </div>

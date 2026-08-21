@@ -1,7 +1,6 @@
 from rest_framework import viewsets, status
 from datetime import timedelta, date
 
-from datetime import timedelta, date
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -218,6 +217,32 @@ class InspeccionViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
                 })
 
         return Response(resultado)
+    @action(detail=False, methods=["get"], url_path="materiales-pendientes")
+    def materiales_pendientes(self, request):
+        """
+        GET /inspecciones/materiales-pendientes/?estado=pendientes|todos&q=...
+        Por defecto solo lista materiales/piezas SIN inspección vigente.
+        ?estado=todos (o ?incluir_inspeccionados=true) también incluye los
+        ya inspeccionados, con su última fecha/resultado, para re-inspección.
+        """
+        from apps.inspeccion.services import obtener_materiales_para_inspeccion
+
+        estado = request.query_params.get("estado", "pendientes")
+        incluir_inspeccionados = (
+            estado == "todos"
+            or request.query_params.get("incluir_inspeccionados", "").lower() == "true"
+        )
+        q = request.query_params.get("q")
+
+        almacen_forzado = self._almacen_forzado()
+        almacen_id = almacen_forzado if almacen_forzado is not None else request.query_params.get("almacen")
+
+        resultado = obtener_materiales_para_inspeccion(
+            almacen_id=almacen_id,
+            incluir_inspeccionados=incluir_inspeccionados,
+            q=q,
+        )
+        return Response(resultado)
 
     @action(detail=True, methods=["get"], url_path="exportar-excel")
     def exportar_excel(self, request, pk=None):
@@ -401,10 +426,8 @@ class ProgramacionInspeccionViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelVi
         serializer = self.get_serializer(prog)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-
 class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = PlanInspeccionAnual.objects.all()
+    queryset = PlanInspeccionAnual.objects.select_related("almacen").all()
     serializer_class = PlanInspeccionAnualSerializer
     permission_classes = [IsInspectorOrAdministratorWrite]
     almacen_lookup = "almacen"
@@ -474,3 +497,236 @@ class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewS
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+# ── Endpoints utilitarios (sin ViewSet) ───────────────────────────────────────
+
+from rest_framework.decorators import api_view, permission_classes as drf_permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+
+@api_view(["GET"])
+@drf_permission_classes([IsAuthenticated])
+def color_mes_view(request):
+    """
+    Devuelve el color de inspección del trimestre actual y la leyenda completa.
+    GET /api/inspeccion/color-mes/
+    GET /api/inspeccion/color-mes/?fecha=2026-04-15  (para una fecha específica)
+    """
+    from apps.inspeccion.utils import color_inspeccion_actual
+
+    fecha_param = request.query_params.get("fecha")
+    fecha = None
+    if fecha_param:
+        try:
+            from datetime import date as dt_date
+            fecha = dt_date.fromisoformat(fecha_param)
+        except ValueError:
+            return Response({"detail": "Formato de fecha inválido. Use YYYY-MM-DD."}, status=400)
+
+    return Response(color_inspeccion_actual(para_fecha=fecha))
+
+
+@api_view(["GET"])
+@drf_permission_classes([IsAuthenticated])
+def frecuencia_uso_view(request):
+    """
+    Calcula la frecuencia de inspección sugerida según el historial de salidas.
+    GET /api/inspeccion/frecuencia-uso/?material=5
+    GET /api/inspeccion/frecuencia-uso/?categoria=Herramientas&almacen=1
+    GET /api/inspeccion/frecuencia-uso/?meses=6  (ventana de análisis, default 3)
+    """
+    from apps.inspeccion.utils import calcular_frecuencia_sugerida, calcular_frecuencia_categoria
+    from apps.catalogo.models import Material, Almacen
+
+    meses = int(request.query_params.get("meses", 3))
+    material_id = request.query_params.get("material")
+    categoria_nombre = request.query_params.get("categoria")
+    almacen_id = request.query_params.get("almacen")
+
+    if material_id:
+        try:
+            material = Material.objects.get(pk=material_id)
+        except Material.DoesNotExist:
+            return Response({"detail": "Material no encontrado."}, status=404)
+        resultado = calcular_frecuencia_sugerida(material, meses=meses)
+        resultado["material_id"] = material.id
+        resultado["material_nombre"] = material.nombre
+        return Response(resultado)
+
+    if categoria_nombre and almacen_id:
+        try:
+            almacen = Almacen.objects.get(pk=almacen_id)
+        except Almacen.DoesNotExist:
+            return Response({"detail": "Almacén no encontrado."}, status=404)
+        resultado = calcular_frecuencia_categoria(almacen, categoria_nombre, meses=meses)
+        resultado["categoria"] = categoria_nombre
+        resultado["almacen_id"] = almacen.id
+        return Response(resultado)
+
+    return Response(
+        {"detail": "Proporciona ?material=<id> o ?categoria=<nombre>&almacen=<id>"},
+        status=400,
+    )
+
+
+@api_view(["GET"])
+@drf_permission_classes([IsAuthenticated])
+def checklist_contexto_view(request):
+    """
+    Endpoint integrado para el check list:
+    Combina en una sola respuesta el color del mes (5S), la leyenda de colores,
+    la frecuencia de uso sugerida (ABC) y los tipos de orden admitidos (OT/OL/OS/OP).
+
+    GET /api/inspeccion/checklist-contexto/?material=5
+    GET /api/inspeccion/checklist-contexto/?categoria=Herramientas&almacen=1
+    """
+    from apps.inspeccion.utils import (
+        color_inspeccion_actual,
+        calcular_frecuencia_sugerida,
+        calcular_frecuencia_categoria,
+    )
+    from apps.catalogo.models import Material, Almacen
+
+    # 1. Color del trimestre actual y leyenda 5S
+    fecha_param = request.query_params.get("fecha")
+    fecha = None
+    if fecha_param:
+        try:
+            from datetime import date as dt_date
+            fecha = dt_date.fromisoformat(fecha_param)
+        except ValueError:
+            pass
+    info_color = color_inspeccion_actual(para_fecha=fecha)
+
+    # 2. Frecuencia sugerida (ABC)
+    meses = int(request.query_params.get("meses", 3))
+    material_id = request.query_params.get("material")
+    categoria_nombre = request.query_params.get("categoria")
+    almacen_id = request.query_params.get("almacen")
+
+    frecuencia_info = None
+    if material_id:
+        try:
+            mat = Material.objects.select_related("subcategoria__categoria").get(pk=material_id)
+            frecuencia_info = calcular_frecuencia_sugerida(mat, meses=meses)
+            frecuencia_info["material_id"] = mat.id
+            frecuencia_info["material_nombre"] = mat.nombre
+            frecuencia_info["categoria_nombre"] = mat.subcategoria.categoria.nombre
+        except Material.DoesNotExist:
+            pass
+    elif categoria_nombre and almacen_id:
+        try:
+            alm = Almacen.objects.get(pk=almacen_id)
+            frecuencia_info = calcular_frecuencia_categoria(alm, categoria_nombre, meses=meses)
+            frecuencia_info["categoria"] = categoria_nombre
+            frecuencia_info["almacen_id"] = alm.id
+        except Almacen.DoesNotExist:
+            pass
+
+    from apps.inspeccion.models import Inspeccion, ProgramacionInspeccion
+    from apps.workorders.models import WorkOrder
+    from apps.inventario.models import Movimiento
+    from django.utils import timezone
+    from datetime import timedelta
+
+    hoy = timezone.localdate()
+    inspecciones_hoy = Inspeccion.objects.filter(fecha__date=hoy).count()
+
+    # Calcular fecha exacta y conteo de inspecciones
+    dias_map = {
+        "semanal": 7,
+        "quincenal": 15,
+        "mensual": 30,
+        "trimestral": 90,
+        "anual": 365,
+    }
+    freq_nombre = (frecuencia_info.get("frecuencia_sugerida") or "trimestral").lower() if frecuencia_info else "trimestral"
+    dias_offset = dias_map.get(freq_nombre, 90)
+    proxima_fecha = hoy + timedelta(days=dias_offset)
+    inspecciones_en_proxima_fecha = (
+        Inspeccion.objects.filter(fecha__date=proxima_fecha).count()
+        + ProgramacionInspeccion.objects.filter(fecha_programada=proxima_fecha).count()
+    )
+
+    es_manual = False
+    if material_id:
+        try:
+            mat = Material.objects.select_related("subcategoria__categoria").get(pk=material_id)
+            sub_nom = (mat.subcategoria.nombre if mat.subcategoria else "").lower()
+            cat_nom = (mat.subcategoria.categoria.nombre if mat.subcategoria and mat.subcategoria.categoria else "").lower()
+            mat_nom = mat.nombre.lower()
+            codigo = (mat.codigo or "").upper()
+
+            es_electrica = any(x in sub_nom for x in ["eléctrica", "electrica", "inalámbrica", "inalambrica", "batería", "bateria", "cable"])
+            es_herramienta = "herramienta" in cat_nom or "herramienta" in sub_nom or codigo.startswith("H")
+            es_sub_manual = "manual" in sub_nom or "electricidad" in sub_nom or "paletas y espatulas" in sub_nom or "cerrajería" in sub_nom
+
+            HERRAMIENTAS_KW = [
+                "alicate", "destornillador", "llave", "martillo", "sierra", "cincel", "lima",
+                "pinza", "tenaza", "cizalla", "cutter", "flexometro", "huincha", "nivel",
+                "brocha", "rodillo", "espatula", "prensa", "comba", "cortafrío", "manual",
+                "rache", "dado", "torquimetro", "remachadora", "cautin", "tijera"
+            ]
+
+            es_manual = (es_herramienta and not es_electrica) or es_sub_manual or any(
+                kw in mat_nom for kw in HERRAMIENTAS_KW
+            )
+        except Material.DoesNotExist:
+            pass
+
+
+    # 3. Listado de Órdenes de Trabajo / Órdenes disponibles para selector
+    ordenes_disponibles = []
+    # A) Desde WorkOrders del sistema
+    try:
+        wos = (
+            WorkOrder.objects.all()
+            .order_by("-code")[:30]
+        )
+        for wo in wos:
+            ordenes_disponibles.append({
+                "codigo": wo.code,
+                "label": f"{wo.code} — {wo.specialty} ({wo.get_status_display()})",
+                "tipo": wo.order_type,
+            })
+    except Exception:
+        pass
+
+    # B) Desde Movimientos con referencia OT/OL/OP/OS
+    refs_mov = (
+        Movimiento.objects.exclude(referencia_externa="")
+        .values_list("referencia_externa", flat=True)
+        .distinct()[:20]
+    )
+    codigos_ya_incluidos = {o["codigo"] for o in ordenes_disponibles}
+    for ref in refs_mov:
+        if ref and ref.strip() and ref.strip() not in codigos_ya_incluidos:
+            ordenes_disponibles.append({
+                "codigo": ref.strip(),
+                "label": f"{ref.strip()} (Movimiento de almacén)",
+                "tipo": "OT" if ref.upper().startswith("OT") else ("OL" if ref.upper().startswith("OL") else "OP"),
+            })
+            codigos_ya_incluidos.add(ref.strip())
+
+    # 4. Tipos de orden reconocidos
+    tipos_orden = [
+        {"codigo": "OT", "nombre": "Orden de Trabajo"},
+        {"codigo": "OL", "nombre": "Orden de Lubricación"},
+        {"codigo": "OS", "nombre": "Orden de Servicio"},
+        {"codigo": "OP", "nombre": "Orden de Producción"},
+    ]
+
+    return Response({
+        "color_mes": info_color["actual"],
+        "leyenda_colores": info_color["leyenda"],
+        "frecuencia_sugerida": frecuencia_info,
+        "fecha_actual": hoy.isoformat(),
+        "proxima_fecha_calculada": proxima_fecha.isoformat(),
+        "inspecciones_hoy": inspecciones_hoy,
+        "inspecciones_en_proxima_fecha": inspecciones_en_proxima_fecha,
+        "es_herramienta_manual": es_manual,
+        "ordenes_disponibles": ordenes_disponibles,
+        "tipos_orden": tipos_orden,
+    })
+

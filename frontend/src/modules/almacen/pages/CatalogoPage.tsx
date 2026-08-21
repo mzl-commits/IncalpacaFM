@@ -43,7 +43,7 @@ import { useAuth } from "@/modules/accounts/AuthContext";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import type { Material } from "@/modules/almacen/types";
 
-const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
+const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual", "stock_bajo"] as const;
 
 export function CatalogoPage() {
   const { almacenId, almacen, puedeEditarCroquis } = useAlmacenActivo();
@@ -73,6 +73,7 @@ export function CatalogoPage() {
             : values.control_individual === "false"
               ? false
               : undefined,
+        stock_bajo: values.stock_bajo || undefined,
       }),
   });
 
@@ -162,6 +163,13 @@ export function CatalogoPage() {
         label: "Tipo",
         value: values.control_individual === "true" ? "Con piezas individuales" : "Consumibles",
         onRemove: () => setValue("control_individual", ""),
+      });
+    if (values.stock_bajo)
+      filters.push({
+        key: "stock_bajo",
+        label: "Stock",
+        value: values.stock_bajo === "agotado" ? "Solo agotados" : "Stock bajo / crítico",
+        onRemove: () => setValue("stock_bajo", ""),
       });
     return filters;
   }, [values, categorias, subcategorias, setValue]);
@@ -303,13 +311,23 @@ export function CatalogoPage() {
           </div>
         </article>
 
-        <article className="kpi-card" aria-label={`Requieren atención: ${requierenAtencion}`}>
+        <article
+          className={`kpi-card ${values.stock_bajo ? "kpi-card--active" : ""}`}
+          onClick={() => {
+            setValue("stock_bajo", values.stock_bajo ? "" : "true");
+            setFiltrosAbiertos(true);
+          }}
+          style={{ cursor: "pointer" }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Requieren atención: ${requierenAtencion}`}
+        >
           <div className="kpi-card-top">
             <WarningCircle size={20} className="kpi-icon" />
           </div>
           <div>
             <div className="kpi-number">{requierenAtencion}</div>
-            <div className="kpi-label">Requieren atención</div>
+            <div className="kpi-label">Requieren atención {values.stock_bajo ? "(filtrado)" : ""}</div>
             <div className="kpi-sublabel">Agotados o bajo su stock mínimo</div>
           </div>
         </article>
@@ -424,6 +442,19 @@ export function CatalogoPage() {
                   <option value="">Todos los tipos</option>
                   <option value="true">Con piezas individuales</option>
                   <option value="false">Consumibles</option>
+                </select>
+              </div>
+
+              <div className="filter-select-field">
+                <label htmlFor="stock-select">Nivel de stock</label>
+                <select
+                  id="stock-select"
+                  value={values.stock_bajo}
+                  onChange={(e) => setValue("stock_bajo", e.target.value)}
+                >
+                  <option value="">Todos los niveles</option>
+                  <option value="true">Solo stock bajo / crítico</option>
+                  <option value="agotado">Solo agotados (stock 0)</option>
                 </select>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { PiezaBase } from "@/modules/almacen/types";
+import { PiezaDetalleEditor } from "@/modules/almacen/components/PiezaDetalleEditor";
 
 // ─── Grupo estuche + piezas hijas para el selector de lote ────────────────────
 // Muestra el estuche como encabezado con su código, un checkbox "Todas las
@@ -63,8 +64,12 @@ export function EstucheGroup({
               />
               <span className="pieza-code">{h.codigo}</span>
               <span style={{ fontSize: 13 }}>
-                {h.material_nombre}{h.detalle ? ` — ${h.detalle}` : ""}
+                {h.material_nombre}
               </span>
+              <PiezaDetalleEditor
+                piezaId={h.id}
+                initialDetalle={h.detalle}
+              />
               <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>{h.estado}</span>
             </label>
           );

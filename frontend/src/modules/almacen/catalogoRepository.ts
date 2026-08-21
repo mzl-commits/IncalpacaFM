@@ -172,9 +172,10 @@ export interface MaterialesParams {
   control_individual?: boolean;
   inspeccionable?: boolean;
   activo?: boolean;
+  stock_bajo?: boolean | string;
   q?: string;
 }
- 
+
 export async function listMateriales(
   almacenId?: number,
   params: MaterialesParams = {},
@@ -187,6 +188,7 @@ export async function listMateriales(
     query.control_individual = params.control_individual;
   if (params.inspeccionable !== undefined) query.inspeccionable = params.inspeccionable;
   if (params.activo !== undefined) query.activo = params.activo;
+  if (params.stock_bajo !== undefined) query.stock_bajo = params.stock_bajo;
   if (params.q) query.q = params.q;
 
   const { data } = await api.get<Material[]>("/materiales/", { params: query });
