@@ -41,8 +41,8 @@ export function AssetScannerPage() {
     if (!video.current) return;
     setCameraError(""); setScanning(true);
     try {
-      const reader = new BrowserQRCodeReader();
-      controls.current = await reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" } } }, video.current, (result) => { if (result) { controls.current?.stop(); openResult(result.getText()); } });
+      const reader = new (BrowserQRCodeReader as any)();
+      controls.current = await reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" } } }, video.current, (result: any) => { if (result) { controls.current?.stop(); openResult(result.getText()); } });
     } catch { setCameraError("No fue posible abrir la cámara. Revisa el permiso o usa una imagen/código manual."); setScanning(false); }
   }
   async function readImage(file?: File) {
