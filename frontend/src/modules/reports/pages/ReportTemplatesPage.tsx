@@ -9,8 +9,79 @@ import {
   Star, 
   Check, 
   X,
-  FilePdf
+  FilePdf,
+  Printer,
+  Package,
+  Handshake,
+  ShoppingCart,
 } from "@phosphor-icons/react";
+
+// ── Secciones para las fichas de bienes (3 tipos) ───────────────────────────
+export interface AssetFichaSection {
+  id: string;
+  title: string;
+  description: string;
+  required?: boolean;
+}
+
+export const FICHA_SECTIONS_ASIGNACION: AssetFichaSection[] = [
+  { id: "identificacion", title: "Identificación del bien", description: "Nombre, código FM, marca, modelo y serie del activo.", required: true },
+  { id: "ubicacion", title: "Ubicación asignada", description: "Espacio físico donde se ubica el bien.", required: true },
+  { id: "responsable", title: "Responsable actual", description: "Nombre del custodio o usuario asignado.", required: true },
+  { id: "motivo", title: "Motivo de asignación", description: "Razón por la que se asignó el bien a ese responsable." },
+  { id: "firma_responsable", title: "Firma del responsable", description: "Espacio para la firma del custodio.", required: true },
+  { id: "firma_admin", title: "VB Control Patrimonial", description: "Firma del supervisor de FM/Control Patrimonial.", required: true },
+];
+
+export const FICHA_SECTIONS_ENTRADA: AssetFichaSection[] = [
+  { id: "identificacion", title: "Identificación del bien", description: "Nombre, código FM, marca, modelo y serie del activo.", required: true },
+  { id: "fecha_compra", title: "Fecha de compra", description: "Fecha en que se adquirió el bien.", required: true },
+  { id: "costo", title: "Costo de adquisición", description: "Monto pagado y moneda (PEN/USD).", required: true },
+  { id: "centro_costo", title: "Centro de costo", description: "Código de área o presupuesto que absorbió el gasto." },
+  { id: "proveedor", title: "Proveedor", description: "Nombre del proveedor y número de factura." },
+  { id: "espacio_asignado", title: "Espacio inicial asignado", description: "Si se asignó un espacio en el momento de la entrada." },
+  { id: "observaciones", title: "Observaciones de entrada", description: "Notas adicionales sobre el estado del bien al ingresar." },
+];
+
+export const FICHA_SECTIONS_COMPLETO: AssetFichaSection[] = [
+  { id: "identificacion", title: "Identificación del bien", description: "Nombre, código FM, marca, modelo y serie.", required: true },
+  { id: "adquisicion", title: "Datos de adquisición", description: "Fecha de compra, costo, centro de costo y proveedor.", required: true },
+  { id: "custodio", title: "Custodio y ubicación", description: "Responsable y espacio físico actual.", required: true },
+  { id: "historial_asignacion", title: "Historial de asignaciones", description: "Tabla con todos los responsables anteriores." },
+  { id: "mantenimiento", title: "Historial de mantenimiento", description: "Órdenes de trabajo ejecutadas sobre el bien." },
+  { id: "estado_condicion", title: "Estado y condición operativa", description: "Condición actual (Bueno, Regular, Malo) y criticidad." },
+  { id: "foto_bien", title: "Fotografía del bien", description: "Imagen principal del activo." },
+  { id: "firma_responsable", title: "Firma del responsable", description: "Espacio para la firma del custodio." },
+  { id: "firma_admin", title: "VB Control Patrimonial", description: "Firma del supervisor de FM." },
+];
+
+const ASSET_FICHA_TYPES = [
+  {
+    key: "asignacion",
+    label: "Ficha de Asignación",
+    icon: Handshake,
+    description: "Detalla quién asignó el bien, a quién se asignó, dónde y por qué. Incluye firmas del custodio y FM.",
+    sections: FICHA_SECTIONS_ASIGNACION,
+    defaultSections: FICHA_SECTIONS_ASIGNACION.filter(s => s.required).map(s => s.id),
+  },
+  {
+    key: "entrada",
+    label: "Ficha de Entrada",
+    icon: ShoppingCart,
+    description: "Registra la compra del bien: costo, proveedor, centro de costo, espacio asignado y observaciones iniciales.",
+    sections: FICHA_SECTIONS_ENTRADA,
+    defaultSections: FICHA_SECTIONS_ENTRADA.filter(s => s.required).map(s => s.id),
+  },
+  {
+    key: "completo",
+    label: "Ficha Detallada",
+    icon: Package,
+    description: "Vista integral del bien: adquisición, asignación, historial de mantenimiento, estado y firmas.",
+    sections: FICHA_SECTIONS_COMPLETO,
+    defaultSections: FICHA_SECTIONS_COMPLETO.filter(s => s.required).map(s => s.id),
+  },
+] as const;
+
 import { api } from "@/services/api";
 
 export interface SectionOption {
@@ -218,6 +289,70 @@ export function ReportTemplatesPage() {
       await loadTemplates();
     } catch {
       setMessage("No se pudo eliminar la plantilla.");
+    }
+  }
+
+  // ── Estado para fichas de bienes ──────────────────────────────────────────
+  const [editingFichaKey, setEditingFichaKey] = useState<string | null>(null);
+  const [fichaSections, setFichaSections] = useState<string[]>([]);
+  const [fichaMessage, setFichaMessage] = useState<string | null>(null);
+  const [fichaTemplates, setFichaTemplates] = useState<Record<string, Template>>({});
+
+  async function loadFichaTemplates() {
+    try {
+      const { data } = await api.get<Template[]>("/report-templates/?scope=FICHA_BIEN");
+      const map: Record<string, Template> = {};
+      for (const t of data) {
+        const match = t.name.match(/^FICHA_BIEN_(asignacion|entrada|completo)$/i);
+        if (match) map[match[1].toLowerCase()] = t;
+      }
+      setFichaTemplates(map);
+    } catch {
+      // silencioso — puede no existir aún
+    }
+  }
+
+  useEffect(() => { void loadFichaTemplates(); }, []);
+
+  function startFichaEdit(fichaKey: string) {
+    const fichaType = ASSET_FICHA_TYPES.find(f => f.key === fichaKey);
+    if (!fichaType) return;
+    const existing = fichaTemplates[fichaKey];
+    setEditingFichaKey(fichaKey);
+    setFichaSections(existing?.sections?.length ? existing.sections : fichaType.defaultSections);
+  }
+
+  function toggleFichaSection(sectionId: string, required?: boolean) {
+    if (required) return;
+    setFichaSections(prev =>
+      prev.includes(sectionId) ? prev.filter(s => s !== sectionId) : [...prev, sectionId]
+    );
+  }
+
+  async function saveFichaTemplate() {
+    if (!editingFichaKey) return;
+    const templateName = `FICHA_BIEN_${editingFichaKey}`;
+    const existing = fichaTemplates[editingFichaKey];
+    try {
+      if (existing) {
+        await api.patch(`/report-templates/${existing.id}/`, {
+          sections: fichaSections,
+          is_active: true,
+        });
+      } else {
+        await api.post("/report-templates/", {
+          name: templateName,
+          scope: "FICHA_BIEN",
+          sections: fichaSections,
+          is_default: false,
+          is_active: true,
+        });
+      }
+      setFichaMessage("Plantilla de ficha guardada correctamente.");
+      setEditingFichaKey(null);
+      await loadFichaTemplates();
+    } catch {
+      setFichaMessage("Error al guardar la plantilla de ficha.");
     }
   }
 
@@ -633,6 +768,112 @@ export function ReportTemplatesPage() {
           </div>
         </div>
       )}
+
+      {/* ─────────────────────────────────────────────────────────────────────
+          SECCIÓN: FICHAS DE BIENES (3 plantillas independientes)
+      ──────────────────────────────────────────────────────────────────────── */}
+      <div style={{ marginTop: 32 }}>
+        <div className="document-panel" style={{ marginBottom: 0 }}>
+          <div className="document-panel-header">
+            <div>
+              <h2>Plantillas de Fichas de Bienes</h2>
+              <p>Configura las secciones de cada tipo de reporte imprimible desde la ficha del bien.</p>
+            </div>
+            <Printer size={22} />
+          </div>
+
+          {fichaMessage && (
+            <div style={{ background: "#F0FFF4", border: "1px solid #2E7D32", padding: "10px 16px", fontSize: "13px", marginBottom: 12, borderRadius: 4 }}>
+              {fichaMessage}
+              <button type="button" onClick={() => setFichaMessage(null)} style={{ marginLeft: 8, cursor: "pointer", background: "none", border: "none", fontWeight: "bold" }}>✕</button>
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16, padding: "16px 0" }}>
+            {ASSET_FICHA_TYPES.map((fichaType) => {
+              const Icon = fichaType.icon;
+              const existing = fichaTemplates[fichaType.key];
+              const savedCount = existing?.sections?.length ?? fichaType.defaultSections.length;
+              const isEditing = editingFichaKey === fichaType.key;
+
+              return (
+                <div key={fichaType.key} className="document-panel" style={{ margin: 0, border: "1px solid #e0e0e0", borderRadius: 8, padding: 0, overflow: "hidden" }}>
+                  <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "flex-start", gap: 14 }}>
+                    <Icon size={26} weight="duotone" style={{ color: "#1a237e", marginTop: 2, flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <strong style={{ fontSize: 15, display: "block", marginBottom: 4 }}>{fichaType.label}</strong>
+                      <p style={{ fontSize: 12, color: "#555", margin: 0 }}>{fichaType.description}</p>
+                    </div>
+                  </div>
+
+                  {!isEditing ? (
+                    <div style={{ padding: "12px 20px" }}>
+                      <div style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
+                        <strong>{savedCount}</strong> secciones activas
+                        {existing ? <span style={{ marginLeft: 8, color: "#2e7d32", fontWeight: 600 }}>· Configurada</span> : <span style={{ marginLeft: 8, color: "#888" }}>· Config. por defecto</span>}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                        {fichaType.sections.map(sec => {
+                          const active = existing?.sections?.includes(sec.id) ?? fichaType.defaultSections.includes(sec.id);
+                          return (
+                            <span key={sec.id} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: active ? "#e3f2fd" : "#f5f5f5", color: active ? "#0d47a1" : "#999", fontWeight: active ? 600 : 400 }}>
+                              {active ? <Check size={10} weight="bold" style={{ marginRight: 3 }} /> : <X size={10} style={{ marginRight: 3 }} />}
+                              {sec.title}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      <button type="button" className="button button-secondary" onClick={() => startFichaEdit(fichaType.key)} style={{ width: "100%", justifyContent: "center" }}>
+                        <PencilSimple size={14} /> Editar plantilla
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ padding: "16px 20px" }}>
+                      <p style={{ fontSize: 12, color: "#555", marginBottom: 12 }}>Activa o desactiva las secciones que aparecerán en el PDF:</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                        {fichaType.sections.map(sec => {
+                          const active = fichaSections.includes(sec.id);
+                          return (
+                            <div
+                              key={sec.id}
+                              className={`section-config-block ${active ? "active" : ""}`}
+                              onClick={() => toggleFichaSection(sec.id, sec.required)}
+                              style={{ cursor: sec.required ? "not-allowed" : "pointer" }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={active}
+                                disabled={sec.required}
+                                onChange={() => toggleFichaSection(sec.id, sec.required)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <div className="section-config-content">
+                                <div className="section-config-title">
+                                  <span>{sec.title}</span>
+                                  {sec.required && <span className="badge-required">Requerida</span>}
+                                </div>
+                                <div className="section-config-desc">{sec.description}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="button" className="button button-primary" onClick={() => void saveFichaTemplate()} style={{ flex: 1, justifyContent: "center" }}>
+                          <Check size={14} /> Guardar
+                        </button>
+                        <button type="button" className="button button-secondary" onClick={() => setEditingFichaKey(null)}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

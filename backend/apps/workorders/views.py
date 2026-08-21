@@ -290,6 +290,13 @@ class ReportTemplateListCreateView(generics.ListCreateAPIView):
     serializer_class = ReportTemplateSerializer
     queryset = ReportTemplate.objects.all()
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        scope = self.request.query_params.get("scope")
+        if scope:
+            qs = qs.filter(scope=scope)
+        return qs
+
     def perform_create(self, serializer):
         is_default = serializer.validated_data.get("is_default", False)
         if is_default:
