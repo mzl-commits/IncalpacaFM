@@ -11,13 +11,13 @@ import {
   MagnifyingGlass,
   ArrowRight
 } from "@phosphor-icons/react";
-import { useAuth } from "@/modules/accounts/useAuth";
+import { useAuth } from "@/modules/accounts/AuthContext";
 import { useWorkRequests } from "../useWorkRequests";
 import { 
   requestPriorityLabels, 
   requestStatusLabels, 
   requestTypeLabels 
-} from "../incidentValidation";
+} from "../incidentModel";
 import { getWorkRequestAssetDisplayCode } from "../incidentRepository";
 import { generateWorkRequestPdf } from "../utils/workRequestPdf";
 import type { WorkRequest } from "../types";

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { listWorkRequests, WORK_REQUESTS_UPDATED_EVENT } from "./incidentRepository";
-import { requestPriorityLabels, requestStatusLabels, requestTypeLabels } from "./incidentValidation";
+import { requestPriorityLabels, requestStatusLabels, requestTypeLabels } from "./incidentModel";
 import type { WorkRequest } from "./types";
 
 export interface FilterValues {
