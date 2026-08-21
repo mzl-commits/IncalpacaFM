@@ -377,7 +377,7 @@ class TaxonomyTreeView(APIView):
             'taxonomy__asset_type',
             'taxonomy__category',
             'taxonomy__subcategory',
-            'taxonomy__is_active'
+            'taxonomy__active'
         ).distinct()
         
         # If no assets, fallback to all taxonomies
@@ -432,7 +432,7 @@ class TaxonomyTreeView(APIView):
                     "id": piece_id,
                     "piece_code": piece_name[:4].upper(),
                     "name": piece_name,
-                    "active": getattr(tax, 'is_active', True)
+                    "active": getattr(tax, 'active', True)
                 }
 
         # Convert dicts to lists
