@@ -74,9 +74,9 @@ export async function classifyAsset(id: string, taxonomyId: string) {
 
 import { generateAssetApaPdf } from "@/modules/assets/utils/assetReportPdf";
 
-export async function printAssetPdf(id: string, action: "print" | "download" = "print", adminName?: string): Promise<void> {
+export async function printAssetPdf(id: string, action: "print" | "download" = "print", adminName?: string, reportType: string = "completo"): Promise<void> {
   try {
-    const response = await api.get(`/assets/${id}/pdf/`, { responseType: "blob" });
+    const response = await api.get(`/assets/${id}/pdf/?type=${reportType}`, { responseType: "blob" });
     const blob = new Blob([response.data], { type: "application/pdf" });
     const blobUrl = URL.createObjectURL(blob);
 

@@ -74,6 +74,7 @@ export function AssetDetailPage() {
 
   const [classifying, setClassifying] = useState(false);
   const [classificationOpen, setClassificationOpen] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
   const [classificationTaxonomyId, setClassificationTaxonomyId] = useState("");
   const [classificationError, setClassificationError] = useState("");
   const [editForm, setEditForm] = useState<AssetDetailUpdate>({
@@ -379,12 +380,36 @@ export function AssetDetailPage() {
             <UserPlus />
             Asignar nuevo responsable
           </button>
-          <button className="button button-secondary" onClick={() => void printAssetPdf(asset.id, "print", user?.fullName)}>
+          <button className="button button-secondary" onClick={() => setPrintModalOpen(true)}>
             <Printer />
             Imprimir ficha
           </button>
         </div>
       </div>
+      
+      {printModalOpen && (
+        <dialog open className="dialog-modal">
+          <div className="dialog-content" style={{ maxWidth: 450 }}>
+            <header className="dialog-header">
+              <h2>Seleccione el tipo de reporte</h2>
+            </header>
+            <div className="dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 20px' }}>
+              <button className="button button-secondary" onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "asignacion"); }} style={{ justifyContent: 'flex-start' }}>
+                <Printer /> Ficha de Asignación (Responsables y firmas)
+              </button>
+              <button className="button button-secondary" onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "entrada"); }} style={{ justifyContent: 'flex-start' }}>
+                <Printer /> Ficha de Entrada (Costos y adquisición)
+              </button>
+              <button className="button button-primary" onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "completo"); }} style={{ justifyContent: 'flex-start' }}>
+                <Printer /> Ficha Detallada (Completa)
+              </button>
+            </div>
+            <footer className="dialog-footer" style={{ padding: '12px 20px', borderTop: '1px solid #e5e5e5', display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="button button-secondary" onClick={() => setPrintModalOpen(false)}>Cancelar</button>
+            </footer>
+          </div>
+        </dialog>
+      )}
       {user?.role === "ADMINISTRADOR" && (!asset.fm_code || !asset.taxonomy_detail) && (
         <section className="asset-classification-callout">
           <Tag size={25} weight="duotone" />

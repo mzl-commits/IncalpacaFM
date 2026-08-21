@@ -111,12 +111,13 @@ class AssetPdfView(APIView):
             Asset.objects.select_related("taxonomy", "location").prefetch_related("incidents__work_order__technician"),
             pk=pk
         )
-        content = build_asset_pdf(asset).getvalue()
+        report_type = request.GET.get('type', 'completo')
+        content = build_asset_pdf(asset, report_type).getvalue()
         return FileResponse(
             BytesIO(content),
             content_type="application/pdf",
             as_attachment=True,
-            filename=f"ficha-{asset.fm_code or asset.code}.pdf",
+            filename=f"ficha-{report_type}-{asset.fm_code or asset.code}.pdf",
         )
 
 

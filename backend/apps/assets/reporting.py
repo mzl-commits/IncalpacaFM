@@ -29,7 +29,11 @@ def _get_logo_image():
     return None
 
 
-def build_asset_pdf(asset):
+def build_asset_pdf(asset, report_type="completo"):
+    """
+    Construye el PDF detallado del activo usando ReportLab de manera transaccional.
+    Incluye todos los detalles (incluyendo imágenes temporales, reportes de bajas, etc).
+    """
     output = BytesIO()
 
     doc = SimpleDocTemplate(
