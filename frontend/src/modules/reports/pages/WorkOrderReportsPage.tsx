@@ -1,5 +1,5 @@
-import { DownloadSimple, FilePdf, Plus, Printer, Wrench } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { DownloadSimple, Eye, FilePdf, Plus, Printer, Wrench, X } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/services/api";
 import { addWorkOrderCost, generateWorkOrderReport, listWorkOrderCosts, listWorkOrders, type WorkOrderCost } from "@/modules/workorders/workOrderRepository";
 import { autocompletarCostosMateriales, updateWorkOrderCostAmount, listWorkOrderMateriales, type WorkOrderMaterial } from "@/modules/workorders/workOrderMaterialRepository";
@@ -16,6 +16,9 @@ export function WorkOrderReportsPage() {
   const [form, setForm] = useState({ category: "MANO_OBRA", description: "", amount: "" });
   const [message, setMessage] = useState("");
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   
   const selected = useMemo(() => orders.find((item) => item.id === selectedId), [orders, selectedId]);
 
@@ -84,40 +87,64 @@ export function WorkOrderReportsPage() {
     try {
       const report = await generateWorkOrderReport(selectedId);
       const result = await api.get(report.downloadPath, { responseType: "blob" });
-      const url = URL.createObjectURL(result.data); const link = document.createElement("a"); link.href = url; link.download = `informe-${selected?.code ?? "OT"}.pdf`; link.click(); URL.revokeObjectURL(url);
-      setMessage("Informe generado y almacenado.");
-    } catch { setMessage("No se pudo generar el informe."); }
+      const url = URL.createObjectURL(result.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `informe-${selected?.code ?? "OT"}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setMessage("Informe descargado correctamente.");
+    } catch {
+      setMessage("No se pudo generar el informe.");
+    }
   }
 
-  async function printPdf() {
+  async function handleOpenPreview(autoPrint = false) {
     if (!selectedId) return;
-    setMessage("Preparando PDF para impresión...");
+    setPreviewLoading(true);
+    setMessage("Generando vista previa del informe PDF...");
     try {
       const report = await generateWorkOrderReport(selectedId);
       const result = await api.get(report.downloadPath, { responseType: "blob" });
       const blob = new Blob([result.data], { type: "application/pdf" });
-      const blobUrl = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
+      setPreviewBlobUrl(url);
+      setMessage("Vista previa del informe cargada.");
 
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.src = blobUrl;
-
-      document.body.appendChild(iframe);
-
-      iframe.onload = () => {
+      if (autoPrint) {
         setTimeout(() => {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-          setMessage("Diálogo de impresión del PDF abierto.");
-        }, 300);
-      };
+          if (iframeRef.current?.contentWindow) {
+            iframeRef.current.contentWindow.focus();
+            iframeRef.current.contentWindow.print();
+          }
+        }, 600);
+      }
     } catch {
-      setMessage("No se pudo abrir la impresión del PDF.");
+      setMessage("No se pudo cargar la vista previa del PDF.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  function handleClosePreview() {
+    if (previewBlobUrl) {
+      URL.revokeObjectURL(previewBlobUrl);
+    }
+    setPreviewBlobUrl(null);
+  }
+
+  function handleDownloadFromPreview() {
+    if (!previewBlobUrl) return;
+    const link = document.createElement("a");
+    link.href = previewBlobUrl;
+    link.download = `informe-${selected?.code ?? "OT"}.pdf`;
+    link.click();
+  }
+
+  function handlePrintFromPreview() {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.focus();
+      iframeRef.current.contentWindow.print();
     }
   }
 
@@ -190,12 +217,15 @@ export function WorkOrderReportsPage() {
             </dl>
           )}
 
-          <div className="work-order-report-actions" style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <button className="button button-primary" type="button" onClick={() => void generate()} disabled={!selectedId} style={{ flex: 1, justifyContent: "center" }}>
-              <FilePdf size={18} /> Generar PDF
+          <div className="work-order-report-actions" style={{ display: "flex", gap: 8, marginTop: 20 }}>
+            <button className="button button-secondary" type="button" onClick={() => void generate()} disabled={!selectedId || previewLoading} style={{ padding: "8px 10px", fontSize: 12, justifyContent: "center" }}>
+              <FilePdf size={16} /> Descargar PDF
             </button>
-            <button className="button button-secondary" type="button" onClick={() => void printPdf()} disabled={!selectedId} style={{ flex: 1, justifyContent: "center" }}>
-              <Printer size={18} /> Imprimir
+            <button className="button button-primary" type="button" onClick={() => void handleOpenPreview(false)} disabled={!selectedId || previewLoading} style={{ flex: 1, justifyContent: "center", padding: "8px 12px", fontSize: 13 }}>
+              <Eye size={16} /> {previewLoading ? "Cargando..." : "Previsualizar"}
+            </button>
+            <button className="button button-secondary" type="button" onClick={() => void handleOpenPreview(true)} disabled={!selectedId || previewLoading} style={{ padding: "8px 12px", fontSize: 13, justifyContent: "center" }}>
+              <Printer size={16} /> Imprimir
             </button>
           </div>
           {message && <p className="save-state" style={{ marginTop: 12, fontSize: 13, color: "#0284c7", fontWeight: 500 }}>{message}</p>}
@@ -412,6 +442,56 @@ export function WorkOrderReportsPage() {
           <DownloadSimple size={18} /> Abrir informe ejecutivo
         </a>
       </section>
+
+      {/* MODAL PREVISUALIZADOR DE IMPRIMIR PDF */}
+      {previewBlobUrl && (
+        <div className="print-modal-overlay" onClick={handleClosePreview} style={{ zIndex: 9999 }}>
+          <div
+            className="print-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "1000px", width: "92vw", height: "88vh", display: "flex", flexDirection: "column" }}
+          >
+            <div className="print-modal-header" style={{ padding: "14px 20px" }}>
+              <div className="print-modal-title-group">
+                <FilePdf size={22} weight="duotone" style={{ color: "#0284c7" }} />
+                <div>
+                  <h2 style={{ fontSize: 16 }}>Previsualizador de Imprimir — {selected?.code}</h2>
+                  <p style={{ fontSize: 12 }}>Revisa la ficha técnica antes de imprimir o descargar</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handlePrintFromPreview}
+                  style={{ padding: "6px 12px", fontSize: 13 }}
+                >
+                  <Printer size={16} /> Imprimir
+                </button>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={handleDownloadFromPreview}
+                  style={{ padding: "6px 12px", fontSize: 13 }}
+                >
+                  <DownloadSimple size={16} /> Descargar PDF
+                </button>
+                <button className="print-modal-close" type="button" onClick={handleClosePreview} aria-label="Cerrar">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="print-modal-body" style={{ flex: 1, padding: 0, overflow: "hidden", background: "#525659" }}>
+              <iframe
+                ref={iframeRef}
+                src={previewBlobUrl}
+                title={`Vista previa PDF ${selected?.code}`}
+                style={{ width: "100%", height: "100%", border: 0 }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
