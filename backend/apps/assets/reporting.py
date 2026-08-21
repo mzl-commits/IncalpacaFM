@@ -110,10 +110,17 @@ def build_asset_pdf(asset, report_type="completo"):
     # MEMBRETE OFICIAL
     logo_img = _get_logo_image()
 
+    if report_type == "asignacion":
+        title_str = "FICHA DE ASIGNACIÓN DE BIEN"
+    elif report_type == "entrada":
+        title_str = "FICHA DE ENTRADA AL INVENTARIO"
+    else:
+        title_str = "FICHA TÉCNICA DETALLADA DEL BIEN"
+
     brand_text = Paragraph(
         "<b>INCALPACA FM S.A.</b><br/>"
         "<font color='#555555' size='8.5'>Sistema de Gestión Técnica y Bienes</font><br/>"
-        "<b>FICHA TÉCNICA DE BIEN</b>",
+        f"<b>{title_str}</b>",
         doc_header_title
     )
 
@@ -243,189 +250,231 @@ def build_asset_pdf(asset, report_type="completo"):
     story.append(t_sec1)
     story.append(Spacer(1, 0.4 * cm))
 
-    # SECCIÓN 2: CUSTODIA Y RESPONSABLE
-    story.append(Paragraph("2. CUSTODIA Y ASIGNACIÓN DE PERSONAL", section_heading))
+    # SECCIÓN DE CUSTODIA (Para 'asignacion' y 'completo')
+    if report_type in ("asignacion", "completo"):
+        story.append(Paragraph("2. CUSTODIA Y ASIGNACIÓN DE PERSONAL", section_heading))
 
-    sec2_data = [
-        [
-            Paragraph("<b>ID Técnico Único:</b>", cell_bold),
-            Paragraph(technical_id, cell_normal),
-            Paragraph("<b>1. Código de Trabajador:</b>", cell_bold),
-            Paragraph(worker_code, cell_normal),
-        ],
-        [
-            Paragraph("<b>2. Responsable Asignado:</b>", cell_bold),
-            Paragraph(resp_name, cell_normal),
-            Paragraph("<b>3. Centro de Costo:</b>", cell_bold),
-            Paragraph(cost_center, cell_normal),
-        ],
-    ]
-
-    t_sec2 = Table(sec2_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
-    t_sec2.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 5),
-    ]))
-    story.append(t_sec2)
-    story.append(Spacer(1, 0.4 * cm))
-
-    # SECCIÓN 3: ESPECIFICACIONES TÉCNICAS Y DESCRIPCIÓN
-    story.append(Paragraph("3. ESPECIFICACIONES TÉCNICAS Y CONDICIÓN", section_heading))
-    desc_text = asset.description or "Archivador fabricado por mantenimiento."
-
-    sec3_data = [
-        [
-            Paragraph("<b>Marca / Modelo:</b>", cell_bold),
-            Paragraph(f"{brand_name} — {model_name}", cell_normal),
-            Paragraph("<b>Número de Serie:</b>", cell_bold),
-            Paragraph(serial_num, cell_normal),
-        ],
-        [
-            Paragraph("<b>Condición Operativa:</b>", cell_bold),
-            Paragraph(str(cond_name).capitalize(), cell_normal),
-            Paragraph("<b>Criticidad:</b>", cell_bold),
-            Paragraph(str(crit_name).capitalize(), cell_normal),
-        ],
-        [
-            Paragraph("<b>Descripción Técnica:</b>", cell_bold),
-            Paragraph(desc_text, cell_normal),
-            Paragraph("", cell_normal),
-            Paragraph("", cell_normal),
-        ],
-    ]
-
-    t_sec3 = Table(sec3_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
-    t_sec3.setStyle(TableStyle([
-        ("SPAN", (1, 2), (3, 2)),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 5),
-    ]))
-    story.append(t_sec3)
-    story.append(Spacer(1, 0.4 * cm))
-
-    # SECCIÓN 4: HISTORIAL DE MANTENIMIENTO Y REPARACIONES
-    story.append(Paragraph("4. REGISTRO FOTOGRÁFICO Y EVIDENCIAS DE CAMPO", section_heading))
-
-    empty_photo_style = ParagraphStyle(
-        "EmptyPhotoAsset",
-        parent=cell_normal,
-        fontName="Times-Italic",
-        textColor=colors.HexColor("#808080"),
-        alignment=1,
-    )
-    photo_title_style = ParagraphStyle(
-        "PhotoTitleAsset",
-        parent=cell_bold,
-        alignment=1,
-    )
-
-    photo_data = [
-        [
-            Paragraph("ESTADO INICIAL (ANTES)", photo_title_style),
-            Paragraph("ESTADO FINAL (DESPUÉS)", photo_title_style)
-        ],
-        [
-            Paragraph("Sin registro fotográfico adjunto", empty_photo_style),
-            Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
+        sec2_data = [
+            [
+                Paragraph("<b>ID Técnico Único:</b>", cell_bold),
+                Paragraph(technical_id, cell_normal),
+                Paragraph("<b>Código de Trabajador:</b>", cell_bold),
+                Paragraph(worker_code, cell_normal),
+            ],
+            [
+                Paragraph("<b>Responsable Asignado:</b>", cell_bold),
+                Paragraph(resp_name, cell_normal),
+                Paragraph("<b>Centro de Costo:</b>", cell_bold),
+                Paragraph(cost_center, cell_normal),
+            ],
         ]
-    ]
-    t_photo = Table(photo_data, colWidths=[7.95 * cm, 7.95 * cm], rowHeights=[None, 3.2 * cm])
-    t_photo.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("BOX", (0, 1), (0, 1), 0.5, colors.HexColor("#A0A0A0")),
-        ("BOX", (1, 1), (1, 1), 0.5, colors.HexColor("#A0A0A0")),
-        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FFFFFF")),
-    ]))
-    story.append(t_photo)
-    story.append(Spacer(1, 0.4 * cm))
 
-    # SECCIÓN 5: HISTORIAL DE CUSTODIA Y RESPONSABLES
-    story.append(Paragraph("5. HISTORIAL DE CUSTODIA Y RESPONSABLES", section_heading))
+        t_sec2 = Table(sec2_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
+        t_sec2.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(t_sec2)
+        story.append(Spacer(1, 0.4 * cm))
 
-    custody_rows = [
-        [
-            Paragraph("<b>Responsable</b>", cell_bold),
-            Paragraph("<b>Área</b>", cell_bold),
-            Paragraph("<b>Fecha Inicio</b>", cell_bold),
-            Paragraph("<b>Fecha Fin</b>", cell_bold),
-            Paragraph("<b>Estado</b>", cell_bold),
-            Paragraph("<b>Motivo</b>", cell_bold),
-        ],
-        [
-            Paragraph("Rosa Medina", cell_bold),
-            Paragraph("Facility Management", cell_normal),
-            Paragraph("07 de julio de 2026", cell_normal),
-            Paragraph("<i>Vigente</i>", cell_normal),
-            Paragraph("Activa", cell_normal),
-            Paragraph("Asignación vigente de datos de prueba", cell_normal),
-        ],
-        [
-            Paragraph("Área de Sistemas", cell_bold),
-            Paragraph("Sistemas", cell_normal),
-            Paragraph("13 de octubre de 2025", cell_normal),
-            Paragraph("15 de abril de 2026", cell_normal),
-            Paragraph("FINALIZADA", cell_normal),
-            Paragraph("Dato de prueba: custodia anterior", cell_normal),
-        ],
-    ]
+    # SECCIÓN DE ADQUISICIÓN Y ENTRADA (Para 'entrada' y 'completo')
+    if report_type in ("entrada", "completo"):
+        sec_num = "2" if report_type == "entrada" else "3"
+        story.append(Paragraph(f"{sec_num}. REGISTRO DE ADQUISICIÓN Y ENTRADA AL INVENTARIO", section_heading))
 
-    t_custody = Table(custody_rows, colWidths=[2.8 * cm, 2.6 * cm, 2.7 * cm, 2.5 * cm, 2.0 * cm, 3.3 * cm])
-    t_custody.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 5),
-    ]))
-    story.append(t_custody)
-    story.append(Spacer(1, 0.4 * cm))
+        cost_val = str(payload.get("cost") or payload.get("price") or "S/ 0.00")
+        buy_date = str(payload.get("purchaseDate") or payload.get("date") or now_str)
+        supplier = str(payload.get("supplier") or payload.get("provider") or "Proveedor Registrado")
 
-    # SECCIÓN 6: HISTORIAL DE MANTENIMIENTO
-    story.append(Paragraph("6. HISTORIAL DE MANTENIMIENTO Y ATENCIONES A NIVEL DE PIEZA", section_heading))
+        sec_ent_data = [
+            [
+                Paragraph("<b>Fecha de Compra/Entrada:</b>", cell_bold),
+                Paragraph(buy_date, cell_normal),
+                Paragraph("<b>Costo de Adquisición:</b>", cell_bold),
+                Paragraph(cost_val, cell_normal),
+            ],
+            [
+                Paragraph("<b>Centro de Costo:</b>", cell_bold),
+                Paragraph(cost_center, cell_normal),
+                Paragraph("<b>Proveedor / Factura:</b>", cell_bold),
+                Paragraph(supplier, cell_normal),
+            ],
+        ]
 
-    maint_rows = [
-        [
-            Paragraph("<b>N.° Orden</b>", cell_bold),
-            Paragraph("<b>Tipo</b>", cell_bold),
-            Paragraph("<b>Problema / Trabajo</b>", cell_bold),
-            Paragraph("<b>Técnico</b>", cell_bold),
-            Paragraph("<b>Condición Resultante</b>", cell_bold),
-            Paragraph("<b>Costo</b>", ParagraphStyle("M6Header", parent=cell_bold, alignment=2)),
-        ],
-        [
-            Paragraph("OT-DEMO-000190-02", cell_bold),
-            Paragraph("CORRECTIVO", cell_normal),
-            Paragraph("Desgaste detectado durante la operación.", cell_normal),
-            Paragraph("Luis Fernández", cell_normal),
-            Paragraph("Operativo", cell_normal),
-            Paragraph("S/ 344.00", ParagraphStyle("M6R", parent=cell_normal, alignment=2)),
-        ],
-        [
-            Paragraph("OT-DEMO-000190-01", cell_bold),
-            Paragraph("PREVENTIVO", cell_normal),
-            Paragraph("Mantenimiento preventivo programado.", cell_normal),
-            Paragraph("Carlos Mendoza", cell_normal),
-            Paragraph("Bueno", cell_normal),
-            Paragraph("S/ 195.00", ParagraphStyle("M6R2", parent=cell_normal, alignment=2)),
-        ],
-    ]
+        t_sec_ent = Table(sec_ent_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
+        t_sec_ent.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(t_sec_ent)
+        story.append(Spacer(1, 0.4 * cm))
 
-    t_maint = Table(maint_rows, colWidths=[2.8 * cm, 2.4 * cm, 3.8 * cm, 3.2 * cm, 2.0 * cm, 1.7 * cm])
-    t_maint.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("PADDING", (0, 0), (-1, -1), 5),
-    ]))
-    story.append(t_maint)
-    story.append(Spacer(1, 0.4 * cm))
+    # SECCIÓN DE ESPECIFICACIONES TÉCNICAS (Para 'entrada' y 'completo')
+    if report_type in ("entrada", "completo"):
+        sec_num = "3" if report_type == "entrada" else "4"
+        story.append(Paragraph(f"{sec_num}. ESPECIFICACIONES TÉCNICAS Y CONDICIÓN", section_heading))
+        desc_text = asset.description or "Bien registrado en la plataforma de gestión FM."
 
-    # FIRMAS
+        sec3_data = [
+            [
+                Paragraph("<b>Marca / Modelo:</b>", cell_bold),
+                Paragraph(f"{brand_name} — {model_name}", cell_normal),
+                Paragraph("<b>Número de Serie:</b>", cell_bold),
+                Paragraph(serial_num, cell_normal),
+            ],
+            [
+                Paragraph("<b>Condición Operativa:</b>", cell_bold),
+                Paragraph(str(cond_name).capitalize(), cell_normal),
+                Paragraph("<b>Criticidad:</b>", cell_bold),
+                Paragraph(str(crit_name).capitalize(), cell_normal),
+            ],
+            [
+                Paragraph("<b>Descripción Técnica:</b>", cell_bold),
+                Paragraph(desc_text, cell_normal),
+                Paragraph("", cell_normal),
+                Paragraph("", cell_normal),
+            ],
+        ]
+
+        t_sec3 = Table(sec3_data, colWidths=[3.6 * cm, 4.3 * cm, 3.6 * cm, 4.4 * cm])
+        t_sec3.setStyle(TableStyle([
+            ("SPAN", (1, 2), (3, 2)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(t_sec3)
+        story.append(Spacer(1, 0.4 * cm))
+
+    # EVIDENCIAS Y HISTORIALES (Solo 'completo')
+    if report_type == "completo":
+        story.append(Paragraph("5. REGISTRO FOTOGRÁFICO Y EVIDENCIAS DE CAMPO", section_heading))
+
+        empty_photo_style = ParagraphStyle(
+            "EmptyPhotoAsset",
+            parent=cell_normal,
+            fontName="Times-Italic",
+            textColor=colors.HexColor("#808080"),
+            alignment=1,
+        )
+        photo_title_style = ParagraphStyle(
+            "PhotoTitleAsset",
+            parent=cell_bold,
+            alignment=1,
+        )
+
+        photo_data = [
+            [
+                Paragraph("ESTADO INICIAL (ANTES)", photo_title_style),
+                Paragraph("ESTADO FINAL (DESPUÉS)", photo_title_style)
+            ],
+            [
+                Paragraph("Sin registro fotográfico adjunto", empty_photo_style),
+                Paragraph("Sin registro fotográfico adjunto", empty_photo_style)
+            ]
+        ]
+        t_photo = Table(photo_data, colWidths=[7.95 * cm, 7.95 * cm], rowHeights=[None, 3.2 * cm])
+        t_photo.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("BOX", (0, 1), (0, 1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BOX", (1, 1), (1, 1), 0.5, colors.HexColor("#A0A0A0")),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FFFFFF")),
+        ]))
+        story.append(t_photo)
+        story.append(Spacer(1, 0.4 * cm))
+
+    # HISTORIAL DE CUSTODIA (Para 'asignacion' y 'completo')
+    if report_type in ("asignacion", "completo"):
+        sec_num = "3" if report_type == "asignacion" else "6"
+        story.append(Paragraph(f"{sec_num}. HISTORIAL DE CUSTODIA Y RESPONSABLES", section_heading))
+
+        custody_rows = [
+            [
+                Paragraph("<b>Responsable</b>", cell_bold),
+                Paragraph("<b>Área</b>", cell_bold),
+                Paragraph("<b>Fecha Inicio</b>", cell_bold),
+                Paragraph("<b>Fecha Fin</b>", cell_bold),
+                Paragraph("<b>Estado</b>", cell_bold),
+                Paragraph("<b>Motivo</b>", cell_bold),
+            ],
+            [
+                Paragraph(resp_name, cell_bold),
+                Paragraph("Facility Management", cell_normal),
+                Paragraph(now_str, cell_normal),
+                Paragraph("<i>Vigente</i>", cell_normal),
+                Paragraph("Activa", cell_normal),
+                Paragraph("Asignación de funciones", cell_normal),
+            ],
+        ]
+
+        t_custody = Table(custody_rows, colWidths=[2.8 * cm, 2.6 * cm, 2.7 * cm, 2.5 * cm, 2.0 * cm, 3.3 * cm])
+        t_custody.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(t_custody)
+        story.append(Spacer(1, 0.4 * cm))
+
+    # HISTORIAL DE MANTENIMIENTO (Solo 'completo')
+    if report_type == "completo":
+        story.append(Paragraph("7. HISTORIAL DE MANTENIMIENTO Y ATENCIONES A NIVEL DE PIEZA", section_heading))
+
+        maint_rows = [
+            [
+                Paragraph("<b>N.° Orden</b>", cell_bold),
+                Paragraph("<b>Tipo</b>", cell_bold),
+                Paragraph("<b>Problema / Trabajo</b>", cell_bold),
+                Paragraph("<b>Técnico</b>", cell_bold),
+                Paragraph("<b>Condición Resultante</b>", cell_bold),
+                Paragraph("<b>Costo</b>", ParagraphStyle("M6Header", parent=cell_bold, alignment=2)),
+            ],
+            [
+                Paragraph("OT-DEMO-000190-02", cell_bold),
+                Paragraph("CORRECTIVO", cell_normal),
+                Paragraph("Desgaste detectado durante la operación.", cell_normal),
+                Paragraph("Luis Fernández", cell_normal),
+                Paragraph("Operativo", cell_normal),
+                Paragraph("S/ 344.00", ParagraphStyle("M6R", parent=cell_normal, alignment=2)),
+            ],
+            [
+                Paragraph("OT-DEMO-000190-01", cell_bold),
+                Paragraph("PREVENTIVO", cell_normal),
+                Paragraph("Mantenimiento preventivo programado.", cell_normal),
+                Paragraph("Carlos Mendoza", cell_normal),
+                Paragraph("Bueno", cell_normal),
+                Paragraph("S/ 195.00", ParagraphStyle("M6R2", parent=cell_normal, alignment=2)),
+            ],
+        ]
+
+        t_maint = Table(maint_rows, colWidths=[2.8 * cm, 2.4 * cm, 3.8 * cm, 3.2 * cm, 2.0 * cm, 1.7 * cm])
+        t_maint.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#A0A0A0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(t_maint)
+        story.append(Spacer(1, 0.4 * cm))
+
+    # FIRMAS Y APROBACIONES
     sig_block = []
+    if report_type == "asignacion":
+        sig1_title = "Firma del Responsable / Custodio"
+        sig2_title = "V°B° Supervisor / Control Patrimonial"
+    elif report_type == "entrada":
+        sig1_title = "Firma Recepción Almacén"
+        sig2_title = "V°B° Control Patrimonial"
+    else:
+        sig1_title = "Técnico Responsable"
+        sig2_title = "V°B° Supervisor / Administración"
+
     sig_data = [
         [
-            Paragraph("<br/><br/>___________________________________<br/><b>Técnico Responsable</b><br/>" + resp_name, ParagraphStyle("S1AssetRep", parent=cell_normal, alignment=1)),
-            Paragraph("<br/><br/>___________________________________<br/><b>V°B° Supervisor / Administración</b><br/>Control Patrimonial & FM", ParagraphStyle("S2AssetRep", parent=cell_normal, alignment=1)),
+            Paragraph(f"<br/><br/>___________________________________<br/><b>{sig1_title}</b><br/>{resp_name}", ParagraphStyle("S1AssetRep", parent=cell_normal, alignment=1)),
+            Paragraph(f"<br/><br/>___________________________________<br/><b>{sig2_title}</b><br/>Control Patrimonial & FM", ParagraphStyle("S2AssetRep", parent=cell_normal, alignment=1)),
         ]
     ]
     t_sig = Table(sig_data, colWidths=[8.5 * cm, 8.5 * cm])
