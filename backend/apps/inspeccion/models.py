@@ -120,10 +120,9 @@ class Inspeccion(models.Model):
         help_text="Planificada o No planificada",
     )
     frecuencia = models.CharField(
-        max_length=20,
-        choices=FRECUENCIA_CHOICES,
+        max_length=50,
         blank=True,
-        default="trimestral",
+        default="Trimestral",
         verbose_name="Frecuencia planificada",
     )
     area_trabajo = models.CharField(

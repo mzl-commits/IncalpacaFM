@@ -705,19 +705,21 @@ def _generar_excel_simple(inspeccion):
         is_alt = (idx % 2 == 0)
         bg = EXCEL_ROW_ALT if is_alt else EXCEL_ROW_BASE
 
-        c_ord = ws.cell(row=r_num, column=1, value=resp.criterio.orden)
+        resp = respuestas_map.get(crit.id)
+
+        c_ord = ws.cell(row=r_num, column=1, value=crit.orden)
         c_ord.alignment = Alignment(horizontal="center", vertical="center")
         c_ord.font = Font(bold=True, size=9.5, color="0F172A", name="Calibri")
 
         ws.merge_cells(start_row=r_num, start_column=2, end_row=r_num, end_column=4)
-        c_txt = ws.cell(row=r_num, column=2, value=resp.criterio.texto)
+        c_txt = ws.cell(row=r_num, column=2, value=crit.texto)
         c_txt.font = Font(size=9.5, color="0F172A", name="Calibri")
         c_txt.alignment = Alignment(horizontal="left", vertical="center")
 
-        ws.cell(row=r_num, column=5, value="X" if resp.valor == "cumple" else "").alignment = Alignment(horizontal="center", vertical="center")
-        ws.cell(row=r_num, column=6, value="X" if resp.valor == "no_cumple" else "").alignment = Alignment(horizontal="center", vertical="center")
-        ws.cell(row=r_num, column=7, value="X" if resp.valor == "no_aplica" else "").alignment = Alignment(horizontal="center", vertical="center")
-        ws.cell(row=r_num, column=8, value=resp.observacion or "").alignment = Alignment(horizontal="left", vertical="center")
+        ws.cell(row=r_num, column=5, value="X" if resp and resp.valor == "cumple" else "").alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=r_num, column=6, value="X" if resp and resp.valor == "no_cumple" else "").alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=r_num, column=7, value="X" if resp and resp.valor == "no_aplica" else "").alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=r_num, column=8, value=(resp.observacion if resp else "") or "").alignment = Alignment(horizontal="left", vertical="center")
 
         for col_i in range(1, 9):
             cell = ws.cell(row=r_num, column=col_i)
@@ -1275,24 +1277,16 @@ def generar_pdf_inspeccion(inspeccion):
         ("LINEBELOW", (0, -1), (-1, -1), 0.5, GRIS_BORDE),
     ]))
 
-    # Columna derecha: Logo Incalpaca (3 cubos oficial) + Código/Fecha
-    cubos_logo_path = Path(__file__).resolve().parent / "logo_incalpaca_cubos.png"
-    if cubos_logo_path.exists():
-        incalpaca_header = Image(str(cubos_logo_path), width=1.5 * cm, height=1.23 * cm)
-    elif LOGO_PATH.exists():
-        incalpaca_header = Image(str(LOGO_PATH), width=1.5 * cm, height=1.5 * cm)
-    else:
-        incalpaca_header = Paragraph("INCALPACA", styles["Normal"])
-
+    # Columna derecha: Metadatos SST (Código / Fecha de emisión)
     meta_col = Table(
-        [[incalpaca_header],
-         [Paragraph(f"Código: <b>{codigo_doc}</b><br/>Emisión: <b>{fecha_emision}</b>", meta_style)]],
+        [[Paragraph(f"Código: <b>{codigo_doc}</b><br/>Emisión: <b>{fecha_emision}</b>", meta_style)]],
         colWidths=[5 * cm],
     )
     meta_col.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
 
     fila_superior = Table(
