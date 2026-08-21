@@ -267,6 +267,30 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data)
 
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="stock-critico",
+        permission_classes=[IsAlmaceneroOrAdministratorWrite],
+    )
+    def stock_critico(self, request):
+        """
+        Devuelve materiales cuyo stock actual está en o por debajo del stock mínimo.
+        Solo aplica a materiales sin control individual (que manejan cantidad_total).
+        GET /api/catalogo/materiales/stock-critico/?almacen=1
+        """
+        qs = self.get_queryset().filter(
+            stock_minimo__gt=0,
+            cantidad_total__lte=F("stock_minimo"),
+            control_individual=False,
+            activo=True,
+        ).order_by(F("cantidad_total") - F("stock_minimo"))  # más críticos primero
+        serializer = self.get_serializer(qs, many=True)
+        return Response({
+            "count": qs.count(),
+            "results": serializer.data,
+        })
+
     def get_queryset(self):
         qs = super().get_queryset()
         subcategoria_id = self.request.query_params.get("subcategoria")
@@ -294,6 +318,16 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
             qs = qs.inspeccionables()
         if almacen_id and self._almacen_forzado() is None:
             qs = qs.filter(almacen_id=almacen_id)
+
+        stock_bajo = self.request.query_params.get("stock_bajo")
+        if stock_bajo is not None:
+            if stock_bajo.lower() in ("true", "1", "critico", "bajo"):
+                qs = qs.filter(
+                    Q(cantidad_total=0)
+                    | (Q(stock_minimo__gt=0) & Q(cantidad_total__lte=F("stock_minimo")))
+                )
+            elif stock_bajo.lower() in ("agotado", "cero"):
+                qs = qs.filter(cantidad_total=0)
 
         if busqueda:
             q_filtro = (

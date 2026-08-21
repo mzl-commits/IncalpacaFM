@@ -107,6 +107,60 @@ class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
 
         return qs
 
+    @action(detail=False, methods=["get"], url_path="por-tipo-trabajo")
+    def por_tipo_trabajo(self, request):
+        """
+        Agrupa las salidas de herramientas por tipo de orden (OT/OL/OS) extraído
+        del campo referencia_externa.
+        Responde: [{"tipo_orden": "OT", "total_salidas": 45, "materiales_distintos": 12}, ...]
+        GET /api/inventario/movimientos/por-tipo-trabajo/?almacen=1
+        GET /api/inventario/movimientos/por-tipo-trabajo/?almacen=1&material=5
+        """
+        from django.db.models import Count, Case, When, Value, CharField
+        import re
+
+        qs = self.get_queryset().filter(tipo="salida")
+        material_id = request.query_params.get("material")
+        if material_id:
+            qs = qs.filter(material_id=material_id)
+
+        # Clasificar por prefijo flexible (ej: OT-123, ot2026, OL 45, OP_01, OS-99)
+        qs_clasificado = qs.annotate(
+            tipo_orden=Case(
+                When(referencia_externa__iregex=r"^\s*OT", then=Value("OT (Trabajo)")),
+                When(referencia_externa__iregex=r"^\s*OL", then=Value("OL (Lubricación)")),
+                When(referencia_externa__iregex=r"^\s*OS", then=Value("OS (Servicio)")),
+                When(referencia_externa__iregex=r"^\s*OP", then=Value("OP (Producción)")),
+                When(
+                    Q(referencia_externa__isnull=True) | Q(referencia_externa__regex=r"^\s*$"),
+                    then=Value("Sin referencia"),
+                ),
+                default=Value("Otro"),
+                output_field=CharField(),
+            )
+        ).values("tipo_orden").annotate(
+            total_salidas=Count("id"),
+            materiales_distintos=Count("material", distinct=True),
+        ).order_by("-total_salidas")
+
+        return Response(list(qs_clasificado))
+
+    @action(detail=False, methods=["get"], url_path="uso-por-categoria")
+    def uso_por_categoria(self, request):
+        """
+        Agrupa salidas por categoría de material, útil para el análisis ABC de uso.
+        GET /api/inventario/movimientos/uso-por-categoria/?almacen=1
+        """
+        from django.db.models import Count
+        qs = self.get_queryset().filter(tipo="salida").values(
+            categoria_nombre=F("material__subcategoria__categoria__nombre"),
+            subcategoria_nombre=F("material__subcategoria__nombre"),
+        ).annotate(
+            total_salidas=Count("id"),
+            materiales_distintos=Count("material", distinct=True),
+        ).order_by("-total_salidas")
+        return Response(list(qs))
+
     # ── Acciones con flujo de aprobación para ALMACENERO ──────────────────────
     # Si el material/pieza es de otro almacén, la request ni siquiera llega
     # a crear el Movimiento: falla en is_valid(raise_exception=True).

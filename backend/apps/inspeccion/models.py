@@ -77,6 +77,57 @@ class Inspeccion(models.Model):
         related_name="inspecciones",
     )
 
+    MODALIDAD_CHOICES = [
+        ("planificada", "Planificada"),
+        ("no_planificada", "No planificada"),
+    ]
+    FRECUENCIA_CHOICES = [
+        ("semanal", "Semanal"),
+        ("quincenal", "Quincenal"),
+        ("mensual", "Mensual"),
+        ("trimestral", "Trimestral"),
+        ("anual", "Anual"),
+    ]
+
+    modalidad = models.CharField(
+        max_length=20,
+        choices=MODALIDAD_CHOICES,
+        default="planificada",
+        verbose_name="Tipo de inspección",
+        help_text="Planificada o No planificada",
+    )
+    frecuencia = models.CharField(
+        max_length=20,
+        choices=FRECUENCIA_CHOICES,
+        blank=True,
+        default="trimestral",
+        verbose_name="Frecuencia planificada",
+    )
+    area_trabajo = models.CharField(
+        max_length=150,
+        blank=True,
+        default="Facility Management",
+        verbose_name="Área de trabajo / Lugar",
+        help_text="Lugar o área donde se realizó la inspección.",
+    )
+    tipos_herramientas = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Tipos de herramientas manuales",
+        help_text="Lista de tipos de herramientas manuales inspeccionadas (ej. Golpe, Corte, Cohesión, etc.).",
+    )
+
+    referencia_orden = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Referencia OT/OL/OP",
+        help_text=(
+            "Código de la orden asociada a esta inspección, "
+            "ej. 'OT-2026-045', 'OL-2026-012', 'OP-2026-003'. "
+            "Campo opcional, para trazabilidad con el sistema de órdenes."
+        ),
+    )
+
     class Meta:
         ordering = ["-fecha"]
 

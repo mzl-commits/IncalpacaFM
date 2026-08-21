@@ -12,6 +12,7 @@ import {
 } from "@/modules/almacen/catalogoRepository";
 import {
   createInspeccion,
+  getChecklistContexto,
   listPlantillasCriterios,
   listUsuarios,
 } from "@/modules/almacen/inspeccionRepository";
@@ -35,6 +36,17 @@ import { Combobox } from "../components/shared/Combobox";
 import { Field } from "@/modules/almacen/components/shared/Field";
 import { EstucheGroup } from "@/modules/almacen/components/EstucheGroup";
 
+const GRUPOS_HERRAMIENTAS = [
+  "Herramientas de golpe",
+  "Herramientas de corte",
+  "Herramientas de cohesión",
+  "Herramientas de torsión y ajuste",
+  "Herramientas de medición",
+  "Herramientas de sujeción",
+  "Herramientas de pintura",
+  "Otras herramientas",
+];
+
 export function InspeccionFormPage() {
   const qc = useQueryClient();
   const { almacenId } = useAlmacenActivo();
@@ -48,6 +60,11 @@ export function InspeccionFormPage() {
   const [tipo, setTipo] = useState<TipoInspeccion>(
     preselPiezasLote.length > 0 ? "grupal" : "individual",
   );
+  const [modalidad, setModalidad] = useState<"planificada" | "no_planificada">("planificada");
+  const [frecuencia, setFrecuencia] = useState<string>("trimestral");
+  const [areaTrabajo, setAreaTrabajo] = useState<string>("Facility Management");
+  const [referenciaOrden, setReferenciaOrden] = useState<string>("");
+  const [tiposHerramientas, setTiposHerramientas] = useState<string[]>([]);
   const [materialId, setMaterialId] = useState<number>(preselMaterial);
   const [piezaId, setPiezaId] = useState<number>(0);
   const [piezasLote, setPiezasLote] = useState<Set<number>>(new Set(preselPiezasLote));
@@ -64,27 +81,69 @@ export function InspeccionFormPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [exito, setExito] = useState<number | null>(null);
 
-  // Queries
+  const { data: contexto } = useQuery({
+    queryKey: ["checklist-contexto", materialId, almacenId],
+    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined),
+  });
+
   const { data: materiales = [] } = useQuery({
     queryKey: ["materiales", almacenId],
     queryFn: () => listMateriales(almacenId),
     enabled: !!almacenId,
   });
+
   const { data: materialDetalle } = useQuery({
     queryKey: ["material-detalle", materialId],
     queryFn: () => getMaterialDetalle(materialId),
     enabled: materialId > 0,
   });
+
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listUsuarios,
   });
+
   const { data: plantillas = [] } = useQuery({
     queryKey: ["plantillas-criterios"],
     queryFn: listPlantillasCriterios,
   });
 
   const material = materialDetalle ?? materiales.find((m) => m.id === materialId);
+
+  // Auto-poblar frecuencia sugerida cuando el backend la calcula
+  useEffect(() => {
+    if (contexto?.frecuencia_sugerida?.frecuencia_sugerida) {
+      setFrecuencia(contexto.frecuencia_sugerida.frecuencia_sugerida.toLowerCase());
+    }
+  }, [contexto]);
+
+  // Auto-poblar próxima inspección desde la fecha calculada por el backend
+  useEffect(() => {
+    if (contexto?.proxima_fecha_calculada && !proximaInspeccion) {
+      setProximaInspeccion(contexto.proxima_fecha_calculada);
+    }
+  }, [contexto?.proxima_fecha_calculada]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleTipoHerramienta = (item: string) => {
+    setTiposHerramientas((prev) =>
+      prev.includes(item) ? prev.filter((t) => t !== item) : [...prev, item],
+    );
+  };
+
+  // Detectar si el material es de subcategoría "Herramientas Manuales" (del backend o por nombre/código)
+  const isHerramientaManual: boolean = Boolean(
+    contexto?.es_herramienta_manual ||
+    tiposHerramientas.length > 0 ||
+    (material?.codigo?.toUpperCase().startsWith("H") &&
+      !material?.subcategoria_nombre?.toLowerCase().includes("inalámbric") &&
+      !material?.subcategoria_nombre?.toLowerCase().includes("eléctric")) ||
+    (material?.nombre &&
+      /alicate|destornillador|llave|martillo|sierra|cincel|lima|pinza|tenaza|cizalla|cutter|flexometro|huincha|nivel|brocha|rodillo|espatula|prensa|comba|manual|cortafrío/i.test(
+        material.nombre,
+      ))
+  );
+
+
 
   const { data: piezas = [] } = useQuery({
     queryKey: ["piezas", materialId],
@@ -227,6 +286,11 @@ export function InspeccionFormPage() {
         piezas_lote: tipo === "grupal" ? Array.from(piezasLote) : [],
         plantilla: plantillaId,
         inspector: inspectorId,
+        modalidad,
+        frecuencia: modalidad === "planificada" ? frecuencia : undefined,
+        area_trabajo: areaTrabajo,
+        referencia_orden: referenciaOrden,
+        tipos_herramientas: tiposHerramientas,
         proxima_inspeccion: proximaInspeccion || null,
         cantidad_inspeccionada: tipo === "grupal" ? cantInspeccionada : null,
         cantidad_apta: tipo === "grupal" ? cantApta : null,
@@ -289,19 +353,47 @@ export function InspeccionFormPage() {
       >
         <div style={{ display: "grid", gap: 20 }}>
 
-          {/* Tipo */}
+          {/* Paso 1: Solo Alcance + Tipo de inspección */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 1</span>
               <h2>Tipo de inspección</h2>
             </div>
-            <div className="segmented-control segmented-2">
-              <button type="button" className={tipo === "individual" ? "is-active" : ""} onClick={() => setTipo("individual")}>
-                Individual (por pieza)
-              </button>
-              <button type="button" className={tipo === "grupal" ? "is-active" : ""} onClick={() => setTipo("grupal")}>
-                Grupal (lote)
-              </button>
+
+            {/* Alcance */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Alcance
+              </label>
+              <div className="segmented-control segmented-2">
+                <button
+                  type="button"
+                  className={tipo === "individual" ? "is-active" : ""}
+                  onClick={() => setTipo("individual")}
+                >
+                  Individual (por pieza)
+                </button>
+                <button
+                  type="button"
+                  className={tipo === "grupal" ? "is-active" : ""}
+                  onClick={() => setTipo("grupal")}
+                >
+                  Grupal (lote / varias piezas)
+                </button>
+              </div>
+            </div>
+
+            {/* Modalidad: Planificada / No planificada */}
+            <div className="form-grid">
+              <Field label="Modalidad">
+                <select
+                  value={modalidad}
+                  onChange={(e) => setModalidad(e.target.value as "planificada" | "no_planificada")}
+                >
+                  <option value="planificada">Planificada</option>
+                  <option value="no_planificada">No planificada</option>
+                </select>
+              </Field>
             </div>
           </div>
 
@@ -358,6 +450,192 @@ export function InspeccionFormPage() {
                 </div>
               )}
             </div>
+
+            {/* ── Campos adicionales que dependen del material seleccionado ── */}
+            {materialId > 0 && (
+              <div style={{ marginTop: 16, display: "grid", gap: 16 }}>
+
+                {/* Frecuencia + Área + OT en grid */}
+                <div className="form-grid">
+                  {modalidad === "planificada" && (
+                    <Field label="Frecuencia planificada">
+                      <select value={frecuencia} onChange={(e) => setFrecuencia(e.target.value)}>
+                        <option value="semanal">Semanal</option>
+                        <option value="quincenal">Quincenal</option>
+                        <option value="mensual">Mensual</option>
+                        <option value="trimestral">Trimestral</option>
+                        <option value="anual">Anual</option>
+                      </select>
+                      {contexto?.frecuencia_sugerida && (
+                        <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                          Rotación ABC: <strong>{contexto.frecuencia_sugerida.label || contexto.frecuencia_sugerida.frecuencia_sugerida}</strong>
+                          {typeof contexto.frecuencia_sugerida.total_salidas_90d === "number" && (
+                            <span> ({contexto.frecuencia_sugerida.total_salidas_90d} salidas en 90 días)</span>
+                          )}
+                          {typeof contexto.frecuencia_sugerida.tasa_incidencias === "number" && contexto.frecuencia_sugerida.tasa_incidencias > 0 && (
+                            <span style={{ color: "#DC2626", marginLeft: 4 }}>
+                              · {Math.round((contexto.frecuencia_sugerida.tasa_incidencias ?? 0) * 100)}% fallas previas
+                            </span>
+                          )}
+                        </small>
+                      )}
+                    </Field>
+
+
+                  )}
+
+                  <Field label="Área de trabajo / Lugar">
+                    <input
+                      type="text"
+                      value={areaTrabajo}
+                      onChange={(e) => setAreaTrabajo(e.target.value)}
+                      placeholder="ej. Facility Management, Taller Eléctrico…"
+                    />
+                  </Field>
+
+                  <Field label="Referencia OT / OL / OP (opcional)">
+                    <input
+                      list="ordenes-disponibles-list"
+                      type="text"
+                      value={referenciaOrden}
+                      onChange={(e) => setReferenciaOrden(e.target.value)}
+                      placeholder="ej. OT-2026-045, OL-2026-012, OP-2026-003"
+                    />
+                    {contexto?.ordenes_disponibles && contexto.ordenes_disponibles.length > 0 && (
+                      <datalist id="ordenes-disponibles-list">
+                        {contexto.ordenes_disponibles.map((o) => (
+                          <option key={o.codigo} value={o.codigo}>{o.label}</option>
+                        ))}
+                      </datalist>
+                    )}
+                    {contexto?.inspecciones_en_proxima_fecha !== undefined && contexto.inspecciones_en_proxima_fecha > 0 && (
+                      <small style={{ display: "block", marginTop: 4, color: "#F59E0B", fontSize: 11 }}>
+                        ⚠️ {contexto.inspecciones_en_proxima_fecha} inspección(es) ya programadas para {contexto.proxima_fecha_calculada}
+                      </small>
+                    )}
+                  </Field>
+                </div>
+
+                {/* Banner de Color del Mes 5S */}
+                {contexto?.color_mes && (
+                  <div
+                    style={{
+                      background: "#F8FAFC",
+                      border: "1px solid #E2E8F0",
+                      borderRadius: 8,
+                      padding: "12px 16px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 18,
+                          height: 18,
+                          borderRadius: "50%",
+                          backgroundColor: contexto.color_mes.hex,
+                          border: "2px solid #00000022",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
+                          Color del Trimestre: {contexto.color_mes.nombre.toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: 12, color: "#64748B", marginLeft: 6 }}>
+                          ({contexto.color_mes.meses})
+                        </span>
+                        {contexto.inspecciones_hoy !== undefined && (
+                          <span style={{ fontSize: 11, color: "#64748B", marginLeft: 8, background: "#F1F5F9", borderRadius: 4, padding: "1px 6px" }}>
+                            {contexto.inspecciones_hoy} inspección(es) hoy
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11 }}>
+                      {(contexto.leyenda_colores ?? []).map((l) => (
+                        <span
+                          key={l.trimestre}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            background: "#FFFFFF",
+                            padding: "3px 8px",
+                            borderRadius: 4,
+                            border: l.hex === contexto.color_mes.hex
+                              ? `2px solid ${l.hex}`
+                              : "1px solid #CBD5E1",
+                            fontWeight: l.hex === contexto.color_mes.hex ? 700 : 400,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              backgroundColor: l.hex,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <strong>Q{l.trimestre}:</strong> {l.nombre} ({l.meses})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tipos de herramientas manuales — SOLO si el material es de esa subcategoría */}
+                {isHerramientaManual && (
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                      Tipo de herramientas manuales (marcar las que aplican):
+                    </label>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                        gap: 8,
+                      }}
+                    >
+                      {GRUPOS_HERRAMIENTAS.map((grupo) => {
+                        const seleccionado = tiposHerramientas.includes(grupo);
+                        return (
+                          <label
+                            key={grupo}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "8px 12px",
+                              borderRadius: 6,
+                              border: seleccionado ? "1.5px solid #0284C7" : "1px solid #CBD5E1",
+                              background: seleccionado ? "#F0F9FF" : "#FFFFFF",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: seleccionado ? 600 : 400,
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={seleccionado}
+                              onChange={() => toggleTipoHerramienta(grupo)}
+                            />
+                            <span>{grupo}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Lote de piezas (grupal) */}
             {tipo === "grupal" && material?.control_individual && (

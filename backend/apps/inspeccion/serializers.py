@@ -58,9 +58,10 @@ class InspeccionSerializer(serializers.ModelSerializer):
             "id", "tipo", "material", "material_codigo", "material_nombre",
             "pieza", "pieza_codigo", "piezas_lote", "plantilla", "plantilla_nombre",
             "fecha", "proxima_inspeccion", "inspector", "inspector_nombre",
+            "modalidad", "frecuencia", "area_trabajo", "tipos_herramientas",
             "cantidad_inspeccionada", "cantidad_apta", "cantidad_no_apta",
-            "resultado_general", "accion_tomada", "observaciones", "respuestas",
-            "material_periodicidad_inspeccion_dias", "almacen", "almacen_nombre",
+            "resultado_general", "accion_tomada", "observaciones", "referencia_orden",
+            "respuestas", "material_periodicidad_inspeccion_dias", "almacen", "almacen_nombre",
         ]
 
     def get_inspector_nombre(self, obj) -> str:
@@ -118,9 +119,10 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
         model = Inspeccion
         fields = [
             "id", "tipo", "material", "pieza", "piezas_lote", "plantilla",
-            "proxima_inspeccion", "inspector", "cantidad_inspeccionada",
+            "proxima_inspeccion", "inspector", "modalidad", "frecuencia",
+            "area_trabajo", "tipos_herramientas", "cantidad_inspeccionada",
             "cantidad_apta", "cantidad_no_apta", "resultado_general",
-            "accion_tomada", "observaciones", "respuestas",
+            "accion_tomada", "observaciones", "referencia_orden", "respuestas",
         ]
 
     def validate(self, data):
