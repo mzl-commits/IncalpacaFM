@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/v1/health/celery/", CeleryHealthView.as_view(), name="health-celery"),
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.organization.urls")),
+    path("api/v1/", include("apps.spaces.urls")),
     path("api/v1/", include("apps.assets.urls")),
     path("api/v1/", include("apps.taxonomy.urls")),
     path("api/v1/", include("apps.assignments.urls")),
