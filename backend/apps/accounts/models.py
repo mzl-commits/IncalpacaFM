@@ -10,7 +10,7 @@ class AccountProfile(models.Model):
         ADMIN = "ADMINISTRADOR", "Administrador / FM"
         TECHNICIAN = "TECNICO", "Técnico"
         SUPERVISOR = "SUPERVISOR", "Supervisor"
-        REQUESTER = "SOLICITANTE", "Solicitante"
+        REQUESTER = "USUARIO", "Usuario"
         ALMACENERO = "ALMACENERO", "Almacenero"
         INSPECTOR = "INSPECTOR", "Inspector"
 
