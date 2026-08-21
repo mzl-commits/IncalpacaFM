@@ -329,7 +329,7 @@ export function IncidentDetailPage() {
         <article className="data-panel detail-card">
           <div className="detail-card-heading">
             <User size={22} />
-            <h2>Solicitante</h2>
+            <h2>Usuario</h2>
           </div>
 
           <dl className="detail-list">

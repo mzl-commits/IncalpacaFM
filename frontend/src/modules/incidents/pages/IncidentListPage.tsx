@@ -276,7 +276,7 @@ export function IncidentListPage() {
           title="Refinar solicitudes"
           description="Segmenta por estado, prioridad, tipo, ubicación y evidencia."
           searchLabel="Buscar solicitudes"
-          searchPlaceholder="Código, solicitante, correo, ubicación o descripción"
+          searchPlaceholder="Código, usuario, correo, ubicación o descripción"
           searchValue={values.q}
           onSearchChange={(value) => setValue("q", value)}
           resultCount={requests.length}
@@ -376,7 +376,7 @@ export function IncidentListPage() {
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Solicitante</th>
+                <th>Usuario</th>
                 <th>Solicitud</th>
                 <th>Ubicación</th>
                 <th>Prioridad</th>

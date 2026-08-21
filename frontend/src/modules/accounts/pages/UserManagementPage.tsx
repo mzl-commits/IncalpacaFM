@@ -6,7 +6,7 @@ import { createManagedUser, importTechnicians, listManagedUsers, updateManagedUs
 import type { UserRole } from "@/modules/accounts/types";
 
 const roleOptions: Array<{ value: UserRole; label: string }> = [
-  { value: "SOLICITANTE", label: "Solicitante" }, { value: "TECNICO", label: "Técnico" },
+  { value: "SOLICITANTE", label: "Usuario" }, { value: "TECNICO", label: "Técnico" },
   { value: "SUPERVISOR", label: "Supervisor" }, { value: "ALMACENERO", label: "Almacenero" },
   { value: "INSPECTOR", label: "Inspector" }, { value: "ADMINISTRADOR", label: "Administrador / Planner" },
 ];
@@ -70,7 +70,7 @@ export function UserManagementPage() {
   return <section className="user-management-page">
     <header className="page-heading user-management-heading"><div><p className="breadcrumb">Administración / Usuarios</p><h1>Usuarios</h1><p>Administra accesos, roles y datos laborales desde un solo lugar.</p></div><div className="user-management-actions"><input ref={fileInput} hidden type="file" accept=".xlsx,.xlsm" onChange={(event) => void importFile(event.target.files?.[0])} /><button className="button button-secondary" type="button" onClick={() => fileInput.current?.click()}><UploadSimple size={18} />Importar Excel</button><button className="button button-primary" type="button" onClick={openCreate}><Plus size={18} />Nuevo usuario</button></div></header>
     {(feedback || error) && <div className={`user-management-notice ${error ? "is-error" : ""}`} role={error ? "alert" : "status"}><span>{error || feedback}</span>{error && <button className="button button-secondary" type="button" onClick={() => void load()}>Reintentar</button>}</div>}
-    <div className="user-management-summary" aria-label="Resumen de usuarios"><div><UsersThree size={21} /><span><strong>{users.length}</strong><small>Usuarios registrados</small></span></div><div><span><strong>{activeCount}</strong><small>Con acceso activo</small></span></div><div><span><strong>{users.filter((user) => user.role === "SOLICITANTE").length}</strong><small>Solicitantes</small></span></div></div>
+    <div className="user-management-summary" aria-label="Resumen de usuarios"><div><UsersThree size={21} /><span><strong>{users.length}</strong><small>Usuarios registrados</small></span></div><div><span><strong>{activeCount}</strong><small>Con acceso activo</small></span></div><div><span><strong>{users.filter((user) => user.role === "SOLICITANTE").length}</strong><small>Usuarios</small></span></div></div>
     {editing !== undefined && <form className="data-panel user-management-editor" onSubmit={save}><header><div><h2>{editing ? "Editar usuario" : "Nuevo usuario"}</h2><p>Los cambios se aplican al próximo inicio de sesión.</p></div><button type="button" className="icon-button" onClick={() => setEditing(undefined)} aria-label="Cerrar formulario"><X size={20} /></button></header><div className="form-layout-split">
       <fieldset className="form-section">
         <legend>Datos personales</legend>

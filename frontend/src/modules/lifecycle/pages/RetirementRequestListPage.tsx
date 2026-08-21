@@ -245,7 +245,7 @@ export function RetirementRequestListPage() {
           title="Consultar expedientes"
           description="Refina por diagnóstico, disposición, responsables y viabilidad económica."
           searchLabel="Buscar solicitudes de baja"
-          searchPlaceholder="Solicitud, bien, OT, solicitante o justificación técnica"
+          searchPlaceholder="Solicitud, bien, OT, usuario o justificación técnica"
           searchValue={values.q}
           onSearchChange={(value) => setValue("q", value)}
           resultCount={filtered.length}
@@ -307,7 +307,7 @@ export function RetirementRequestListPage() {
             value={values.requestedBy}
             onChange={(value) => setValue("requestedBy", value)}
             options={requestedByOptions}
-            allLabel="Todos los solicitantes"
+            allLabel="Todos los usuarios"
           />
           <FilterSelect
             label="Supervisor"

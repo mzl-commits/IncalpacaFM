@@ -63,7 +63,7 @@ export const OFFICIAL_REPORT_SECTIONS: SectionOption[] = [
     id: "7. Satisfacción y conformidad",
     number: 7,
     title: "7. Satisfacción y conformidad",
-    description: "Valoración del cliente/solicitante, encuesta de conformidad y comentarios.",
+    description: "Valoración del cliente/usuario, encuesta de conformidad y comentarios.",
   },
   {
     id: "8. Observaciones y recomendaciones",
@@ -595,7 +595,7 @@ export function ReportTemplatesPage() {
                       <div key={secStr} className="simulated-section">
                         <div className="simulated-section-title">7. SATISFACCIÓN Y CONFORMIDAD</div>
                         <div><strong>Valoración de Servicio:</strong> ★★★★★ (5/5 Excelente)</div>
-                        <div><strong>Comentarios del Solicitante:</strong> Atención rápida y trabajo conforme en oficina.</div>
+                        <div><strong>Comentarios del Usuario:</strong> Atención rápida y trabajo conforme en oficina.</div>
                       </div>
                     );
                   }

@@ -227,7 +227,7 @@ function compactSupervisorLabel(path: string, label: string) {
 
 function getRouteContext(pathname: string) {
   if (pathname === "/") return ["Órdenes de trabajo", "Panel operativo"];
-  if (pathname.startsWith("/mi-perfil")) return ["Solicitante", "Inicio"];
+  if (pathname.startsWith("/mi-perfil")) return ["Usuario", "Inicio"];
   if (pathname.startsWith("/mi-jornada")) return ["Órdenes de trabajo", "Mi jornada"];
   if (pathname.startsWith("/incidencias")) return ["Órdenes de trabajo", "Bandeja de reportes"];
   if (pathname.startsWith("/supervision")) return ["Órdenes de trabajo", "Órdenes de trabajo"];
@@ -317,7 +317,7 @@ export function AppShell() {
           : user?.role === "INSPECTOR"
             ? "Inspector"
             : user?.role === "SOLICITANTE"
-              ? "Usuario solicitante"
+              ? "Usuario"
               : "Administrador / Planner";
   const initials =
     user?.fullName
@@ -394,7 +394,7 @@ export function AppShell() {
             ))}
           </nav>
           <NavLink to="/perfil" className="technician-sidebar-profile">
-            <span>{initials}</span><div><strong>{user.fullName}</strong><small>{user.role === "SOLICITANTE" ? "Usuario solicitante" : "Técnico"}</small></div>
+            <span>{initials}</span><div><strong>{user.fullName}</strong><small>{user.role === "SOLICITANTE" ? "Usuario" : "Técnico"}</small></div>
           </NavLink>
           <button className="technician-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
         </aside>

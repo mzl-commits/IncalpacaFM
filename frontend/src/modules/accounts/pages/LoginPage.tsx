@@ -98,7 +98,7 @@ export function LoginPage() {
             <span>Administrador: admin / Montescoli3</span>
             <span>Operario: tecnico / Montescoli3</span>
             <span>Supervisor: supervisor / 12345</span>
-            <span>Usuario (Solicitante): usuario / Montescoli3</span>
+            <span>Usuario (Básico): usuario / Montescoli3</span>
           </aside>
         </form>
       </section>

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "@/services/api";
 import { useAuth } from "../AuthContext";
 
-const roleLabels: Record<string, string> = { ADMINISTRADOR: "Administrador / Planner", TECNICO: "Técnico", SUPERVISOR: "Supervisor", SOLICITANTE: "Usuario solicitante" };
+const roleLabels: Record<string, string> = { ADMINISTRADOR: "Administrador / Planner", TECNICO: "Técnico", SUPERVISOR: "Supervisor", SOLICITANTE: "Usuario" };
 
 export function ProfilePage() {
   const { user } = useAuth();

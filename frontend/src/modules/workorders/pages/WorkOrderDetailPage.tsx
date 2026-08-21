@@ -786,7 +786,7 @@ export function WorkOrderDetailPage() {
             </div>
 
             <div className={`wo-step-card ${workOrder.satisfaction ? "is-done" : "is-pending"}`}>
-              <span className="wo-step-num">4. Solicitante</span>
+              <span className="wo-step-num">4. Usuario</span>
               <strong className="wo-step-status">{workOrder.satisfaction ? "Evaluado" : "Sin evaluación"}</strong>
               <small className="wo-step-comment">{getRatingLabel(workOrder.satisfaction)}</small>
             </div>
