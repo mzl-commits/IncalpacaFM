@@ -371,7 +371,7 @@ function AdministrativeDashboard() {
         <div className="dashboard-header-actions">
           <button
             type="button"
-            className="btn-secondary"
+            className="button button-secondary"
             onClick={() => void loadDashboard()}
             disabled={loading}
             title="Actualizar datos"
@@ -383,7 +383,7 @@ function AdministrativeDashboard() {
             <span>Actualizar</span>
           </button>
           <Link
-            className="btn-primary"
+            className="button button-primary"
             to="/bienes/entradas/nueva"
           >
             <Plus size={18} weight="bold" />
