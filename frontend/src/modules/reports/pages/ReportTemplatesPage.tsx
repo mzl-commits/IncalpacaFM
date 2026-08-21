@@ -15,6 +15,7 @@ import {
   Handshake,
   ShoppingCart,
 } from "@phosphor-icons/react";
+import { INCALPACA_LOGO_BASE64 } from "@/modules/reports/utils/incalpacaReportStyles";
 
 // ── Secciones para las fichas de bienes (3 tipos) ───────────────────────────
 export interface AssetFichaSection {
@@ -603,11 +604,18 @@ export function ReportTemplatesPage() {
               <div className="simulated-a4-document">
                 {/* SIMULATED HEADER */}
                 <div className="simulated-header">
-                  <div>
-                    <div style={{ fontWeight: "bold", fontSize: "14px" }}>INCALPACA FM S.A.</div>
-                    <div style={{ fontSize: "10px", color: "#555555" }}>Sistema de Gestión Técnica y Bienes</div>
-                    <div className="simulated-title" style={{ marginTop: "4px" }}>
-                      INFORME TÉCNICO DE ORDEN N° OL-2026-0002
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <img 
+                      src={INCALPACA_LOGO_BASE64} 
+                      alt="Incalpaca FM Logo" 
+                      style={{ width: "40px", height: "40px", objectFit: "contain" }} 
+                    />
+                    <div>
+                      <div style={{ fontWeight: "bold", fontSize: "14px" }}>INCALPACA FM S.A.</div>
+                      <div style={{ fontSize: "10px", color: "#555555" }}>Sistema de Gestión Técnica y Bienes</div>
+                      <div className="simulated-title" style={{ marginTop: "4px" }}>
+                        INFORME TÉCNICO DE ORDEN N° OL-2026-0002
+                      </div>
                     </div>
                   </div>
                   <div style={{ textAlign: "right", fontSize: "10px" }}>
