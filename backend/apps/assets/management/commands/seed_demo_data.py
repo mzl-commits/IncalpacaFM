@@ -1167,9 +1167,55 @@ class Command(BaseCommand):
                 },
             )
 
+        # Enriquecer datos de bienes para Fichas de Entrada y Asignación Institucionales
+        for asset in Asset.objects.all():
+            p = asset.entry_payload or {}
+            p_updated = False
+            if not p.get("site"):
+                p["site"] = "INCALPACA (Calle Cóndor 100, Sachaca, Arequipa)"
+                p["site_code"] = "INC1"
+                p_updated = True
+            if not p.get("macro_area"):
+                p["macro_area"] = "Sectores Administrativos"
+                p["macro_area_code"] = "AD"
+                p_updated = True
+            if not p.get("supplier"):
+                p["supplier"] = "Forma y Espacios S.A."
+                p_updated = True
+            if not p.get("purchaseOrder"):
+                p["purchaseOrder"] = "OC-2026-00418"
+                p_updated = True
+            if not p.get("voucherNumber"):
+                p["voucherNumber"] = "F001-0008492"
+                p_updated = True
+            if not p.get("cost"):
+                p["cost"] = "850.00"
+                p["currency"] = "PEN"
+                p_updated = True
+            if not p.get("costCenter"):
+                p["costCenter"] = "CC-1040 (ADMINISTRACIÓN & MKT)"
+                p_updated = True
+            if not p.get("registeredBy"):
+                p["registeredBy"] = "Rosa Medina (Control Patrimonial FM)"
+                p_updated = True
+            if not p.get("assigneeName") or p.get("assigneeName") == "Sin asignar":
+                p["assigneeName"] = "Rosa Medina Gutiérrez"
+                p["workerCode"] = "TRAB-4082"
+                p["assigneeId"] = "TRAB-4082"
+                p["assignmentReason"] = "Asignación inicial de puesto de trabajo y custodia operativa."
+                p["assignmentObservations"] = "Bien en óptimas condiciones ergonómicas y operativas."
+                p_updated = True
+            
+            if p_updated or not asset.entry_payload:
+                asset.entry_payload = p
+                asset.brand = asset.brand or "Forma"
+                asset.model = asset.model or "ErgoMax 2026"
+                asset.save(update_fields=["entry_payload", "brand", "model"])
+
         self.stdout.write(
             self.style.SUCCESS(
-                "Datos de prueba cargados: 31 bienes, 6 incidencias, 4 OT, "
-                "2 solicitudes de baja y usuarios Administrador/Técnico/Supervisor."
+                "Datos de prueba cargados: 31 bienes con datos institucionales completos para reportes, "
+                "6 incidencias, 4 OT, 2 solicitudes de baja y usuarios Administrador/Técnico/Supervisor."
             )
         )
+
