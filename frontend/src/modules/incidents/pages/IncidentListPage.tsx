@@ -1,440 +1,398 @@
-import { CaretRight, Plus } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-
-import {
-  FilterDate,
-  FilterSelect,
-  ListFilterPanel,
-  type ActiveFilter,
-} from "@/components/filters/ListFilterPanel";
-import {
-  buildFilterOptions,
-  isDateInRange,
-  labelFor,
-  useListFilterParams,
-} from "@/components/filters/filterUtils";
-import {
-  requestPriorityLabels,
-  requestStatusLabels,
-  requestTypeLabels,
-  type RequestStatus,
-} from "@/modules/incidents/incidentModel";
-import {
-  getWorkRequestAssetDisplayCode,
-  listWorkRequests,
-  WORK_REQUESTS_UPDATED_EVENT,
-} from "@/modules/incidents/incidentRepository";
-
-const FILTER_KEYS = [
-  "q",
-  "status",
-  "type",
-  "priority",
-  "building",
-  "project",
-  "evidence",
-  "from",
-  "to",
-] as const;
-
-const projectLabels: Record<string, string> = {
-  yes: "Solo proyectos",
-  no: "Excluir proyectos",
-};
-
-const evidenceLabels: Record<string, string> = {
-  with: "Con evidencias",
-  without: "Sin evidencias",
-};
-
-const statusClass: Record<RequestStatus, string> = {
-  PENDIENTE: "status-warning",
-  EN_EVALUACION: "status-neutral",
-  APROBADA: "status-success",
-  RECHAZADA: "status-error",
-  CONVERTIDA_EN_OT: "status-success",
-};
+import { 
+  Plus, 
+  Eye, 
+  FilePdf, 
+  Printer, 
+  X,
+  CaretLeft,
+  CaretRight,
+  MagnifyingGlass,
+  ArrowRight
+} from "@phosphor-icons/react";
+import { useAuth } from "@/modules/accounts/useAuth";
+import { useWorkRequests } from "../useWorkRequests";
+import { 
+  requestPriorityLabels, 
+  requestStatusLabels, 
+  requestTypeLabels 
+} from "../incidentValidation";
+import { getWorkRequestAssetDisplayCode } from "../incidentRepository";
+import { generateWorkRequestPdf } from "../utils/workRequestPdf";
+import type { WorkRequest } from "../types";
 
 export function IncidentListPage() {
-  const [allRequests, setAllRequests] = useState<Awaited<ReturnType<typeof listWorkRequests>>>([]);
-  const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
+  const { user } = useAuth();
+  const {
+    requests: filteredRequests,
+    allRequests,
+    values,
+    setValue,
+    clearFilters,
+    statusOptions,
+    priorityOptions,
+    typeOptions,
+    buildingOptions,
+  } = useWorkRequests();
 
-  useEffect(() => {
-    let active = true;
-    async function refreshRequests() {
-      const requests = await listWorkRequests();
-      if (active) setAllRequests(requests);
+  // ESTADOS DE DETALLE EN MODAL Y PAGINACIÓN
+  const [selectedRequest, setSelectedRequest] = useState<WorkRequest | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // 1. KPI COUNTS (4 TARJETAS SIMPLIFICADAS)
+  const pendingCount = useMemo(
+    () => allRequests.filter((r) => r.status === "PENDIENTE").length,
+    [allRequests]
+  );
+  const evaluatingCount = useMemo(
+    () => allRequests.filter((r) => r.status === "EN_EVALUACION").length,
+    [allRequests]
+  );
+  const urgentCount = useMemo(
+    () =>
+      allRequests.filter(
+        (r) => r.requesterPriority === "URGENTE" || r.requesterPriority === "EMERGENCIA"
+      ).length,
+    [allRequests]
+  );
+  const approvedCount = useMemo(
+    () =>
+      allRequests.filter(
+        (r) => r.status === "APROBADA" || r.status === "CONVERTIDA_EN_OT"
+      ).length,
+    [allRequests]
+  );
+
+  // PAGINACIÓN DINÁMICA
+  const totalPages = Math.ceil(filteredRequests.length / pageSize) || 1;
+  const paginatedRequests = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRequests.slice(start, start + pageSize);
+  }, [filteredRequests, currentPage, pageSize]);
+
+  function handlePageChange(newPage: number) {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
     }
-
-    void refreshRequests();
-    window.addEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshRequests);
-
-    return () => {
-      active = false;
-      window.removeEventListener(WORK_REQUESTS_UPDATED_EVENT, refreshRequests);
-    };
-  }, []);
-
-  const statusOptions = useMemo(
-    () =>
-      buildFilterOptions(
-        allRequests.map((request) => request.status),
-        requestStatusLabels,
-      ),
-    [allRequests],
-  );
-  const typeOptions = useMemo(
-    () =>
-      buildFilterOptions(
-        allRequests.map((request) => request.requestType),
-        requestTypeLabels,
-      ),
-    [allRequests],
-  );
-  const priorityOptions = useMemo(
-    () =>
-      buildFilterOptions(
-        allRequests.map((request) => request.requesterPriority),
-        requestPriorityLabels,
-      ),
-    [allRequests],
-  );
-  const buildingOptions = useMemo(
-    () => buildFilterOptions(allRequests.map((request) => request.building)),
-    [allRequests],
-  );
-
-  const requests = useMemo(() => {
-    const query = values.q.toLocaleLowerCase("es").trim();
-
-    return allRequests.filter((request) => {
-      const searchable = [
-        request.code,
-        getWorkRequestAssetDisplayCode(request),
-        request.requesterName,
-        request.requesterEmail,
-        request.description,
-        request.zone,
-        request.building,
-        request.area,
-        request.room,
-        requestTypeLabels[request.requestType],
-        requestPriorityLabels[request.requesterPriority],
-        requestStatusLabels[request.status],
-      ]
-        .join(" ")
-        .toLocaleLowerCase("es");
-
-      const projectMatches =
-        !values.project || (values.project === "yes" ? request.project : !request.project);
-      const evidenceMatches =
-        !values.evidence ||
-        (values.evidence === "with" ? request.evidence.length > 0 : request.evidence.length === 0);
-
-      return (
-        (!query || searchable.includes(query)) &&
-        (!values.status || request.status === values.status) &&
-        (!values.type || request.requestType === values.type) &&
-        (!values.priority || request.requesterPriority === values.priority) &&
-        (!values.building || request.building === values.building) &&
-        projectMatches &&
-        evidenceMatches &&
-        isDateInRange(request.reportedAt, values.from, values.to)
-      );
-    });
-  }, [allRequests, values]);
-
-  const activeFilters: ActiveFilter[] = [];
-  if (values.q) {
-    activeFilters.push({
-      key: "q",
-      label: "Búsqueda",
-      value: values.q,
-      onRemove: () => setValue("q", ""),
-    });
-  }
-  if (values.status) {
-    activeFilters.push({
-      key: "status",
-      label: "Estado",
-      value: labelFor(values.status, requestStatusLabels),
-      onRemove: () => setValue("status", ""),
-    });
-  }
-  if (values.type) {
-    activeFilters.push({
-      key: "type",
-      label: "Tipo",
-      value: labelFor(values.type, requestTypeLabels),
-      onRemove: () => setValue("type", ""),
-    });
-  }
-  if (values.priority) {
-    activeFilters.push({
-      key: "priority",
-      label: "Prioridad",
-      value: labelFor(values.priority, requestPriorityLabels),
-      onRemove: () => setValue("priority", ""),
-    });
-  }
-  if (values.building) {
-    activeFilters.push({
-      key: "building",
-      label: "Edificio",
-      value: values.building,
-      onRemove: () => setValue("building", ""),
-    });
-  }
-  if (values.project) {
-    activeFilters.push({
-      key: "project",
-      label: "Proyecto",
-      value: labelFor(values.project, projectLabels),
-      onRemove: () => setValue("project", ""),
-    });
-  }
-  if (values.evidence) {
-    activeFilters.push({
-      key: "evidence",
-      label: "Evidencias",
-      value: labelFor(values.evidence, evidenceLabels),
-      onRemove: () => setValue("evidence", ""),
-    });
-  }
-  if (values.from) {
-    activeFilters.push({
-      key: "from",
-      label: "Reportada desde",
-      value: values.from,
-      onRemove: () => setValue("from", ""),
-    });
-  }
-  if (values.to) {
-    activeFilters.push({
-      key: "to",
-      label: "Reportada hasta",
-      value: values.to,
-      onRemove: () => setValue("to", ""),
-    });
   }
 
-  const pendingCount = allRequests.filter((request) => request.status === "PENDIENTE").length;
-  const evaluatingCount = allRequests.filter(
-    (request) => request.status === "EN_EVALUACION",
-  ).length;
-  const urgentCount = allRequests.filter(
-    (request) =>
-      request.requesterPriority === "URGENTE" || request.requesterPriority === "EMERGENCIA",
-  ).length;
-  const emergencyCount = allRequests.filter(
-    (request) => request.requesterPriority === "EMERGENCIA",
-  ).length;
-  const approvedCount = allRequests.filter(
-    (request) => request.status === "APROBADA" || request.status === "CONVERTIDA_EN_OT",
-  ).length;
+  function handleQuickPrint(request: WorkRequest, event?: React.MouseEvent) {
+    event?.stopPropagation();
+    void generateWorkRequestPdf({ request, action: "print" });
+  }
+
+  function handleQuickDownload(request: WorkRequest, event?: React.MouseEvent) {
+    event?.stopPropagation();
+    void generateWorkRequestPdf({ request, action: "download" });
+  }
+
+  function getStatusBadgeClass(status: string) {
+    switch (status) {
+      case "PENDIENTE":
+        return "status-pendiente";
+      case "EN_EVALUACION":
+        return "status-evaluacion";
+      case "APROBADA":
+      case "CONVERTIDA_EN_OT":
+        return "status-aprobada";
+      case "RECHAZADA":
+      case "CANCELADA":
+        return "status-rechazada";
+      default:
+        return "status-pendiente";
+    }
+  }
+
+  function getPriorityBadgeClass(priority: string) {
+    switch (priority) {
+      case "EMERGENCIA":
+        return "p-emergencia";
+      case "URGENTE":
+        return "p-urgente";
+      case "ALTA":
+        return "p-alta";
+      default:
+        return "p-normal";
+    }
+  }
 
   return (
     <section className="incidents-list-page">
+      {/* CABECERA PRINCIPAL */}
       <div className="page-heading">
         <div>
           <p className="breadcrumb">Mantenimiento / Solicitudes</p>
           <h1>Solicitudes de trabajo</h1>
-          <p>Registra, consulta y realiza seguimiento a las solicitudes de mantenimiento.</p>
+          <p style={{ fontSize: "13px", color: "#555555" }}>
+            Registra, consulta y realiza seguimiento a las solicitudes de mantenimiento.
+          </p>
         </div>
-        <Link className="button button-primary" to="/incidencias/nueva">
-          <Plus size={19} weight="bold" />
+        <Link className="button button-primary" to="/incidencias/nueva" style={{ background: "#000000", color: "#FFFFFF" }}>
+          <Plus size={16} weight="bold" />
           Nueva solicitud
         </Link>
       </div>
 
-      <div className="metrics-grid">
-        <article>
-          <span>Pendientes</span>
-          <strong>{pendingCount}</strong>
-          <small>Esperan revisión del administrador</small>
-        </article>
-        <article>
-          <span>En evaluación</span>
-          <strong>{evaluatingCount}</strong>
-          <small>Actualmente en proceso de revisión</small>
-        </article>
-        <article>
-          <span>Urgentes o emergencias</span>
-          <strong>{urgentCount}</strong>
-          <small>Requieren atención prioritaria</small>
-        </article>
-        <article>
-          <span>Aprobadas</span>
-          <strong>{approvedCount}</strong>
-          <small>Listas o convertidas en orden de trabajo</small>
-        </article>
+      {/* 4 TARJETAS KPI SIMPLIFICADAS */}
+      <div className="incidents-kpi-grid">
+        <div 
+          className="incidents-kpi-card"
+          style={{ cursor: "pointer" }}
+          onClick={() => { setValue("status", values.status === "PENDIENTE" ? "" : "PENDIENTE"); setCurrentPage(1); }}
+        >
+          <span className="kpi-label">Pendientes</span>
+          <span className="kpi-number">{pendingCount}</span>
+        </div>
+
+        <div 
+          className="incidents-kpi-card"
+          style={{ cursor: "pointer" }}
+          onClick={() => { setValue("status", values.status === "EN_EVALUACION" ? "" : "EN_EVALUACION"); setCurrentPage(1); }}
+        >
+          <span className="kpi-label">En evaluación</span>
+          <span className="kpi-number">{evaluatingCount}</span>
+        </div>
+
+        <div 
+          className="incidents-kpi-card"
+          style={{ cursor: "pointer" }}
+          onClick={() => { setValue("priority", values.priority === "URGENTE" ? "" : "URGENTE"); setCurrentPage(1); }}
+        >
+          <span className="kpi-label">Urgentes</span>
+          <span className="kpi-number">{urgentCount}</span>
+        </div>
+
+        <div 
+          className="incidents-kpi-card"
+          style={{ cursor: "pointer" }}
+          onClick={() => { setValue("status", values.status === "APROBADA" ? "" : "APROBADA"); setCurrentPage(1); }}
+        >
+          <span className="kpi-label">Aprobadas</span>
+          <span className="kpi-number">{approvedCount}</span>
+        </div>
       </div>
 
-      <div className="data-panel">
-        <ListFilterPanel
-          title="Refinar solicitudes"
-          description="Segmenta por estado, prioridad, tipo, ubicación y evidencia."
-          searchLabel="Buscar solicitudes"
-          searchPlaceholder="Código, usuario, correo, ubicación o descripción"
-          searchValue={values.q}
-          onSearchChange={(value) => setValue("q", value)}
-          resultCount={requests.length}
-          totalCount={allRequests.length}
-          activeFilters={activeFilters}
-          onClear={clearFilters}
-          quickFilters={[
-            {
-              key: "pending",
-              label: "Pendientes",
-              count: pendingCount,
-              active: values.status === "PENDIENTE",
-              onSelect: () => setValue("status", values.status === "PENDIENTE" ? "" : "PENDIENTE"),
-            },
-            {
-              key: "urgent",
-              label: "Urgentes",
-              count: allRequests.filter((request) => request.requesterPriority === "URGENTE")
-                .length,
-              active: values.priority === "URGENTE",
-              onSelect: () => setValue("priority", values.priority === "URGENTE" ? "" : "URGENTE"),
-            },
-            {
-              key: "emergency",
-              label: "Emergencias",
-              count: emergencyCount,
-              active: values.priority === "EMERGENCIA",
-              onSelect: () =>
-                setValue("priority", values.priority === "EMERGENCIA" ? "" : "EMERGENCIA"),
-            },
-          ]}
-        >
-          <FilterSelect
-            label="Estado"
-            value={values.status}
-            onChange={(value) => setValue("status", value)}
-            options={statusOptions}
-            allLabel="Todos los estados"
-          />
-          <FilterSelect
-            label="Tipo de solicitud"
-            value={values.type}
-            onChange={(value) => setValue("type", value)}
-            options={typeOptions}
-            allLabel="Todos los tipos"
-          />
-          <FilterSelect
-            label="Prioridad"
-            value={values.priority}
-            onChange={(value) => setValue("priority", value)}
-            options={priorityOptions}
-            allLabel="Todas las prioridades"
-          />
-          <FilterSelect
-            label="Edificio"
-            value={values.building}
-            onChange={(value) => setValue("building", value)}
-            options={buildingOptions}
-            allLabel="Todos los edificios"
-          />
-          <FilterSelect
-            label="Tratamiento como proyecto"
-            value={values.project}
-            onChange={(value) => setValue("project", value)}
-            options={[
-              { value: "yes", label: projectLabels.yes },
-              { value: "no", label: projectLabels.no },
-            ]}
-            allLabel="Proyectos y solicitudes"
-          />
-          <FilterSelect
-            label="Evidencias"
-            value={values.evidence}
-            onChange={(value) => setValue("evidence", value)}
-            options={[
-              { value: "with", label: evidenceLabels.with },
-              { value: "without", label: evidenceLabels.without },
-            ]}
-            allLabel="Con o sin evidencias"
-          />
-          <FilterDate
-            label="Reportada desde"
-            value={values.from}
-            max={values.to || undefined}
-            onChange={(value) => setValue("from", value)}
-          />
-          <FilterDate
-            label="Reportada hasta"
-            value={values.to}
-            min={values.from || undefined}
-            onChange={(value) => setValue("to", value)}
-          />
-        </ListFilterPanel>
+      {/* BÚSQUEDA Y FILTROS COMPACTOS */}
+      <div style={{ background: "#FFFFFF", border: "1px solid #000000", padding: "16px", marginBottom: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", marginBottom: "12px", alignItems: "center" }}>
+          <div style={{ position: "relative" }}>
+            <MagnifyingGlass size={18} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#666666" }} />
+            <input
+              type="text"
+              value={values.q}
+              onChange={(e) => { setValue("q", e.target.value); setCurrentPage(1); }}
+              placeholder="Buscar por código, solicitante, bien, ubicación o requerimiento..."
+              style={{
+                width: "100%",
+                padding: "9px 12px 9px 38px",
+                border: "1px solid #000000",
+                fontSize: "13px",
+                background: "#FAFAFA",
+                fontFamily: "system-ui, sans-serif"
+              }}
+            />
+          </div>
 
-        <div className="table-scroll">
-          <table>
+          <button
+            type="button"
+            onClick={() => { clearFilters(); setCurrentPage(1); }}
+            style={{
+              padding: "9px 14px",
+              border: "1px solid #000000",
+              background: "#FFFFFF",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            Limpiar filtros
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px" }}>
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", marginBottom: "3px" }}>Estado</label>
+            <select
+              value={values.status}
+              onChange={(e) => { setValue("status", e.target.value); setCurrentPage(1); }}
+              style={{ width: "100%", padding: "7px 8px", border: "1px solid #CCCCCC", fontSize: "12.5px" }}
+            >
+              <option value="">Todos los estados</option>
+              {statusOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", marginBottom: "3px" }}>Prioridad</label>
+            <select
+              value={values.priority}
+              onChange={(e) => { setValue("priority", e.target.value); setCurrentPage(1); }}
+              style={{ width: "100%", padding: "7px 8px", border: "1px solid #CCCCCC", fontSize: "12.5px" }}
+            >
+              <option value="">Todas las prioridades</option>
+              {priorityOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", marginBottom: "3px" }}>Tipo de Solicitud</label>
+            <select
+              value={values.type}
+              onChange={(e) => { setValue("type", e.target.value); setCurrentPage(1); }}
+              style={{ width: "100%", padding: "7px 8px", border: "1px solid #CCCCCC", fontSize: "12.5px" }}
+            >
+              <option value="">Todos los tipos</option>
+              {typeOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", marginBottom: "3px" }}>Ubicación / Edificio</label>
+            <select
+              value={values.building}
+              onChange={(e) => { setValue("building", e.target.value); setCurrentPage(1); }}
+              style={{ width: "100%", padding: "7px 8px", border: "1px solid #CCCCCC", fontSize: "12.5px" }}
+            >
+              <option value="">Todos los edificios</option>
+              {buildingOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", marginBottom: "3px" }}>Reportada Desde</label>
+            <input
+              type="date"
+              value={values.from}
+              onChange={(e) => { setValue("from", e.target.value); setCurrentPage(1); }}
+              style={{ width: "100%", padding: "6.5px 8px", border: "1px solid #CCCCCC", fontSize: "12.5px" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", marginBottom: "3px" }}>Reportada Hasta</label>
+            <input
+              type="date"
+              value={values.to}
+              onChange={(e) => { setValue("to", e.target.value); setCurrentPage(1); }}
+              style={{ width: "100%", padding: "6.5px 8px", border: "1px solid #CCCCCC", fontSize: "12.5px" }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* TABLA PRINCIPAL ESTRUCTURADA */}
+      <div className="incidents-table-container">
+        <div className="incidents-table-scroll">
+          <table className="incidents-table">
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Usuario</th>
-                <th>Solicitud</th>
-                <th>Ubicación</th>
-                <th>Prioridad</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>
-                  <span className="sr-only">Acciones</span>
-                </th>
+                <th style={{ width: "120px" }}>Código</th>
+                <th style={{ minWidth: "220px" }}>Solicitud</th>
+                <th style={{ minWidth: "160px" }}>Usuario</th>
+                <th style={{ minWidth: "150px" }}>Ubicación</th>
+                <th style={{ width: "110px" }}>Prioridad</th>
+                <th style={{ width: "110px" }}>Fecha</th>
+                <th style={{ width: "140px" }}>Estado</th>
+                <th style={{ width: "210px", textAlign: "right" }}>Acciones</th>
               </tr>
             </thead>
-
             <tbody>
-              {requests.map((request) => (
-                <tr key={request.id}>
+              {paginatedRequests.map((req) => (
+                <tr key={req.id} style={{ cursor: "pointer" }} onClick={() => setSelectedRequest(req)}>
                   <td>
-                    <Link to={`/incidencias/${request.id}`}><strong>{request.code}</strong></Link>
+                    <strong style={{ fontFamily: "monospace", fontSize: "13px" }}>{req.code}</strong>
                   </td>
-                  <td>{request.requesterName}</td>
                   <td>
-                    <strong>{requestTypeLabels[request.requestType]}</strong>
-                    <br />
-                    <small>{request.description}</small>
-                    {getWorkRequestAssetDisplayCode(request) && (
-                      <><br /><small>Bien: {getWorkRequestAssetDisplayCode(request)}</small></>
+                    <div style={{ fontWeight: 700, color: "#000000" }}>
+                      {requestTypeLabels[req.requestType] || req.requestType}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#444444", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "260px" }}>
+                      {req.description}
+                    </div>
+                    {getWorkRequestAssetDisplayCode(req) && (
+                      <div style={{ fontSize: "11px", color: "#666666" }}>
+                        Bien: {getWorkRequestAssetDisplayCode(req)}
+                      </div>
                     )}
                   </td>
                   <td>
-                    {request.building}
-                    <br />
-                    <small>
-                      {request.area} / {request.room}
-                    </small>
-                  </td>
-                  <td>{requestPriorityLabels[request.requesterPriority]}</td>
-                  <td>
-                    {new Intl.DateTimeFormat("es-PE", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    }).format(new Date(request.reportedAt))}
+                    <div style={{ fontWeight: 600 }}>{req.requesterName}</div>
+                    {req.requesterEmail && (
+                      <div style={{ fontSize: "11px", color: "#666666" }}>{req.requesterEmail}</div>
+                    )}
                   </td>
                   <td>
-                    <span className={`status ${statusClass[request.status]}`}>
-                      {requestStatusLabels[request.status]}
+                    <div style={{ fontWeight: 600 }}>{req.building || "—"}</div>
+                    <div style={{ fontSize: "11.5px", color: "#555555" }}>
+                      {[req.area, req.room].filter(Boolean).join(" / ") || "—"}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={`badge-priority ${getPriorityBadgeClass(req.requesterPriority)}`}>
+                      {requestPriorityLabels[req.requesterPriority] || req.requesterPriority}
                     </span>
                   </td>
                   <td>
-                    <Link className="table-action" to={`/incidencias/${request.id}`}>
-                      Ver detalle
-                    </Link>
+                    <span style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
+                      {new Intl.DateTimeFormat("es-PE", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      }).format(new Date(req.reportedAt))}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge-status ${getStatusBadgeClass(req.status)}`}>
+                      {requestStatusLabels[req.status] || req.status}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
+                    <div className="action-btn-group" style={{ justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        className="action-btn-icon"
+                        onClick={() => setSelectedRequest(req)}
+                        title="Ver detalle"
+                      >
+                        <Eye size={14} /> Detalle
+                      </button>
+
+                      <button
+                        type="button"
+                        className="action-btn-icon"
+                        onClick={(e) => handleQuickDownload(req, e)}
+                        title="Generar PDF"
+                      >
+                        <FilePdf size={14} /> PDF
+                      </button>
+
+                      <button
+                        type="button"
+                        className="action-btn-icon"
+                        onClick={(e) => handleQuickPrint(req, e)}
+                        title="Imprimir"
+                      >
+                        <Printer size={14} /> Imprimir
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
 
-              {!requests.length && (
+              {!paginatedRequests.length && (
                 <tr>
-                  <td colSpan={8} className="empty-row">
-                    No encontramos solicitudes con esos criterios.
+                  <td colSpan={8} style={{ padding: "30px", textAlign: "center", color: "#666666", fontSize: "13.5px" }}>
+                    No se encontraron solicitudes que coincidan con los criterios seleccionados.
                   </td>
                 </tr>
               )}
@@ -442,53 +400,206 @@ export function IncidentListPage() {
           </table>
         </div>
 
-        <div
-          className="operational-mobile-list hidden max-[720px]:grid gap-2 p-3"
-          aria-label="Solicitudes de trabajo"
-        >
-          {requests.map((request) => (
-            <Link
-              key={request.id}
-              to={`/incidencias/${request.id}`}
-              className="grid min-h-11 gap-3 rounded border border-slate-300 bg-white p-4 text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
-            >
-              <span className="flex items-start justify-between gap-3">
-                <strong className="text-sm">{request.code}</strong>
-                <span className={`status ${statusClass[request.status]}`}>
-                  {requestStatusLabels[request.status]}
-                </span>
-              </span>
-              <span className="grid gap-1">
-                <strong className="text-sm">{requestTypeLabels[request.requestType]}</strong>
-                <small className="line-clamp-2 text-xs text-slate-600">{request.description}</small>
-                {getWorkRequestAssetDisplayCode(request) && (
-                  <small className="text-xs text-slate-600">Bien: {getWorkRequestAssetDisplayCode(request)}</small>
-                )}
-              </span>
-              <span className="grid grid-cols-2 gap-3 text-xs text-slate-600">
-                <span>
-                  <strong className="block text-slate-800">Ubicación</strong>
-                  {request.building} / {request.room}
-                </span>
-                <span>
-                  <strong className="block text-slate-800">Prioridad</strong>
-                  {requestPriorityLabels[request.requesterPriority]}
-                </span>
-              </span>
-              <span className="flex min-h-11 items-center justify-end gap-1 text-sm font-semibold text-zinc-800">
-                Ver detalle
-                <CaretRight size={18} aria-hidden="true" />
-              </span>
-            </Link>
-          ))}
+        {/* PAGINACIÓN ESTRUCTURADA */}
+        <div className="pagination-container">
+          <div>
+            Mostrando <strong>{paginatedRequests.length ? (currentPage - 1) * pageSize + 1 : 0}</strong> a{" "}
+            <strong>{Math.min(currentPage * pageSize, filteredRequests.length)}</strong> de{" "}
+            <strong>{filteredRequests.length}</strong> solicitudes
+          </div>
 
-          {!requests.length && (
-            <p className="empty-row rounded border border-slate-300 bg-white">
-              No encontramos solicitudes con esos criterios.
-            </p>
-          )}
+          <div className="pagination-controls">
+            <label style={{ fontSize: "12px", marginRight: "8px" }}>
+              Mostrar:
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                style={{ marginLeft: "4px", padding: "2px 6px", border: "1px solid #CCCCCC" }}
+              >
+                <option value={10}>10 por página</option>
+                <option value={20}>20 por página</option>
+                <option value={50}>50 por página</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage <= 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+            >
+              <CaretLeft size={12} style={{ display: "inline" }} /> Anterior
+            </button>
+
+            <span style={{ fontWeight: 700, padding: "0 6px" }}>
+              Página {currentPage} de {totalPages}
+            </span>
+
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+            >
+              Siguiente <CaretRight size={12} style={{ display: "inline" }} />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* MODAL DOCUMENTAL DE DETALLE DE SOLICITUD */}
+      {selectedRequest && (
+        <div 
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "20px"
+          }}
+          onClick={() => setSelectedRequest(null)}
+        >
+          <div 
+            style={{
+              background: "#FFFFFF",
+              border: "2px solid #000000",
+              width: "100%",
+              maxWidth: "800px",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ background: "#000000", color: "#FFFFFF", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ fontFamily: "Times New Roman, serif", fontSize: "16px", fontWeight: "bold", margin: 0 }}>
+                DETALLE OFICIAL DE SOLICITUD DE TRABAJO — {selectedRequest.code}
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setSelectedRequest(null)}
+                style={{ background: "transparent", border: "none", color: "#FFFFFF", cursor: "pointer" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: "24px", overflowY: "auto", flex: 1, fontSize: "13px" }}>
+              <div style={{ borderBottom: "1.5px solid #000000", paddingBottom: "10px", marginBottom: "16px", display: "flex", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#666666", textTransform: "uppercase" }}>SOLICITANTE</div>
+                  <div style={{ fontSize: "15px", fontWeight: "bold" }}>{selectedRequest.requesterName}</div>
+                  <div style={{ fontSize: "12px", color: "#555555" }}>{selectedRequest.requesterEmail || "Sin correo"}</div>
+                </div>
+
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#666666", textTransform: "uppercase" }}>ESTADO & PRIORIDAD</div>
+                  <div style={{ marginTop: "4px", display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                    <span className={`badge-status ${getStatusBadgeClass(selectedRequest.status)}`}>
+                      {requestStatusLabels[selectedRequest.status] || selectedRequest.status}
+                    </span>
+                    <span className={`badge-priority ${getPriorityBadgeClass(selectedRequest.requesterPriority)}`}>
+                      {requestPriorityLabels[selectedRequest.requesterPriority] || selectedRequest.requesterPriority}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px", background: "#FAFAFA", border: "1px solid #E2E8F0", padding: "12px" }}>
+                <div><strong>Tipo de Solicitud:</strong> {requestTypeLabels[selectedRequest.requestType] || selectedRequest.requestType}</div>
+                <div><strong>Fecha de Registro:</strong> {new Date(selectedRequest.reportedAt).toLocaleString("es-PE")}</div>
+                <div><strong>Edificio / Sector:</strong> {selectedRequest.building || "—"}</div>
+                <div><strong>Ambiente / Área:</strong> {[selectedRequest.area, selectedRequest.room].filter(Boolean).join(" / ") || "—"}</div>
+              </div>
+
+              {selectedRequest.assetName || selectedRequest.assetCode ? (
+                <div style={{ border: "1px solid #000000", padding: "12px", marginBottom: "16px" }}>
+                  <div style={{ fontWeight: "bold", textTransform: "uppercase", fontSize: "12px", borderBottom: "1px solid #000", paddingBottom: "4px", marginBottom: "8px" }}>
+                    BIEN / ACTIVO AFECTADO
+                  </div>
+                  <div><strong>Nombre del Bien:</strong> {selectedRequest.assetName || "Bien no especificado"}</div>
+                  {selectedRequest.assetCode && <div><strong>Identificador Técnico:</strong> <code>{selectedRequest.assetCode}</code></div>}
+                </div>
+              ) : null}
+
+              <div style={{ marginBottom: "16px" }}>
+                <div style={{ fontWeight: "bold", textTransform: "uppercase", fontSize: "12px", borderBottom: "1px solid #000", paddingBottom: "4px", marginBottom: "8px" }}>
+                  DESCRIPCIÓN DEL REQUERIMIENTO
+                </div>
+                <p style={{ background: "#FFFFFF", border: "1px solid #CCCCCC", padding: "10px", lineHeight: "1.5" }}>
+                  {selectedRequest.description}
+                </p>
+                {selectedRequest.observations && (
+                  <p style={{ marginTop: "6px", fontSize: "12px", color: "#555555" }}>
+                    <strong>Observaciones:</strong> {selectedRequest.observations}
+                  </p>
+                )}
+              </div>
+
+              {selectedRequest.photoUrl && (
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ fontWeight: "bold", textTransform: "uppercase", fontSize: "12px", borderBottom: "1px solid #000", paddingBottom: "4px", marginBottom: "8px" }}>
+                    EVIDENCIA FOTOGRÁFICA
+                  </div>
+                  <div style={{ border: "1px solid #CCCCCC", padding: "8px", textAlign: "center", background: "#FAFAFA" }}>
+                    <img 
+                      src={selectedRequest.photoUrl} 
+                      alt="Evidencia fotográfica" 
+                      style={{ maxHeight: "200px", margin: "0 auto", objectFit: "contain" }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: "#FAFAFA", borderTop: "1px solid #000000", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  type="button"
+                  className="action-btn-icon"
+                  onClick={() => handleQuickDownload(selectedRequest)}
+                >
+                  <FilePdf size={16} /> Descargar PDF
+                </button>
+                <button
+                  type="button"
+                  className="action-btn-icon"
+                  onClick={() => handleQuickPrint(selectedRequest)}
+                >
+                  <Printer size={16} /> Imprimir
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                {user?.role === "ADMINISTRADOR" && selectedRequest.status === "PENDIENTE" && (
+                  <Link
+                    to={`/ordenes-trabajo/nueva/${selectedRequest.id}`}
+                    className="action-btn-icon"
+                    style={{ background: "#000000", color: "#FFFFFF" }}
+                  >
+                    Convertir en OT <ArrowRight size={14} />
+                  </Link>
+                )}
+
+                <button
+                  type="button"
+                  className="action-btn-icon"
+                  onClick={() => setSelectedRequest(null)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
