@@ -487,7 +487,7 @@ export function MaintenanceDashboardPage() {
 
 export function DashboardPage() {
   const { user } = useAuth();
-  if (user?.role === "SOLICITANTE") return <UserDashboardPage />;
+  if (user?.role === "USUARIO") return <UserDashboardPage />;
   if (user?.role === "SUPERVISOR") return <SupervisorWorkOrderReviewPage />;
   if (user?.role === "ALMACENERO") return <AlmaceneroDashboardPage />;
   if (user?.role === "INSPECTOR") return <InspectorDashboardPage />;

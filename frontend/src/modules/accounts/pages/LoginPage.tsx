@@ -24,7 +24,7 @@ export function LoginPage() {
       const loggedUser = await login({ workerCode: workerCode.trim(), password });
       let defaultPath = "/";
       if (loggedUser.role === "SUPERVISOR") defaultPath = "/supervision";
-      if (loggedUser.role === "SOLICITANTE") defaultPath = "/mi-perfil";
+      if (loggedUser.role === "USUARIO") defaultPath = "/mi-perfil";
       navigate((location.state as { from?: string } | null)?.from ?? defaultPath, {
         replace: true,
       });

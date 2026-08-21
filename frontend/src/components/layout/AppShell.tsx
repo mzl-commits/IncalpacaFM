@@ -72,16 +72,16 @@ const modules: ModuleGroup[] = [
     shortLabel: "OTs",
     icon: Wrench,
     paths: ["/", "/incidencias", "/ordenes-trabajo", "/mi-jornada", "/mantenimiento"],
-    roles: ["ADMINISTRADOR", "TECNICO", "SOLICITANTE", "SUPERVISOR"],
+    roles: ["ADMINISTRADOR", "TECNICO", "USUARIO", "SUPERVISOR"],
     items: [
       { to: "/incidencias", label: "Bandeja de reportes", icon: ListChecks, end: true, roles: ["ADMINISTRADOR", "TECNICO"] },
       { to: "/mantenimiento/panel", label: "Panel operativo", icon: SquaresFour, roles: ["ADMINISTRADOR", "TECNICO"] },
       { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: Toolbox, roles: ["ADMINISTRADOR", "TECNICO"] },
       { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
       
-      { to: "/", label: "Inicio", icon: House, end: true, roles: ["SOLICITANTE"] },
-      { to: "/incidencias/nueva", label: "Nueva solicitud", icon: WarningDiamond, roles: ["SOLICITANTE"] },
-      { to: "/incidencias", label: "Mis solicitudes", icon: ListChecks, roles: ["SOLICITANTE"] },
+      { to: "/", label: "Inicio", icon: House, end: true, roles: ["USUARIO"] },
+      { to: "/incidencias/nueva", label: "Nueva solicitud", icon: WarningDiamond, roles: ["USUARIO"] },
+      { to: "/incidencias", label: "Mis solicitudes", icon: ListChecks, roles: ["USUARIO"] },
       
       { to: "/", label: "Inicio", icon: SquaresFour, end: true, roles: ["SUPERVISOR"] },
     ],
@@ -264,11 +264,11 @@ export function AppShell() {
 
   const [baseRouteSection, baseRouteTitle] = getRouteContext(location.pathname);
   const [routeSection, routeTitle] =
-    user?.role === "SOLICITANTE" && location.pathname.startsWith("/incidencias/nueva")
+    user?.role === "USUARIO" && location.pathname.startsWith("/incidencias/nueva")
       ? ["Solicitudes", "Nueva solicitud"]
-      : user?.role === "SOLICITANTE" && location.pathname.startsWith("/incidencias")
+      : user?.role === "USUARIO" && location.pathname.startsWith("/incidencias")
         ? ["Solicitudes", "Mis solicitudes"]
-        : user?.role === "SOLICITANTE"
+        : user?.role === "USUARIO"
           ? ["Solicitante", "Inicio"]
           : [baseRouteSection, baseRouteTitle];
   const [liveCounts, setLiveCounts] = useState<MenuCounts>({});
@@ -316,7 +316,7 @@ export function AppShell() {
           ? "Almacenero"
           : user?.role === "INSPECTOR"
             ? "Inspector"
-            : user?.role === "SOLICITANTE"
+            : user?.role === "USUARIO"
               ? "Usuario"
               : "Administrador / Planner";
   const initials =
@@ -380,13 +380,13 @@ export function AppShell() {
 
   return (
     <div className="app-frame-overlay">
-      {user?.role === "TECNICO" || user?.role === "SOLICITANTE" ? (
+      {user?.role === "TECNICO" || user?.role === "USUARIO" ? (
         <aside className="technician-sidebar" aria-label="Navegación del técnico">
           <div className="technician-sidebar-brand">
             <BrandLogo size={36} variant="light" />
-            <span><strong>FM Incalpaca</strong><small>{user.role === "SOLICITANTE" ? "Mis solicitudes" : "Mi trabajo"}</small></span>
+            <span><strong>FM Incalpaca</strong><small>{user.role === "USUARIO" ? "Mis solicitudes" : "Mi trabajo"}</small></span>
           </div>
-          <nav className="technician-sidebar-nav" aria-label={user.role === "SOLICITANTE" ? "Mis solicitudes" : "Mi trabajo"}>
+          <nav className="technician-sidebar-nav" aria-label={user.role === "USUARIO" ? "Mis solicitudes" : "Mi trabajo"}>
             {technicianNavigation.map(({ to, label, icon: Icon, end, count }) => (
               <NavLink key={to} to={to} end={end} className={({ isActive }) => `technician-sidebar-link ${isActive ? "is-active" : ""}`}>
                 <Icon size={20} weight="duotone" /><span>{label}</span>{count !== undefined && <small>{count}</small>}
@@ -394,7 +394,7 @@ export function AppShell() {
             ))}
           </nav>
           <NavLink to="/perfil" className="technician-sidebar-profile">
-            <span>{initials}</span><div><strong>{user.fullName}</strong><small>{user.role === "SOLICITANTE" ? "Usuario" : "Técnico"}</small></div>
+            <span>{initials}</span><div><strong>{user.fullName}</strong><small>{user.role === "USUARIO" ? "Usuario" : "Técnico"}</small></div>
           </NavLink>
           <button className="technician-sidebar-logout" type="button" onClick={logout}><SignOut size={18} />Cerrar sesión</button>
         </aside>
@@ -542,7 +542,7 @@ export function AppShell() {
       </dialog>
 
       {/* MAIN CONTENT FRAME: Starts immediately after rail (margin-left: 92px) */}
-      <div className={`content-frame-overlay ${user?.role === "TECNICO" || user?.role === "SOLICITANTE" ? "is-technician" : user?.role === "SUPERVISOR" ? "is-supervisor-rail" : ""}`}>
+      <div className={`content-frame-overlay ${user?.role === "TECNICO" || user?.role === "USUARIO" ? "is-technician" : user?.role === "SUPERVISOR" ? "is-supervisor-rail" : ""}`}>
         <header className="topbar">
           <div className="topbar-context">
             <SquaresFour size={22} weight="duotone" />

@@ -1,5 +1,5 @@
 export const USER_ROLES = [
-  "SOLICITANTE",
+  "USUARIO",
   "ADMINISTRADOR",
   "TECNICO",
   "SUPERVISOR",

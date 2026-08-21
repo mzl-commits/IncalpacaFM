@@ -16,7 +16,7 @@ export function RoleRoute({
   if (!user) return <Navigate to="/login" replace />;
 
   if (!allowedRoles.includes(user.role)) {
-    if (user.role === "SOLICITANTE") return <Navigate to="/" replace />;
+    if (user.role === "USUARIO") return <Navigate to="/" replace />;
     return (
       <section className="access-denied-page" role="alert">
         <ShieldWarning size={42} weight="duotone" />
