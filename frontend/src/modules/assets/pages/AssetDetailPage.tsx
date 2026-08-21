@@ -388,27 +388,63 @@ export function AssetDetailPage() {
       </div>
       
       {printModalOpen && (
-        <dialog open className="dialog-modal">
-          <div className="dialog-content" style={{ maxWidth: 450 }}>
-            <header className="dialog-header">
-              <h2>Seleccione el tipo de reporte</h2>
-            </header>
-            <div className="dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 20px' }}>
-              <button className="button button-secondary" onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "asignacion"); }} style={{ justifyContent: 'flex-start' }}>
-                <Printer /> Ficha de Asignación (Responsables y firmas)
-              </button>
-              <button className="button button-secondary" onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "entrada"); }} style={{ justifyContent: 'flex-start' }}>
-                <Printer /> Ficha de Entrada (Costos y adquisición)
-              </button>
-              <button className="button button-primary" onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "completo"); }} style={{ justifyContent: 'flex-start' }}>
-                <Printer /> Ficha Detallada (Completa)
+        <div className="print-modal-overlay" onClick={() => setPrintModalOpen(false)}>
+          <div className="print-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="print-modal-header">
+              <div className="print-modal-title-group">
+                <Printer size={20} weight="duotone" />
+                <div>
+                  <h2>Imprimir ficha del bien</h2>
+                  <p>Elige el tipo de reporte a generar en PDF</p>
+                </div>
+              </div>
+              <button className="print-modal-close" type="button" onClick={() => setPrintModalOpen(false)} aria-label="Cerrar">
+                ✕
               </button>
             </div>
-            <footer className="dialog-footer" style={{ padding: '12px 20px', borderTop: '1px solid #e5e5e5', display: 'flex', justifyContent: 'flex-end' }}>
+            <div className="print-modal-body">
+              <button
+                className="print-modal-option"
+                onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "asignacion"); }}
+              >
+                <div className="print-modal-option-icon">
+                  <Printer size={18} />
+                </div>
+                <div className="print-modal-option-text">
+                  <strong>Ficha de Asignación</strong>
+                  <span>Responsables, ubicación, motivo y firmas</span>
+                </div>
+              </button>
+              <button
+                className="print-modal-option"
+                onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "entrada"); }}
+              >
+                <div className="print-modal-option-icon">
+                  <Printer size={18} />
+                </div>
+                <div className="print-modal-option-text">
+                  <strong>Ficha de Entrada</strong>
+                  <span>Fecha de compra, costo y centro de costo</span>
+                </div>
+              </button>
+              <button
+                className="print-modal-option print-modal-option--featured"
+                onClick={() => { setPrintModalOpen(false); void printAssetPdf(asset.id, "print", user?.fullName, "completo"); }}
+              >
+                <div className="print-modal-option-icon">
+                  <Printer size={18} />
+                </div>
+                <div className="print-modal-option-text">
+                  <strong>Ficha Detallada</strong>
+                  <span>Información completa del bien</span>
+                </div>
+              </button>
+            </div>
+            <div className="print-modal-footer">
               <button className="button button-secondary" onClick={() => setPrintModalOpen(false)}>Cancelar</button>
-            </footer>
+            </div>
           </div>
-        </dialog>
+        </div>
       )}
       {user?.role === "ADMINISTRADOR" && (!asset.fm_code || !asset.taxonomy_detail) && (
         <section className="asset-classification-callout">
