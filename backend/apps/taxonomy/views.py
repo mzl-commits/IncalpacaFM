@@ -362,3 +362,124 @@ class FMCodeSummaryView(APIView):
                 ),
             }
         )
+
+
+import hashlib
+
+class TaxonomyTreeView(APIView):
+    permission_classes = [IsAdministrator]
+
+    def get(self, request):
+        taxonomies = Asset.objects.select_related('taxonomy').values(
+            'taxonomy__id',
+            'taxonomy__prefix',
+            'taxonomy__name',
+            'taxonomy__asset_type',
+            'taxonomy__category',
+            'taxonomy__subcategory',
+            'taxonomy__is_active'
+        ).distinct()
+        
+        # If no assets, fallback to all taxonomies
+        from apps.assets.models import Taxonomy
+        all_taxonomies = Taxonomy.objects.all()
+
+        families = {}
+
+        def get_hash(text):
+            return hashlib.md5((text or "").encode('utf-8')).hexdigest()
+
+        for tax in all_taxonomies:
+            fam_name = tax.asset_type or "Sin Familia"
+            fam_id = get_hash("fam_" + fam_name)
+            if fam_id not in families:
+                families[fam_id] = {
+                    "id": fam_id,
+                    "code": fam_name[:4].upper(),
+                    "name": fam_name,
+                    "active": True,
+                    "types_dict": {}
+                }
+
+            type_name = tax.category or "Sin Tipo"
+            type_id = get_hash("typ_" + fam_name + "_" + type_name)
+            if type_id not in families[fam_id]["types_dict"]:
+                families[fam_id]["types_dict"][type_id] = {
+                    "id": type_id,
+                    "prefix": tax.prefix or "",
+                    "type_code": type_name[:4].upper(),
+                    "name": type_name,
+                    "asset_count": 0,
+                    "active": True,
+                    "parts_dict": {}
+                }
+
+            part_name = tax.subcategory or "Sin Parte"
+            part_id = get_hash("prt_" + fam_name + "_" + type_name + "_" + part_name)
+            if part_id not in families[fam_id]["types_dict"][type_id]["parts_dict"]:
+                families[fam_id]["types_dict"][type_id]["parts_dict"][part_id] = {
+                    "id": part_id,
+                    "part_code": part_name[:4].upper(),
+                    "name": part_name,
+                    "active": True,
+                    "pieces_dict": {}
+                }
+
+            piece_name = tax.name or "Sin Pieza"
+            piece_id = str(tax.id)
+            if piece_id not in families[fam_id]["types_dict"][type_id]["parts_dict"][part_id]["pieces_dict"]:
+                families[fam_id]["types_dict"][type_id]["parts_dict"][part_id]["pieces_dict"][piece_id] = {
+                    "id": piece_id,
+                    "piece_code": piece_name[:4].upper(),
+                    "name": piece_name,
+                    "active": getattr(tax, 'is_active', True)
+                }
+
+        # Convert dicts to lists
+        result = []
+        for fam in families.values():
+            fam["types"] = []
+            for typ in fam["types_dict"].values():
+                typ["parts"] = []
+                for prt in typ["parts_dict"].values():
+                    prt["pieces"] = list(prt["pieces_dict"].values())
+                    del prt["pieces_dict"]
+                    typ["parts"].append(prt)
+                del typ["parts_dict"]
+                fam["types"].append(typ)
+            del fam["types_dict"]
+            result.append(fam)
+
+        return Response(result)
+
+
+
+import uuid
+
+class TaxonomyFamilyView(APIView):
+    permission_classes = [IsAdministrator]
+    def post(self, request):
+        return Response({"id": str(uuid.uuid4())})
+    def patch(self, request, pk):
+        return Response({"id": pk})
+
+class TaxonomyTypeView(APIView):
+    permission_classes = [IsAdministrator]
+    def post(self, request):
+        return Response({"id": str(uuid.uuid4())})
+    def patch(self, request, pk):
+        return Response({"id": pk})
+
+class TaxonomyPartView(APIView):
+    permission_classes = [IsAdministrator]
+    def post(self, request):
+        return Response({"id": str(uuid.uuid4())})
+    def patch(self, request, pk):
+        return Response({"id": pk})
+
+class TaxonomyPieceView(APIView):
+    permission_classes = [IsAdministrator]
+    def post(self, request):
+        return Response({"id": str(uuid.uuid4())})
+    def patch(self, request, pk):
+        return Response({"id": pk})
