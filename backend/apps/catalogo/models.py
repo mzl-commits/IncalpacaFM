@@ -5,6 +5,12 @@ class Almacen(models.Model):
     codigo = models.CharField(max_length=20, unique=True)
     ubicacion = models.CharField(max_length=200, blank=True)
     activo = models.BooleanField(default=True)
+    croquis = models.ImageField(
+        upload_to="croquis/",
+        blank=True,
+        null=True,
+        help_text="Plano/croquis del almacén, editable por Almacenero y Administrador.",
+    )
 
     class Meta:
         ordering = ["nombre"]
@@ -13,6 +19,116 @@ class Almacen(models.Model):
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
     
+
+class UnidadMedida(models.Model):
+    """Catálogo editable de unidades de medida (mm, cm, m, in, kg, etc.).
+
+    'factor_a_base' convierte 1 unidad de esta fila a la unidad de referencia
+    de su 'familia' (ej. familia 'longitud' usa mm como referencia interna).
+    Esto permite convertir entre cualquier par de unidades de la misma
+    familia (ej. cm <-> m para materiales tipo Rollo) sin tablas de conversión
+    manuales por par.
+    """
+
+    FAMILIA_CHOICES = [
+        ("longitud", "Longitud"),
+        ("peso", "Peso"),
+        ("volumen", "Volumen"),
+        ("otro", "Otro"),
+    ]
+
+    codigo = models.SlugField(
+        max_length=20, unique=True,
+        help_text="Identificador interno estable (ej. 'cm'). No se muestra al usuario.",
+    )
+    nombre = models.CharField(max_length=50, help_text="Ej. 'Centímetros'.")
+    abreviatura = models.CharField(max_length=10, help_text="Ej. 'cm'.")
+    familia = models.CharField(
+        max_length=10, choices=FAMILIA_CHOICES, default="otro",
+        help_text="Solo se puede convertir entre unidades de la misma familia.",
+    )
+    factor_a_base = models.DecimalField(
+        max_digits=14, decimal_places=6, default=1,
+        help_text="Cuántas unidades de referencia de la familia equivalen a 1 de esta unidad.",
+    )
+    activo = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Unidad de medida"
+        verbose_name_plural = "Unidades de medida"
+        ordering = ["familia", "orden", "nombre"]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.abreviatura})"
+
+
+class TipoManejoStock(models.Model):
+    """Catálogo editable de formas de manejar el stock de un material
+    (Por Unidad, Por Caja/Paquete, Por Rollo, Por Kit/Juego, etc.)."""
+
+    codigo = models.SlugField(
+        max_length=20, unique=True,
+        help_text="Identificador interno estable (ej. 'rollo'). No se muestra al usuario.",
+    )
+    nombre = models.CharField(max_length=50, help_text="Ej. 'Por Rollo'.")
+    requiere_multiplicador = models.BooleanField(
+        default=False,
+        help_text="Si está activo, al crear el material se debe indicar cuántas unidades "
+                   "trae cada empaque (caja, bolsa, kit, docena, etc.).",
+    )
+    permite_conversion_unidad = models.BooleanField(
+        default=False,
+        help_text="Si está activo, el material guarda su stock en una unidad base fija "
+                   "(ej. cm) y en cada movimiento se puede elegir otra unidad compatible "
+                   "(ej. m) para registrar la salida/entrada; se convierte automáticamente.",
+    )
+    activo = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Tipo de manejo de stock"
+        verbose_name_plural = "Tipos de manejo de stock"
+        ordering = ["orden", "nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoMedidaCatalogo(models.Model):
+    """Catálogo editable de tipos de medida dimensional que puede tener un
+    material (Largo, Diámetro, Ancho, Alto, Espesor, Calibre, etc.).
+
+    Un mismo material puede tener varias medidas de distinto tipo a la vez
+    (ej. un tubo con Diámetro y Largo), pero no dos del mismo tipo (ver
+    unique_together en MaterialMedida).
+    """
+
+    codigo = models.SlugField(
+        max_length=20, unique=True,
+        help_text="Identificador interno estable (ej. 'diametro'). No se muestra al usuario.",
+    )
+    nombre = models.CharField(max_length=50, help_text="Ej. 'Diámetro'.")
+    activo = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Tipo de medida"
+        verbose_name_plural = "Tipos de medida"
+        ordering = ["orden", "nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+def _default_unidad_medida():
+    return UnidadMedida.objects.filter(codigo="mm").values_list("pk", flat=True).first()
+
+
+def _default_tipo_manejo_stock():
+    return TipoManejoStock.objects.filter(codigo="unidad").values_list("pk", flat=True).first()
+
+
 class Categoria(models.Model):
     almacen = models.ForeignKey(
         Almacen,
@@ -73,9 +189,9 @@ class MaterialQuerySet(models.QuerySet):
             activo=True,
             es_componente=False,
             subcategoria__activo=True,
+            subcategoria__plantilla_inspeccion__isnull=False,
             subcategoria__categoria__activo=True,
             subcategoria__categoria__requiere_inspeccion=True,
-            subcategoria__plantilla_inspeccion__isnull=False,
         )
     
 class Material(models.Model):
@@ -83,36 +199,6 @@ class Material(models.Model):
         ("retornable", "Retornable"),
         ("no_retornable", "No retornable"),
     ]
-
-    UNIDAD_MEDIDA_CHOICES = [
-        ("mm", "Milímetros"),
-        ("cm", "Centímetros"),
-        ("in", "Pulgadas"),
-        ("ft", "Pies"),
-    ]
-
-    UNIDAD_MANEJO_CHOICES = [
-        ("Unidad",         "Por Unidad"),
-        ("Paquete",        "Por Paquete"),
-        ("Bolsa",          "Por Bolsa"),
-        ("Blister",        "Por Blíster"),
-        ("Rollo",          "Por Rollo"),
-        ("Docena",         "Por Docena"),
-        ("Millar",         "Por Millar"),
-        ("Litro",          "Por Litro"),
-        ("Mililitro",      "Por Mililitro"),
-        ("Galon",          "Por Galón"),
-        ("Bidon",          "Por Bidón"),
-        ("Kilogramo",      "Por Kilogramo"),
-        ("Gramo",          "Por Gramo"),
-        ("Libra",          "Por Libra"),
-        ("Metro",          "Por Metro"),
-        ("Centimetro",     "Por Centímetro"),
-        ("Milimetro",      "Por Milímetro"),
-        ("MetroCuadrado",  "Por Metro Cuadrado"),
-        ("MetroCubico",    "Por Metro Cúbico"),
-    ]
-
 
     subcategoria = models.ForeignKey(
         Subcategoria, on_delete=models.PROTECT, related_name="materiales"
@@ -128,7 +214,7 @@ class Material(models.Model):
         max_length=50,
         blank=True,
         verbose_name="Código QUIPU",
-        help_text="Código de referencia manual del sistema QUIPU (opcional).",
+        help_text="Código de referencia del sistema QUIPU (opcional).",
     )
     marca = models.CharField(max_length=100, blank=True)
     modelo = models.CharField(
@@ -142,20 +228,6 @@ class Material(models.Model):
         null=True,
         help_text="Foto representativa del material (ej. foto genérica de un tornillo, "
                    "o del modelo de taladro antes de generar sus piezas)."
-    )
-    unidad_medida = models.CharField(
-        max_length=4,
-        choices=UNIDAD_MEDIDA_CHOICES,
-        default="mm",
-        help_text="Unidad usada para grosor y largo.",
-    )
-    grosor = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True,
-        help_text="Grosor/diámetro, si aplica (ej. brocas, pernos)."
-    )
-    largo = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True,
-        help_text="Largo, si aplica (ej. brocas, pernos)."
     )
     ubicacion_fisica = models.CharField(
         max_length=100, blank=True,
@@ -174,34 +246,38 @@ class Material(models.Model):
         max_length=3, choices=MONEDA_CHOICES, blank=True, default="PEN",
         help_text="Moneda en la que está expresado el precio."
     )
-    CLASIFICACION_OPERATIVA_CHOICES = [
-        ("CONSUMIBLE", "Consumible (genera costo)"),
-        ("HERRAMIENTA", "Herramienta reutilizable (solo uso)"),
-        ("EPP", "Equipo de protección personal (solo uso)"),
-    ]
-
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
-    clasificacion_operativa = models.CharField(
-        max_length=16,
-        choices=CLASIFICACION_OPERATIVA_CHOICES,
-        default="CONSUMIBLE",
-        help_text="Define el tratamiento en una OT. Solo los consumibles generan costos; herramientas y EPP quedan registrados como uso operativo.",
-    )
     control_individual = models.BooleanField(default=False)
 
     # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).
     cantidad_total = models.PositiveIntegerField(default=0)
+    stock_minimo = models.PositiveIntegerField(
+        default=0,
+        help_text="Si el stock cae a este nivel o por debajo se genera una notificación. 0 = desactivado.",
+    )
 
     # Solo aplica a consumibles (control_individual=False). Indica si el stock
     # de este material se maneja contando unidades sueltas o cajas cerradas.
     # cantidad_total SIEMPRE queda expresado en unidades, sin importar el modo.
-    unidad_manejo = models.CharField(
-        max_length=13, choices=UNIDAD_MANEJO_CHOICES, default="unidad",
-        help_text="Cómo se cuenta el stock de este consumible: por unidad suelta o por empaque (caja, bolsa, saco, millar, etc.).",
+    unidad_manejo = models.ForeignKey(
+        TipoManejoStock,
+        on_delete=models.PROTECT,
+        related_name="materiales",
+        default=_default_tipo_manejo_stock,
+        help_text="Cómo se cuenta el stock de este consumible: por unidad suelta, por empaque "
+                   "(caja, bolsa, kit, millar, etc.) o por rollo con conversión de unidad.",
     )
     unidades_por_caja = models.PositiveIntegerField(
         null=True, blank=True,
-        help_text="Cuántas unidades trae cada empaque. Requerido si unidad_manejo no es 'unidad'.",
+        help_text="Cuántas unidades trae cada empaque. Requerido si unidad_manejo.requiere_multiplicador.",
+    )
+    unidad_movimiento_base = models.ForeignKey(
+        UnidadMedida,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name="materiales_base_movimiento",
+        help_text="Unidad en la que se guarda internamente el stock (ej. 'cm' para un Rollo). "
+                   "Solo aplica si unidad_manejo.permite_conversion_unidad.",
     )
 
     activo = models.BooleanField(default=True)
@@ -248,11 +324,19 @@ class Material(models.Model):
     def save(self, *args, **kwargs):
         if not self.pk:
             self.activo = True
-        # El manejo por caja solo tiene sentido para consumibles sin control
-        # individual; para el resto, se normaliza a "unidad" sin múltiplo.
-        if self.control_individual or self.unidad_manejo != "caja":
-            self.unidad_manejo = "unidad" if self.control_individual else self.unidad_manejo
+        if self.control_individual:
+            # El manejo por empaque/rollo solo tiene sentido para consumibles
+            # sin control individual; para piezas individuales se normaliza a
+            # "unidad" sin múltiplo ni conversión.
+            if not (self.unidad_manejo_id and self.unidad_manejo.codigo == "unidad"):
+                self.unidad_manejo_id = _default_tipo_manejo_stock()
             self.unidades_por_caja = None
+            self.unidad_movimiento_base = None
+        else:
+            if not (self.unidad_manejo_id and self.unidad_manejo.requiere_multiplicador):
+                self.unidades_por_caja = None
+            if not (self.unidad_manejo_id and self.unidad_manejo.permite_conversion_unidad):
+                self.unidad_movimiento_base = None
         if not self.codigo:
             if self.es_componente:
                 from apps.catalogo.services import generar_codigo_material_componente
@@ -276,6 +360,39 @@ class Material(models.Model):
             ).exclude(estado="Baja").exclude(padre__estado="Baja").count()
             total = directas + hijas_en_estuches
             Material.objects.filter(pk=self.pk).update(cantidad_total=total)
+
+class MaterialMedida(models.Model):
+    """Una medida dimensional puntual de un material (ej. Diámetro: 12.5 mm,
+    Largo: 2 m). Un material puede tener varias, una por cada tipo distinto
+    (ver unique_together). Reemplaza los antiguos campos fijos grosor/largo
+    con unidad única compartida."""
+
+    material = models.ForeignKey(
+        Material,
+        on_delete=models.CASCADE,
+        related_name="medidas",
+    )
+    tipo = models.ForeignKey(
+        TipoMedidaCatalogo,
+        on_delete=models.PROTECT,
+        related_name="medidas_material",
+    )
+    valor = models.DecimalField(max_digits=8, decimal_places=2)
+    unidad_medida = models.ForeignKey(
+        UnidadMedida,
+        on_delete=models.PROTECT,
+        related_name="medidas_material",
+    )
+
+    class Meta:
+        verbose_name = "Medida de material"
+        verbose_name_plural = "Medidas de material"
+        unique_together = ("material", "tipo")
+        ordering = ["tipo__orden", "tipo__nombre"]
+
+    def __str__(self):
+        return f"{self.tipo.nombre}: {self.valor} {self.unidad_medida.abreviatura}"
+
 
 class Pieza(models.Model):
     ESTADO_CHOICES = [

@@ -1,5 +1,4 @@
 import mimetypes
-from decimal import Decimal
 
 import hashlib
 from django.core.files.base import ContentFile
@@ -9,12 +8,12 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
-from rest_framework import generics, response, views
+from rest_framework import generics, permissions, response, views
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
 from apps.accounts.models import AccountProfile
-from apps.accounts.permissions import IsAdministrator, IsWorkOrderParticipant, user_role
+from apps.accounts.permissions import IsAdministrator, IsAdministratorOrSupervisor, IsWorkOrderParticipant, user_role
 
 from .models import ReportTemplate, WorkOrder, WorkOrderCost, WorkOrderMaterial, WorkOrderPhoto, WorkOrderReport
 from .reporting import build_work_order_pdf
@@ -48,10 +47,8 @@ def participant_queryset(request):
 
 
 class WorkOrderListCreateView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = WorkOrderSerializer
-
-    def get_permissions(self):
-        return [IsAdministrator()] if self.request.method == "POST" else [IsWorkOrderParticipant()]
 
     def get_queryset(self):
         return participant_queryset(self.request)
@@ -63,6 +60,43 @@ class WorkOrderDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return participant_queryset(self.request)
+
+
+class WorkOrderPlanningUpdateView(views.APIView):
+    """Actualiza los datos de planificación de una OT desde su ficha."""
+
+    permission_classes = [IsAdministratorOrSupervisor]
+
+    def patch(self, request, pk):
+        order = get_object_or_404(participant_queryset(request), pk=pk)
+        if order.status in {WorkOrder.Status.CLOSED, WorkOrder.Status.CANCELLED}:
+            return response.Response({"detail": "No se puede editar una orden cerrada o cancelada."}, status=400)
+
+        allowed = {"specialty", "adminPriority", "status", "scheduledDate", "scheduledStartTime", "plannedHours", "administratorNotes", "operatorId", "supervisorId"}
+        payload = {key: value for key, value in request.data.items() if key in allowed}
+        serializer = WorkOrderSerializer(order, data=payload, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        # El estado es controlado aquí porque el serializer ordinario lo expone solo en lectura.
+        if "status" in payload:
+            valid_statuses = {choice[0] for choice in WorkOrder.Status.choices}
+            if payload["status"] not in valid_statuses:
+                return response.Response({"status": "Estado no válido."}, status=400)
+            order.status = payload["status"]
+
+        users = get_user_model().objects.select_related("account_profile")
+        for field, role, payload_key in (("technician", AccountProfile.Role.TECHNICIAN, "operatorId"), ("supervisor", AccountProfile.Role.SUPERVISOR, "supervisorId")):
+            if payload_key not in payload:
+                continue
+            person = get_object_or_404(users, account_profile__id=payload[payload_key], account_profile__role=role, is_active=True)
+            setattr(order, field, person)
+
+        for field in ("specialty", "admin_priority", "scheduled_date", "scheduled_start_time", "planned_hours", "administrator_notes"):
+            if field in validated:
+                setattr(order, field, validated[field])
+        order.save()
+        return response.Response(WorkOrderSerializer(order, context={"request": request}).data)
 
 
 class WorkOrderQuickAssignView(views.APIView):
@@ -158,7 +192,9 @@ class WorkOrderPhotoView(views.APIView):
     def get(self, request, pk, stage):
         normalized_stage = {
             "inicio": WorkOrderPhoto.Stage.START,
+            "start": WorkOrderPhoto.Stage.START,
             "final": WorkOrderPhoto.Stage.FINISH,
+            "finish": WorkOrderPhoto.Stage.FINISH,
         }.get(stage.lower())
         if not normalized_stage:
             from rest_framework.exceptions import NotFound
@@ -191,7 +227,7 @@ class WorkOrderCostListCreateView(generics.ListCreateAPIView):
 
 
 class WorkOrderReportView(APIView):
-    permission_classes = [IsWorkOrderParticipant]
+    permission_classes = [IsAdministrator]
 
     def get_order(self, pk):
         return get_object_or_404(
@@ -223,7 +259,7 @@ class WorkOrderReportView(APIView):
 
 
 class WorkOrderReportDownloadView(APIView):
-    permission_classes = [IsWorkOrderParticipant]
+    permission_classes = [IsAdministrator]
 
     @extend_schema(responses={(200, "application/pdf"): OpenApiTypes.BINARY})
     def get(self, request, pk, report_id):
@@ -235,14 +271,25 @@ class ReportTemplateListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = ReportTemplateSerializer
     queryset = ReportTemplate.objects.all()
+
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        is_default = serializer.validated_data.get("is_default", False)
+        if is_default:
+            ReportTemplate.objects.update(is_default=False)
+        user = self.request.user if self.request.user and self.request.user.is_authenticated else None
+        serializer.save(created_by=user)
 
 
 class ReportTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = ReportTemplateSerializer
     queryset = ReportTemplate.objects.all()
+
+    def perform_update(self, serializer):
+        is_default = serializer.validated_data.get("is_default", False)
+        if is_default:
+            ReportTemplate.objects.exclude(id=serializer.instance.id).update(is_default=False)
+        serializer.save()
 
 
 class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
@@ -267,9 +314,6 @@ class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
-    def perform_create(self, serializer):
-        from .material_costs import sync_material_costs
-        order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
         if order.status == WorkOrder.Status.CLOSED:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("No se pueden agregar materiales a una OT cerrada.")
@@ -278,11 +322,9 @@ class WorkOrderMaterialListCreateView(generics.ListCreateAPIView):
             material=serializer.validated_data["material"],
             cantidad=serializer.validated_data["cantidad"],
             tipo=serializer.validated_data["tipo"],
-            precio_unitario=serializer.validated_data.get("precio_unitario"),
             porcentaje_requerido=serializer.validated_data.get("porcentaje_requerido"),
             registrado_por=self.request.user,
         )
-        sync_material_costs(order, actor=self.request.user)
         return instance
 
     def create(self, request, *args, **kwargs):
@@ -311,10 +353,9 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
         return WorkOrderMaterialSerializer
 
     def get_queryset(self):
-        order = get_object_or_404(participant_queryset(self.request), pk=self.kwargs["pk"])
         return WorkOrderMaterial.objects.select_related(
             "work_order", "material", "registrado_por"
-        ).filter(work_order=order)
+        )
 
     def _check_not_closed(self, instance):
         if instance.work_order.status == WorkOrder.Status.CLOSED:
@@ -322,7 +363,6 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise PermissionDenied("No se puede modificar un material de una OT cerrada.")
 
     def update(self, request, *args, **kwargs):
-        from .material_costs import sync_material_costs
         instance = self.get_object()
         self._check_not_closed(instance)
         serializer = self.get_serializer(data=request.data, partial=True)
@@ -331,21 +371,15 @@ class WorkOrderMaterialDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.material = data.get("material", instance.material)
         instance.cantidad = data.get("cantidad", instance.cantidad)
         instance.tipo = data.get("tipo", instance.tipo)
-        if "precio_unitario" in data:
-            instance.precio_unitario = data["precio_unitario"]
         if "porcentaje_requerido" in data:
             instance.porcentaje_requerido = data["porcentaje_requerido"]
         instance.save()
-        sync_material_costs(instance.work_order, actor=request.user)
         return response.Response(WorkOrderMaterialSerializer(instance).data)
 
     def destroy(self, request, *args, **kwargs):
-        from .material_costs import sync_material_costs
         instance = self.get_object()
         self._check_not_closed(instance)
-        order = instance.work_order
         instance.delete()
-        sync_material_costs(order, actor=request.user)
         from rest_framework import status as http_status
         return response.Response(status=http_status.HTTP_204_NO_CONTENT)
 
@@ -360,11 +394,10 @@ class WorkOrderMaterialMarkBlockingView(views.APIView):
     @extend_schema(request=None, responses={200: WorkOrderMaterialSerializer})
     def post(self, request, pk, material_id):
         from apps.notifications.services import queue_for_administrators
-        order = get_object_or_404(participant_queryset(request), pk=pk)
         instance = get_object_or_404(
             WorkOrderMaterial.objects.select_related("work_order", "material", "registrado_por"),
             pk=material_id,
-            work_order_id=order.id,
+            work_order_id=pk,
         )
         if instance.work_order.status == WorkOrder.Status.CLOSED:
             from rest_framework.exceptions import PermissionDenied
@@ -446,18 +479,39 @@ class WorkOrderMaterialMarkAcquiredView(views.APIView):
 
 class WorkOrderCostAutocompletarView(views.APIView):
     """
-    POST: genera/sincroniza WorkOrderCost de categoría MATERIAL
+    POST: genera WorkOrderCost de categoría MATERIAL
     para cada WorkOrderMaterial de tipo USADO en la OT.
-    Idempotente: actualiza montos y elimina si cambió la clasificación.
+    Idempotente: no duplica si ya existe un costo con la misma descripción + categoría MATERIAL.
     """
     permission_classes = [IsAdministrator]
 
-    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT, 201: OpenApiTypes.OBJECT})
+    @extend_schema(request=None, responses={200: WorkOrderCostSerializer(many=True), 201: WorkOrderCostSerializer(many=True)})
     def post(self, request, pk):
-        from .material_costs import sync_material_costs
         order = get_object_or_404(WorkOrder, pk=pk)
-        result = sync_material_costs(order, actor=request.user)
-        return response.Response(result, status=201 if result["created"] else 200)
+        materiales_usados = order.materiales_usados.filter(
+            tipo=WorkOrderMaterial.Tipo.USADO
+        ).select_related("material")
+        created = []
+        for uso in materiales_usados:
+            # idempotencia: evitar duplicados por nombre
+            existe = order.cost_items.filter(
+                category=WorkOrderCost.Category.MATERIAL,
+                description=uso.material.nombre,
+            ).exists()
+            if not existe:
+                cost = WorkOrderCost.objects.create(
+                    work_order=order,
+                    category=WorkOrderCost.Category.MATERIAL,
+                    description=uso.material.nombre,
+                    amount=uso.material.precio,  # puede ser None
+                    created_by=request.user,
+                )
+                created.append(cost)
+        all_costs = order.cost_items.all()
+        return response.Response(
+            WorkOrderCostSerializer(all_costs, many=True).data,
+            status=201 if created else 200,
+        )
 
 
 class WorkOrderCostDetailView(generics.RetrieveUpdateDestroyAPIView):

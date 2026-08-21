@@ -2,6 +2,7 @@ import { ArrowLeft, Check, CheckCircle, WarningCircle, XCircle } from "@phosphor
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
   aprobarTodosGrupoSolicitud,
   getGrupoSolicitud,
@@ -10,6 +11,7 @@ import {
 } from "@/modules/almacen/inventarioRepository";
 
 export function SolicitudGrupoDetailPage() {
+  const { almacenId } = useAlmacenActivo();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -157,7 +159,7 @@ export function SolicitudGrupoDetailPage() {
           <WarningCircle size={20} />
           <span>No se encontró el grupo de solicitudes especificado.</span>
         </div>
-        <Link to="/almacen/movimientos" className="button button-secondary" style={{ marginTop: 16 }}>
+        <Link to={`/almacen/${almacenId}/movimientos`} className="button button-secondary" style={{ marginTop: 16 }}>
           <ArrowLeft size={16} /> Volver a movimientos
         </Link>
       </section>
@@ -171,7 +173,7 @@ export function SolicitudGrupoDetailPage() {
       <div className="page-heading">
         <div>
           <p className="breadcrumb">
-            <Link to="/almacen/movimientos">Movimientos</Link> / Solicitud de Grupo #{grupo.id}
+            <Link to={`/almacen/${almacenId}/movimientos`}>Movimientos</Link> / Solicitud de Grupo #{grupo.id}
           </p>
           <h1>Solicitud de salida #{grupo.id}</h1>
           <p>
@@ -180,7 +182,7 @@ export function SolicitudGrupoDetailPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <Link to="/almacen/movimientos" className="button button-secondary">
+          <Link to={`/almacen/${almacenId}/movimientos`} className="button button-secondary">
             <ArrowLeft size={16} /> Volver
           </Link>
         </div>

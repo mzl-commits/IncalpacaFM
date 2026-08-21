@@ -15,9 +15,4 @@ class Migration(migrations.Migration):
             name='tipo_control',
             field=models.CharField(choices=[('retornable', 'Retornable'), ('no_retornable', 'No retornable')], max_length=15),
         ),
-        migrations.AlterField(
-            model_name='material',
-            name='unidad_manejo',
-            field=models.CharField(choices=[('Unidad', 'Por Unidad'), ('Paquete', 'Por Paquete'), ('Bolsa', 'Por Bolsa'), ('Blister', 'Por Blíster'), ('Rollo', 'Por Rollo'), ('Docena', 'Por Docena'), ('Millar', 'Por Millar'), ('Litro', 'Por Litro'), ('Mililitro', 'Por Mililitro'), ('Galon', 'Por Galón'), ('Bidon', 'Por Bidón'), ('Kilogramo', 'Por Kilogramo'), ('Gramo', 'Por Gramo'), ('Libra', 'Por Libra'), ('Metro', 'Por Metro'), ('Centimetro', 'Por Centímetro'), ('Milimetro', 'Por Milímetro'), ('MetroCuadrado', 'Por Metro Cuadrado'), ('MetroCubico', 'Por Metro Cúbico')], default='unidad', help_text='Cómo se cuenta el stock de este consumible: por unidad suelta o por empaque (caja, bolsa, saco, millar, etc.).', max_length=13),
-        ),
     ]

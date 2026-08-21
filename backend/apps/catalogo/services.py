@@ -1,8 +1,6 @@
+from apps.catalogo.models import Pieza, Material
 import random
 import string
-
-from apps.catalogo.models import Material, Pieza
-
 
 def generar_codigo_material(categoria):
     largo_prefijo = len(categoria.prefijo)
@@ -14,7 +12,10 @@ def generar_codigo_material(categoria):
         .order_by("-codigo")
         .first()
     )
-    numero = int(ultimo.codigo[largo_prefijo:]) + 1 if ultimo else 1
+    if ultimo:
+        numero = int(ultimo.codigo[largo_prefijo:]) + 1
+    else:
+        numero = 1
     return f"{categoria.prefijo}{numero:04d}"
 
 def generar_codigo_pieza():

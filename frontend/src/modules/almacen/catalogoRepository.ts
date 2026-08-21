@@ -8,8 +8,98 @@ import type {
   PiezaBase,
   AltaPiezasSueltasPayload,
   Almacen,
+  UnidadMedidaCatalogo,
+  TipoManejoStockCatalogo,
+  TipoMedidaCatalogo,
 } from "./types";
- 
+
+// Unidades de medida
+
+export async function listUnidadesMedida(): Promise<UnidadMedidaCatalogo[]> {
+  const { data } = await api.get<UnidadMedidaCatalogo[]>("/unidades-medida/");
+  return data;
+}
+
+export async function createUnidadMedida(
+  payload: Omit<UnidadMedidaCatalogo, "id">,
+): Promise<UnidadMedidaCatalogo> {
+  const { data } = await api.post<UnidadMedidaCatalogo>("/unidades-medida/", payload);
+  return data;
+}
+
+export async function updateUnidadMedida(
+  id: number,
+  payload: Partial<Omit<UnidadMedidaCatalogo, "id">>,
+): Promise<UnidadMedidaCatalogo> {
+  const { data } = await api.patch<UnidadMedidaCatalogo>(
+    `/unidades-medida/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteUnidadMedida(id: number): Promise<void> {
+  await api.delete(`/unidades-medida/${id}/`);
+}
+
+// Tipos de manejo de stock
+
+export async function listTiposManejoStock(): Promise<TipoManejoStockCatalogo[]> {
+  const { data } = await api.get<TipoManejoStockCatalogo[]>("/tipos-manejo-stock/");
+  return data;
+}
+
+export async function createTipoManejoStock(
+  payload: Omit<TipoManejoStockCatalogo, "id">,
+): Promise<TipoManejoStockCatalogo> {
+  const { data } = await api.post<TipoManejoStockCatalogo>(
+    "/tipos-manejo-stock/",
+    payload,
+  );
+  return data;
+}
+
+export async function updateTipoManejoStock(
+  id: number,
+  payload: Partial<Omit<TipoManejoStockCatalogo, "id">>,
+): Promise<TipoManejoStockCatalogo> {
+  const { data } = await api.patch<TipoManejoStockCatalogo>(
+    `/tipos-manejo-stock/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteTipoManejoStock(id: number): Promise<void> {
+  await api.delete(`/tipos-manejo-stock/${id}/`);
+}
+
+// Tipos de medida (Largo, Diámetro, Ancho, Alto, Espesor, Calibre, etc.)
+
+export async function listTiposMedida(): Promise<TipoMedidaCatalogo[]> {
+  const { data } = await api.get<TipoMedidaCatalogo[]>("/tipos-medida/");
+  return data;
+}
+
+export async function createTipoMedida(
+  payload: Omit<TipoMedidaCatalogo, "id">,
+): Promise<TipoMedidaCatalogo> {
+  const { data } = await api.post<TipoMedidaCatalogo>("/tipos-medida/", payload);
+  return data;
+}
+
+export async function updateTipoMedida(
+  id: number,
+  payload: Partial<Omit<TipoMedidaCatalogo, "id">>,
+): Promise<TipoMedidaCatalogo> {
+  const { data } = await api.patch<TipoMedidaCatalogo>(`/tipos-medida/${id}/`, payload);
+  return data;
+}
+
+export async function deleteTipoMedida(id: number): Promise<void> {
+  await api.delete(`/tipos-medida/${id}/`);
+}
+
 // ─── Categorías ───────────────────────────────────────────────────────────────
  
 export async function listCategorias(almacenId: number): Promise<Categoria[]> {
@@ -133,19 +223,35 @@ function sanitizeMaterialPayload<T extends Partial<MaterialCreatePayload>>(paylo
   const valorFinal = num !== null && Number.isFinite(num) ? num : null;
   return { ...payload, unidades_por_caja: valorFinal };
 }
- 
+
+/**
+ * Arma el FormData para crear/editar un material con foto. "medidas" es un
+ * array de objetos (MaterialMedida[]) — form.append(k, String(v)) lo
+ * convertiría en basura tipo "[object Object],[object Object]", así que va
+ * aparte como JSON. El backend (MaterialSerializer.to_internal_value) debe
+ * parsear ese string de vuelta a lista antes de validar.
+ */
+function buildMaterialFormData(clean: Partial<MaterialCreatePayload>, foto: File): FormData {
+  const form = new FormData();
+  (Object.entries(clean) as [string, unknown][]).forEach(([k, v]) => {
+    if (v === null || v === undefined) return;
+    if (k === "medidas") {
+      form.append("medidas", JSON.stringify(v));
+    } else {
+      form.append(k, String(v));
+    }
+  });
+  form.append("foto", foto);
+  return form;
+}
+
 export async function createMaterial(
   payload: MaterialCreatePayload,
   foto?: File | null,
 ): Promise<Material> {
   const clean = sanitizeMaterialPayload(payload);
   if (foto) {
-    // multipart/form-data cuando hay foto
-    const form = new FormData();
-    Object.entries(clean).forEach(([k, v]) => {
-      if (v !== null && v !== undefined) form.append(k, String(v));
-    });
-    form.append("foto", foto);
+    const form = buildMaterialFormData(clean, foto);
     const { data } = await api.post<Material>("/materiales/", form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -162,11 +268,7 @@ export async function updateMaterial(
 ): Promise<Material> {
   const clean = sanitizeMaterialPayload(payload);
   if (foto) {
-    const form = new FormData();
-    Object.entries(clean).forEach(([k, v]) => {
-      if (v !== null && v !== undefined) form.append(k, String(v));
-    });
-    form.append("foto", foto);
+    const form = buildMaterialFormData(clean, foto);
     const { data } = await api.patch<Material>(`/materiales/${id}/`, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -335,6 +437,7 @@ export interface UpdatePiezaPayload {
  * "detalle" (nombre/nota personalizada de esa unidad específica).
  * El backend acepta este campo vía PATCH en /piezas/{id}/.
  */
+
 export async function updatePieza(
   id: number,
   payload: UpdatePiezaPayload,
@@ -358,4 +461,63 @@ export async function updateAlmacen(
 
 export async function deleteAlmacen(id: number): Promise<void> {
   await api.delete(`/almacenes/${id}/`);
+}
+
+export async function getAlmacen(id: number): Promise<Almacen> {
+  const { data } = await api.get<Almacen>(`/almacenes/${id}/`);
+  return data;
+}
+
+export async function updateAlmacenCroquis(id: number, formData: FormData): Promise<Almacen> {
+  const { data } = await api.patch<Almacen>(`/almacenes/${id}/`, formData);
+  return data;
+}
+
+export async function eliminarAlmacenCroquis(id: number): Promise<Almacen> {
+  // No existe una sub-ruta /almacenes/{id}/croquis/ en el backend (solo
+  // almacen-detail). Igual que updateAlmacenCroquis, se usa PATCH sobre
+  // el detalle del almacén, mandando croquis en null para limpiarlo.
+  const { data } = await api.patch<Almacen>(`/almacenes/${id}/`, { croquis: null });
+  return data;
+}
+
+// ─── Historial de inspecciones de un material ─────────────────────────────────
+
+/**
+ * Descarga un archivo protegido por auth. window.open() no sirve: es una
+ * navegación del navegador que no lleva el header Authorization del
+ * interceptor de axios, así que el backend responde 401. En su lugar
+ * pedimos el archivo como blob (que sí manda el token) y disparamos la
+ * descarga nosotros mismos. Mismo patrón que inspeccionRepository.ts.
+ */
+async function descargarArchivo(url: string, nombrePorDefecto: string): Promise<void> {
+  const response = await api.get(url, { responseType: "blob" });
+  const disposition = response.headers?.["content-disposition"] as string | undefined;
+  const match = disposition?.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? nombrePorDefecto;
+
+  const blobUrl = window.URL.createObjectURL(response.data as Blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
+}
+
+/** Descarga el Excel con el historial completo de inspecciones de un material. */
+export function exportarHistorialInspeccionesExcel(materialId: number, materialCodigo: string): Promise<void> {
+  return descargarArchivo(
+    `/materiales/${materialId}/historial-inspecciones-excel/`,
+    `historial-inspecciones-${materialCodigo}.xlsx`,
+  );
+}
+
+/** Descarga el PDF con el historial completo de inspecciones de un material. */
+export function exportarHistorialInspeccionesPdf(materialId: number, materialCodigo: string): Promise<void> {
+  return descargarArchivo(
+    `/materiales/${materialId}/historial-inspecciones-pdf/`,
+    `historial-inspecciones-${materialCodigo}.pdf`,
+  );
 }

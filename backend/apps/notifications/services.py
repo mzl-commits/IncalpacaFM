@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+from django.db.models import Q
 
 from apps.accounts.models import AccountProfile
 
@@ -94,12 +95,16 @@ def _dispatch_async(notification_id):
         # The outbox remains pending and is visible for a later retry.
         return
 
-
 def queue_for_roles(
     *, event, roles, subject, body, entity=None, context=None, discriminator='',
-    delivery_channel=Notification.DeliveryChannel.BOTH,
+    delivery_channel=Notification.DeliveryChannel.BOTH, almacen=None,
 ):
     """Encola una notificación para todos los usuarios activos de los roles dados.
+
+    Si `almacen` viene dado, los roles con alcance de almacén (Almacenero,
+    Inspector) solo reciben la notificación si su account_profile.almacen
+    coincide — Administrador nunca se filtra por almacén, igual que en
+    AlmacenScopedMixin.
 
     Si el canal es BOTH pero el usuario no tiene email, degrada a SYSTEM para
     que al menos reciba la notificación en la bandeja interna.
@@ -109,6 +114,12 @@ def queue_for_roles(
         account_profile__active=True,
         account_profile__role__in=roles,
     )
+    if almacen is not None:
+        almacen_id = almacen.pk if hasattr(almacen, "pk") else almacen
+        users = users.filter(
+            Q(account_profile__role=AccountProfile.Role.ADMIN)
+            | Q(account_profile__almacen_id=almacen_id)
+        )
     result = []
     for user in users:
         # Si el canal requiere email pero el usuario no lo tiene, degrada a SISTEMA

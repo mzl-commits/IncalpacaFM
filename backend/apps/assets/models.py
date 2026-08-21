@@ -26,59 +26,29 @@ class UUIDModel(models.Model):
         abstract = True
 
 
-class TaxonomyFamily(UUIDModel):
-    code = models.CharField(
-        max_length=10,
-        unique=True,
-        validators=[
-            RegexValidator(
-                regex=r'^[A-Z0-9]+$',
-                message='El código de la familia debe usar solo A-Z y 0-9.',
-            )
-        ],
-    )
-    name = models.CharField(max_length=160)
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ('code', 'name')
-        verbose_name_plural = 'Taxonomy families'
-
-    def __str__(self):
-        return f'{self.code} - {self.name}'
-
-
 class Taxonomy(UUIDModel):
     class ReviewStatus(models.TextChoices):
         VALIDATED = 'VALIDATED', 'Validada'
         REVIEW = 'REVIEW', 'Revisar'
 
-    family = models.ForeignKey(TaxonomyFamily, related_name='types', on_delete=models.PROTECT, null=True)
-    type_code = models.CharField(
-        max_length=10,
-        blank=True,
-        null=True,
-        validators=[
-            RegexValidator(
-                regex=r'^[A-Z0-9]+$',
-                message='El código de tipo debe usar solo A-Z y 0-9.',
-            )
-        ],
-    )
     prefix = models.CharField(
-        max_length=24,
+        max_length=16,
         unique=True,
         null=True,
         blank=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z][A-Z0-9]{0,15}$',
+                message='El prefijo debe iniciar con una letra y usar solo A-Z y 0-9.',
+            )
+        ],
     )
     name = models.CharField(max_length=160, blank=True)
-    asset_type = models.CharField(max_length=100, blank=True)
-    category = models.CharField(max_length=100, blank=True)
-    subcategory = models.CharField(max_length=100, blank=True)
-    specialty = models.CharField(max_length=80, blank=True)
-    sequence_digits = models.PositiveSmallIntegerField(default=2)
+    asset_type = models.CharField(max_length=100)
+    category = models.CharField(max_length=100)
+    subcategory = models.CharField(max_length=100)
+    specialty = models.CharField(max_length=80)
+    sequence_digits = models.PositiveSmallIntegerField(default=4)
     default_criticality = models.CharField(max_length=20, default='Media')
     useful_life_years = models.PositiveSmallIntegerField(null=True, blank=True)
     preventive_frequency_months = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -100,22 +70,13 @@ class Taxonomy(UUIDModel):
         ordering = ('prefix', 'name')
         constraints = [
             models.CheckConstraint(
-                condition=Q(sequence_digits__gte=2, sequence_digits__lte=8),
+                condition=Q(sequence_digits__gte=3, sequence_digits__lte=8),
                 name='ck_taxonomy_sequence_digits',
             ),
-            models.UniqueConstraint(
-                fields=('family', 'type_code'),
-                name='uq_taxonomy_family_type',
-            )
         ]
 
     def save(self, *args, **kwargs):
-        if self.family and self.type_code:
-            self.type_code = self.type_code.strip().upper()
-            self.prefix = f"{self.family.code}-{self.type_code}"
-        elif self.prefix:
-            self.prefix = self.prefix.strip().upper()
-            
+        self.prefix = self.prefix.strip().upper() if self.prefix else None
         self.canonical_prefix = (
             self.canonical_prefix.strip().upper()
             if self.canonical_prefix
@@ -136,54 +97,6 @@ class TaxonomySequence(UUIDModel):
         return f'{self.taxonomy.prefix}: {self.last_value}'
 
 
-class TaxonomyPart(UUIDModel):
-    taxonomy = models.ForeignKey(Taxonomy, related_name='parts', on_delete=models.CASCADE)
-    part_code = models.CharField(
-        max_length=10,
-        validators=[
-            RegexValidator(
-                regex=r'^[A-Z0-9]+$',
-                message='El código debe usar solo A-Z y 0-9.',
-            )
-        ],
-    )
-    name = models.CharField(max_length=160)
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ('part_code', 'name')
-        unique_together = ('taxonomy', 'part_code')
-
-    def __str__(self):
-        return f'{self.part_code} - {self.name}'
-
-
-class TaxonomyPiece(UUIDModel):
-    part = models.ForeignKey(TaxonomyPart, related_name='pieces', on_delete=models.CASCADE)
-    piece_code = models.CharField(
-        max_length=10,
-        validators=[
-            RegexValidator(
-                regex=r'^[A-Z0-9]+$',
-                message='El código debe usar solo A-Z y 0-9.',
-            )
-        ],
-    )
-    name = models.CharField(max_length=160)
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ('piece_code', 'name')
-        unique_together = ('part', 'piece_code')
-
-    def __str__(self):
-        return f'{self.piece_code} - {self.name}'
-
-
 class AssetInternalSequence(UUIDModel):
     year = models.PositiveSmallIntegerField(unique=True)
     last_value = models.PositiveBigIntegerField(default=0)
@@ -194,15 +107,6 @@ class AssetInternalSequence(UUIDModel):
 
 
 class Location(UUIDModel):
-    # Puente opcional al árbol espacial administrable. Los registros históricos
-    # continúan funcionando aunque todavía no hayan sido conciliados.
-    space_node = models.OneToOneField(
-        "spaces.SpaceNode",
-        null=True,
-        blank=True,
-        related_name="legacy_location",
-        on_delete=models.PROTECT,
-    )
     location_code = models.CharField(max_length=20, blank=True, db_index=True)
     source_company = models.CharField(max_length=100, blank=True)
     source_row = models.PositiveIntegerField(null=True, blank=True)
@@ -224,6 +128,69 @@ class Location(UUIDModel):
     class Meta:
         constraints = [models.UniqueConstraint(fields=('site', 'zone', 'building', 'level', 'area', 'room', 'location_code'), name='uq_asset_location')]
 
+    @property
+    def full_assignment_code(self):
+        """Genera el Código de Taxonomía concatenado de 9 niveles:
+        Nivel 1 Sede → Nivel 2 Área Macro → Nivel 3 Área → Nivel 4 Módulo → Nivel 5 Tipo de bien → Nivel 6 Bien → Nivel 7 Característica → Nivel 8 Variante/Modelo → Nivel 9 SKU.
+        Ejemplo: INC1-AD-MKT-MT04-MOB-SE-BA-6A-SKU10
+        """
+        p = self.entry_payload or {}
+
+        # N1: Sede (ej: INC1)
+        n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1').upper()
+        # N2: Área Macro (ej: AD)
+        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'AD').upper()
+        # N3: Área (ej: MKT)
+        n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT').upper()
+        # N4: Módulo (ej: MT04)
+        n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04').upper()
+
+        if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
+            space_path = self.location.space_node.path_code
+            parts = space_path.split('-')
+            if len(parts) >= 4:
+                n1, n2, n3, n4 = parts[0], parts[1], parts[2], parts[3]
+            elif len(parts) == 3:
+                n1, n2, n3 = parts[0], parts[1], parts[2]
+            elif len(parts) == 2:
+                n1, n2 = parts[0], parts[1]
+
+        # N5: Tipo de bien / Familia Taxonómica (3 letras, ej: MOB)
+        fam_raw = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
+        fam_map = {
+            'MOBILIARIO': 'MOB',
+            'EQUIPOS DE CÓMPUTO': 'EQC',
+            'EQUIPOS DE COMPUTO': 'EQC',
+            'HERRAMIENTA ELÉCTRICA': 'HRE',
+            'HERRAMIENTA ELECTRICA': 'HRE',
+            'PERIFÉRICOS': 'PER',
+            'PERIFERICOS': 'PER',
+            'EQUIPOS FM': 'EQF',
+            'EQUIPO INDUSTRIAL': 'EQI',
+        }
+        n5 = fam_map.get(fam_raw.upper(), fam_raw[:3].upper() if len(fam_raw) >= 3 else 'MOB')
+
+        # N6: Bien / Tipo (ej: SE)
+        type_raw = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
+        n6 = type_raw.split('-')[0].strip().upper()[:3] if type_raw else 'SE'
+
+        # N7: Característica / Parte (ej: BA)
+        n7 = str(p.get('n7_code') or p.get('part_code') or 'BA').strip().upper()[:3]
+
+        # N8: Variante / Modelo / Pieza (ej: 6A o GA)
+        n8 = str(p.get('n8_code') or p.get('piece_code') or '6A').strip().upper()[:3]
+
+        # N9: SKU (Correlativo, ej: SKU10)
+        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_sequence_value or '10')
+        if '-' in raw_sku:
+            sku_num = raw_sku.split('-')[-1].strip()
+        else:
+            sku_num = raw_sku.replace('SKU', '').replace('sku', '').strip()
+
+        n9 = f"SKU{sku_num}" if sku_num else "SKU10"
+
+        return f"{n1}-{n2}-{n3}-{n4}-{n5}-{n6}-{n7}-{n8}-{n9}"
+
     def __str__(self):
         code = f'{self.location_code} · ' if self.location_code else ''
         return f'{code}{self.zone} / {self.building} / {self.area} / {self.room}'
@@ -232,16 +199,6 @@ class Location(UUIDModel):
 class BuildingArea(UUIDModel):
     """Superficie declarada para un edificio, independiente de sus ambientes."""
 
-    # Puente opcional al edificio del árbol espacial. Los registros históricos
-    # quedan sin enlazar hasta que un administrador los concilie de forma
-    # explícita; así un edificio nuevo nunca reescribe su superficie.
-    space_node = models.OneToOneField(
-        "spaces.SpaceNode",
-        null=True,
-        blank=True,
-        related_name="legacy_building_area",
-        on_delete=models.PROTECT,
-    )
     site = models.CharField(max_length=100, blank=True, default='')
     zone = models.CharField(max_length=100)
     building = models.CharField(max_length=100)
@@ -449,16 +406,19 @@ class Asset(UUIDModel):
 
     @property
     def full_assignment_code(self):
+        """Genera el Código de Taxonomía concatenado de 9 niveles:
+        Nivel 1 Sede → Nivel 2 Área Macro → Nivel 3 Área → Nivel 4 Módulo → Nivel 5 Tipo de bien → Nivel 6 Bien → Nivel 7 Característica → Nivel 8 Variante/Modelo → Nivel 9 SKU.
+        Ejemplo: INC1-AD-MKT-MT04-MOB-SE-BA-6A-SKU10
+        """
         p = self.entry_payload or {}
 
-        # 1. Si self.code ya es el código de trazabilidad completo asignado (ej: INC1-ADC-MKT-MT04-MOB-SE-BA-GA-SKU 10)
-        if self.code and self.code.startswith("INC1-") and "SKU" in self.code and self.code.count("INC1-") == 1:
-            return self.code
-
-        # 2. Extraer N1 a N4 (Ubicación Espacial)
+        # N1: Sede (ej: INC1)
         n1 = str(p.get('n1_code') or p.get('site_code') or 'INC1').upper()
-        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'ADC').upper()
+        # N2: Área Macro (ej: AD)
+        n2 = str(p.get('n2_code') or p.get('macro_area_code') or 'AD').upper()
+        # N3: Área (ej: MKT)
         n3 = str(p.get('n3_code') or p.get('area_code') or p.get('building_code') or 'MKT').upper()
+        # N4: Módulo (ej: MT04)
         n4 = str(p.get('n4_code') or p.get('room_code') or 'MT04').upper()
 
         if self.location_id and hasattr(self.location, 'space_node') and self.location.space_node:
@@ -471,7 +431,7 @@ class Asset(UUIDModel):
             elif len(parts) == 2:
                 n1, n2 = parts[0], parts[1]
 
-        # 3. Extraer N5 (Familia Taxonómica - 3 letras)
+        # N5: Tipo de bien / Familia Taxonómica (3 letras, ej: MOB)
         fam_raw = str(p.get('n5_code') or p.get('family_code') or (self.taxonomy.category if self.taxonomy else None) or 'MOB')
         fam_map = {
             'MOBILIARIO': 'MOB',
@@ -486,24 +446,24 @@ class Asset(UUIDModel):
         }
         n5 = fam_map.get(fam_raw.upper(), fam_raw[:3].upper() if len(fam_raw) >= 3 else 'MOB')
 
-        # 4. Extraer N6 (Tipo de Bien - 2 o 3 letras)
+        # N6: Bien / Tipo (ej: SE)
         type_raw = str(p.get('n6_code') or p.get('type_code') or (self.taxonomy.prefix if self.taxonomy else None) or 'SE')
         n6 = type_raw.split('-')[0].strip().upper()[:3] if type_raw else 'SE'
 
-        # 5. Extraer N7 (Parte - 2 letras)
+        # N7: Característica / Parte (ej: BA)
         n7 = str(p.get('n7_code') or p.get('part_code') or 'BA').strip().upper()[:3]
 
-        # 6. Extraer N8 (Pieza - 2 letras)
-        n8 = str(p.get('n8_code') or p.get('piece_code') or 'GA').strip().upper()[:3]
+        # N8: Variante / Modelo / Pieza (ej: 6A o GA)
+        n8 = str(p.get('n8_code') or p.get('piece_code') or '6A').strip().upper()[:3]
 
-        # 7. Extraer N9 (SKU Correlativo)
-        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_code or 'SKU 10')
+        # N9: SKU (Correlativo, ej: SKU10)
+        raw_sku = str(p.get('n9_code') or p.get('sku') or self.fm_sequence_value or '10')
         if '-' in raw_sku:
             sku_num = raw_sku.split('-')[-1].strip()
         else:
             sku_num = raw_sku.replace('SKU', '').replace('sku', '').strip()
 
-        n9 = f"SKU {sku_num}" if sku_num else "SKU 10"
+        n9 = f"SKU{sku_num}" if sku_num else "SKU10"
 
         return f"{n1}-{n2}-{n3}-{n4}-{n5}-{n6}-{n7}-{n8}-{n9}"
 

@@ -4,7 +4,7 @@ import logging
 import shutil
 import socket
 import ssl
-from datetime import UTC, datetime
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -12,6 +12,7 @@ from django.conf import settings
 from config.health import celery_probe, database_probe, redis_probe
 
 from .services import queue_for_administrators
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def _check_dependency(name: str, probe) -> None:
             f"HEALTH_{name.upper()}_UNAVAILABLE",
             f"Alerta operativa: {name} no disponible",
             f"La verificación automática no pudo confirmar la disponibilidad de {name}.",
-            f"{name}:{datetime.now(UTC):%Y%m%d%H}",
+            f"{name}:{datetime.now(dt_timezone.utc):%Y%m%d%H}",
         )
 
 
@@ -45,7 +46,7 @@ def _check_disk() -> None:
             "HEALTH_DISK_UNAVAILABLE",
             "Alerta operativa: almacenamiento no disponible",
             "No se pudo consultar el almacenamiento de evidencias y documentos.",
-            f"disk-unavailable:{datetime.now(UTC):%Y%m%d%H}",
+            f"disk-unavailable:{datetime.now(dt_timezone.utc):%Y%m%d%H}",
         )
         return
 
@@ -60,7 +61,7 @@ def _check_disk() -> None:
         "HEALTH_DISK_THRESHOLD",
         f"Alerta operativa: disco en nivel {severity}",
         f"El almacenamiento usado alcanza {used_percent}%. Revisa media, logs, backups y archivos temporales.",
-        f"disk:{severity}:{datetime.now(UTC):%Y%m%d%H}",
+        f"disk:{severity}:{datetime.now(dt_timezone.utc):%Y%m%d%H}",
     )
 
 
@@ -69,23 +70,21 @@ def _check_certificate() -> None:
         return
     try:
         context = ssl.create_default_context()
-        with (
-            socket.create_connection(
-                (settings.MONITORING_TLS_HOST, settings.MONITORING_TLS_PORT), timeout=5
-            ) as raw_socket,
-            context.wrap_socket(raw_socket, server_hostname=settings.MONITORING_TLS_HOST) as tls_socket,
-        ):
-            certificate = tls_socket.getpeercert()
+        with socket.create_connection(
+            (settings.MONITORING_TLS_HOST, settings.MONITORING_TLS_PORT), timeout=5
+        ) as raw_socket:
+            with context.wrap_socket(raw_socket, server_hostname=settings.MONITORING_TLS_HOST) as tls_socket:
+                certificate = tls_socket.getpeercert()
         expires_at = datetime.strptime(certificate["notAfter"], "%b %d %H:%M:%S %Y %Z").replace(
-            tzinfo=UTC
+            tzinfo=dt_timezone.utc
         )
-        remaining_days = (expires_at - datetime.now(UTC)).days
+        remaining_days = (expires_at - datetime.now(dt_timezone.utc)).days
     except Exception:
         _notify(
             "HEALTH_TLS_UNAVAILABLE",
             "Alerta operativa: no se pudo verificar TLS",
             "La verificación automática del certificado TLS no pudo completarse.",
-            f"tls-unavailable:{datetime.now(UTC):%Y%m%d%H}",
+            f"tls-unavailable:{datetime.now(dt_timezone.utc):%Y%m%d%H}",
         )
         return
 

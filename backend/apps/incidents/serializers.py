@@ -8,8 +8,8 @@ from apps.accounts.models import AccountProfile
 from apps.assets.models import Asset, Location, LocationMap
 from apps.audit.services import record_audit
 from apps.notifications.services import queue_for_administrators, queue_incident_requester
-from apps.organization.services import register_reporter
 from apps.privacy.services import record_privacy_event
+from apps.organization.services import register_reporter
 
 from .models import Incident
 from .services import build_tracking_url

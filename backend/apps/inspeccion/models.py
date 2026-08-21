@@ -1,6 +1,5 @@
-from django.conf import settings
 from django.db import models
-
+from django.conf import settings
 
 class PlantillaCriterio(models.Model):
     """Ej. 'Manuales', 'Eléctricas Inalámbricas', 'Eléctricas con cable'."""
@@ -175,5 +174,30 @@ class ProgramacionInspeccion(models.Model):
         if self.fecha_programada <= hoy + timedelta(days=15):
             return "proxima"
         return "pendiente"
+
+class DocumentoInspeccion(models.Model):
+    TIPO_CHOICES = [
+        ("pdf", "PDF"),
+        ("excel", "Excel"),
+        ("word", "Word"),
+        ("otro", "Otro"),
+    ]
+
+    inspeccion = models.ForeignKey(
+        Inspeccion, on_delete=models.CASCADE, related_name="documentos"
+    )
+    archivo = models.FileField(upload_to="inspecciones/docs/%Y/%m/")
+    nombre = models.CharField(max_length=200)  # nombre amigable mostrado en UI
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    subido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="documentos_inspeccion_subidos"
+    )
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-fecha_subida"]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.tipo}) - Inspección #{self.inspeccion_id}"
 
 

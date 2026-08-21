@@ -27,7 +27,7 @@ import {
 
 import { OperatorAvailabilityPanel, findScheduleConflicts } from "@/modules/workorders/components/OperatorAvailabilityPanel";
 import { createWorkOrder, listWorkOrders } from "@/modules/workorders/workOrderRepository";
-import { listManagedUsers, listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
+import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 
 function specialtyMatch(specialty: string, type: string) { const value = `${specialty} ${type}`.toLowerCase(); return ["electric", "gasfit", "carpint", "sold", "pint", "clima"].some((word) => value.includes(word)); }
 function hoursFormat(value: number) { return `${Math.round(value * 10) / 10} h`; }
@@ -48,6 +48,17 @@ interface WorkOrderFormState {
   plannedHours: number;
   administratorNotes: string;
 }
+
+const supervisors = [
+  {
+    id: "USR-SUP-001",
+    name: "Rosa Medina",
+  },
+  {
+    id: "USR-SUP-002",
+    name: "Elena Torres",
+  },
+];
 
 const initialForm: WorkOrderFormState = {
   operatorId: "",
@@ -72,13 +83,11 @@ export function WorkOrderCreatePage() {
 
   const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [supervisors, setSupervisors] = useState<Technician[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
 
   useEffect(() => {
     if (requestId) void getWorkRequestById(requestId).then(setRequest);
     void listTechnicians().then((people) => setTechnicians(people.filter((person) => person.active)));
-    void listManagedUsers().then((people) => setSupervisors(people.filter((person) => person.active && person.role === "SUPERVISOR")));
     void listWorkOrders().then(setOrders);
   }, [requestId]);
 
@@ -172,7 +181,7 @@ export function WorkOrderCreatePage() {
     });
 
     navigate(
-      `/ordenes-trabajo/${workOrder.id}`,
+      `/órdenes-trabajo/${workOrder.id}`,
     );
   }
 
@@ -404,7 +413,7 @@ export function WorkOrderCreatePage() {
 
                   updateField(
                     "supervisorName",
-                    supervisor?.full_name ?? "",
+                    supervisor?.name ?? "",
                   );
                 }}
               >
@@ -417,7 +426,7 @@ export function WorkOrderCreatePage() {
                     key={supervisor.id}
                     value={supervisor.id}
                   >
-                    {supervisor.full_name}
+                    {supervisor.name}
                   </option>
                 ))}
               </select>

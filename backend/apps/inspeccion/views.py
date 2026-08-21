@@ -1,5 +1,4 @@
 from rest_framework import viewsets, status
-
 from datetime import timedelta, date
 
 from datetime import timedelta, date
@@ -12,11 +11,11 @@ from apps.catalogo.views import AlmacenScopedMixin
 from django.db.models import Q
 
 from django.http import HttpResponse
-from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion
+from apps.inspeccion.exporters import generar_excel_inspeccion, generar_pdf_inspeccion, generar_excel_inspecciones_generales
 
 from apps.inspeccion.models import (
     PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
-    PlanInspeccionAnual, ProgramacionInspeccion,
+    PlanInspeccionAnual, ProgramacionInspeccion, DocumentoInspeccion,
 )
 
 from apps.inspeccion.planificacion import generar_plan_anual, construir_materiales_config
@@ -28,6 +27,7 @@ from apps.inspeccion.serializers import (
     RespuestaCriterioSerializer,
     ProgramacionInspeccionSerializer,
     PlanInspeccionAnualSerializer,
+    DocumentoInspeccionSerializer,
 )
 
 from django.db.models import ProtectedError
@@ -36,7 +36,6 @@ from apps.accounts.permissions import IsInspectorOrAdministratorWrite
 class PlantillaCriterioViewSet(viewsets.ModelViewSet):
     queryset = PlantillaCriterio.objects.prefetch_related("criterios").all()
     serializer_class = PlantillaCriterioSerializer
-
     permission_classes = [IsInspectorOrAdministratorWrite]
 
     def destroy(self, request, *args, **kwargs):
@@ -51,11 +50,9 @@ class PlantillaCriterioViewSet(viewsets.ModelViewSet):
             )
 
 
-
 class CriterioViewSet(viewsets.ModelViewSet):
     queryset = Criterio.objects.select_related("plantilla").all()
     serializer_class = CriterioSerializer
-
     permission_classes = [IsInspectorOrAdministratorWrite]
 
     def get_queryset(self):
@@ -244,6 +241,50 @@ class InspeccionViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         response["Content-Disposition"] = f'attachment; filename="inspeccion_{inspeccion.id}.pdf"'
         return response
 
+    @action(detail=False, methods=["get"], url_path="exportar-excel")
+    def exportar_excel_general(self, request):
+        """
+        Exporta un reporte Excel general y consolidado para todo el almacén:
+        Resumen por estado, Por Mes, Vencidas, Top Materiales no conformes + BarChart.
+        """
+        almacen_id = getattr(request, "almacen_id", None)
+        if almacen_id is None:
+            almacen_id = request.query_params.get("almacen")
+
+        buffer, filename = generar_excel_inspecciones_generales(almacen_id=almacen_id)
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+    @action(detail=True, methods=["get"], url_path="documentos")
+    def documentos(self, request, pk=None):
+        # get_object() ya usa get_queryset() de arriba -> mismo scoping por
+        # almacén que el resto del viewset (un Inspector no puede listar
+        # documentos de una inspección de otro almacén).
+        inspeccion = self.get_object()
+        documentos = inspeccion.documentos.select_related("subido_por").all()
+        serializer = DocumentoInspeccionSerializer(documentos, many=True, context={"request": request})
+        return Response(serializer.data)
+
+class DocumentoInspeccionViewSet(viewsets.ModelViewSet):
+    """CRUD de documentos adjuntos (PDF/Excel/Word) por inspección.
+    El listado normal para la UI de detalle es GET /inspecciones/{id}/documentos/
+    (arriba, en InspeccionViewSet); este viewset existe sobre todo para
+    crear (subir) y eliminar, y opcionalmente filtrar por ?inspeccion=."""
+    queryset = DocumentoInspeccion.objects.select_related("inspeccion", "subido_por").all()
+    serializer_class = DocumentoInspeccionSerializer
+    permission_classes = [IsInspectorOrAdministratorWrite]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        inspeccion_id = self.request.query_params.get("inspeccion")
+        if inspeccion_id:
+            qs = qs.filter(inspeccion_id=inspeccion_id)
+        return qs
+
 class RespuestaCriterioViewSet(viewsets.ModelViewSet):
     queryset = RespuestaCriterio.objects.select_related("inspeccion", "criterio").all()
     serializer_class = RespuestaCriterioSerializer
@@ -283,6 +324,84 @@ class ProgramacionInspeccionViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelVi
         if hasta:
             qs = qs.filter(fecha_programada__lte=hasta)
         return qs
+    @action(detail=True, methods=["post"], url_path="reprogramar")
+    def reprogramar(self, request, pk=None):
+        """Permite cambiar la fecha de una programación pendiente."""
+        programacion = self.get_object()
+        if programacion.estado != "pendiente":
+            return Response(
+                {"detail": "Solo se pueden reprogramar inspecciones en estado pendiente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        nueva_fecha = request.data.get("nueva_fecha")
+        motivo = request.data.get("motivo", "").strip()
+        if not nueva_fecha:
+            return Response(
+                {"detail": "Debes especificar la nueva fecha programada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        fecha_anterior = programacion.fecha_programada
+        programacion.fecha_programada = nueva_fecha
+        
+        # Opcional: Si tienes campo de observaciones o notas
+        if hasattr(programacion, "observaciones"):
+            nota = f"[Reprogramada del {fecha_anterior} al {nueva_fecha}] Motivo: {motivo or 'No especificado'}"
+            programacion.observaciones = f"{programacion.observaciones}\n{nota}".strip()
+        programacion.save()
+        return Response({
+            "detail": f"Inspección reprogramada exitosamente para el {nueva_fecha}.",
+            "id": programacion.id,
+            "nueva_fecha": programacion.fecha_programada,
+        })
+
+    @action(detail=True, methods=["patch"], url_path="reprogramar")
+    def reprogramar(self, request, pk=None):
+        """
+        Cambia la fecha_programada de una ProgramacionInspeccion pendiente.
+        PATCH /programaciones/{id}/reprogramar/
+        Body: { "fecha_programada": "YYYY-MM-DD", "motivo": "..." }
+        """
+        from apps.inspeccion.planificacion import _ajustar_dia_laborable
+
+        prog = self.get_object()
+
+        if prog.estado != "pendiente":
+            return Response(
+                {"detail": "Solo se pueden reprogramar inspecciones en estado 'pendiente'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        nueva_fecha_str = request.data.get("fecha_programada")
+        if not nueva_fecha_str:
+            return Response(
+                {"detail": "Debes indicar la nueva 'fecha_programada' (formato YYYY-MM-DD)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            nueva_fecha = date.fromisoformat(nueva_fecha_str)
+        except ValueError:
+            return Response(
+                {"detail": f"Formato de fecha inválido: '{nueva_fecha_str}'. Usa YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if nueva_fecha < date.today():
+            return Response(
+                {"detail": "No puedes programar una inspección en una fecha pasada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Ajustar al día laborable más cercano si cae en fin de semana
+        nueva_fecha = _ajustar_dia_laborable(nueva_fecha)
+
+        prog.fecha_programada = nueva_fecha
+        prog.save(update_fields=["fecha_programada"])
+
+        serializer = self.get_serializer(prog)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
 class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = PlanInspeccionAnual.objects.all()
@@ -320,11 +439,20 @@ class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewS
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        if not forzar and ProgramacionInspeccion.objects.filter(plan__anio=anio, almacen_id=almacen_id).exists():
+        from apps.catalogo.models import Almacen
+        try:
+            almacen_obj = Almacen.objects.get(pk=almacen_id)
+        except Almacen.DoesNotExist:
+            return Response(
+                {"detail": f"No se encontró el almacén con id {almacen_id}."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not forzar and ProgramacionInspeccion.objects.filter(plan__anio=anio, almacen=almacen_obj).exists():
             return Response(
                 {
                     "detail": f"Ya existen programaciones para el año {anio} en este almacén. "
-                              "Envía { \"forzar\": true } para regenerar de todos modos.",
+                              "Activa la opción 'Forzar regeneración' para regenerar de todos modos.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -332,13 +460,13 @@ class PlanInspeccionAnualViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewS
         if forzar:
             # Limpia solo las "pendiente" de ESTE almacén — las "realizada" nunca se tocan.
             ProgramacionInspeccion.objects.filter(
-                plan__anio=anio, almacen_id=almacen_id, estado="pendiente",
+                plan__anio=anio, almacen=almacen_obj, estado="pendiente",
             ).delete()
 
         fecha_inicio = date(anio, 1, 1)
-        materiales_config = construir_materiales_config(almacen_id)
+        materiales_config = construir_materiales_config(almacen_obj)
 
-        plan, creadas = generar_plan_anual(anio, fecha_inicio, materiales_config, almacen_id)
+        plan, creadas = generar_plan_anual(anio, fecha_inicio, materiales_config, almacen_obj)
         return Response(
             {
                 "plan": PlanInspeccionAnualSerializer(plan).data,

@@ -13,7 +13,6 @@ import {
   updatePlantillaCriterio,
 } from "@/modules/almacen/inspeccionRepository";
 import type { Criterio, PlantillaCriterio } from "@/modules/almacen/types";
-import { getApiErrorMessage } from "@/utils/httpError";
 
 export function GestionPlantillasPage() {
   const queryClient = useQueryClient();
@@ -56,8 +55,9 @@ export function GestionPlantillasPage() {
       }
       resetPlantillaForm();
     },
-    onError: (err: unknown) => {
-      setPlantillaError(getApiErrorMessage(err, "Error al guardar plantilla."));
+    onError: (err: any) => {
+      const msg = err.response?.data?.detail || err.message || "Error al guardar plantilla.";
+      setPlantillaError(msg);
     },
   });
 
@@ -68,8 +68,9 @@ export function GestionPlantillasPage() {
       if (selectedPlantillaId === deletedId) setSelectedPlantillaId(null);
       resetPlantillaForm();
     },
-    onError: (err: unknown) => {
-      setPlantillaError(getApiErrorMessage(err, "No se puede eliminar la plantilla si contiene inspecciones asociadas o está asignada a una subcategoría."));
+    onError: (err: any) => {
+      const msg = err.response?.data?.detail || "No se puede eliminar la plantilla si contiene inspecciones asociadas o está asignada a una subcategoría.";
+      setPlantillaError(msg);
     },
   });
 
@@ -95,15 +96,16 @@ export function GestionPlantillasPage() {
       queryClient.invalidateQueries({ queryKey: ["plantillas-criterios"] });
       resetCriterioForm();
     },
-    onError: (err: unknown) => {
-      setCriterioError(getApiErrorMessage(err, "Error al guardar criterio."));
+    onError: (err: any) => {
+      const msg = err.response?.data?.detail || err.message || "Error al guardar criterio.";
+      setCriterioError(msg);
     },
   });
 
   const delCriterioMut = useMutation({
     mutationFn: (id: number) => deleteCriterio(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["plantillas-criterios"] }),
-    onError: (err: unknown) => setCriterioError(getApiErrorMessage(err, "Error al eliminar criterio.")),
+    onError: (err: any) => setCriterioError(err.response?.data?.detail || "Error al eliminar criterio."),
   });
 
   const moveCriterio = async (index: number, direction: "up" | "down") => {
@@ -154,7 +156,24 @@ export function GestionPlantillasPage() {
   const activePlantilla = selectedPlantilla;
 
   return (
-    <section>
+    <section className="gestion-plantillas">
+      <style>{`
+        .gestion-plantillas .plantillas-grid {
+          display: grid;
+          grid-template-columns: 340px 1fr;
+          gap: 16px;
+        }
+        @media (max-width: 860px) {
+          .gestion-plantillas .plantillas-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .gestion-plantillas .form-panel {
+            margin: 0 12px 12px !important;
+          }
+        }
+      `}</style>
+
       <div className="page-heading">
         <div>
           <p className="breadcrumb">Inspecciones / Plantillas de Criterios</p>
@@ -163,7 +182,7 @@ export function GestionPlantillasPage() {
         </div>
       </div>
 
-      <div className="grid-2col" style={{ gridTemplateColumns: "340px 1fr" }}>
+      <div className="plantillas-grid">
         {/* Columna Izquierda: Lista y Alta de Plantillas */}
         <div className="data-panel">
           <div className="table-toolbar">

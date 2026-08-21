@@ -1,4 +1,5 @@
 import {
+  CaretRight,
   Check,
   Copy,
   Cube,
@@ -12,13 +13,13 @@ import {
   Minus,
   Package,
   Plus,
+  Ruler,
   ShoppingCart,
-  Stack,
   Trash,
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -26,8 +27,18 @@ import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listCategorias, listMateriales, listSubcategorias } from "@/modules/almacen/catalogoRepository";
+import {
+  listCategorias,
+  listMateriales,
+  listSubcategorias,
+} from "@/modules/almacen/catalogoRepository";
+import { listVencidas } from "@/modules/almacen/inspeccionRepository";
+import { listChecklistPrestados } from "@/modules/almacen/inventarioRepository";
+
+import { CroquisUploader } from "@/modules/almacen/components/CroquisUploader";
+
 import { GestionCategoriasPanel } from "@/modules/almacen/components/GestionCategoriasPanel";
+import { GestionUnidadesPanel } from "@/modules/almacen/components/GestionUnidadesPanel";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { STOCK_MINIMO } from "@/modules/almacen/types";
 import type { Material } from "@/modules/almacen/types";
@@ -35,13 +46,16 @@ import type { Material } from "@/modules/almacen/types";
 const FILTER_KEYS = ["q", "categoria", "subcategoria", "control_individual"] as const;
 
 export function CatalogoPage() {
-  const { almacenId } = useAlmacenActivo();
+  const { almacenId, almacen, puedeEditarCroquis } = useAlmacenActivo();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const isTechnician = user?.role === "TECNICO";
   const isInspector = user?.role === "INSPECTOR";
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const [mostrarCroquis, setMostrarCroquis] = useState(false);
+  const [croquisActual, setCroquisActual] = useState<string | null | undefined>(undefined);
   const [mostrarGestionCat, setMostrarGestionCat] = useState(false);
+  const [mostrarGestionUnidades, setMostrarGestionUnidades] = useState(false);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [basket, setBasket] = useState<Record<number, number>>({});
   const [copiedBasket, setCopiedBasket] = useState(false);
@@ -73,12 +87,26 @@ export function CatalogoPage() {
       listSubcategorias(almacenId, values.categoria ? Number(values.categoria) : undefined),
   });
 
+  const { data: vencidas = [] } = useQuery({
+    queryKey: ["inspecciones-vencidas", almacenId],
+    queryFn: () => listVencidas(almacenId),
+  });
+
+  // Checklist de piezas que salieron y aún no regresaron (sin filtrar por
+  // fecha/salio_hoy → trae TODAS las que siguen en estado "Prestado").
+  const { data: prestadas = [] } = useQuery({
+    queryKey: ["checklist-prestados", almacenId],
+    queryFn: () => listChecklistPrestados(almacenId),
+  });
+
   // Stats
   const totalActivos = materiales.filter((m) => m.activo).length;
-  const conControlIndividual = materiales.filter((m) => m.control_individual).length;
-  const consumibles = materiales.filter((m) => !m.control_individual).length;
-  const stockBajo = materiales.filter(
-    (m) => !m.control_individual && m.cantidad_total < STOCK_MINIMO,
+  // "Requieren atención": agotados (cantidad_total === 0) o por debajo del
+  // stock_minimo propio de CADA material (0 = umbral desactivado para ese
+  // material). Antes se comparaba contra una constante global STOCK_MINIMO,
+  // ignorando el umbral real configurado por material en el backend.
+  const requierenAtencion = materiales.filter(
+    (m) => m.cantidad_total === 0 || (m.stock_minimo > 0 && m.cantidad_total < m.stock_minimo),
   ).length;
 
   const basketItems = materiales.filter((material) => (basket[material.id] ?? 0) > 0);
@@ -166,15 +194,28 @@ export function CatalogoPage() {
           <p className="page-description">Ficha maestra de herramientas y materiales del almacén.</p>
         </div>
         <div className="header-actions">
-          {!isTechnician && <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setMostrarGestionCat((v) => !v)}
-            title="Administrar categorías y subcategorías"
-          >
-            <FolderPlus size={18} />
-            <span>Categorías</span>
-          </button>}
+          {!isTechnician && (
+            <>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setMostrarGestionCat((v) => !v)}
+                title="Administrar categorías y subcategorías"
+              >
+                <FolderPlus size={18} />
+                <span>Categorías</span>
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setMostrarGestionUnidades((v) => !v)}
+                title="Administrar unidades de medida y tipos de manejo de stock"
+              >
+                <Ruler size={18} />
+                <span>Unidades</span>
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="btn-secondary"
@@ -196,6 +237,11 @@ export function CatalogoPage() {
       {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE CATEGORÍAS */}
       {mostrarGestionCat && (
         <GestionCategoriasPanel onClose={() => setMostrarGestionCat(false)} />
+      )}
+
+      {/* PANEL INTERACTIVO DE GESTIÓN CRUD DE UNIDADES DE MEDIDA / MANEJO DE STOCK */}
+      {mostrarGestionUnidades && (
+        <GestionUnidadesPanel onClose={() => setMostrarGestionUnidades(false)} />
       )}
 
       {/* Croquis del almacén — imagen fija */}
@@ -224,10 +270,23 @@ export function CatalogoPage() {
           </div>
           <div style={{ background: "#f8fafc" }}>
             <img
-              src="/croquis_almacen.png"
-              alt="Croquis del almacén: plano en planta, vista isométrica y leyenda de inventario"
+              src={(croquisActual !== undefined ? croquisActual : almacen?.croquis) || "/croquis_almacen.png"}
+              alt={`Croquis del almacén ${almacen?.nombre ?? ""}`}
               style={{ width: "100%", maxHeight: 640, objectFit: "contain", display: "block" }}
             />
+            {puedeEditarCroquis && (
+              <CroquisUploader
+                almacen={{
+                  ...almacen,
+                  croquis: croquisActual !== undefined ? croquisActual : almacen?.croquis,
+                } as typeof almacen}
+                almacenId={almacenId}
+                onUpdated={(nuevoAlmacen) => {
+                  setCroquisActual(nuevoAlmacen?.croquis ?? null);
+                  queryClient.invalidateQueries({ queryKey: ["almacen-detalle", almacenId] });
+                }}
+              />
+            )}
           </div>
         </div>
       )}
@@ -240,38 +299,43 @@ export function CatalogoPage() {
           </div>
           <div>
             <div className="kpi-number">{totalActivos}</div>
-            <div className="kpi-label">Materiales activos</div>
+            <div className="kpi-label">Total de Materiales</div>
           </div>
         </article>
 
-        <article className="kpi-card" aria-label={`Con piezas individuales: ${conControlIndividual}`}>
-          <div className="kpi-card-top">
-            <Stack size={20} className="kpi-icon" />
-          </div>
-          <div>
-            <div className="kpi-number">{conControlIndividual}</div>
-            <div className="kpi-label">Con piezas individuales</div>
-          </div>
-        </article>
-
-        <article className="kpi-card" aria-label={`Consumibles: ${consumibles}`}>
-          <div className="kpi-card-top">
-            <Package size={20} className="kpi-icon" />
-          </div>
-          <div>
-            <div className="kpi-number">{consumibles}</div>
-            <div className="kpi-label">Consumibles</div>
-          </div>
-        </article>
-
-        <article className="kpi-card" aria-label={`Stock bajo: ${stockBajo}`}>
+        <article className="kpi-card" aria-label={`Requieren atención: ${requierenAtencion}`}>
           <div className="kpi-card-top">
             <WarningCircle size={20} className="kpi-icon" />
           </div>
           <div>
-            <div className="kpi-number">{stockBajo}</div>
-            <div className="kpi-label">Stock bajo</div>
-            <div className="kpi-sublabel">Menos de {STOCK_MINIMO} unidades</div>
+            <div className="kpi-number">{requierenAtencion}</div>
+            <div className="kpi-label">Requieren atención</div>
+            <div className="kpi-sublabel">Agotados o bajo su stock mínimo</div>
+          </div>
+        </article>
+
+        <Link
+          to={`/almacen/${almacenId}/inspecciones/vencidas`}
+          className="kpi-card kpi-card-link"
+          aria-label={`Inspecciones vencidas: ${vencidas.length}`}
+        >
+          <div className="kpi-card-top">
+            <WarningCircle size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{vencidas.length}</div>
+            <div className="kpi-label">Inspecciones vencidas</div>
+          </div>
+        </Link>
+
+        <article className="kpi-card" aria-label={`Piezas no devueltas: ${prestadas.length}`}>
+          <div className="kpi-card-top">
+            <Package size={20} className="kpi-icon" />
+          </div>
+          <div>
+            <div className="kpi-number">{prestadas.length}</div>
+            <div className="kpi-label">No devueltas</div>
+            <div className="kpi-sublabel">Piezas prestadas sin regresar</div>
           </div>
         </article>
       </section>
@@ -296,7 +360,7 @@ export function CatalogoPage() {
               className="search-input"
               value={values.q}
               onChange={(e) => setValue("q", e.target.value)}
-              placeholder="Buscar por código, nombre, marca o categoría"
+              placeholder="Buscar por código, nombre, ubicación, cantidad o stock crítico..."
             />
           </div>
           <button

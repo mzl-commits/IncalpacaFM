@@ -32,11 +32,11 @@ export default function UserDashboardPage() {
         <div className="dashboard-heading-copy">
           <p className="breadcrumb">Inicio / Mi perfil</p>
           <h1>Mis bienes asignados</h1>
-          <p>Consulta lo que tienes a tu cargo y registra una solicitud cuando necesites atención.</p>
+          <p>Consulta lo que tienes a tu cargo y reporta una incidencia con la información necesaria.</p>
         </div>
         <div className="dashboard-heading-actions">
           <button className="button button-primary" type="button" onClick={() => handleReportIssue()}>
-            <WarningCircle size={18} weight="bold" /> Nueva solicitud
+            <WarningCircle size={18} weight="bold" /> Reportar falla general
           </button>
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function UserDashboardPage() {
                     </div>
                     <div className="user-asset-card-actions">
                       <button className="button button-secondary button-sm" type="button" onClick={() => navigate(`/bienes/${asset.id}`)}>Ver detalle</button>
-                      <button className="button button-primary button-sm" type="button" onClick={() => handleReportIssue(asset.id)}>Nueva solicitud</button>
+                      <button className="button button-primary button-sm" type="button" onClick={() => handleReportIssue(asset.id)}>Reportar falla</button>
                     </div>
                   </article>
                 ))}

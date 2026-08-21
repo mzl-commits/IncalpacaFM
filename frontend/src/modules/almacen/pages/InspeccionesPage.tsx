@@ -1,6 +1,6 @@
-import { ArrowRight, ClipboardText, Plus, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, CaretDown, ClipboardText, FileXls, Plus, WarningCircle } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
@@ -8,7 +8,7 @@ import { buildFilterOptions, useListFilterParams } from "@/components/filters/fi
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
-import { listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
+import { exportarExcelGeneral, listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import type { ResultadoInspeccion, TipoInspeccion } from "@/modules/almacen/types";
 
@@ -17,6 +17,7 @@ const FILTER_KEYS = ["q", "tipo", "resultado"] as const;
 export function InspeccionesPage() {
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const { almacenId } = useAlmacenActivo();
+  const [exportando, setExportando] = useState(false);
 
   const { data: inspecciones = [], isLoading } = useQuery({
     queryKey: ["inspecciones", almacenId, values],
@@ -37,7 +38,7 @@ export function InspeccionesPage() {
   const aptas = inspecciones.filter((i) => i.resultado_general === "apta").length;
   const conReparacion = inspecciones.filter((i) => i.resultado_general === "requiere_reparacion").length;
   const fueraServicio = inspecciones.filter((i) => i.resultado_general === "fuera_servicio").length;
-
+  const [inspExpandido, setInspExpandido] = useState<number | null>(null);
   const tipoOptions = buildFilterOptions(["individual", "grupal"], { individual: "Individual", grupal: "Grupal" });
   const resultadoOptions = buildFilterOptions(["apta", "requiere_reparacion", "fuera_servicio"], {
     apta: "Apta",
@@ -52,6 +53,18 @@ export function InspeccionesPage() {
     return f;
   }, [values, setValue]);
 
+  async function handleExportarExcel() {
+    if (!almacenId || exportando) return;
+    setExportando(true);
+    try {
+      await exportarExcelGeneral(almacenId);
+    } catch {
+      // noop: el usuario verá que no descargó nada
+    } finally {
+      setExportando(false);
+    }
+  }
+
   return (
     <section>
       <div className="page-heading">
@@ -61,6 +74,16 @@ export function InspeccionesPage() {
           <p>Registro y control de calidad de herramientas y materiales.</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => void handleExportarExcel()}
+            disabled={exportando || !almacenId}
+            title="Exportar reporte general Excel de inspecciones"
+          >
+            <FileXls size={16} />
+            {exportando ? "Exportando…" : "Exportar Excel"}
+          </button>
           <Link to={`/almacen/${almacenId}/inspecciones/vencidas`} className="button button-secondary">
             <WarningCircle size={16} /> Vencidas ({vencidas.length})
           </Link>
@@ -108,7 +131,7 @@ export function InspeccionesPage() {
           <FilterSelect label="Resultado" value={values.resultado} onChange={(v) => setValue("resultado", v)} options={resultadoOptions} allLabel="Todos los resultados" />
         </ListFilterPanel>
 
-        <div className="table-scroll">
+        <div className="table-scroll inspecciones-table-desktop">
           <table className="tabla-detalle-mobile">
             <thead>
               <tr>
@@ -151,6 +174,63 @@ export function InspeccionesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Vista de tarjetas — solo visible en pantallas angostas (ver almacen.css) */}
+        <div className="inspecciones-cards-mobile">
+          {isLoading && <p className="empty-row">Cargando inspecciones…</p>}
+          {!isLoading && inspecciones.length === 0 && <p className="empty-row">Sin inspecciones registradas.</p>}
+          {inspecciones.map((insp) => {
+            const abierto = inspExpandido === insp.id;
+            return (
+              <div key={insp.id} className={`insp-card ${abierto ? "is-open" : ""}`}>
+                <button
+                  type="button"
+                  className="insp-card-summary"
+                  aria-expanded={abierto}
+                  onClick={() => setInspExpandido(abierto ? null : insp.id)}
+                >
+                  <div className="insp-card-top">
+                    <StatusBadge value={insp.resultado_general} />
+                    <span className="insp-card-fecha">
+                      {new Date(insp.fecha).toLocaleDateString("es-PE")}
+                      <TrimestreBadge fecha={insp.fecha} periodicidadDias={insp.material_periodicidad_inspeccion_dias ?? 0} />
+                    </span>
+                  </div>
+                  <div className="insp-card-nombre-row">
+                    <span className="insp-card-nombre">{insp.material_nombre}</span>
+                    <CaretDown size={14} className={`insp-card-caret ${abierto ? "is-open" : ""}`} />
+                  </div>
+                </button>
+
+                {abierto && (
+                  <div className="insp-card-detalle">
+                    <div className="insp-card-field">
+                      <span className="insp-card-label">Código</span>
+                      <span className="insp-card-value pieza-code">{insp.material_codigo}</span>
+                    </div>
+                    <div className="insp-card-field">
+                      <span className="insp-card-label">Pieza</span>
+                      <span className="insp-card-value">
+                        {insp.pieza_codigo ?? (insp.piezas_lote.length > 0 ? `${insp.piezas_lote.length} piezas` : "—")}
+                      </span>
+                    </div>
+                    <div className="insp-card-field">
+                      <span className="insp-card-label">Tipo</span>
+                      <span className="insp-card-value">{insp.tipo === "individual" ? "Individual" : "Grupal"}</span>
+                    </div>
+                    <div className="insp-card-field">
+                      <span className="insp-card-label">Inspector</span>
+                      <span className="insp-card-value">{insp.inspector_nombre}</span>
+                    </div>
+                    <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}`} className="button button-sm button-secondary insp-card-ver">
+                      <ArrowRight size={14} /> Ver inspección
+                    </Link>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

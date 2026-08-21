@@ -13,9 +13,14 @@ import {
 
 import { useAuth } from "@/modules/accounts/AuthContext";
 import type { UserRole } from "@/modules/accounts/types";
+import { getAlmacen } from "@/modules/almacen/catalogoRepository";
+import type { Almacen } from "@/modules/almacen/types";
+import { useQuery } from "@tanstack/react-query";
 
 interface AlmacenContextValue {
   almacenId: number;
+  almacen: Almacen | undefined;
+  puedeEditarCroquis: boolean;
 }
 
 const AlmacenContext = createContext<AlmacenContextValue | null>(null);
@@ -81,25 +86,29 @@ function AlmacenSubNav({ almacenId }: { almacenId: number }) {
 /** Layout de ruta: lee :almacenId de la URL, lo valida, lo expone via contexto
  * a todas las páginas hijas (Catálogo, Movimientos, Inspecciones, etc.) y
  * renderiza el submenú de navegación entre esas secciones. */
+
 export function AlmacenLayout() {
-  const { user } = useAuth();
   const { almacenId } = useParams<{ almacenId: string }>();
   const id = Number(almacenId);
+  const { user } = useAuth();
+
+  const { data: almacen } = useQuery({
+    queryKey: ["almacen-detalle", id],
+    queryFn: () => getAlmacen(id),
+    enabled: !Number.isNaN(id),
+  });
 
   if (!almacenId || Number.isNaN(id)) {
     return <Navigate to="/almacen" replace />;
   }
 
-  const restringido = user?.role === "ALMACENERO" || user?.role === "INSPECTOR";
-  if (restringido && user?.almacenId != null && id !== user.almacenId) {
-    return <Navigate to={`/almacen/${user.almacenId}/catalogo`} replace />;
-  }
+  const puedeEditarCroquis =
+    user?.role === "ADMINISTRADOR" ||
+    (user?.role === "ALMACENERO" && user.almacenId === id);
 
   return (
-    <AlmacenContext.Provider value={{ almacenId: id }}>
+    <AlmacenContext.Provider value={{ almacenId: id, almacen, puedeEditarCroquis }}>
       <AlmacenSubNav almacenId={id} />
-      {/* key={id} fuerza el remount de todos los componentes hijo al cambiar
-          de almacén, limpiando cualquier estado local residual (form, flags, etc.) */}
       <Outlet key={id} />
     </AlmacenContext.Provider>
   );

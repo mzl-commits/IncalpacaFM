@@ -2,16 +2,16 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
-    AccountManagementDetailView,
-    AccountManagementListCreateView,
     ChangePasswordView,
     CurrentUserView,
     LoginView,
-    TechnicianDetailView,
-    TechnicianImportView,
-    TechnicianListCreateView,
-    TechnicianManualNotificationView,
     UserListView,
+    TechnicianListCreateView,
+    AccountManagementListCreateView,
+    TechnicianImportView,
+    TechnicianDetailView,
+    AccountManagementDetailView,
+    TechnicianManualNotificationView,
 )
 
 urlpatterns = [

@@ -6,6 +6,7 @@ import { labelPieza } from "@/utils/pieza";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
+  getMaterialDetalle,
   listMateriales,
   listPiezas,
 } from "@/modules/almacen/catalogoRepository";
@@ -18,6 +19,7 @@ import type {
   AccionInspeccion,
   Criterio,
   Material,
+  MaterialDetalle,
   PiezaBase,
   ResultadoInspeccion,
   TipoInspeccion,
@@ -68,6 +70,11 @@ export function InspeccionFormPage() {
     queryFn: () => listMateriales(almacenId),
     enabled: !!almacenId,
   });
+  const { data: materialDetalle } = useQuery({
+    queryKey: ["material-detalle", materialId],
+    queryFn: () => getMaterialDetalle(materialId),
+    enabled: materialId > 0,
+  });
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listUsuarios,
@@ -77,7 +84,7 @@ export function InspeccionFormPage() {
     queryFn: listPlantillasCriterios,
   });
 
-  const material: Material | undefined = materiales.find((m) => m.id === materialId);
+  const material = materialDetalle ?? materiales.find((m) => m.id === materialId);
 
   const { data: piezas = [] } = useQuery({
     queryKey: ["piezas", materialId],
@@ -94,12 +101,18 @@ export function InspeccionFormPage() {
   });
   const esEstuche = piezaId > 0 && hijasActivas.length > 0;
 
-  // Auto-seleccionar plantilla de la subcategoría del material
+  // Auto-seleccionar plantilla de la subcategoría del material (automático y obligatorio)
   useEffect(() => {
     if (!material) return;
     const plantillaIdSub = material.subcategoria_plantilla_inspeccion;
-    if (plantillaIdSub) setPlantillaId(plantillaIdSub);
-  }, [material]);
+    if (plantillaIdSub) {
+      setPlantillaId(plantillaIdSub);
+    } else if (plantillas.length > 0) {
+      const fallback =
+        plantillas.find((p) => p.nombre.toLowerCase().includes("manual")) ?? plantillas[0];
+      if (fallback) setPlantillaId(fallback.id);
+    }
+  }, [material, plantillas]);
 
   // Auto-poblar piezas_lote cuando se detecta estuche.
   useEffect(() => {
@@ -243,10 +256,10 @@ export function InspeccionFormPage() {
       <section className="success-panel">
         <h2>Inspección registrada</h2>
         <div className="success-actions">
-          <Link className="button button-primary" to={`/almacen/inspecciones/${exito}`}>
+          <Link className="button button-primary" to={`/almacen/${almacenId}/inspecciones/${exito}`}>
             Ver detalle
           </Link>
-          <Link className="button button-secondary" to="/almacen/inspecciones">
+          <Link className="button button-secondary" to={`/almacen/${almacenId}/inspecciones`}>
             Volver a inspecciones
           </Link>
           <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
@@ -260,7 +273,7 @@ export function InspeccionFormPage() {
   return (
     <section>
       <div className="wizard-heading">
-        <Link to="/almacen/inspecciones" className="back-link">
+        <Link to={`/almacen/${almacenId}/inspecciones`} className="back-link">
           <ArrowLeft size={16} /> Inspecciones
         </Link>
         <div>
@@ -414,19 +427,20 @@ export function InspeccionFormPage() {
               <Field label="Plantilla de criterios" required error={errors.plantilla}>
                 <select
                   value={plantillaId || ""}
-                  disabled={!!material?.subcategoria_plantilla_inspeccion}
                   onChange={(e) => setPlantillaId(Number(e.target.value))}
                 >
-                  <option value="">Seleccionar plantilla…</option>
+                  <option value="">
+                    {materialId ? "Seleccionar plantilla…" : "Selecciona un material en el Paso 2…"}
+                  </option>
                   {plantillas.map((p) => (
                     <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
                 </select>
-                {material?.subcategoria_plantilla_inspeccion && (
-                  <small style={{ display: "block", marginTop: 4, color: "#666" }}>
-                    Definida por la subcategoría del material — no editable.
-                  </small>
-                )}
+                <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                  {material?.subcategoria_plantilla_inspeccion_nombre
+                    ? `✓ Plantilla recomendada: ${material.subcategoria_plantilla_inspeccion_nombre}`
+                    : "Selecciona la plantilla de criterios que corresponda."}
+                </small>
               </Field>
               <Field label="Inspector" required error={errors.inspector}>
                 <select value={inspectorId || ""} onChange={(e) => setInspectorId(Number(e.target.value))}>
@@ -576,7 +590,7 @@ export function InspeccionFormPage() {
           )}
 
           <div className="form-actions">
-            <Link to="/almacen/inspecciones" className="button button-secondary">
+            <Link to={`/almacen/${almacenId}/inspecciones`} className="button button-secondary">
               <ArrowLeft size={15} /> Cancelar
             </Link>
             <button type="submit" className="button button-primary" disabled={mut.isPending}>

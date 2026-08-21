@@ -9,6 +9,10 @@ export interface MovimientosParams {
   tipo?: string;
   lote_id?: string;
   responsable?: number;
+  /** YYYY-MM-DD */
+  fecha_desde?: string;
+  /** YYYY-MM-DD */
+  fecha_hasta?: string;
 }
 
 export async function listMovimientos(
@@ -35,13 +39,18 @@ export async function listChecklistPrestados(
 
 export interface SalidaMaterialInput {
   material_id: number;
-  /** En unidades. Opcional si se envía cantidad_cajas (el backend la recalcula). */
+  /** En unidades. Opcional si se envía cantidad_cajas o unidad_movimiento_id (el backend la recalcula). */
   cantidad?: number;
   /** Si el material se maneja por caja: número de cajas. El backend calcula el total en unidades. */
   cantidad_cajas?: number;
+  /** Si el material es tipo Rollo (permite_conversion_unidad): unidad elegida (id de UnidadMedidaCatalogo). */
+  unidad_movimiento_id?: number;
+  /** Cantidad en la unidad elegida (ej. metros); el backend la convierte a la unidad base del material. */
+  cantidad_en_unidad_movimiento?: number;
   responsable_id: number;
   referencia_externa?: string;
   observaciones?: string;
+  lote_id?: string;
 }
 
 export async function registrarSalidaMaterial(input: SalidaMaterialInput): Promise<Movimiento> {
@@ -75,10 +84,14 @@ export async function registrarSalidaPieza(
 
 export interface EntradaMaterialInput {
   material_id: number;
-  /** En unidades. Opcional si se envía cantidad_cajas (el backend la recalcula). */
+  /** En unidades. Opcional si se envía cantidad_cajas o unidad_movimiento_id (el backend la recalcula). */
   cantidad?: number;
   /** Si el material se maneja por caja: número de cajas. El backend calcula el total en unidades. */
   cantidad_cajas?: number;
+  /** Si el material es tipo Rollo (permite_conversion_unidad): unidad elegida (id de UnidadMedidaCatalogo). */
+  unidad_movimiento_id?: number;
+  /** Cantidad en la unidad elegida (ej. metros); el backend la convierte a la unidad base del material. */
+  cantidad_en_unidad_movimiento?: number;
   responsable_id: number;
   observaciones?: string;
 }
@@ -103,10 +116,14 @@ export async function registrarEntradaPieza(input: EntradaPiezaInput): Promise<M
 
 export interface BajaMaterialInput {
   material_id: number;
-  /** En unidades. Opcional si se envía cantidad_cajas (el backend la recalcula). */
+  /** En unidades. Opcional si se envía cantidad_cajas o unidad_movimiento_id (el backend la recalcula). */
   cantidad?: number;
   /** Si el material se maneja por caja: número de cajas. El backend calcula el total en unidades. */
   cantidad_cajas?: number;
+  /** Si el material es tipo Rollo (permite_conversion_unidad): unidad elegida (id de UnidadMedidaCatalogo). */
+  unidad_movimiento_id?: number;
+  /** Cantidad en la unidad elegida (ej. metros); el backend la convierte a la unidad base del material. */
+  cantidad_en_unidad_movimiento?: number;
   responsable_id: number;
   observaciones?: string;
 }

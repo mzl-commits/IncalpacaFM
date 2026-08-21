@@ -12,17 +12,18 @@ import {
   getMaterialDetalle,
   listCategorias,
   listSubcategorias,
+  listUnidadesMedida,
+  listTiposManejoStock,
+  listTiposMedida,
   updateMaterial,
 } from "@/modules/almacen/catalogoRepository";
 
 import type {
   MaterialCreatePayload,
+  MaterialMedida,
   Moneda,
   TipoControl,
-  UnidadMedida,
-  UnidadManejo,
 } from "@/modules/almacen/types";
-import { unidadManejoLabels } from "@/modules/almacen/types";
 
 
 type Fase = "form" | "exito";
@@ -48,20 +49,20 @@ export function MaterialFormPage() {
     subcategoria: 0,
     almacen: almacenId,
     nombre: "",
+    codigo_quipu: "",
     marca: "",
     modelo: "",
     medida: "",
-    unidad_medida: "mm",
-    grosor: "",
-    largo: "",
+    medidas: [],
     ubicacion_fisica: "",
     precio: "",
     tipo_control: "retornable",
     control_individual: false,
     periodicidad_valor: 3,
     periodicidad_unidad: "meses",
-    unidad_manejo: "unidad",
+    unidad_manejo: 0,
     unidades_por_caja: "",
+    unidad_movimiento_base: null,
     moneda: "PEN",
   });
 
@@ -86,6 +87,60 @@ export function MaterialFormPage() {
     enabled: !!almacenId && !!categoriaId,
   });
 
+  const { data: unidadesMedida = [] } = useQuery({
+    queryKey: ["unidades-medida"],
+    queryFn: listUnidadesMedida,
+  });
+
+  const { data: tiposManejoStock = [] } = useQuery({
+    queryKey: ["tipos-manejo-stock"],
+    queryFn: listTiposManejoStock,
+  });
+
+  const { data: tiposMedida = [] } = useQuery({
+    queryKey: ["tipos-medida"],
+    queryFn: listTiposMedida,
+  });
+
+  const unidadesMedidaActivas = unidadesMedida
+    .filter((u) => u.activo)
+    .sort((a, b) => a.orden - b.orden);
+
+  const tiposManejoActivos = tiposManejoStock
+    .filter((t) => t.activo)
+    .sort((a, b) => a.orden - b.orden);
+
+  const tiposMedidaActivos = tiposMedida
+    .filter((t) => t.activo)
+    .sort((a, b) => a.orden - b.orden);
+
+  // Tipos de medida que todavía no se usaron en el formulario (no se puede
+  // repetir un mismo tipo dos veces, ver unique_together en el backend).
+  const tiposMedidaDisponibles = (tipoActualId?: number) =>
+    tiposMedidaActivos.filter(
+      (t) => t.id === tipoActualId || !form.medidas.some((m) => m.tipo === t.id),
+    );
+
+  // Al crear un material nuevo, preseleccionamos un tipo de manejo de stock
+  // razonable apenas carga el catálogo (equivalente al antiguo default
+  // "Unidad" hardcodeado). En edición, el valor viene del material existente.
+  useEffect(() => {
+    if (isEditMode) return;
+    setForm((prev) => {
+      if (prev.unidad_manejo || tiposManejoStock.length === 0) return prev;
+      const defecto = tiposManejoStock.find((t) => t.codigo === "unidad") ?? tiposManejoStock[0];
+      return { ...prev, unidad_manejo: defecto.id };
+    });
+  }, [isEditMode, tiposManejoStock]);
+
+  // Flags del tipo de manejo elegido: definen qué campos de stock mostrar,
+  // reemplazando la vieja comparación hardcodeada `unidad_manejo !== "Unidad"`.
+  const tipoManejoSeleccionado = tiposManejoStock.find(
+    (t) => t.id === Number(form.unidad_manejo),
+  );
+  const requiereMultiplicador = !!tipoManejoSeleccionado?.requiere_multiplicador;
+  const permiteConversionUnidad = !!tipoManejoSeleccionado?.permite_conversion_unidad;
+
   const { data: materialExistente, isLoading: isLoadingMaterial } = useQuery({
     queryKey: ["material", almacenId, materialId],
     queryFn: () => getMaterialDetalle(materialId),
@@ -106,12 +161,11 @@ export function MaterialFormPage() {
         subcategoria: materialExistente.subcategoria,
         almacen: materialExistente.almacen,
         nombre: materialExistente.nombre,
+        codigo_quipu: materialExistente.codigo_quipu ?? "",
         marca: materialExistente.marca,
         modelo: materialExistente.modelo,
         medida: materialExistente.medida,
-        unidad_medida: materialExistente.unidad_medida ?? "mm",
-        grosor: materialExistente.grosor ?? "",
-        largo: materialExistente.largo ?? "",
+        medidas: materialExistente.medidas ?? [],
         ubicacion_fisica: materialExistente.ubicacion_fisica,
         precio: materialExistente.precio ?? "",
         moneda: materialExistente.moneda ?? "PEN",
@@ -119,8 +173,9 @@ export function MaterialFormPage() {
         control_individual: materialExistente.control_individual,
         periodicidad_valor: materialExistente.periodicidad_valor ?? 3,
         periodicidad_unidad: materialExistente.periodicidad_unidad ?? "meses",
-        unidad_manejo: materialExistente.unidad_manejo ?? "unidad",
+        unidad_manejo: materialExistente.unidad_manejo ?? 0,
         unidades_por_caja: materialExistente.unidades_por_caja ?? "",
+        unidad_movimiento_base: materialExistente.unidad_movimiento_base ?? null,
         cantidad_total: materialExistente.cantidad_total,
       });
       if (materialExistente.foto) setFotoPreview(materialExistente.foto);
@@ -165,26 +220,34 @@ export function MaterialFormPage() {
     if (!form.nombre.trim()) errs.nombre = "El nombre es requerido.";
     if (!form.subcategoria) errs.subcategoria = "Selecciona una subcategoría.";
     if (!form.tipo_control) errs.tipo_control = "Selecciona el tipo de control.";
-    const usaEmpaque =
-      form.tipo_control === "no_retornable" &&
-      !form.control_individual &&
-      form.unidad_manejo !== "unidad";
-    if (usaEmpaque && !(Number(form.unidades_por_caja) > 0)) {
+
+    form.medidas.forEach((medida, i) => {
+      if (!medida.tipo || !medida.unidad_medida || medida.valor === "" || medida.valor === null) {
+        errs[`medida_${i}`] = "Completa el tipo, valor y unidad de esta medida.";
+      }
+    });
+
+    const aplicaManejo = form.tipo_control === "no_retornable" && !form.control_individual;
+
+    if (aplicaManejo && requiereMultiplicador && !(Number(form.unidades_por_caja) > 0)) {
       errs.unidades_por_caja = "Indica cuántas unidades trae cada empaque.";
+    }
+    if (aplicaManejo && permiteConversionUnidad && !form.unidad_movimiento_base) {
+      errs.unidad_movimiento_base = "Selecciona en qué unidad se registrará el stock.";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
 
   function buildPayload(): MaterialCreatePayload {
-    const usaEmpaque =
-      form.tipo_control === "no_retornable" &&
-      !form.control_individual &&
-      form.unidad_manejo !== "unidad";
+    const aplicaManejo = form.tipo_control === "no_retornable" && !form.control_individual;
     return {
       ...form,
       almacen: almacenId,
-      unidades_por_caja: usaEmpaque ? Number(form.unidades_por_caja) : null,
+      unidades_por_caja:
+        aplicaManejo && requiereMultiplicador ? Number(form.unidades_por_caja) : null,
+      unidad_movimiento_base:
+        aplicaManejo && permiteConversionUnidad ? form.unidad_movimiento_base : null,
     };
   }
 
@@ -327,7 +390,13 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.nombre}
                   onChange={(e) => set("nombre", e.target.value)}
-                  placeholder="Ej. Taladro percutor eléctrico"
+                />
+              </Field>
+              <Field label="Código EKIPU" hint="Código interno del equipo, si aplica" error={errors.codigo_quipu}>
+                <input
+                  type="text"
+                  value={form.codigo_quipu ?? ""}
+                  onChange={(e) => set("codigo_quipu", e.target.value)}
                 />
               </Field>
               <Field label="Marca" error={errors.marca}>
@@ -335,7 +404,6 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.marca}
                   onChange={(e) => set("marca", e.target.value)}
-                  placeholder="Ej. Bosch"
                 />
               </Field>
               <Field label="Modelo" error={errors.modelo}>
@@ -343,7 +411,6 @@ export function MaterialFormPage() {
                   type="text"
                   value={form.modelo}
                   onChange={(e) => set("modelo", e.target.value)}
-                  placeholder="Ej. GSB 550"
                 />
               </Field>
               <Field label="Medida" hint='Solo si aplica (ej. 5/16" o M8)' error={errors.medida}>
@@ -353,32 +420,97 @@ export function MaterialFormPage() {
                   onChange={(e) => set("medida", e.target.value)}
                 />
               </Field>
-              <Field label="Unidad de medida" error={errors.unidad_medida}>
-                <select
-                  value={form.unidad_medida}
-                  onChange={(e) => set("unidad_medida", e.target.value as UnidadMedida)}
-                >
-                  <option value="mm">Milímetros (mm)</option>
-                  <option value="cm">Centímetros (cm)</option>
-                  <option value="in">Pulgadas (in)</option>
-                  <option value="ft">Pies (ft)</option>
-                </select>
-              </Field>
-              <Field label="Grosor / Diámetro" error={errors.grosor}>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.grosor}
-                  onChange={(e) => set("grosor", e.target.value)}
-                />
-              </Field>
-              <Field label="Largo" error={errors.largo}>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.largo}
-                  onChange={(e) => set("largo", e.target.value)}
-                />
+
+              <Field label="Dimensiones" wide hint="Agrega una fila por cada medida que aplique a este material (ej. Diámetro y Largo).">
+                <div style={{ display: "grid", gap: 8 }}>
+                  {form.medidas.map((medida, i) => (
+                    <div
+                      key={i}
+                      style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8, alignItems: "start" }}
+                    >
+                      <select
+                        value={medida.tipo || ""}
+                        onChange={(e) => {
+                          const tipo = Number(e.target.value);
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.map((m, idx) => (idx === i ? { ...m, tipo } : m)),
+                          }));
+                        }}
+                      >
+                        <option value="">Tipo de medida…</option>
+                        {tiposMedidaDisponibles(medida.tipo).map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Valor"
+                        value={medida.valor}
+                        onChange={(e) => {
+                          const valor = e.target.value;
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.map((m, idx) => (idx === i ? { ...m, valor } : m)),
+                          }));
+                        }}
+                      />
+                      <select
+                        value={medida.unidad_medida || ""}
+                        onChange={(e) => {
+                          const unidad_medida = Number(e.target.value);
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.map((m, idx) => (idx === i ? { ...m, unidad_medida } : m)),
+                          }));
+                        }}
+                      >
+                        <option value="">Unidad…</option>
+                        {unidadesMedidaActivas.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nombre} ({u.abreviatura})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            medidas: prev.medidas.filter((_, idx) => idx !== i),
+                          }))
+                        }
+                        aria-label="Quitar medida"
+                        style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted, #6b7280)", padding: "6px 8px" }}
+                      >
+                        <Trash size={16} />
+                      </button>
+                      {errors[`medida_${i}`] && (
+                        <small className="field-error" style={{ gridColumn: "1 / -1" }}>
+                          <WarningCircle size={14} /> {errors[`medida_${i}`]}
+                        </small>
+                      )}
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={tiposMedidaDisponibles().length === 0}
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        medidas: [...prev.medidas, { tipo: 0, valor: "", unidad_medida: 0 }],
+                      }))
+                    }
+                    style={{ fontSize: 13, padding: "6px 12px", justifySelf: "start" }}
+                  >
+                    + Agregar medida
+                  </button>
+                </div>
               </Field>
               <Field label="Precio" hint="Precio de referencia (opcional)" error={errors.precio}>
                 <input
@@ -387,7 +519,6 @@ export function MaterialFormPage() {
                   min="0"
                   value={form.precio ?? ""}
                   onChange={(e) => set("precio", e.target.value)}
-                  placeholder="Ej. 150.00"
                 />
               </Field>
               <Field label="Moneda" error={errors.moneda}>
@@ -399,16 +530,17 @@ export function MaterialFormPage() {
                   <option value="USD">Dólares (USD)</option>
                 </select>
               </Field>
-              <Field label="Ubicación física" hint="Ej. A1, Estante 3, Caja de brocas" error={errors.ubicacion_fisica} wide>
+              <Field label="Ubicación física" error={errors.ubicacion_fisica} wide>
                 <input
                   type="text"
                   value={form.ubicacion_fisica}
                   onChange={(e) => set("ubicacion_fisica", e.target.value)}
-                  placeholder="Ej. A1, B2, Estante-3…"
                 />
               </Field>
 
-              {categorias.find((c) => c.id === categoriaId)?.requiere_inspeccion && (
+              {(categorias.find((c) => c.id === categoriaId)?.requiere_inspeccion
+                || form.control_individual
+                || form.tipo_control === "retornable") && (
                 <Field label="Frecuencia de inspección" hint="Cada cuánto debe inspeccionarse este material" wide>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
@@ -481,43 +613,34 @@ export function MaterialFormPage() {
                 </small>
                 <Field label="Manejo de stock" required hint="Elige cómo se cuenta este consumible en el almacén.">
                   <select
-                    value={form.unidad_manejo ?? "unidad"}
+                    value={form.unidad_manejo || ""}
                     onChange={(e) => {
-                      const manejo = e.target.value as UnidadManejo;
-                      set("unidad_manejo", manejo);
-                      if (manejo === "unidad") {
+                      const id = Number(e.target.value);
+                      set("unidad_manejo", id);
+                      const tipo = tiposManejoStock.find((t) => t.id === id);
+                      if (!tipo?.requiere_multiplicador) {
                         set("unidades_por_caja", "");
                         setCajasIniciales("");
+                      }
+                      if (!tipo?.permite_conversion_unidad) {
+                        set("unidad_movimiento_base", null);
                       }
                     }}
                     style={{ maxWidth: 220 }}
                   >
-                    <option value="unidad">Por unidad suelta</option>
-                    <option value="Paquete">Por Paquete</option>
-                    <option value="Bolsa">Por Bolsa</option>
-                    <option value="Blister">Por Blister</option>
-                    <option value="Rollo">Por Rollo</option>
-                    <option value="Docena">Por Docena</option>
-                    <option value="Millar">Por Millar</option>
-                    <option value="Litro">Por Litro</option>
-                    <option value="Mililitro">Por Mililitro</option>
-                    <option value="Galon">Por Galon</option>
-                    <option value="Bidon">Por Bidon</option>
-                    <option value="Kilogramo">Por Kilogramo</option>
-                    <option value="Gramo">Por Gramo</option>
-                    <option value="Libra">Por Libra</option>
-                    <option value="Metro">Por Metro</option>
-                    <option value="Centimetro">Por Centimetro</option>
-                    <option value="Milimetro">Por Milimetro</option>
-                    <option value="MetroCuadrado">Por MetroCuadrado</option>
-
+                    <option value="">Seleccionar…</option>
+                    {tiposManejoActivos.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre}
+                      </option>
+                    ))}
                   </select>
                 </Field>
 
-                {form.unidad_manejo !== "unidad" ? (
+                {requiereMultiplicador && (
                   <div className="form-grid" style={{ marginTop: 12 }}>
                     <Field
-                      label={`Unidades por ${unidadManejoLabels[form.unidad_manejo as UnidadManejo] ?? "empaque"}`}
+                      label={`Unidades por ${tipoManejoSeleccionado?.nombre ?? "empaque"}`}
                       required
                       error={errors.unidades_por_caja}
                       hint="¿Cuántas unidades trae cada unidad de manejo?"
@@ -537,7 +660,7 @@ export function MaterialFormPage() {
                       />
                     </Field>
                     <Field
-                      label={`Cantidad de ${unidadManejoLabels[form.unidad_manejo as UnidadManejo] ?? "empaques"} iniciales`}
+                      label={`Cantidad de ${tipoManejoSeleccionado?.nombre ?? "empaques"} iniciales`}
                       hint="Se usa solo para calcular el stock total en unidades."
                     >
                       <input
@@ -563,7 +686,47 @@ export function MaterialFormPage() {
                       />
                     </Field>
                   </div>
-                ) : (
+                )}
+
+                {permiteConversionUnidad && (
+                  <div className="form-grid" style={{ marginTop: 12 }}>
+                    <Field
+                      label="Unidad base de stock"
+                      required
+                      error={errors.unidad_movimiento_base}
+                      hint={`En qué unidad se registrará el stock (ej. centímetros para un ${
+                        tipoManejoSeleccionado?.nombre?.toLowerCase() ?? "rollo"
+                      } medido en metros).`}
+                    >
+                      <select
+                        value={form.unidad_movimiento_base ?? ""}
+                        onChange={(e) => set("unidad_movimiento_base", Number(e.target.value))}
+                        style={{ maxWidth: 220 }}
+                      >
+                        <option value="">Seleccionar…</option>
+                        {unidadesMedidaActivas.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nombre} ({u.abreviatura})
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Cantidad en stock" required error={errors.cantidad_total}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.cantidad_total ?? 0}
+                        onChange={(e) =>
+                          setForm((prev) => ({ ...prev, cantidad_total: Number(e.target.value) }))
+                        }
+                        placeholder="0"
+                        style={{ maxWidth: 140 }}
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {!requiereMultiplicador && !permiteConversionUnidad && (
                   <div style={{ marginTop: 12 }}>
                     <Field label="Cantidad en stock" required error={errors.cantidad_total}>
                       <input

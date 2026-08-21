@@ -6,7 +6,7 @@ import {
   Play,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -22,7 +22,6 @@ import {
   startWorkOrder,
 } from "@/modules/workorders/workOrderRepository";
 import { MaterialesUsadosSection } from "@/modules/workorders/components/MaterialesUsadosSection";
-import { getApiErrorMessage } from "@/utils/httpError";
 
 function formatMinutesDuration(minutes?: number) {
   if (minutes === undefined || minutes === null || minutes <= 0) return "0 min";
@@ -49,26 +48,14 @@ export function WorkOrderExecutionPage() {
 
   const [workOrder, setWorkOrder] = useState<Awaited<ReturnType<typeof getWorkOrderById>>>();
   const [request, setRequest] = useState<Awaited<ReturnType<typeof getWorkRequestById>>>();
-  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
-  const [savingProgress, setSavingProgress] = useState(false);
   useEffect(() => {
     if (!id) return;
-    setIsLoadingOrder(true);
-    void getWorkOrderById(id)
-      .then(async (order) => {
-        setWorkOrder(order);
-        const returnedForCorrection = Boolean(getWorkOrderReturnInfo(order));
-        setPercentage(returnedForCorrection ? order.progressPercentage : Math.min(order.progressPercentage + 1, 100));
-        if (order.requestId) {
-          setRequest(await getWorkRequestById(order.requestId));
-        }
-      })
-      .catch(() => {
-        setWorkOrder(undefined);
-      })
-      .finally(() => {
-        setIsLoadingOrder(false);
-      });
+    void getWorkOrderById(id).then(async (order) => {
+      setWorkOrder(order);
+      const returnedForCorrection = Boolean(getWorkOrderReturnInfo(order));
+      setPercentage(returnedForCorrection ? order.progressPercentage : Math.min(order.progressPercentage + 1, 100));
+      setRequest(await getWorkRequestById(order.requestId));
+    });
   }, [id]);
 
   const [percentage, setPercentage] = useState(
@@ -85,8 +72,6 @@ export function WorkOrderExecutionPage() {
   const [finishPhoto, setFinishPhoto] = useState<File | null>(null);
 
   const [error, setError] = useState("");
-  const [isStartingSession, setIsStartingSession] = useState(false);
-  const savingProgressRef = useRef(false);
 
   useEffect(() => {
     if (!workOrder?.activeWorkSession?.startAt) return undefined;
@@ -95,7 +80,7 @@ export function WorkOrderExecutionPage() {
   }, [workOrder?.activeWorkSession?.startAt]);
 
   async function handleStart() {
-    if (!workOrder || isStartingSession) {
+    if (!workOrder) {
       return;
     }
 
@@ -104,25 +89,12 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    setIsStartingSession(true);
-    try {
-      const updated = await startWorkOrder(workOrder.id, startPhoto);
+    const updated = await startWorkOrder(workOrder.id, startPhoto);
 
-      if (updated) {
-        setWorkOrder(updated);
-        setStartPhoto(null);
-        setError("");
-      }
-    } catch (startError) {
-      setError(
-        getApiErrorMessage(
-          startError,
-          "No se pudo iniciar la orden. Revisa la foto inicial o el estado actual.",
-          ["startPhoto", "action"],
-        ),
-      );
-    } finally {
-      setIsStartingSession(false);
+    if (updated) {
+      setWorkOrder(updated);
+      setStartPhoto(null);
+      setError("");
     }
   }
 
@@ -143,7 +115,7 @@ export function WorkOrderExecutionPage() {
   ) {
     event.preventDefault();
 
-    if (!workOrder || savingProgress || savingProgressRef.current) {
+    if (!workOrder) {
       return;
     }
 
@@ -176,67 +148,32 @@ export function WorkOrderExecutionPage() {
       return;
     }
 
-    savingProgressRef.current = true;
-    setSavingProgress(true);
-    try {
-      const updated =
-        await registerWorkOrderProgress(
-          workOrder.id,
-          {
-            percentage,
-            observation,
-            evidenceNames,
-            finishPhoto,
-          },
-        );
-
-      if (!updated) {
-        setError(
-          "No se pudo registrar el avance.",
-        );
-        return;
-      }
-
-      setWorkOrder(updated);
-      setObservation("");
-      setEvidenceNames([]);
-      setFinishPhoto(null);
-      setError("");
-
-      navigate(
-        `/ordenes-trabajo/${updated.id}`,
+    const updated =
+      await registerWorkOrderProgress(
+        workOrder.id,
+        {
+          percentage,
+          observation,
+          evidenceNames,
+          finishPhoto,
+        },
       );
-    } catch (progressError) {
+
+    if (!updated) {
       setError(
-        getApiErrorMessage(
-          progressError,
-          "No se pudo registrar el avance. Intenta nuevamente.",
-          ["percentage", "finishPhoto", "action"],
-        ),
+        "No se pudo registrar el avance.",
       );
-    } finally {
-      savingProgressRef.current = false;
-      setSavingProgress(false);
+      return;
     }
-  }
 
-  if (isLoadingOrder) {
-    return (
-      <section>
-        <div className="page-heading">
-          <div>
-            <p className="breadcrumb">
-              Mantenimiento / Órdenes operativas / Ejecución
-            </p>
+    setWorkOrder(updated);
+    setObservation("");
+    setEvidenceNames([]);
+    setFinishPhoto(null);
+    setError("");
 
-            <h1>Cargando orden</h1>
-
-            <p>
-              Estamos preparando la información de la orden.
-            </p>
-          </div>
-        </div>
-      </section>
+    navigate(
+      `/ordenes-trabajo/${updated.id}`,
     );
   }
 
@@ -423,18 +360,13 @@ export function WorkOrderExecutionPage() {
                 <button
                   className="button button-primary"
                   type="button"
-                  disabled={isStartingSession}
                   onClick={() => void handleStart()}
                 >
                   <Play
                     size={18}
                     weight="fill"
                   />
-                  {isStartingSession
-                    ? "Iniciando..."
-                    : workOrder.progressPercentage > 0
-                      ? executionCopy.resumeButton
-                      : executionCopy.startButton}
+                  {workOrder.progressPercentage > 0 ? executionCopy.resumeButton : executionCopy.startButton}
                 </button>
               </div>
             </article>
@@ -462,15 +394,12 @@ export function WorkOrderExecutionPage() {
               </button>
             </article>
           )}
-
-          {!isCleaningOrder && (
-            <div className="data-panel" style={{ marginBottom: 16, overflow: "visible" }}>
-              <MaterialesUsadosSection
-                workOrderId={workOrder.id}
-                isOtClosed={workOrder.status === "CERRADA"}
-              />
-            </div>
-          )}
+          <div className="data-panel" style={{ marginBottom: 16, overflow: "visible" }}>
+            <MaterialesUsadosSection
+              workOrderId={workOrder.id}
+              isOtClosed={workOrder.status === "CERRADA"}
+            />
+          </div>
 
           {hasActiveSession ? (
           <form
@@ -625,11 +554,9 @@ export function WorkOrderExecutionPage() {
                 Cancelar
               </Link>
 
-                <button className="button button-primary" type="submit" disabled={savingProgress}>
+                <button className="button button-primary" type="submit">
                   <FloppyDisk size={18} weight="bold" />
-                  {savingProgress
-                    ? "Guardando..."
-                    : percentage === 100
+                  {percentage === 100
                     ? isReturnedForCorrection
                       ? executionCopy.resendButton
                       : executionCopy.finishButton

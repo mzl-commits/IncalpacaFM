@@ -5,13 +5,13 @@ from rest_framework import serializers
 
 from apps.accounts.models import AccountProfile
 from apps.audit.services import record_audit
+from .file_validation import validate_uploaded_file
 from apps.taxonomy.services import (
     allocate_fm_identifier,
     allocate_internal_code,
     assign_fm_identifier,
 )
 
-from .file_validation import validate_uploaded_file
 from .models import Asset, Location, LocationMap, Taxonomy
 
 
@@ -21,20 +21,7 @@ class AssetSerializer(serializers.ModelSerializer):
     photo = serializers.ImageField(write_only=True, required=False, allow_null=True)
 
     def validate_photo(self, value):
-        if not value:
-            return value
-
-        validated_photo = validate_uploaded_file(value)
-        image = getattr(validated_photo, "image", None)
-        if image is None:
-            raise serializers.ValidationError("Usa una imagen JPG, PNG o WEBP válida.")
-
-        width, height = image.size
-        if width < 320 or height < 240:
-            raise serializers.ValidationError("La fotografía debe tener al menos 320 × 240 px.")
-        if width * height > 25_000_000:
-            raise serializers.ValidationError("La resolución de la fotografía es demasiado alta.")
-        return validated_photo
+        return validate_uploaded_file(value) if value else value
     registered_by_name = serializers.SerializerMethodField()
     public_url = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()
@@ -80,7 +67,7 @@ class AssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = ('id', 'code', 'fm_code', 'display_code', 'full_assignment_code', 'public_token', 'public_url',
+        fields = ('id', 'code', 'fm_code', 'display_code', 'public_token', 'public_url',
                   'photo', 'photo_url',
                   'entry_type', 'entry_type_label', 'name',
                   'description', 'brand', 'model', 'serial_number', 'condition', 'criticality', 'administrative_status',
@@ -88,7 +75,7 @@ class AssetSerializer(serializers.ModelSerializer):
                   'location_id', 'location_map_id', 'location_marker_x',
                   'location_marker_y', 'location_detail', 'registered_by_name',
                   'created_at', 'entry_payload')
-        read_only_fields = ('id', 'code', 'display_code', 'full_assignment_code', 'public_token', 'public_url', 'photo_url', 'administrative_status',
+        read_only_fields = ('id', 'code', 'display_code', 'public_token', 'public_url', 'photo_url', 'administrative_status',
                             'operational_status', 'assignment_status', 'registered_by_name', 'created_at')
 
     def get_registered_by_name(self, obj) -> str:
@@ -107,8 +94,20 @@ class AssetSerializer(serializers.ModelSerializer):
         path = f'/api/v1/public/assets/{obj.public_token}/photo/'
         return request.build_absolute_uri(path) if request else path
 
+    def validate_photo(self, value):
+        if value.size > 8 * 1024 * 1024:
+            raise serializers.ValidationError('La fotografía no puede superar 8 MB.')
+        if value.image.format not in {'JPEG', 'PNG', 'WEBP'}:
+            raise serializers.ValidationError('Usa una imagen JPG, PNG o WEBP.')
+        width, height = value.image.size
+        if width < 320 or height < 240:
+            raise serializers.ValidationError('La fotografía debe tener al menos 320 × 240 px.')
+        if width * height > 25_000_000:
+            raise serializers.ValidationError('La resolución de la fotografía es demasiado alta.')
+        return value
+
     def get_display_code(self, obj) -> str:
-        return obj.full_assignment_code or obj.fm_code or obj.code
+        return obj.fm_code or obj.code
 
     def get_taxonomy_detail(self, obj) -> dict | None:
         if not obj.taxonomy:

@@ -6,7 +6,6 @@ import {
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useAuth } from "@/modules/accounts/AuthContext";
 import {
   adminPriorityLabels,
   getWorkOrderStatusLabel,
@@ -47,13 +46,8 @@ function formatEffectiveDuration(totalMinutes?: number) {
   return `${hours} h ${minutes} min`;
 }
 
-function samePersonName(a?: string | null, b?: string | null) {
-  return Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
-}
-
 export function SupervisorWorkOrderReviewPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [activeTab, setActiveTab] = useState<ReviewTab>("pending");
   const [loading, setLoading] = useState(true);
@@ -83,31 +77,22 @@ export function SupervisorWorkOrderReviewPage() {
     };
   }, []);
 
-  const assignedOrders = useMemo(
-    () =>
-      orders.filter(
-        (order) =>
-          order.orderType !== "OS" &&
-          (!user?.id ||
-            order.supervisorId === user.id ||
-            samePersonName(order.supervisorName, user.fullName)),
-      ),
-    [orders, user?.fullName, user?.id],
-  );
   const pendingOrders = useMemo(
-    () => assignedOrders.filter((order) => order.status === "PENDIENTE_DE_SUPERVISION"),
-    [assignedOrders],
+    () => orders.filter((order) => order.status === "PENDIENTE_DE_SUPERVISION"),
+    [orders],
   );
   const reviewedOrders = useMemo(
     () =>
-      assignedOrders.filter((order) =>
+      orders.filter((order) =>
         typeof order.supervisor_validation?.approved === "boolean"
       ),
-    [assignedOrders],
+    [orders],
   );
   const visibleOrders = activeTab === "pending" ? pendingOrders : reviewedOrders;
-  const returnedOrders = assignedOrders.filter((order) => order.supervisor_validation?.approved === false).length;
-  const approvedOrders = assignedOrders.filter((order) => order.supervisor_validation?.approved === true).length;
+  const returnedOrders = orders.filter((order) => order.status === "DEVUELTA").length;
+  const approvedOrders = orders.filter(
+    (order) => order.status === "PENDIENTE_DE_VALIDACION" || order.status === "CERRADA",
+  ).length;
 
   function changeTab(tab: ReviewTab) {
     setActiveTab(tab);
@@ -151,16 +136,16 @@ export function SupervisorWorkOrderReviewPage() {
         <article>
           <span>Aprobadas</span>
           <strong>{approvedOrders}</strong>
-          <small>Enviadas al administrador como conformes</small>
+          <small>En validación administrativa o cerradas</small>
         </article>
         <article className="metric-error">
-          <span>Observadas</span>
+          <span>Devueltas</span>
           <strong>{returnedOrders}</strong>
-          <small>Enviadas al administrador con comentario</small>
+          <small>Requieren corrección del operario</small>
         </article>
         <article>
           <span>Total asignadas</span>
-          <strong>{assignedOrders.length}</strong>
+          <strong>{orders.length}</strong>
           <small>Órdenes vinculadas a tu usuario</small>
         </article>
       </div>
@@ -172,7 +157,7 @@ export function SupervisorWorkOrderReviewPage() {
               <SealCheck size={22} />
               <div>
                 <h2>Cola de supervisión</h2>
-                <p>Selecciona una OT u OL para abrir su ficha completa, revisar evidencias y registrar tu decisión.</p>
+                <p>Selecciona una OT para abrir su ficha completa, revisar evidencias y registrar tu decisión.</p>
               </div>
             </div>
             <div className="supervisor-tabs" role="tablist" aria-label="Filtro de supervisión">
@@ -243,7 +228,7 @@ export function SupervisorWorkOrderReviewPage() {
                         openWorkOrder(order.id);
                       }}
                     >
-                      Abrir orden
+                      Abrir OT
                     </button>
                   </td>
                 </tr>

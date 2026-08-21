@@ -118,6 +118,7 @@ export function TaxonomyTypeForm({ familyId, initialData, busy = false, submitLa
     setError("");
     try {
       await onSubmit({
+        prefix: typeCode.trim().toUpperCase(),
         familyId,
         typeCode,
         name,

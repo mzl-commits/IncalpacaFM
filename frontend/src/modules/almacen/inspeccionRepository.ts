@@ -9,6 +9,8 @@ import type {
   ValorRespuesta,
   AccionInspeccion,
   UsuarioLista,
+  DocumentoInspeccion,
+  TipoDocumentoInspeccion,
 } from "./types";
 
 // ─── Usuarios (para selects de responsable/inspector) ─────────────────────────
@@ -69,7 +71,6 @@ export async function deleteCriterio(id: number): Promise<void> {
 export async function reordenarCriterios(items: Array<{ id: number; orden: number }>): Promise<void> {
   await api.post("/criterios/reordenar/", items);
 }
-
 // ─── Inspecciones ─────────────────────────────────────────────────────────────
 
 export interface InspeccionesParams {
@@ -136,14 +137,98 @@ export async function createInspeccion(
 
 // ─── Exportación ─────────────────────────────────────────────────────────────
 
-/** Abre el Excel en nueva pestaña. Usa window.open para evitar manejo de blobs. */
-export function exportarExcel(id: number): void {
-  const base = import.meta.env.VITE_API_URL ?? "/api/v1";
-  window.open(`${base}/inspecciones/${id}/exportar-excel/`, "_blank");
+/**
+ * Descarga un archivo protegido por auth.
+ * window.open() NO sirve aquí: es una navegación del navegador que no lleva
+ * el header Authorization que agrega la instancia `api` (interceptor de axios),
+ * así que el backend responde 401. En su lugar, pedimos el archivo como blob
+ * con `api` (que sí manda el token) y disparamos la descarga nosotros mismos.
+ */
+async function descargarArchivo(url: string, nombrePorDefecto: string): Promise<void> {
+  const response = await api.get(url, { responseType: "blob" });
+
+  // Si el backend manda el nombre de archivo en el header, lo usamos.
+  const disposition = response.headers?.["content-disposition"] as string | undefined;
+  const match = disposition?.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? nombrePorDefecto;
+
+  const blobUrl = window.URL.createObjectURL(response.data as Blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
 }
 
-/** Abre el PDF en nueva pestaña. */
-export function exportarPdf(id: number): void {
-  const base = import.meta.env.VITE_API_URL ?? "/api/v1";
-  window.open(`${base}/inspecciones/${id}/exportar-pdf/`, "_blank");
+/** Descarga el Excel de la inspección. */
+export function exportarExcel(id: number): Promise<void> {
+  return descargarArchivo(`/inspecciones/${id}/exportar-excel/`, `inspeccion-${id}.xlsx`);
+}
+
+/** Descarga el PDF de la inspección. */
+export function exportarPdf(id: number): Promise<void> {
+  return descargarArchivo(`/inspecciones/${id}/exportar-pdf/`, `inspeccion-${id}.pdf`);
+}
+
+// ─── Documentos adjuntos por inspección ───────────────────────────────────────
+
+function inferirTipoDocumento(archivo: File): TipoDocumentoInspeccion {
+  const ext = archivo.name.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return "pdf";
+  if (ext === "xls" || ext === "xlsx") return "excel";
+  if (ext === "doc" || ext === "docx") return "word";
+  return "otro";
+}
+
+/** Lista los documentos adjuntos de una inspección puntual (no del material). */
+export async function listDocumentosInspeccion(inspeccionId: number): Promise<DocumentoInspeccion[]> {
+  const { data } = await api.get<DocumentoInspeccion[]>(`/inspecciones/${inspeccionId}/documentos/`);
+  return data;
+}
+
+/**
+ * Sube un documento (PDF/Excel/Word/otro) adjunto a una inspección.
+ * El tipo se infiere automáticamente de la extensión del archivo.
+ */
+export async function subirDocumentoInspeccion(
+  inspeccionId: number,
+  archivo: File,
+  nombre?: string,
+): Promise<DocumentoInspeccion> {
+  const form = new FormData();
+  form.append("inspeccion", String(inspeccionId));
+  form.append("archivo", archivo);
+  form.append("nombre", nombre?.trim() || archivo.name);
+  form.append("tipo", inferirTipoDocumento(archivo));
+
+  const { data } = await api.post<DocumentoInspeccion>("/documentos-inspeccion/", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
+export async function deleteDocumentoInspeccion(id: number): Promise<void> {
+  await api.delete(`/documentos-inspeccion/${id}/`);
+}
+
+/**
+ * Descarga el Excel general consolidado de inspecciones del almacén.
+ * Incluye hojas: Resumen, Por Mes, Vencidas, Top Materiales con BarChart.
+ */
+export async function exportarExcelGeneral(almacenId: number): Promise<void> {
+  const { data, headers } = await api.get(
+    `/inspecciones/exportar-excel/?almacen=${almacenId}`,
+    { responseType: "blob" },
+  );
+  const contentDisposition: string = headers["content-disposition"] ?? "";
+  const match = contentDisposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? `reporte_inspecciones_${almacenId}.xlsx`;
+  const url = URL.createObjectURL(new Blob([data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

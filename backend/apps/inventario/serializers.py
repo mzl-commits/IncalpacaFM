@@ -15,7 +15,11 @@ User = get_user_model()
 
 class MovimientoSerializer(serializers.ModelSerializer):
     material_codigo = serializers.CharField(source="material.codigo", read_only=True)
+    material_codigo_ekipu = serializers.CharField(source="material.codigo_ekipu", read_only=True, default=None)
     material_nombre = serializers.CharField(source="material.nombre", read_only=True)
+    material_ubicacion = serializers.CharField(source="material.ubicacion_fisica", read_only=True, default="")
+    material_stock_minimo = serializers.IntegerField(source="material.stock_minimo", read_only=True, default=0)
+    material_cantidad_total = serializers.IntegerField(source="material.cantidad_total", read_only=True, default=0)
     pieza_codigo = serializers.CharField(source="pieza.codigo", read_only=True, default=None)
     responsable_nombre = serializers.SerializerMethodField()
     tipo_display = serializers.CharField(source="get_tipo_display", read_only=True)
@@ -24,14 +28,15 @@ class MovimientoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movimiento
         fields = [
-            "id", "material", "material_codigo", "material_nombre",
+            "id", "material", "material_codigo", "material_codigo_ekipu", "material_nombre",
+            "material_ubicacion", "material_stock_minimo", "material_cantidad_total",
             "pieza", "pieza_codigo", "tipo", "tipo_display", "cantidad",
             "cantidad_cajas",
             "fecha", "responsable", "responsable_nombre", "referencia_externa",
             "lote_id", "observaciones", "almacen", "almacen_nombre",
         ]
 
-    def get_responsable_nombre(self, obj):
+    def get_responsable_nombre(self, obj) -> str:
         if obj.responsable:
             return obj.responsable.get_full_name() or obj.responsable.username
         return "N/A"
@@ -231,7 +236,7 @@ class PiezaPrestadaSerializer(serializers.ModelSerializer):
             "padre", "padre_codigo", "ultimo_movimiento",
         ]
 
-    def get_ultimo_movimiento(self, obj):
+    def get_ultimo_movimiento(self, obj) -> dict | None:
         ultimo = obj.movimientos.filter(tipo="salida").order_by("-fecha").first()
         if ultimo:
             return {
@@ -406,7 +411,6 @@ class GrupoSolicitudDetailSerializer(serializers.ModelSerializer):
             "supporting_technicians": tech_apoyo,
         }
 
-
 class ResolverParcialItemSerializer(serializers.Serializer):
     """Representa la decisión del administrador para un item individual del grupo."""
     solicitud_id = serializers.IntegerField()
@@ -419,7 +423,6 @@ class ResolverParcialItemSerializer(serializers.Serializer):
                 "motivo_no_entrega": "El motivo de no entrega es obligatorio si el material no es aprobado."
             })
         return attrs
-
 
 class ResolverParcialGrupoSerializer(serializers.Serializer):
     """Payload para aprobación/rechazo parcial de un grupo."""

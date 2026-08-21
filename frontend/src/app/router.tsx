@@ -1,12 +1,14 @@
 import type { ComponentType } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { ModulePlaceholderPage } from "@/components/feedback/ModulePlaceholderPage";
 import { ProtectedRoute } from "@/modules/accounts/ProtectedRoute";
 import { RoleRoute } from "@/modules/accounts/RoleRoute";
-
+import { TaxonomyFormPage } from "@/modules/taxonomy/pages/TaxonomyFormPage";
 import { FmCodeCatalogPage } from "@/modules/taxonomy/pages/FmCodeCatalogPage";
 import { FmCodeAssignPage } from "@/modules/taxonomy/pages/FmCodeAssignPage";
 import { FacilityMapPage } from "@/modules/taxonomy/pages/FacilityMapPage";
+import { LocationMapAdminPage } from "@/modules/assets/pages/LocationMapAdminPage";
 import { DocumentRegistryPage } from "@/modules/documents/pages/DocumentRegistryPage";
 import { AuditLogPage } from "@/modules/audit/pages/AuditLogPage";
 import { TechnicianManagementPage } from "@/modules/accounts/pages/TechnicianManagementPage";
@@ -46,6 +48,8 @@ function administratorLazyRoute<TModule, TKey extends keyof TModule>(
     };
   };
 }
+
+const modules = [["mantenimiento", "Mantenimiento"]] as const;
 
 export const router = createBrowserRouter([
   {
@@ -186,8 +190,8 @@ export const router = createBrowserRouter([
       {
         path: "incidencias/nueva",
         lazy: lazyRoute(
-          () => import("@/modules/incidents/pages/PublicWorkRequestPage"),
-          "PublicWorkRequestPage",
+          () => import("@/modules/incidents/pages/IncidentCreatePage"),
+          "IncidentCreatePage",
         ),
       },
       {
@@ -291,6 +295,7 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
+      { path: "bienes/escanear", lazy: lazyRoute(() => import("@/modules/assets/pages/AssetScannerPage"), "AssetScannerPage") },
       {
         path: "ordenes-trabajo/recomendaciones",
         lazy: administratorLazyRoute(
@@ -435,7 +440,14 @@ export const router = createBrowserRouter([
         path: "usuarios/:id",
         lazy: lazyRoute(() => import("@/modules/accounts/pages/UserBetaProfilePage"), "UserBetaProfilePage"),
       },
-
+      {
+        path: "administracion/taxonomia/nueva",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <TaxonomyFormPage />
+          </RoleRoute>
+        ),
+      },
       {
         path: "administracion/taxonomia/codigos",
         element: (
@@ -462,37 +474,20 @@ export const router = createBrowserRouter([
       },
       {
         path: "administracion/mapas-ambientes",
-        element: <Navigate to="/mapa" replace />,
-      },
-      {
-        path: "administracion/espacios/nuevo",
-        lazy: administratorLazyRoute(
-          () => import("@/modules/spaces/pages/SpaceFormPage"),
-          "SpaceFormPage",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <LocationMapAdminPage />
+          </RoleRoute>
         ),
       },
       {
-        path: "administracion/espacios/:id/editar",
-        lazy: administratorLazyRoute(
-          () => import("@/modules/spaces/pages/SpaceFormPage"),
-          "SpaceFormPage",
+        path: "administracion/taxonomia/:id/editar",
+        element: (
+          <RoleRoute allowedRoles={["ADMINISTRADOR"]}>
+            <TaxonomyFormPage />
+          </RoleRoute>
         ),
       },
-      {
-        path: "administracion/espacios/:id",
-        lazy: administratorLazyRoute(
-          () => import("@/modules/spaces/pages/SpaceDetailPage"),
-          "SpaceDetailPage",
-        ),
-      },
-      {
-        path: "administracion/espacios",
-        lazy: administratorLazyRoute(
-          () => import("@/modules/spaces/pages/SpacesCatalogPage"),
-          "SpacesCatalogPage",
-        ),
-      },
-
 // ── Almacén ──────────────────────────────────────────────────────────
       {
         path: "almacen",
@@ -535,7 +530,14 @@ export const router = createBrowserRouter([
           },
           {
             path: "movimientos/nuevo",
-            lazy: lazyRoute(() => import("@/modules/almacen/pages/MovimientoFormPage"), "MovimientosFormPage"),
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/MovimientoFormPage"), "MovimientoFormPage"),
+          },
+          {
+            path: "movimientos/solicitudes",
+            lazy: lazyRoute(
+              () => import("@/modules/almacen/pages/SolicitudesMovimientoPage"),
+              "SolicitudesMovimientoPage",
+            ),
           },
           {
             path: "movimientos/solicitudes/:id",
@@ -586,7 +588,10 @@ export const router = createBrowserRouter([
         ],
       },
       // ─────────────────────────────────────────────────────────────────────
-      { path: "mantenimiento", element: <Navigate to="/" replace /> },
+      ...modules.map(([path, title]) => ({
+        path,
+        element: <ModulePlaceholderPage title={title} />,
+      })),
     ],
   },
 ]);

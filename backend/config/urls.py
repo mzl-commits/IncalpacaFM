@@ -1,7 +1,7 @@
-from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.conf import settings
+from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from .health import CeleryHealthView, LiveHealthView, ReadyHealthView
@@ -14,7 +14,6 @@ urlpatterns = [
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.organization.urls")),
     path("api/v1/", include("apps.assets.urls")),
-    path("api/v1/", include("apps.spaces.urls")),
     path("api/v1/", include("apps.taxonomy.urls")),
     path("api/v1/", include("apps.assignments.urls")),
     path("api/v1/", include("apps.notifications.urls")),

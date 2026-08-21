@@ -216,27 +216,23 @@ export function IncidentDetailPage() {
                 </div>
 
                 <div className="request-derivation-options">
-                  <Link className="request-derivation-option is-active is-ot" to={`/ordenes-trabajo/nueva/${request.id}`}>
+                  <Link className="request-derivation-option is-active" to={`/ordenes-trabajo/nueva/${request.id}`}>
                     <span>OT</span>
                     <strong>Orden de trabajo</strong>
                     <small>Mantenimiento o reparación con operario y supervisor.</small>
                   </Link>
 
-                  <div className="request-derivation-option is-active is-ol">
-                    <span>OL</span>
-                    <strong>Orden de limpieza</strong>
-                    <small>Elige si será una limpieza puntual o una rutina programada.</small>
-                    <div className="request-derivation-subactions">
-                      <Link to={`/ordenes-trabajo/nueva/ol?request=${request.id}`}>OL puntual</Link>
-                      <Link to={`/ordenes-trabajo/nueva/ol-rutinaria?request=${request.id}`}>OL rutinaria</Link>
-                    </div>
-                  </div>
-
-                  <Link className="request-derivation-option is-active is-os" to={`/ordenes-trabajo/nueva/os?request=${request.id}`}>
+                  <button className="request-derivation-option" type="button" disabled>
                     <span>OS</span>
                     <strong>Orden de servicio</strong>
-                    <small>Servicio externo con proveedor, documento y monto.</small>
-                  </Link>
+                    <small>Pendiente de definir flujo de proveedor/servicio.</small>
+                  </button>
+
+                  <button className="request-derivation-option" type="button" disabled>
+                    <span>OL</span>
+                    <strong>Orden de limpieza</strong>
+                    <small>Pendiente de definir flujo de limpieza.</small>
+                  </button>
                 </div>
               </div>
             )}
@@ -261,7 +257,7 @@ export function IncidentDetailPage() {
                 </button>
             )}
 
-            {(request.status === "PENDIENTE" || request.status === "EN_EVALUACION") && (
+            {request.status !== "RECHAZADA" && (
                 <button
                 className="button button-danger"
                 type="button"
@@ -275,7 +271,7 @@ export function IncidentDetailPage() {
             )}
             </div>
 
-          {showRejectForm && (request.status === "PENDIENTE" || request.status === "EN_EVALUACION") && (
+          {showRejectForm && (
             <div className="rejection-form">
               <label className="field">
                 <span>Motivo de no aprobación *</span>
@@ -595,4 +591,3 @@ export function IncidentDetailPage() {
     </section>
   );
 }
-

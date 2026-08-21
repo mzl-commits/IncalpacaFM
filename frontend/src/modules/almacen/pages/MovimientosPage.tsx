@@ -1,187 +1,518 @@
-import { Plus, MagnifyingGlass, Funnel, ArrowClockwise } from "@phosphor-icons/react";
+import { Plus, ArrowClockwise, FileXls, ClipboardText, CaretDown } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
-import { listMovimientos } from "@/modules/almacen/inventarioRepository";
+import { listMovimientos, listGruposSolicitud, descargarExcelMovimientos } from "@/modules/almacen/inventarioRepository";
+import { useAuth } from "@/modules/accounts/AuthContext";
 import type { TipoMovimiento } from "@/modules/almacen/types";
+
+import { FilterDate, FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
+import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
+import {
+  listCategorias,
+  listSubcategorias,
+} from "@/modules/almacen/catalogoRepository";
+import { listUsuarios } from "@/modules/almacen/inspeccionRepository";
+
+const FILTER_KEYS = [
+  "q", "categoria", "subcategoria",
+  "tipo", "responsable", "fecha_desde", "fecha_hasta",
+] as const;
+
+const TIPO_LABELS: Record<string, string> = {
+  entrada: "Entradas / Devoluciones",
+  salida: "Salidas",
+  baja: "Bajas",
+};
+
+const MESES_ES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+// Quita tildes y normaliza a minúsculas para que "crítico"/"critico" o
+// "número"/"numero" siempre calcen, sin depender de listas hardcodeadas.
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+// Devuelve la fecha del movimiento sin importar qué campo exponga el backend.
+function fechaMovimiento(mov: any): Date | null {
+  const raw = mov.fecha ?? mov.creado_at ?? null;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 export function MovimientosPage() {
   const { almacenId } = useAlmacenActivo();
-  const [q, setQ] = useState("");
-  const [tipoFiltro, setTipoFiltro] = useState<TipoMovimiento | "todos">("todos");
+  const { user } = useAuth();
+  const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
+  const [exportando, setExportando] = useState(false);
+  const [movExpandido, setMovExpandido] = useState<number | null>(null);
 
+  const esAdmin = user?.role === "ADMINISTRADOR";
+
+  async function handleExportarExcel() {
+    setExportando(true);
+    try {
+      await descargarExcelMovimientos();
+    } finally {
+      setExportando(false);
+    }
+  }
+
+  // ── Datos de apoyo para la cascada de filtros ──────────────────────────
+  const { data: categorias = [] } = useQuery({
+    queryKey: ["categorias", almacenId],
+    queryFn: () => listCategorias(almacenId),
+  });
+
+  const { data: subcategorias = [] } = useQuery({
+    queryKey: ["subcategorias", almacenId, values.categoria],
+    queryFn: () =>
+      listSubcategorias(almacenId, values.categoria ? Number(values.categoria) : undefined),
+  });
+
+  const { data: usuarios = [] } = useQuery({ queryKey: ["usuarios"], queryFn: listUsuarios });
+
+  const tipoOptions = buildFilterOptions(["entrada", "salida", "baja"], TIPO_LABELS);
+  const categoriaOptions = buildFilterOptions(
+    categorias.map((c) => String(c.id)),
+    Object.fromEntries(categorias.map((c) => [String(c.id), c.nombre ?? ""])),
+  );
+  const subcategoriaOptions = buildFilterOptions(
+    subcategorias.map((s) => String(s.id)),
+    Object.fromEntries(subcategorias.map((s) => [String(s.id), s.nombre ?? ""])),
+  );
+  const responsableOptions = buildFilterOptions(
+    usuarios.map((u) => String(u.id)),
+    Object.fromEntries(usuarios.map((u) => [String(u.id), u.full_name ?? ""])),
+  );
+
+  // ── Movimientos (filtrado estructurado server-side) ─────────────────────
   const {
     data: movimientos,
     isLoading,
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["movimientos", almacenId, tipoFiltro],
+    queryKey: ["movimientos", almacenId, values],
     queryFn: () =>
       listMovimientos(almacenId, {
-        tipo: tipoFiltro === "todos" ? undefined : tipoFiltro,
+        tipo: (values.tipo || undefined) as TipoMovimiento | undefined,
+        responsable: values.responsable ? Number(values.responsable) : undefined,
+        fecha_desde: values.fecha_desde || undefined,
+        fecha_hasta: values.fecha_hasta || undefined,
       }),
     enabled: !!almacenId,
   });
 
-  // La API no soporta búsqueda por texto en el backend, así que filtramos en el cliente.
+  const { data: gruposPendientes = [] } = useQuery({
+    queryKey: ["grupos-solicitud", "pendiente"],
+    queryFn: () => listGruposSolicitud({ estado: "pendiente" }),
+    enabled: esAdmin,
+  });
+
+  // Búsqueda de texto libre sobre lo que ya trajo el filtro server-side:
+  // código, material, ubicación, fecha (incluye nombres de mes en español),
+  // cantidad, stock crítico, responsable y OT.
   const lista = useMemo(() => {
     const base = movimientos ?? [];
-    if (!q.trim()) return base;
+    const termRaw = values.q.trim();
+    if (!termRaw) return base;
 
-    const term = q.trim().toLowerCase();
+    const term = normalizar(termRaw);
+    const esNumero = !isNaN(Number(termRaw));
+    const numTerm = Number(termRaw);
+
     return base.filter((mov: any) => {
       const campos = [
         mov.material_codigo,
+        mov.material_codigo_ekipu,
         mov.material_nombre,
+        mov.material_ubicacion,
         mov.pieza_codigo,
         mov.pieza_nombre,
         mov.referencia_externa,
         mov.work_order_code,
+        mov.responsable_nombre,
+        mov.usuario_nombre,
+        mov.observaciones,
       ];
-      return campos.some((campo) => campo?.toString().toLowerCase().includes(term));
+
+      // Coincidencia textual en campos (normalizada, sin tildes)
+      if (campos.some((campo) => campo && normalizar(String(campo)).includes(term))) {
+        return true;
+      }
+
+      // Coincidencia en fecha (DD/MM/YYYY, D/M/YYYY, nombre de mes, año)
+      const d = fechaMovimiento(mov);
+      if (d) {
+        const dia = d.getDate();
+        const mes = d.getMonth() + 1;
+        const anio = d.getFullYear();
+        const diaStr = String(dia).padStart(2, "0");
+        const mesStr = String(mes).padStart(2, "0");
+        const nombreMes = MESES_ES[d.getMonth()] ?? "";
+
+        const formatosFecha = [
+          `${diaStr}/${mesStr}/${anio}`,
+          `${dia}/${mes}/${anio}`,
+          `${diaStr}/${mesStr}`,
+          `${dia}/${mes}`,
+          `${dia} de ${nombreMes}`,
+          nombreMes,
+          String(anio),
+          d.toLocaleDateString("es-PE"),
+        ];
+
+        if (formatosFecha.some((f) => normalizar(f).includes(term))) {
+          return true;
+        }
+      }
+
+      // Coincidencia en cantidad
+      if (
+        mov.cantidad?.toString().includes(termRaw) ||
+        mov.cantidad_cajas?.toString().includes(termRaw)
+      ) {
+        return true;
+      }
+
+      // Búsqueda por término de stock crítico / bajo (normalizado, sin tildes)
+      if (
+        ["critico", "stock critico", "bajo", "stock bajo"].includes(term)
+      ) {
+        if (
+          mov.material_stock_minimo > 0 &&
+          mov.material_cantidad_total <= mov.material_stock_minimo
+        ) {
+          return true;
+        }
+      }
+
+      // Coincidencia numérica con cantidad o stock crítico
+      if (
+        esNumero &&
+        (mov.cantidad === numTerm ||
+          mov.material_stock_minimo === numTerm ||
+          mov.material_cantidad_total === numTerm)
+      ) {
+        return true;
+      }
+
+      return false;
     });
-  }, [movimientos, q]);
+  }, [movimientos, values.q]);
+
+  // ── Filtros activos (chips) ─────────────────────────────────────────────
+  const activeFilters = useMemo(() => {
+    const filters: { key: string; label: string; value: string; onRemove: () => void }[] = [];
+
+    if (values.categoria) {
+      const cat = categorias.find((c) => String(c.id) === values.categoria);
+      filters.push({
+        key: "categoria",
+        label: "Categoría",
+        value: cat?.nombre ?? values.categoria,
+        onRemove: () => {
+          setValue("categoria", "");
+          setValue("subcategoria", "");
+        },
+      });
+    }
+    if (values.subcategoria) {
+      const sub = subcategorias.find((s) => String(s.id) === values.subcategoria);
+      filters.push({
+        key: "subcategoria",
+        label: "Subcategoría",
+        value: sub?.nombre ?? values.subcategoria,
+        onRemove: () => {
+          setValue("subcategoria", "");
+        },
+      });
+    }
+    if (values.tipo) {
+      filters.push({
+        key: "tipo",
+        label: "Tipo",
+        value: TIPO_LABELS[values.tipo] ?? values.tipo,
+        onRemove: () => setValue("tipo", ""),
+      });
+    }
+    if (values.responsable) {
+      const usuario = usuarios.find((u) => String(u.id) === values.responsable);
+      filters.push({
+        key: "responsable",
+        label: "Responsable",
+        value: usuario?.full_name ?? values.responsable,
+        onRemove: () => setValue("responsable", ""),
+      });
+    }
+    if (values.fecha_desde || values.fecha_hasta) {
+      filters.push({
+        key: "fecha",
+        label: "Fecha",
+        value: `${values.fecha_desde || "…"} → ${values.fecha_hasta || "…"}`,
+        onRemove: () => {
+          setValue("fecha_desde", "");
+          setValue("fecha_hasta", "");
+        },
+      });
+    }
+    return filters;
+  }, [values, categorias, subcategorias, usuarios, setValue]);
+
+  const filasProcesadas = useMemo(
+    () =>
+      lista.map((mov: any) => {
+        const esEntrada = mov.tipo === "entrada";
+        const esSalida = mov.tipo === "salida";
+        const fechaMov = fechaMovimiento(mov);
+        return {
+          mov,
+          badgeColor: esEntrada ? "#dcfce7" : esSalida ? "#dbeafe" : "#fee2e2",
+          textColor: esEntrada ? "#15803d" : esSalida ? "#1d4ed8" : "#b91c1c",
+          fechaTxt: fechaMov ? fechaMov.toLocaleString("es-PE") : "—",
+          codigo: mov.pieza_codigo || mov.material_codigo || "—",
+          nombre: mov.pieza_codigo
+            ? (mov.pieza_nombre || mov.material_nombre || "—")
+            : (mov.material_nombre || "—"),
+          cantidadTxt: mov.cantidad_cajas ? `${mov.cantidad_cajas} emp. (${mov.cantidad} u.)` : `${mov.cantidad ?? 1} u.`,
+          responsable: mov.responsable_nombre || mov.usuario_nombre || "—",
+          referencia: mov.referencia_externa || mov.work_order_code || "—",
+        };
+      }),
+    [lista],
+  );
 
   return (
-    <section className="page-container">
-      {/* Header */}
-      <div
-        className="page-header"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}
-      >
+    <div className="almacen-movimientos-view">
+      <header className="page-heading">
         <div>
           <p className="breadcrumb">Almacén / Movimientos</p>
-          <h1 style={{ margin: 0 }}>Historial de Movimientos</h1>
+          <h1>Historial de Movimientos</h1>
+          <p>Entradas, salidas y bajas de materiales y piezas.</p>
         </div>
-        <Link
-          to={`/almacen/${almacenId}/movimientos/nuevo`}
-          className="button button-primary"
-          style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-        >
-          <Plus size={18} weight="bold" /> Registrar movimiento
-        </Link>
-      </div>
-
-      {/* Controles y Filtros */}
-      <div className="filter-bar" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-        <div style={{ flex: 1, minWidth: 260, position: "relative" }}>
-          <MagnifyingGlass
-            size={16}
-            style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }}
-          />
-          <input
-            type="search"
-            className="input-search"
-            placeholder="Buscar por código, material o referencia..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ paddingLeft: 36, width: "100%" }}
-          />
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Funnel size={16} style={{ color: "var(--muted)" }} />
-          <select
-            value={tipoFiltro}
-            onChange={(e) => setTipoFiltro(e.target.value as TipoMovimiento | "todos")}
-            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {esAdmin && (
+            <>
+              {gruposPendientes.length > 0 && (
+                <Link
+                  to={`/almacen/${almacenId}/movimientos/solicitudes`}
+                  className="button button-secondary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <ClipboardText size={17} />
+                  Solicitudes
+                  <span style={{ background: "#f59e0b", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 12, fontWeight: 700 }}>
+                    {gruposPendientes.length}
+                  </span>
+                </Link>
+              )}
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportarExcel}
+                disabled={exportando}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                <FileXls size={17} /> {exportando ? "Exportando…" : "Exportar Excel"}
+              </button>
+            </>
+          )}
+          <Link
+            to={`/almacen/${almacenId}/movimientos/nuevo`}
+            className="button button-primary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
           >
-            <option value="todos">Todos los tipos</option>
-            <option value="entrada">Entradas / Devoluciones</option>
-            <option value="salida">Salidas</option>
-            <option value="baja">Bajas</option>
-          </select>
-
-          <button
-            type="button"
-            className="button button-ghost"
-            onClick={() => refetch()}
-            title="Recargar datos"
-          >
-            <ArrowClockwise size={16} className={isFetching ? "spin" : ""} />
-          </button>
+            <Plus size={18} weight="bold" /> Registrar movimiento
+          </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Tabla de Movimientos */}
-      <div
-        className="table-container"
-        style={{ background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}
+      <ListFilterPanel
+        title="Buscar movimientos"
+        description="Filtra por categoría, material, pieza, tipo, responsable o fecha."
+        searchLabel="Buscar"
+        searchPlaceholder="Buscar por código, material, ubicación, fecha, cantidad, stock crítico u OT..."
+        searchValue={values.q}
+        onSearchChange={(v) => setValue("q", v)}
+        resultCount={lista.length}
+        totalCount={movimientos?.length ?? 0}
+        activeFilters={activeFilters}
+        onClear={clearFilters}
       >
-        {isLoading ? (
-          <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>
-            Cargando historial de movimientos...
-          </div>
-        ) : lista.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>
-            No se encontraron movimientos registrados con los filtros aplicados.
-          </div>
-        ) : (
-          <table className="data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: "var(--surface-subtle)", textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "12px 16px" }}>Fecha / Hora</th>
-                <th style={{ padding: "12px 16px" }}>Tipo</th>
-                <th style={{ padding: "12px 16px" }}>Material / Pieza</th>
-                <th style={{ padding: "12px 16px" }}>Cantidad</th>
-                <th style={{ padding: "12px 16px" }}>Responsable</th>
-                <th style={{ padding: "12px 16px" }}>Referencia / OT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((mov: any) => {
-                const esEntrada = mov.tipo === "entrada";
-                const esSalida = mov.tipo === "salida";
-                const badgeColor = esEntrada ? "#dcfce7" : esSalida ? "#dbeafe" : "#fee2e2";
-                const textColor = esEntrada ? "#15803d" : esSalida ? "#1d4ed8" : "#b91c1c";
+        <FilterSelect
+          label="Categoría"
+          value={values.categoria}
+          onChange={(v) => { setValue("categoria", v); setValue("subcategoria", ""); }}
+          options={categoriaOptions}
+          allLabel="Todas las categorías"
+        />
+        <FilterSelect
+          label="Subcategoría"
+          value={values.subcategoria}
+          onChange={(v) => { setValue("subcategoria", v); }}
+          options={subcategoriaOptions}
+          allLabel="Todas las subcategorías"
+          disabled={!values.categoria}
+        />
+        <FilterSelect
+          label="Tipo"
+          value={values.tipo}
+          onChange={(v) => setValue("tipo", v)}
+          options={tipoOptions}
+          allLabel="Todos los tipos"
+        />
+        <FilterSelect
+          label="Responsable"
+          value={values.responsable}
+          onChange={(v) => setValue("responsable", v)}
+          options={responsableOptions}
+          allLabel="Todos los responsables"
+        />
+        <FilterDate
+          label="Desde"
+          value={values.fecha_desde}
+          onChange={(v) => setValue("fecha_desde", v)}
+          max={values.fecha_hasta || undefined}
+        />
+        <FilterDate
+          label="Hasta"
+          value={values.fecha_hasta}
+          onChange={(v) => setValue("fecha_hasta", v)}
+          min={values.fecha_desde || undefined}
+        />
+      </ListFilterPanel>
 
-                return (
-                  <tr key={mov.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
-                      {mov.creado_at ? new Date(mov.creado_at).toLocaleString() : "—"}
-                    </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <span
-                        style={{
-                          background: badgeColor,
-                          color: textColor,
-                          padding: "3px 8px",
-                          borderRadius: 12,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          textTransform: "capitalize",
-                        }}
-                      >
-                        {mov.tipo}
-                      </span>
-                    </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <strong>{mov.material_codigo || mov.pieza_codigo || "—"}</strong>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                        {mov.material_nombre || mov.pieza_nombre || "—"}
-                      </div>
-                    </td>
-                    <td style={{ padding: "12px 16px", fontWeight: 600 }}>
-                      {mov.cantidad_cajas
-                        ? `${mov.cantidad_cajas} caja(s)`
-                        : `${mov.cantidad ?? 1} u.`}
-                    </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      {mov.responsable_nombre || mov.usuario_nombre || "—"}
-                    </td>
-                    <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--muted)" }}>
-                      {mov.referencia_externa || mov.work_order_code || "—"}
-                    </td>
+      <div className="table-toolbar">
+        <button type="button" className="button button-ghost" onClick={() => refetch()} title="Recargar datos">
+          <ArrowClockwise size={16} className={isFetching ? "spin" : ""} /> Recargar
+        </button>
+      </div>
+
+      {/* Tabla de Movimientos (desktop) + Tarjetas (móvil) */}
+      <div className="data-panel">
+        {isLoading ? (
+          <p className="empty-row">Cargando historial de movimientos…</p>
+        ) : lista.length === 0 ? (
+          <p className="empty-row">No se encontraron movimientos registrados con los filtros aplicados.</p>
+        ) : (
+          <>
+            <div className="table-scroll movimientos-table-desktop">
+              <table className="tabla-detalle-mobile">
+                <thead>
+                  <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Tipo</th>
+                    <th>Material / Pieza</th>
+                    <th>Cantidad</th>
+                    <th>Responsable</th>
+                    <th>Referencia / OT</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {filasProcesadas.map(({ mov, badgeColor, textColor, fechaTxt, codigo, nombre, cantidadTxt, responsable, referencia }) => (
+                    <tr key={mov.id}>
+                      <td style={{ whiteSpace: "nowrap" }}>{fechaTxt}</td>
+                      <td>
+                        <span
+                          style={{
+                            background: badgeColor,
+                            color: textColor,
+                            padding: "3px 8px",
+                            borderRadius: 12,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {mov.tipo}
+                        </span>
+                      </td>
+                      <td>
+                        <strong style={{ fontSize: 13 }}>{codigo}</strong>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{nombre}</div>
+                        {mov.material_ubicacion && (
+                          <div style={{ fontSize: 11, color: "var(--primary, #2563eb)", marginTop: 2 }}>
+                            📍 {mov.material_ubicacion}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{cantidadTxt}</td>
+                      <td>{responsable}</td>
+                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{referencia}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Vista de tarjetas — solo visible en pantallas angostas (ver almacen.css) */}
+            <div className="movimientos-cards-mobile">
+              {filasProcesadas.map(({ mov, badgeColor, textColor, fechaTxt, codigo, nombre, cantidadTxt, responsable, referencia }) => {
+                const abierto = movExpandido === mov.id;
+                return (
+                  <div key={mov.id} className={`mov-card ${abierto ? "is-open" : ""}`}>
+                    <button
+                      type="button"
+                      className="mov-card-summary"
+                      aria-expanded={abierto}
+                      onClick={() => setMovExpandido(abierto ? null : mov.id)}
+                    >
+                      <div className="mov-card-top">
+                        <span className="mov-card-badge" style={{ background: badgeColor, color: textColor }}>
+                          {mov.tipo}
+                        </span>
+                        <span className="mov-card-fecha">{fechaTxt}</span>
+                      </div>
+                      <div className="mov-card-nombre-row">
+                        <span className="mov-card-nombre">{nombre}</span>
+                        <CaretDown size={14} className={`mov-card-caret ${abierto ? "is-open" : ""}`} />
+                      </div>
+                    </button>
+
+                    {abierto && (
+                      <div className="mov-card-detalle">
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Código</span>
+                          <span className="mov-card-value pieza-code">{codigo}</span>
+                        </div>
+                        {mov.material_ubicacion && (
+                          <div className="mov-card-field">
+                            <span className="mov-card-label">Ubicación</span>
+                            <span className="mov-card-value mov-card-ubicacion">📍 {mov.material_ubicacion}</span>
+                          </div>
+                        )}
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Cantidad</span>
+                          <span className="mov-card-value">{cantidadTxt}</span>
+                        </div>
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Responsable</span>
+                          <span className="mov-card-value">{responsable}</span>
+                        </div>
+                        <div className="mov-card-field">
+                          <span className="mov-card-label">Referencia / OT</span>
+                          <span className="mov-card-value">{referencia}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
-    </section>
+    </div>
   );
 }

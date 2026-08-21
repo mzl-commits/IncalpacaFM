@@ -765,3 +765,361 @@
     width: 100%;
   }
 }
+
+/* ─── ResumenCarrito — Carrito unificado (consumibles + piezas) ──────────── */
+.resumen-carrito {
+  border: 1px solid var(--accent, #2563eb);
+  border-radius: 8px;
+  background: #f0f7ff;
+  overflow: hidden;
+  margin-top: 16px;
+}
+.resumen-carrito-header {
+  padding: 10px 14px;
+  background: rgba(37, 99, 235, 0.07);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.15);
+}
+.resumen-carrito-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent, #2563eb);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.resumen-carrito-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--accent, #2563eb);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.resumen-carrito-lista {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.resumen-carrito-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  font-size: 13px;
+}
+.rci-tipo {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.rci-tipo-consumible {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.rci-tipo-pieza {
+  background: #d1fae5;
+  color: #065f46;
+}
+.rci-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.rci-cantidad {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.rci-quitar {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+.rci-quitar:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ─── Checkbox de OT (Tarea 5) ───────────────────────────────────────────── */
+.ot-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+.ot-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+  border-radius: 3px;
+}
+.ot-checkbox-row label {
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1.4;
+  user-select: none;
+  font-weight: 400;
+}
+/* ─── Historial de Movimientos — tabla (desktop) vs tarjetas (móvil) ────────── */
+.movimientos-table-desktop { display: block; }
+.movimientos-cards-mobile { display: none; }
+
+.mov-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.mov-card.is-open { border-color: #cbd5e1; }
+.mov-card-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.mov-card-summary:active { background: #f9fafb; }
+.mov-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mov-card-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.mov-card-fecha {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mov-card-nombre-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mov-card-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mov-card-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform .15s ease;
+}
+.mov-card-caret.is-open { transform: rotate(180deg); }
+.mov-card-detalle {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.mov-card-ubicacion { color: var(--primary, #2563eb) !important; }
+.mov-card-field { display: flex; flex-direction: column; gap: 2px; }
+.mov-card-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.mov-card-value { font-size: 13px; color: var(--text); }
+
+/* ─── Inspecciones — tabla (desktop) vs tarjetas (móvil) ───────────────────── */
+.inspecciones-table-desktop { display: block; }
+.inspecciones-cards-mobile { display: none; }
+
+.insp-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.insp-card.is-open { border-color: #cbd5e1; }
+.insp-card-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.insp-card-summary:active { background: #f9fafb; }
+.insp-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.insp-card-fecha {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.insp-card-nombre-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.insp-card-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.insp-card-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform .15s ease;
+}
+.insp-card-caret.is-open { transform: rotate(180deg); }
+.insp-card-detalle {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.insp-card-field { display: flex; flex-direction: column; gap: 2px; }
+.insp-card-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.insp-card-value { font-size: 13px; color: var(--text); }
+.insp-card-ver {
+  margin-top: 6px;
+  justify-self: start;
+}
+
+@media (max-width: 768px) {
+  .movimientos-table-desktop { display: none; }
+  .movimientos-cards-mobile {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+}
+/* ─── Historial de Inspecciones — tabla (desktop) vs tarjetas (móvil) ───────── */
+.inspecciones-table-desktop { display: block; }
+.inspecciones-cards-mobile { display: none; }
+
+.insp-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.insp-card.is-open { border-color: #cbd5e1; }
+.insp-card-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.insp-card-summary:active { background: #f9fafb; }
+.insp-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.insp-card-fecha {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.insp-card-nombre-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.insp-card-nombre { font-size: 14px; font-weight: 600; color: var(--text); }
+.insp-card-caret { flex-shrink: 0; color: var(--muted); transition: transform .15s ease; }
+.insp-card-caret.is-open { transform: rotate(180deg); }
+.insp-card-detalle {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.insp-card-field { display: flex; flex-direction: column; gap: 2px; }
+.insp-card-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.insp-card-value { font-size: 13px; color: var(--text); }
+.insp-card-ver { margin-top: 4px; justify-self: start; }
+
+@media (max-width: 768px) {
+  .inspecciones-table-desktop { display: none; }
+  .inspecciones-cards-mobile {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+}

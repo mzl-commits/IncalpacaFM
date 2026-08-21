@@ -58,7 +58,6 @@ function storedUser() {
   }
 }
 
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SystemUser | null>(storedUser);
 
@@ -75,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem("sgtb_access_token", data.access);
     sessionStorage.setItem("sgtb_refresh_token", data.refresh);
     sessionStorage.setItem("sgtb_current_user", JSON.stringify(mapped));
+    // La autenticación no se bloquea si la telemetría de privacidad falla.
     void api.post("/privacy/acknowledgements/", { context: "LOGIN", subject_reference: mapped.workerCode }).catch(() => undefined);
     setUser(mapped);
     return mapped;

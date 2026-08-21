@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { createManagedUser, importTechnicians, listManagedUsers, updateManagedUser, type Technician, type TechnicianInput } from "@/modules/accounts/technicianRepository";
 import type { UserRole } from "@/modules/accounts/types";
-import { getApiErrorMessage } from "@/utils/httpError";
 
 const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: "SOLICITANTE", label: "Solicitante" }, { value: "TECNICO", label: "Técnico" },
@@ -13,6 +12,12 @@ const roleOptions: Array<{ value: UserRole; label: string }> = [
 ];
 const emptyUser: TechnicianInput = { full_name: "", email: "", worker_code: "", dni: "", specialty: "", position: "", hourly_rate: 0, active: true, temporary_password: "", role: "SOLICITANTE" };
 
+function getErrorMessage(error: unknown) {
+  const data = (error as { response?: { data?: unknown } })?.response?.data;
+  if (typeof data === "string") return data;
+  if (data && typeof data === "object") { const first = Object.values(data as Record<string, unknown>)[0]; return Array.isArray(first) ? String(first[0]) : String(first ?? "No se pudo guardar el usuario."); }
+  return error instanceof Error ? error.message : "No se pudo guardar el usuario.";
+}
 function roleName(role: UserRole) { return roleOptions.find((option) => option.value === role)?.label ?? role; }
 
 export function UserManagementPage() {
@@ -54,12 +59,12 @@ export function UserManagementPage() {
       const saved = editing ? await updateManagedUser(editing.id, payload) : await createManagedUser(payload);
       setUsers((current) => editing ? current.map((user) => user.id === saved.id ? saved : user) : [...current, saved]);
       setFeedback(editing ? "Usuario actualizado correctamente." : "Usuario creado. Deberá cambiar su contraseña al ingresar."); setEditing(undefined);
-    } catch (saveError) { setError(getApiErrorMessage(saveError, "No se pudo guardar el usuario.")); } finally { setSaving(false); }
+    } catch (saveError) { setError(getErrorMessage(saveError)); } finally { setSaving(false); }
   }
   async function importFile(file?: File) {
     if (!file) return; setError(""); setFeedback("");
     try { const result = await importTechnicians(file); setFeedback(`Importación completada: ${result.created} creados y ${result.updated} actualizados.${result.errors.length ? ` ${result.errors.length} fila(s) requieren revisión.` : ""}`); await load(); }
-    catch (importError) { setError(getApiErrorMessage(importError, "No se pudo importar el archivo.")); } finally { if (fileInput.current) fileInput.current.value = ""; }
+    catch (importError) { setError(getErrorMessage(importError)); } finally { if (fileInput.current) fileInput.current.value = ""; }
   }
 
   return <section className="user-management-page">

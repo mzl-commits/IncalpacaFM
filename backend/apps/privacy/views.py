@@ -4,20 +4,9 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps.accounts.permissions import IsAdministrator
 from apps.audit.services import record_audit
 
-from .models import (
-    DataSubjectRequest,
-    PersonalDataIncident,
-    PrivacyNotice,
-    ProcessingInventory,
-)
-from .serializers import (
-    DataSubjectRequestAdminSerializer,
-    DataSubjectRequestSerializer,
-    PersonalDataIncidentSerializer,
-    PrivacyAcknowledgementSerializer,
-    PrivacyNoticeSerializer,
-    ProcessingInventorySerializer,
-)
+from .models import DataSubjectRequest, PersonalDataIncident, PrivacyAcknowledgement, PrivacyNotice, ProcessingInventory
+from .services import record_privacy_event
+from .serializers import (DataSubjectRequestAdminSerializer, DataSubjectRequestSerializer, PersonalDataIncidentSerializer, PrivacyAcknowledgementSerializer, PrivacyNoticeSerializer, ProcessingInventorySerializer)
 
 
 class ActivePrivacyNoticeView(generics.ListAPIView):

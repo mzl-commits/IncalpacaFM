@@ -1,9 +1,11 @@
 from django.db import transaction
+from django.db.models import ProtectedError
+from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.db.models import Q, Exists, OuterRef
+from django.db.models import Q, Exists, OuterRef, F
 
 from rest_framework.exceptions import PermissionDenied
 
@@ -12,7 +14,14 @@ from apps.accounts.permissions import (
     IsAlmaceneroOrAdministratorWrite,
     IsAlmaceneroAdminOrInspectorWrite,
 )
-from apps.catalogo.models import Categoria, Subcategoria, Material, Pieza, Almacen
+from apps.catalogo.models import (
+    Categoria, Subcategoria, Material, Pieza, Almacen, UnidadMedida, TipoManejoStock,
+    TipoMedidaCatalogo,
+)
+from apps.inspeccion.exporters import (
+    generar_excel_historial_material,
+    generar_pdf_historial_material,
+)
 from apps.catalogo.serializers import (
     CategoriaSerializer,
     SubcategoriaSerializer,
@@ -27,8 +36,10 @@ from apps.catalogo.serializers import (
     ReemplazarHijaSerializer,
     AgregarHijaInlineSerializer,
     AlmacenSerializer,
+    UnidadMedidaSerializer,
+    TipoManejoStockSerializer,
+    TipoMedidaCatalogoSerializer,
 )
-
 
 class AlmacenScopedMixin:
     """Fuerza almacén del perfil para Almacenero/Inspector, ignorando ?almacen=.
@@ -62,12 +73,89 @@ class AlmacenScopedMixin:
                 "No tienes permiso para operar sobre un almacén distinto al asignado a tu cuenta."
             )
 
-
 class AlmacenViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     queryset = Almacen.objects.all()
     serializer_class = AlmacenSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
-    almacen_lookup = "pk"  # Almacen.pk ES el almacén
+
+    CAMPOS_EDITABLES_ALMACENERO = {"croquis"}
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        perfil = getattr(self.request.user, "account_profile", None)
+        if perfil and perfil.role in (AccountProfile.Role.ALMACENERO, AccountProfile.Role.INSPECTOR):
+            qs = qs.filter(id=perfil.almacen_id)
+        return qs
+
+    def perform_update(self, serializer):
+        perfil = getattr(self.request.user, "account_profile", None)
+        if perfil and perfil.role == AccountProfile.Role.ALMACENERO:
+            if serializer.instance.id != perfil.almacen_id:
+                raise PermissionDenied(
+                    "Solo puedes editar el almacén asignado a tu cuenta."
+                )
+            campos_no_permitidos = set(serializer.validated_data.keys()) - self.CAMPOS_EDITABLES_ALMACENERO
+            if campos_no_permitidos:
+                raise PermissionDenied(
+                    "Como Almacenero solo puedes actualizar el croquis; "
+                    "nombre, código, ubicación y estado los administra un Administrador."
+                )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        perfil = getattr(self.request.user, "account_profile", None)
+        if perfil and perfil.role == AccountProfile.Role.ALMACENERO:
+            raise PermissionDenied("Solo un Administrador puede eliminar un almacén.")
+        instance.delete()
+
+    def get_object(self):
+        """Si el usuario es ALMACENERO/INSPECTOR y el pk solicitado no coincide
+        con su almacén asignado, devolver 403 explícito (no 404 silencioso)."""
+        almacen_forzado = self._almacen_forzado()
+        if almacen_forzado is not None:
+            pk = self.kwargs.get(self.lookup_field)
+            try:
+                pk_int = int(pk)
+            except (TypeError, ValueError):
+                pk_int = pk
+            if pk_int != almacen_forzado:
+                raise PermissionDenied(
+                    "No tienes permiso para acceder a un almacén distinto al asignado a tu cuenta."
+                )
+        return super().get_object()
+
+
+class _CatalogoEditableViewSet(viewsets.ModelViewSet):
+    """Base para catálogos editables (unidades de medida, tipos de manejo de
+    stock): permite crear/editar/eliminar, pero si un material ya usa el
+    registro (on_delete=PROTECT), devuelve un error claro en vez de un 500."""
+    permission_classes = [IsAlmaceneroOrAdministratorWrite]
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "No se puede eliminar: hay materiales que usan este registro. "
+                           "Desactívalo en su lugar si ya no debe ofrecerse para nuevos materiales."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class UnidadMedidaViewSet(_CatalogoEditableViewSet):
+    queryset = UnidadMedida.objects.all()
+    serializer_class = UnidadMedidaSerializer
+
+
+class TipoManejoStockViewSet(_CatalogoEditableViewSet):
+    queryset = TipoManejoStock.objects.all()
+    serializer_class = TipoManejoStockSerializer
+
+
+class TipoMedidaCatalogoViewSet(_CatalogoEditableViewSet):
+    queryset = TipoMedidaCatalogo.objects.all()
+    serializer_class = TipoMedidaCatalogoSerializer
+
 
 class CategoriaViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     queryset = Categoria.objects.all()
@@ -194,28 +282,36 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         if activo is not None:
             qs = qs.filter(activo=activo.lower() == "true")
         if inspeccionable is not None and inspeccionable.lower() == "true":
-            qs = qs.filter(
-                activo=True,
-                subcategoria__activo=True,
-                subcategoria__categoria__activo=True,
-                subcategoria__categoria__requiere_inspeccion=True,
-                subcategoria__plantilla_inspeccion__isnull=False,
-                tipo_control="retornable",
-            )
+            qs = qs.inspeccionables()
         if almacen_id and self._almacen_forzado() is None:
             qs = qs.filter(almacen_id=almacen_id)
 
         if busqueda:
-            qs = qs.filter(
+            q_filtro = (
                 Q(nombre__icontains=busqueda)
                 | Q(codigo__icontains=busqueda)
+                | Q(codigo_quipu__icontains=busqueda)
                 | Q(marca__icontains=busqueda)
                 | Q(modelo__icontains=busqueda)
+                | Q(ubicacion_fisica__icontains=busqueda)
+                | Q(subcategoria__nombre__icontains=busqueda)
+                | Q(subcategoria__categoria__nombre__icontains=busqueda)
                 | Q(piezas__codigo__icontains=busqueda)
                 | Q(piezas__detalle__icontains=busqueda)
                 | Q(piezas__piezas_hijas__codigo__icontains=busqueda)
                 | Q(piezas__piezas_hijas__detalle__icontains=busqueda)
-            ).distinct()
+            )
+            # Búsqueda numérica para cantidad o stock mínimo
+            if busqueda.strip().isdigit():
+                num = int(busqueda.strip())
+                q_filtro |= Q(cantidad_total=num) | Q(stock_minimo=num)
+
+            # Búsqueda semántica para términos de stock crítico o bajo
+            busq_norm = busqueda.strip().lower()
+            if busq_norm in ("critico", "crítico", "stock critico", "stock crítico", "bajo", "stock bajo"):
+                q_filtro |= (Q(stock_minimo__gt=0) & Q(cantidad_total__lte=F("stock_minimo")))
+
+            qs = qs.filter(q_filtro).distinct()
         return qs
 
     def destroy(self, request, *args, **kwargs):
@@ -249,13 +345,48 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         material = self.get_object()
         nombre = str(material)
         with transaction.atomic():
-            from apps.inspeccion.models import RespuestaCriterio, Inspeccion
-            from apps.inventario.models import Movimiento
+            from apps.inspeccion.models import RespuestaCriterio, Inspeccion, ProgramacionInspeccion
+            from apps.inventario.models import Movimiento, SolicitudMovimiento
+            from apps.workorders.models import WorkOrderMaterial
+
+            # Recopilar todas las piezas (directas + hijas) del material
+            piezas_directas = list(material.piezas.values_list("id", flat=True))
+            from apps.catalogo.models import Pieza
+            piezas_hijas = list(
+                Pieza.objects.filter(padre_id__in=piezas_directas).values_list("id", flat=True)
+            )
+            todas_piezas_ids = piezas_directas + piezas_hijas
+
+            # 1. Respuestas de criterio de inspecciones ligadas al material o sus piezas
             RespuestaCriterio.objects.filter(inspeccion__material=material).delete()
+            RespuestaCriterio.objects.filter(inspeccion__pieza_id__in=todas_piezas_ids).delete()
+
+            # 2. Inspecciones del material y de sus piezas
             Inspeccion.objects.filter(material=material).delete()
+            Inspeccion.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 3. Programaciones de inspección
+            ProgramacionInspeccion.objects.filter(material=material).delete()
+            ProgramacionInspeccion.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 4. Movimientos de inventario
             Movimiento.objects.filter(material=material).delete()
-            material.piezas.all().delete()
+            Movimiento.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 5. Solicitudes de movimiento
+            SolicitudMovimiento.objects.filter(material=material).delete()
+            SolicitudMovimiento.objects.filter(pieza_id__in=todas_piezas_ids).delete()
+
+            # 6. Materiales de órdenes de trabajo (WorkOrderMaterial)
+            WorkOrderMaterial.objects.filter(material=material).delete()
+
+            # 7. Piezas hijas primero, luego piezas directas
+            Pieza.objects.filter(id__in=piezas_hijas).delete()
+            Pieza.objects.filter(id__in=piezas_directas).delete()
+
+            # 8. Finalmente el material
             material.delete()
+
         return Response(
             {"detail": f"Material '{nombre}' eliminado correctamente junto con todos sus datos."},
             status=status.HTTP_200_OK,
@@ -330,6 +461,33 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         )
         materiales = Material.objects.filter(id__in=hijas_material_ids)
         return Response(MaterialSerializer(materiales, many=True).data)
+
+    @action(detail=True, methods=["get"], url_path="historial-inspecciones-excel")
+    def historial_inspecciones_excel(self, request, pk=None):
+        """Descarga en Excel TODAS las inspecciones históricas de este material
+        (individuales de sus piezas + grupales), ordenadas de más reciente a
+        más antigua. GET /materiales/{id}/historial-inspecciones-excel/"""
+        material = self.get_object()
+        buffer = generar_excel_historial_material(material)
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = (
+            f'attachment; filename="historial_inspecciones_{material.codigo}.xlsx"'
+        )
+        return response
+
+    @action(detail=True, methods=["get"], url_path="historial-inspecciones-pdf")
+    def historial_inspecciones_pdf(self, request, pk=None):
+        """Igual que el Excel de arriba, pero en PDF. GET /materiales/{id}/historial-inspecciones-pdf/"""
+        material = self.get_object()
+        buffer = generar_pdf_historial_material(material)
+        response = HttpResponse(buffer.read(), content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="historial_inspecciones_{material.codigo}.pdf"'
+        )
+        return response
 
 
 class PiezaViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):

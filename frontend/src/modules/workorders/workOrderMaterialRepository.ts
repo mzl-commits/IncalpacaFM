@@ -7,9 +7,6 @@ export interface WorkOrderMaterial {
   materialNombre: string;
   materialCodigo: string;
   materialPrecio: string | null;
-  precioUnitario?: number | string | null;
-  clasificacionOperativa?: string;
-  clasificacionOperativaLabel?: string;
   materialStock: number;
   cantidad: number;
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
@@ -28,7 +25,6 @@ export interface WorkOrderMaterialPayload {
   cantidad: number;
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
   porcentajeRequerido?: number | null;
-  precioUnitario?: number | string | null;
   almacen?: number | null; 
 }
 

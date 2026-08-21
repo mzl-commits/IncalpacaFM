@@ -13,8 +13,8 @@ import type {
 
 type TaxonomyApiRecord = {
   id: string;
-  family_id: string;
-  type_code: string;
+  family_id?: string;
+  type_code?: string;
   prefix: string;
   name: string;
   asset_type?: string;
@@ -60,8 +60,8 @@ function sortByPrefix<T extends Pick<TaxonomyOption, "prefix" | "name">>(items: 
 function mapTaxonomy(item: TaxonomyApiRecord): TaxonomyRecord {
   return {
     id: item.id,
-    familyId: item.family_id,
-    typeCode: item.type_code,
+    familyId: item.family_id ?? "",
+    typeCode: item.type_code ?? item.prefix,
     prefix: item.prefix,
     name: item.name || item.subcategory || "",
     assetType: item.asset_type,
@@ -94,8 +94,7 @@ function asList<T>(data: T[] | PaginatedResponse<T>) {
 
 function toApiPayload(input: TaxonomyInput) {
   return {
-    family_id: input.familyId,
-    type_code: input.typeCode.trim().toUpperCase(),
+    prefix: input.prefix.trim().toUpperCase(),
     name: input.name.trim(),
     asset_type: input.assetType?.trim() || "",
     category: input.category?.trim() || "",

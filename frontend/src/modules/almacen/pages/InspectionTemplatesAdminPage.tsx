@@ -123,12 +123,17 @@ export function InspectionTemplatesAdminPage() {
               <input
                 value={templateName}
                 onChange={(event) => setTemplateName(event.target.value)}
-                placeholder="Ej. Inspección eléctrica"
+                placeholder="Ej. Inspección de herramientas"
               />
             </label>
-            <div className="flex-row">
-              <button className="button button-primary" disabled={templateMutation.isPending}>
-                <FloppyDisk size={18} />{editingTemplate ? "Guardar" : "Crear"}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={templateMutation.isPending}
+              >
+                <FloppyDisk size={16} />
+                {editingTemplate ? "Guardar" : "Crear"}
               </button>
               {editingTemplate && (
                 <button
@@ -136,61 +141,74 @@ export function InspectionTemplatesAdminPage() {
                   className="button button-secondary"
                   onClick={() => { setEditingTemplate(null); setTemplateName(""); }}
                 >
-                  <X size={18} />Cancelar
+                  <X size={16} /> Cancelar
                 </button>
               )}
             </div>
           </form>
 
-          <div className="checklist-list" style={{ paddingTop: 0 }}>
+          <div style={{ display: "grid", gap: 6, padding: "0 16px 16px" }}>
             {isLoading && <span className="text-muted-sm">Cargando formularios…</span>}
-            {!isLoading && templates.length === 0 && (
-              <p className="empty-row">Aún no hay formularios creados.</p>
-            )}
-            {templates.map((template) => (
-              <div
-                key={template.id}
-                className="checklist-row"
-                style={{ gridTemplateColumns: "1fr auto", cursor: "pointer" }}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(template.id);
-                    setQuestion({ plantilla: template.id, texto: "", orden: template.criterios.length + 1 });
-                    setEditingQuestion(null);
+            {templates.map((template) => {
+              const activo = selectedId === template.id;
+              return (
+                <div
+                  key={template.id}
+                  style={{
+                    padding: "10px 12px",
+                    border: `1px solid ${activo ? "var(--primary)" : "var(--border)"}`,
+                    borderRadius: 6,
+                    background: activo ? "var(--surface-subtle)" : "var(--surface)",
                   }}
-                  style={{ textAlign: "left", border: 0, background: "transparent", cursor: "pointer", padding: 0 }}
                 >
-                  <strong style={{ fontSize: 13, color: selectedId === template.id ? "var(--accent)" : "var(--text)" }}>
-                    {template.nombre}
-                  </strong>
-                  <small className="text-muted-sm" style={{ display: "block", marginTop: 2 }}>
-                    {template.criterios.length} pregunta(s)
-                  </small>
-                </button>
-                <div className="flex-row">
                   <button
                     type="button"
-                    className="button button-sm button-secondary"
-                    aria-label={`Editar ${template.nombre}`}
-                    onClick={() => openTemplateEdit(template)}
-                  >
-                    <PencilSimple size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button-danger"
-                    aria-label={`Eliminar ${template.nombre}`}
                     onClick={() => {
-                      if (window.confirm(`¿Eliminar el formulario "${template.nombre}"?`)) removeTemplate.mutate(template.id);
+                      setSelectedId(template.id);
+                      setQuestion({
+                        plantilla: template.id,
+                        texto: "",
+                        orden: template.criterios.length + 1,
+                      });
+                      setEditingQuestion(null);
+                    }}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      border: 0,
+                      background: "transparent",
+                      cursor: "pointer",
+                      padding: 0,
                     }}
                   >
-                    <Trash size={16} />
+                    <strong style={{ fontSize: 14 }}>{template.nombre}</strong>
+                    <small style={{ display: "block", marginTop: 2, color: "var(--muted)" }}>
+                      {template.criterios.length} pregunta(s)
+                    </small>
                   </button>
+                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => openTemplateEdit(template)}
+                    >
+                      <PencilSimple size={14} /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => {
+                        if (window.confirm(`¿Eliminar el formulario “${template.nombre}”?`)) {
+                          removeTemplate.mutate(template.id);
+                        }
+                      }}
+                    >
+                      <Trash size={14} /> Eliminar
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -198,40 +216,38 @@ export function InspectionTemplatesAdminPage() {
         <div className="data-panel">
           {selected ? (
             <>
-              <div className="table-toolbar">
+              <div className="table-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <strong style={{ fontSize: 15 }}>{selected.nombre}</strong>
-                  <p className="text-muted-sm" style={{ margin: "2px 0 0" }}>Define el orden y texto de cada pregunta.</p>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+                    Preguntas del formulario
+                  </p>
                 </div>
-                <span className="text-muted-sm">{selected.criterios.length} preguntas</span>
+                <span className="badge badge-secondary">
+                  {selected.criterios.length} pregunta(s)
+                </span>
               </div>
 
               <form
                 onSubmit={(event) => { event.preventDefault(); questionMutation.mutate(); }}
-                style={{ padding: "0 16px 16px", display: "grid", gap: 10 }}
+                style={{ padding: "0 16px 16px", display: "grid", gap: 10, borderBottom: "1px solid var(--border)" }}
               >
-                <div className="form-grid">
-                  <label className="field field-wide">
-                    <span>{editingQuestion ? "Editar pregunta" : "Nueva pregunta"}</span>
-                    <input
-                      value={question.texto}
-                      onChange={(event) => setQuestion((current) => ({ ...current, texto: event.target.value }))}
-                      placeholder="Ej. Verificar que el cable no tenga cortes"
-                    />
-                  </label>
-                  <label className="field" style={{ maxWidth: 150 }}>
-                    <span>Orden</span>
-                    <input
-                      type="number"
-                      min="1"
-                      value={question.orden}
-                      onChange={(event) => setQuestion((current) => ({ ...current, orden: Number(event.target.value) }))}
-                    />
-                  </label>
-                </div>
-                <div className="flex-row">
-                  <button className="button button-primary" disabled={questionMutation.isPending}>
-                    <Plus size={18} />{editingQuestion ? "Actualizar" : "Agregar pregunta"}
+                <label className="field">
+                  <span>{editingQuestion ? "Editar pregunta" : "Nueva pregunta"}</span>
+                  <input
+                    value={question.texto}
+                    onChange={(event) => setQuestion((current) => ({ ...current, texto: event.target.value }))}
+                    placeholder="Ej. Verificar aislamiento del cable"
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="submit"
+                    className="button button-primary"
+                    disabled={questionMutation.isPending}
+                  >
+                    <Plus size={16} />
+                    {editingQuestion ? "Actualizar" : "Agregar pregunta"}
                   </button>
                   {editingQuestion && (
                     <button
@@ -239,56 +255,65 @@ export function InspectionTemplatesAdminPage() {
                       className="button button-secondary"
                       onClick={() => {
                         setEditingQuestion(null);
-                        setQuestion({ plantilla: selected.id, texto: "", orden: selected.criterios.length + 1 });
+                        setQuestion({
+                          plantilla: selected.id,
+                          texto: "",
+                          orden: selected.criterios.length + 1,
+                        });
                       }}
                     >
-                      <X size={18} />Cancelar
+                      <X size={16} /> Cancelar
                     </button>
                   )}
                 </div>
               </form>
 
-              <div className="table-scroll">
-                <table className="tabla-detalle-mobile">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 70 }}>Orden</th>
-                      <th>Pregunta</th>
-                      <th style={{ width: 90 }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selected.criterios.length === 0 && (
-                      <tr><td colSpan={3} className="empty-row">Aún no hay preguntas. Agrega la primera para activar este formulario.</td></tr>
-                    )}
+              <div style={{ padding: 16 }}>
+                {selected.criterios.length === 0 ? (
+                  <p className="text-center-empty">
+                    Aún no hay preguntas. Agrega la primera arriba.
+                  </p>
+                ) : (
+                  <ol style={{ display: "grid", gap: 8, margin: 0, paddingLeft: 20 }}>
                     {selected.criterios.map((item) => (
-                      <tr key={item.id}>
-                        <td className="text-muted-sm">{item.orden}</td>
-                        <td className="text-base">{item.texto}</td>
-                        <td>
-                          <div className="flex-row">
+                      <li
+                        key={item.id}
+                        style={{
+                          padding: "8px 12px",
+                          border: "1px solid var(--border)",
+                          borderRadius: 6,
+                          background: "var(--surface)",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                          <span style={{ flex: 1, fontSize: 14 }}>{item.texto}</span>
+                          <div style={{ display: "flex", gap: 4 }}>
                             <button
                               type="button"
-                              className="button button-sm button-secondary"
-                              aria-label={`Editar pregunta ${item.orden}`}
+                              className="icon-button"
+                              title="Editar"
                               onClick={() => openQuestionEdit(item)}
                             >
                               <PencilSimple size={14} />
                             </button>
                             <button
                               type="button"
-                              className="icon-button-danger"
-                              aria-label={`Eliminar pregunta ${item.orden}`}
-                              onClick={() => { if (window.confirm("¿Eliminar esta pregunta?")) removeQuestion.mutate(item.id); }}
+                              className="icon-button"
+                              title="Eliminar"
+                              onClick={() => {
+                                if (window.confirm("¿Eliminar esta pregunta?")) {
+                                  removeQuestion.mutate(item.id);
+                                }
+                              }}
                             >
-                              <Trash size={16} />
+                              <Trash size={14} />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </li>
                     ))}
-                  </tbody>
-                </table>
+                  </ol>
+                )}
               </div>
             </>
           ) : (

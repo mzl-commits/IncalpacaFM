@@ -1,7 +1,0 @@
-# Build and tool caches are generated artifacts, not source formatting targets.
-dist/
-.vite/
-coverage/
-test-results/
-playwright-report/
-node_modules/

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 import {
   generarPlanAnual,
   listPlanesAnuales,
@@ -10,27 +11,27 @@ import {
 } from "@/modules/almacen/planificacionRepository";
 import { estadoCalculadoLabels, estadoPlanAnualLabels } from "@/modules/almacen/types";
 import type { EstadoCalculado, ProgramacionInspeccion } from "@/modules/almacen/types";
-import { getApiErrorMessage } from "@/utils/httpError";
 
 const ESTADOS: EstadoCalculado[] = ["vencida", "proxima", "pendiente", "realizada"];
 
 export function PlanAnualPage() {
   const queryClient = useQueryClient();
+  const { almacenId } = useAlmacenActivo();
   const [anioInput, setAnioInput] = useState(() => new Date().getFullYear());
   const [forzar, setForzar] = useState(false);
   const [errorGenerar, setErrorGenerar] = useState<string | null>(null);
   const [planExpandido, setPlanExpandido] = useState<number | null>(null);
 
   const { data: planes = [], isLoading: cargandoPlanes } = useQuery({
-    queryKey: ["planes-anuales"],
-    queryFn: () => listPlanesAnuales(),
+    queryKey: ["planes-anuales", almacenId],
+    queryFn: () => listPlanesAnuales({ almacen: almacenId }),
   });
 
   // Sin filtro de fecha: trae todas las programaciones para poder contar por plan
   // y también para mostrar el detalle del plan expandido, sin pedir de nuevo al backend.
   const { data: programaciones = [], isLoading: cargandoProgramaciones } = useQuery({
-    queryKey: ["programaciones-inspeccion-todas"],
-    queryFn: () => listProgramaciones(),
+    queryKey: ["programaciones-inspeccion-todas", almacenId],
+    queryFn: () => listProgramaciones({ almacen: almacenId }),
   });
 
   const conteosPorPlan = useMemo(() => {
@@ -66,15 +67,18 @@ export function PlanAnualPage() {
       setErrorGenerar(null);
       queryClient.invalidateQueries({ queryKey: ["planes-anuales"] });
       queryClient.invalidateQueries({ queryKey: ["programaciones-inspeccion-todas"] });
+      queryClient.invalidateQueries({ queryKey: ["programaciones-inspeccion"] });
     },
-    onError: (err: unknown) => {
-      setErrorGenerar(getApiErrorMessage(err, "No se pudo generar el plan. Intenta nuevamente."));
+    onError: (err: any) => {
+      setErrorGenerar(
+        err?.response?.data?.detail ?? "No se pudo generar el plan. Intenta nuevamente.",
+      );
     },
   });
 
   function handleGenerar() {
     setErrorGenerar(null);
-    mutacionGenerar.mutate({ anio: anioInput, forzar });
+    mutacionGenerar.mutate({ anio: anioInput, forzar, almacen: almacenId });
   }
 
   function toggleExpandir(planId: number) {
