@@ -302,39 +302,41 @@ export function AssetQrInventoryPage() {
 
     setActionMessage("");
     try {
-      // Cargar logo oficial en data URL para garantizar renderizado instantáneo en impresión
-      let logoDataUrl = "/logo-incalpaca.png";
+      // Cargar logo oficial proporcionado en data URL para garantizar renderizado nítido e instantáneo
+      let logoDataUrl = "/logo_incalpaca_fm_official.png";
       try {
-        const res = await fetch("/logo-incalpaca.png");
+        const res = await fetch("/logo_incalpaca_fm_official.png");
         if (res.ok) {
           const blob = await res.blob();
           logoDataUrl = await new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => resolve("/logo-incalpaca.png");
+            reader.onerror = () => resolve("/logo_incalpaca_fm_official.png");
             reader.readAsDataURL(blob);
           });
         }
       } catch {
-        logoDataUrl = "/logo-incalpaca.png";
+        logoDataUrl = "/logo_incalpaca_fm_official.png";
       }
 
       const labels = await Promise.all(
         items.flatMap((asset) => Array.from({ length: normalizedCopies }, async () => ({
           asset,
-          dataUrl: await createQrDataUrl(asset.publicUrl, Math.max(240, format.qrMm * 8)),
+          dataUrl: await createQrDataUrl(asset.publicUrl, Math.max(260, format.qrMm * 8)),
         }))),
       );
       
       const style = document.createElement("style");
       style.textContent = `
         @page { size: A4; margin: ${format === PRINT_FORMATS.COMPACT ? "6mm" : "10mm"}; }
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
           margin: 0;
-          color: #000;
-          font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-          background: #fff;
+          color: #000000;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          background: #FFFFFF;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         main {
           display: grid;
@@ -348,16 +350,17 @@ export function AssetQrInventoryPage() {
           break-inside: avoid;
           page-break-inside: avoid;
           display: grid;
-          grid-template-columns: ${format.qrMm}mm minmax(0, 1fr);
+          grid-template-columns: ${format.qrMm}mm 1fr;
           align-items: center;
-          gap: ${format === PRINT_FORMATS.COMPACT ? 2 : 3}mm;
+          gap: ${format === PRINT_FORMATS.COMPACT ? 2.5 : 3.5}mm;
           height: ${format.heightMm}mm;
           width: ${format.widthMm}mm;
-          padding: ${format === PRINT_FORMATS.COMPACT ? 1.8 : 2.5}mm;
-          border: 1px solid #111111;
-          border-radius: 3px;
+          padding: ${format === PRINT_FORMATS.COMPACT ? 2 : 2.8}mm;
+          border: 1px solid #1A1A1A;
+          border-radius: 4px;
           overflow: hidden;
           background: #FFFFFF;
+          box-sizing: border-box;
         }
         .qr-image { 
           display: flex;
@@ -365,7 +368,8 @@ export function AssetQrInventoryPage() {
           justify-content: center;
           width: 100%;
           height: 100%;
-          padding: 0;
+          padding: 0.5mm;
+          background: #FFFFFF;
         }
         .qr-image img { 
           display: block; 
@@ -376,41 +380,42 @@ export function AssetQrInventoryPage() {
         .content {
           display: flex;
           flex-direction: column;
-          justify-content: center;
+          justify-content: space-between;
           height: 100%;
-          padding: 0.5mm 0;
+          padding: 0.8mm 0;
           overflow: hidden;
         }
         .brand-logo-img {
           display: block;
-          height: ${format === PRINT_FORMATS.COMPACT ? 5.5 : format === PRINT_FORMATS.STANDARD ? 7.5 : 10}mm;
+          height: ${format === PRINT_FORMATS.COMPACT ? 5.5 : format === PRINT_FORMATS.STANDARD ? 7.8 : 10}mm;
           width: auto;
           max-width: 100%;
           object-fit: contain;
           object-position: left center;
-          margin-bottom: ${format === PRINT_FORMATS.COMPACT ? 1 : 1.5}mm;
+          margin-bottom: auto;
         }
         .asset-code { 
-          font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-          margin: 0 0 ${format === PRINT_FORMATS.COMPACT ? 1 : 1.5}mm 0; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 10.5 : 13}pt; 
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          margin: 1mm 0 0.8mm 0; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 8.2 : format === PRINT_FORMATS.STANDARD ? 11 : 13.5}pt; 
           line-height: 1.1; 
-          font-weight: 800;
+          font-weight: 900;
           letter-spacing: -0.02em;
           color: #000000;
           word-break: break-all;
         }
         .asset-desc { 
-          font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           font-size: ${format === PRINT_FORMATS.COMPACT ? 6.2 : format === PRINT_FORMATS.STANDARD ? 7.8 : 9.5}pt; 
           font-weight: 500; 
           line-height: 1.25;
-          color: #333333;
+          color: #262626;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
           margin: 0;
+          margin-top: auto;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
