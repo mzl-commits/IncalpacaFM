@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   Plus, 
   Eye, 
@@ -9,21 +9,27 @@ import {
   CaretLeft,
   CaretRight,
   MagnifyingGlass,
-  ArrowRight
+  ArrowRight,
+  CheckCircle,
+  XCircle,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/modules/accounts/AuthContext";
 import { useWorkRequests } from "../useWorkRequests";
 import { 
   requestPriorityLabels, 
   requestStatusLabels, 
-  requestTypeLabels 
+  requestTypeLabels,
+  type RequestStatus,
 } from "../incidentModel";
-import { getWorkRequestAssetDisplayCode } from "../incidentRepository";
+import { getWorkRequestAssetDisplayCode, updateWorkRequest } from "../incidentRepository";
 import { generateWorkRequestPdf } from "../utils/workRequestPdf";
 import type { WorkRequest } from "../types";
 
 export function IncidentListPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const isAdministrator = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
+
   const {
     requests: filteredRequests,
     allRequests,
@@ -40,6 +46,33 @@ export function IncidentListPage() {
   const [selectedRequest, setSelectedRequest] = useState<WorkRequest | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  async function handleStatusChange(request: WorkRequest, newStatus: RequestStatus) {
+    setUpdatingStatus(true);
+    try {
+      const updated = await updateWorkRequest(request.id, { status: newStatus });
+      setSelectedRequest(updated);
+    } catch {
+      alert("No se pudo actualizar el estado de la solicitud.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
+  async function handleConvertOT(request: WorkRequest) {
+    setUpdatingStatus(true);
+    try {
+      if (request.status === "PENDIENTE" || request.status === "EN_EVALUACION") {
+        await updateWorkRequest(request.id, { status: "APROBADA" });
+      }
+      navigate(`/ordenes-trabajo/nueva/${request.id}`);
+    } catch {
+      alert("No se pudo aprobar la solicitud para convertir en OT.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
 
   // 1. KPI COUNTS (4 TARJETAS SIMPLIFICADAS)
   const pendingCount = useMemo(
@@ -609,14 +642,42 @@ export function IncidentListPage() {
                 </button>
               </div>
 
-              <div style={{ display: "flex", gap: "10px" }}>
-                {user?.role === "ADMINISTRADOR" && selectedRequest.status === "PENDIENTE" && (
-                  <Link
-                    to={`/ordenes-trabajo/nueva/${selectedRequest.id}`}
-                    style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 18px", borderRadius: "9px", background: "#0F172A", color: "#FFFFFF", fontWeight: 600, fontSize: "13.5px", textDecoration: "none", boxShadow: "0 2px 8px rgba(15, 23, 42, 0.15)" }}
-                  >
-                    Convertir en OT <ArrowRight size={15} />
-                  </Link>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                {isAdministrator && (
+                  <>
+                    {selectedRequest.status !== "APROBADA" && selectedRequest.status !== "CONVERTIDA_EN_OT" && (
+                      <button
+                        type="button"
+                        disabled={updatingStatus}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid #059669", background: "#10B981", color: "#FFFFFF", fontWeight: 600, fontSize: "13px", cursor: updatingStatus ? "not-allowed" : "pointer" }}
+                        onClick={() => handleStatusChange(selectedRequest, "APROBADA")}
+                      >
+                        <CheckCircle size={16} weight="bold" /> Aprobar solicitud
+                      </button>
+                    )}
+
+                    {selectedRequest.status !== "RECHAZADA" && selectedRequest.status !== "CONVERTIDA_EN_OT" && (
+                      <button
+                        type="button"
+                        disabled={updatingStatus}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid #DC2626", background: "#EF4444", color: "#FFFFFF", fontWeight: 600, fontSize: "13px", cursor: updatingStatus ? "not-allowed" : "pointer" }}
+                        onClick={() => handleStatusChange(selectedRequest, "RECHAZADA")}
+                      >
+                        <XCircle size={16} weight="bold" /> Rechazar
+                      </button>
+                    )}
+
+                    {selectedRequest.status !== "CONVERTIDA_EN_OT" && selectedRequest.status !== "RECHAZADA" && (
+                      <button
+                        type="button"
+                        disabled={updatingStatus}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 18px", borderRadius: "9px", background: "#0F172A", color: "#FFFFFF", fontWeight: 600, fontSize: "13.5px", cursor: updatingStatus ? "not-allowed" : "pointer", boxShadow: "0 2px 8px rgba(15, 23, 42, 0.15)" }}
+                        onClick={() => handleConvertOT(selectedRequest)}
+                      >
+                        Convertir en OT <ArrowRight size={15} />
+                      </button>
+                    )}
+                  </>
                 )}
 
                 <button
