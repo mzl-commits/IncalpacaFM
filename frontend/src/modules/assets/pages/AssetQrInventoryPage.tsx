@@ -417,6 +417,14 @@ export function AssetQrInventoryPage() {
           overflow-wrap: break-word;
           margin: ${format === PRINT_FORMATS.COMPACT ? 0.8 : format === PRINT_FORMATS.STANDARD ? 1.2 : 1.6}mm 0 0 0;
         }
+        .asset-instruction {
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 5.2 : format === PRINT_FORMATS.STANDARD ? 6.2 : 7.5}pt;
+          font-weight: 400;
+          line-height: 1.1;
+          color: #555555;
+          margin: ${format === PRINT_FORMATS.COMPACT ? 0.6 : format === PRINT_FORMATS.STANDARD ? 1 : 1.4}mm 0 0 0;
+        }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
           article { border-color: #000000 !important; }
@@ -450,7 +458,11 @@ export function AssetQrInventoryPage() {
         desc.className = "asset-desc";
         desc.textContent = (asset.draft.name?.trim() || asset.draft.description?.trim() || "").trim();
         
-        copy.append(logoImg, code, desc);
+        const instruction = document.createElement("div");
+        instruction.className = "asset-instruction";
+        instruction.textContent = "Escanear para más info";
+        
+        copy.append(logoImg, code, desc, instruction);
         label.append(imageWrapper, copy);
         main.append(label);
       });
