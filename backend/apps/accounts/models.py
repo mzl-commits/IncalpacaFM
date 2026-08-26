@@ -33,6 +33,7 @@ class AccountProfile(models.Model):
         help_text="Almacén asignado. Requerido si el rol es Almacenero o Inspector.",
     )
     must_change_password = models.BooleanField(default=True)
+    initial_password = models.CharField(max_length=128, blank=True, default="", help_text="Última clave temporal asignada por el administrador")
     failed_attempts = models.PositiveSmallIntegerField(default=0)
     blocked_until = models.DateTimeField(null=True, blank=True)
     active = models.BooleanField(default=True)

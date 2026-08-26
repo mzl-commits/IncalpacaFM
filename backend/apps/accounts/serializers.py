@@ -182,12 +182,15 @@ class TechnicianSerializer(serializers.ModelSerializer):
     almacen_nombre = serializers.CharField(
         source='account_profile.almacen.nombre', read_only=True, default=None,
     )
+    current_password_display = serializers.CharField(
+        source='account_profile.initial_password', read_only=True, default="",
+    )
 
     class Meta:
         model = get_user_model()
         fields = (
             'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'position',
-            'hourly_rate', 'active', 'temporary_password', 'role', 'almacen', 'almacen_nombre',
+            'hourly_rate', 'active', 'temporary_password', 'current_password_display', 'role', 'almacen', 'almacen_nombre',
         )
 
     def validate_worker_code(self, value):
@@ -258,6 +261,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
             role=profile_data.get('role', AccountProfile.Role.TECHNICIAN),
             almacen=profile_data.get('almacen'),
             must_change_password=True,
+            initial_password=password,
         )
         return user
 
@@ -275,6 +279,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
             instance.account_profile.must_change_password = True
+            instance.account_profile.initial_password = password
         instance.save()
         profile = instance.account_profile
         for field in ('worker_code', 'specialty', 'position', 'hourly_rate', 'active', 'role', 'almacen'):

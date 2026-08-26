@@ -14,6 +14,7 @@ export type Technician = {
   role: UserRole;
   almacen?: number | null;
   almacen_nombre?: string | null;
+  current_password_display?: string;
 };
 
 export type TechnicianInput = Omit<Technician, "id" | "almacen_nombre"> & { temporary_password?: string };
