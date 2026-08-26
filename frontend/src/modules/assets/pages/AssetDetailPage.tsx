@@ -1218,19 +1218,18 @@ export function AssetDetailPage() {
                               onMouseLeave={(e) => (e.currentTarget.style.background = isSelected ? "#F5F5F5" : "#FFFFFF")}
                             >
                               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                                <span style={{
-                                  background: "#000000",
-                                  color: "#FFFFFF",
-                                  padding: "1px 5px",
-                                  borderRadius: "3px",
-                                  fontSize: "11px",
-                                  fontWeight: 700,
-                                }}>
-                                  {r.external_reference || r.type}
-                                </span>
+                                {r.external_reference ? (
+                                  <span style={{
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    color: "#525252",
+                                  }}>
+                                    [{r.external_reference}]
+                                  </span>
+                                ) : null}
                                 <strong style={{ fontSize: "13px", color: "#000000" }}>{r.display_name}</strong>
                               </div>
-                              <span style={{ fontSize: "12px", color: "#525252", fontWeight: 600 }}>{r.area_name || r.type}</span>
+                              <span style={{ fontSize: "12px", color: "#525252", fontWeight: 500 }}>{r.area_name || r.type}</span>
                             </div>
                           );
                         })
@@ -1441,14 +1440,11 @@ export function AssetDetailPage() {
                               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                 {l.zone && (
                                   <span style={{
-                                    background: "#000000",
-                                    color: "#FFFFFF",
-                                    padding: "1px 5px",
-                                    borderRadius: "3px",
-                                    fontSize: "11px",
-                                    fontWeight: 700,
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    color: "#525252",
                                   }}>
-                                    {l.zone}
+                                    [{l.zone}]
                                   </span>
                                 )}
                                 <strong style={{ fontSize: "13px", color: "#000000" }}>{l.building}</strong>
