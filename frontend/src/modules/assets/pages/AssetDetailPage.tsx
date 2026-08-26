@@ -856,9 +856,9 @@ export function AssetDetailPage() {
         </div>
       , document.body)}
 
-      {/* ADD NEW RESPONSIBLE MODAL - PROFESSIONAL UX/UI WITH TAXONOMY INTEGRATION */}
+      {/* ADD NEW RESPONSIBLE MODAL - INSTITUTIONAL MONOCHROME (BLACK & WHITE) UX/UI */}
       {addingResponsible && (
-        <div className="asset-edit-backdrop" role="presentation" style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)" }}>
+        <div className="asset-edit-backdrop" role="presentation" style={{ backgroundColor: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(2px)" }}>
           <section
             className="asset-edit-dialog"
             role="dialog"
@@ -869,27 +869,27 @@ export function AssetDetailPage() {
               width: "95%",
               maxHeight: "90vh",
               overflowY: "auto",
-              borderRadius: "16px",
-              border: "1px solid #E2E8F0",
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              borderRadius: "12px",
+              border: "1px solid #000000",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.35)",
               background: "#FFFFFF",
               padding: 0,
             }}
           >
             {/* MODAL HEADER WITH ASSET & TAXONOMY INFO */}
             <header style={{
-              background: "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)",
-              borderBottom: "1px solid #E2E8F0",
-              padding: "20px 24px 16px",
+              background: "#FFFFFF",
+              borderBottom: "1px solid #E5E5E5",
+              padding: "18px 24px 16px",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
             }}>
               <div>
-                <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", color: "#64748B", textTransform: "uppercase" }}>
-                  Custodia y Ubicación Patrimonial
+                <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", color: "#525252", textTransform: "uppercase" }}>
+                  INCALPACA FM S.A. — Gestión de Custodia
                 </span>
-                <h2 id="add-resp-title" style={{ margin: "4px 0 6px", fontSize: "20px", fontWeight: 700, color: "#0F172A" }}>
+                <h2 id="add-resp-title" style={{ margin: "4px 0 6px", fontSize: "20px", fontWeight: 800, color: "#000000" }}>
                   Asignar nuevo responsable
                 </h2>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -897,16 +897,16 @@ export function AssetDetailPage() {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "4px",
-                    background: "#002B58",
+                    background: "#000000",
                     color: "#FFFFFF",
                     fontSize: "11.5px",
                     fontWeight: 700,
                     padding: "3px 8px",
-                    borderRadius: "6px",
+                    borderRadius: "4px",
                   }}>
                     {displayCode(asset)}
                   </span>
-                  <strong style={{ fontSize: "13.5px", color: "#1E293B" }}>{asset.name}</strong>
+                  <strong style={{ fontSize: "14px", color: "#000000" }}>{asset.name}</strong>
                 </div>
               </div>
               <button
@@ -914,58 +914,58 @@ export function AssetDetailPage() {
                 aria-label="Cerrar modal"
                 onClick={() => setAddingResponsible(false)}
                 style={{
-                  background: "#F1F5F9",
-                  border: "1px solid #CBD5E1",
-                  borderRadius: "8px",
+                  background: "#FFFFFF",
+                  border: "1px solid #CCCCCC",
+                  borderRadius: "6px",
                   width: "32px",
                   height: "32px",
                   display: "grid",
                   placeItems: "center",
                   cursor: "pointer",
-                  color: "#475569",
+                  color: "#000000",
                 }}
               >
                 <X size={18} />
               </button>
             </header>
 
-            {/* TAXONOMY SUMMARY BANNER */}
+            {/* TAXONOMY SUMMARY BANNER (MONOCHROME) */}
             <div style={{
               margin: "14px 24px 0",
               padding: "10px 14px",
-              background: "#F0F7FF",
-              border: "1px solid #BAE6FD",
-              borderRadius: "10px",
+              background: "#F5F5F5",
+              border: "1px solid #D4D4D4",
+              borderRadius: "8px",
               display: "flex",
               alignItems: "center",
               gap: "12px",
               fontSize: "12.5px",
-              color: "#0369A1",
+              color: "#000000",
             }}>
-              <Tag size={20} weight="duotone" style={{ flexShrink: 0, color: "#0284C7" }} />
+              <Tag size={20} weight="bold" style={{ flexShrink: 0, color: "#000000" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                  <strong style={{ color: "#0C4A6E" }}>Taxonomía Vinculada:</strong>
+                  <strong style={{ color: "#000000" }}>Taxonomía Vinculada:</strong>
                   <span style={{
-                    background: "#E0F2FE",
-                    color: "#0369A1",
-                    padding: "1px 6px",
+                    background: "#000000",
+                    color: "#FFFFFF",
+                    padding: "2px 7px",
                     borderRadius: "4px",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     fontSize: "11.5px",
                   }}>
                     {asset.taxonomy_detail?.category || asset.entry_type_label || "Categoría General"}
                   </span>
                   {asset.taxonomy_detail?.subcategory && (
                     <>
-                      <span>›</span>
-                      <span style={{ fontWeight: 600, color: "#0C4A6E" }}>{asset.taxonomy_detail.subcategory}</span>
+                      <span style={{ color: "#737373" }}>›</span>
+                      <span style={{ fontWeight: 700, color: "#000000" }}>{asset.taxonomy_detail.subcategory}</span>
                     </>
                   )}
                   {asset.taxonomy_detail?.specialty && (
                     <>
-                      <span>·</span>
-                      <span style={{ color: "#0284C7" }}>Especialidad: {asset.taxonomy_detail.specialty}</span>
+                      <span style={{ color: "#737373" }}>·</span>
+                      <span style={{ color: "#525252", fontWeight: 600 }}>Especialidad: {asset.taxonomy_detail.specialty}</span>
                     </>
                   )}
                 </div>
@@ -976,12 +976,12 @@ export function AssetDetailPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                 
                 {/* 1. FILTRO DE TIPO DE RESPONSABLE */}
-                <div style={{ gridColumn: "1 / -1", background: "#F8FAFC", padding: "12px 14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                <div style={{ gridColumn: "1 / -1", background: "#F5F5F5", padding: "12px 14px", borderRadius: "8px", border: "1px solid #D4D4D4" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#000000" }}>
                       1. Filtrar responsables de la Base de Datos por tipo:
                     </span>
-                    <span style={{ fontSize: "11.5px", color: "#64748B" }}>
+                    <span style={{ fontSize: "11.5px", color: "#525252", fontWeight: 600 }}>
                       {filteredResponsibles.length} disponible{filteredResponsibles.length !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -998,15 +998,14 @@ export function AssetDetailPage() {
                           type="button"
                           key={t.id}
                           style={{
-                            padding: "6px 12px",
+                            padding: "5px 12px",
                             fontSize: "12px",
-                            fontWeight: isSelected ? 700 : 500,
-                            borderRadius: "20px",
-                            border: isSelected ? "1.5px solid #002B58" : "1px solid #CBD5E1",
-                            background: isSelected ? "#002B58" : "#FFFFFF",
-                            color: isSelected ? "#FFFFFF" : "#334155",
+                            fontWeight: isSelected ? 700 : 600,
+                            borderRadius: "6px",
+                            border: "1px solid #000000",
+                            background: isSelected ? "#000000" : "#FFFFFF",
+                            color: isSelected ? "#FFFFFF" : "#000000",
                             cursor: "pointer",
-                            boxShadow: isSelected ? "0 2px 4px rgba(0,43,88,0.2)" : "none",
                             transition: "all 0.15s ease",
                           }}
                           onClick={() => setSelectedRespType(t.id)}
@@ -1020,7 +1019,7 @@ export function AssetDetailPage() {
 
                 {/* 2. SELECTOR DE RESPONSABLES DE LA BASE DE DATOS */}
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
                     2. Seleccionar responsable registrado en la BD:
                   </label>
                   <select
@@ -1040,15 +1039,15 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #94A3B8",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
-                      fontWeight: 500,
+                      fontWeight: 600,
                     }}
                   >
-                    <option value="">-- Seleccionar de la base de datos o escribir en el campo inferior --</option>
+                    <option value="">-- Seleccionar de la base de datos o escribir abajo --</option>
                     {filteredResponsibles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.external_reference ? `[${r.external_reference}] ` : ""}
@@ -1060,8 +1059,8 @@ export function AssetDetailPage() {
 
                 {/* 3. NOMBRE COMPLETO DEL RESPONSABLE */}
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
-                    Nombre completo del responsable <span style={{ color: "#DC2626" }}>*</span>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
+                    Nombre completo del responsable *
                   </label>
                   <input
                     required
@@ -1074,11 +1073,12 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
+                      fontWeight: 500,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1091,8 +1091,8 @@ export function AssetDetailPage() {
 
                 {/* 4. ÁREA / DEPARTAMENTO */}
                 <div>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
-                    Área / Departamento <span style={{ color: "#DC2626" }}>*</span>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
+                    Área / Departamento *
                   </label>
                   <input
                     required
@@ -1105,11 +1105,12 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
+                      fontWeight: 500,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1122,8 +1123,8 @@ export function AssetDetailPage() {
 
                 {/* 5. FECHA DE INICIO */}
                 <div>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
-                    Fecha de inicio de custodia <span style={{ color: "#DC2626" }}>*</span>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
+                    Fecha de inicio de custodia *
                   </label>
                   <input
                     type="date"
@@ -1135,11 +1136,12 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
+                      fontWeight: 500,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1147,7 +1149,7 @@ export function AssetDetailPage() {
 
                 {/* 6. SELECTOR DE UBICACIÓN DE LA BASE DE DATOS */}
                 <div style={{ gridColumn: "1 / -1", marginTop: "4px" }}>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
                     3. Ubicación física validada en la BD:
                   </label>
                   <select
@@ -1168,12 +1170,12 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #94A3B8",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
-                      fontWeight: 500,
+                      fontWeight: 600,
                     }}
                   >
                     <option value="">-- Seleccionar ubicación física de la BD --</option>
@@ -1189,7 +1191,7 @@ export function AssetDetailPage() {
 
                 {/* 7. EDIFICIO / PISO */}
                 <div>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
                     Edificio / Piso
                   </label>
                   <input
@@ -1202,11 +1204,12 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
+                      fontWeight: 500,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1219,7 +1222,7 @@ export function AssetDetailPage() {
 
                 {/* 8. OFICINA / SALA */}
                 <div>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
                     Oficina / Sala / Ubicación exacta
                   </label>
                   <input
@@ -1232,11 +1235,12 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
+                      fontWeight: 500,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1249,8 +1253,8 @@ export function AssetDetailPage() {
 
                 {/* 9. MOTIVO DE LA ASIGNACIÓN CON CHIPS RÁPIDOS */}
                 <div style={{ gridColumn: "1 / -1", marginTop: "4px" }}>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
-                    Motivo de la asignación / observaciones <span style={{ color: "#DC2626" }}>*</span>
+                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
+                    Motivo de la asignación / observaciones *
                   </label>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
                     {[
@@ -1269,10 +1273,10 @@ export function AssetDetailPage() {
                             padding: "4px 10px",
                             fontSize: "12px",
                             fontWeight: isMatch ? 700 : 500,
-                            borderRadius: "6px",
-                            border: isMatch ? "1.5px solid #002B58" : "1px solid #CBD5E1",
-                            background: isMatch ? "#002B58" : "#F8FAFC",
-                            color: isMatch ? "#FFFFFF" : "#334155",
+                            borderRadius: "4px",
+                            border: isMatch ? "1px solid #000000" : "1px solid #CCCCCC",
+                            background: isMatch ? "#000000" : "#FFFFFF",
+                            color: isMatch ? "#FFFFFF" : "#000000",
                             cursor: "pointer",
                             transition: "all 0.15s ease",
                           }}
@@ -1294,10 +1298,10 @@ export function AssetDetailPage() {
                     style={{
                       width: "100%",
                       padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "6px",
+                      border: "1px solid #737373",
                       background: "#FFFFFF",
-                      color: "#0F172A",
+                      color: "#000000",
                       fontSize: "13.5px",
                       lineHeight: "1.5",
                       resize: "vertical",
@@ -1311,11 +1315,11 @@ export function AssetDetailPage() {
               <div style={{
                 marginTop: "16px",
                 padding: "10px 14px",
-                background: "#F8FAFC",
-                border: "1px solid #E2E8F0",
-                borderRadius: "8px",
+                background: "#F5F5F5",
+                border: "1px solid #D4D4D4",
+                borderRadius: "6px",
                 fontSize: "12px",
-                color: "#64748B",
+                color: "#333333",
                 lineHeight: "1.45",
               }}>
                 ℹ️ Al confirmar, el custodio actual y la ubicación física se actualizarán en la Situación Actual del bien y quedará asentado en el historial trazable para los reportes y Fichas Técnicas.
@@ -1325,7 +1329,7 @@ export function AssetDetailPage() {
               <footer style={{
                 marginTop: "18px",
                 paddingTop: "14px",
-                borderTop: "1px solid #E2E8F0",
+                borderTop: "1px solid #E5E5E5",
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "12px",
@@ -1334,13 +1338,13 @@ export function AssetDetailPage() {
                   type="button"
                   onClick={() => setAddingResponsible(false)}
                   style={{
-                    padding: "9px 18px",
-                    borderRadius: "8px",
-                    border: "1.5px solid #CBD5E1",
+                    padding: "9px 20px",
+                    borderRadius: "6px",
+                    border: "1px solid #000000",
                     background: "#FFFFFF",
-                    color: "#334155",
+                    color: "#000000",
                     fontSize: "13.5px",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: "pointer",
                   }}
                 >
@@ -1349,18 +1353,17 @@ export function AssetDetailPage() {
                 <button
                   type="submit"
                   style={{
-                    padding: "9px 22px",
-                    borderRadius: "8px",
-                    border: "none",
-                    background: "#002B58",
+                    padding: "9px 24px",
+                    borderRadius: "6px",
+                    border: "1px solid #000000",
+                    background: "#000000",
                     color: "#FFFFFF",
                     fontSize: "13.5px",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "8px",
                     cursor: "pointer",
-                    boxShadow: "0 2px 6px rgba(0, 43, 88, 0.25)",
                   }}
                 >
                   <UserPlus size={16} weight="bold" />
