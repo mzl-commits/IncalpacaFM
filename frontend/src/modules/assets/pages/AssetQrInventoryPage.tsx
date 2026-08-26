@@ -382,7 +382,6 @@ export function AssetQrInventoryPage() {
           flex-direction: column;
           justify-content: center;
           align-items: flex-start;
-          gap: 1.2mm;
           height: 100%;
           padding: 0.2mm 0;
           overflow: hidden;
@@ -390,7 +389,7 @@ export function AssetQrInventoryPage() {
         }
         .brand-logo-img {
           display: block;
-          height: ${format === PRINT_FORMATS.COMPACT ? 5.5 : format === PRINT_FORMATS.STANDARD ? 7.2 : 9.5}mm;
+          height: ${format === PRINT_FORMATS.COMPACT ? 4.8 : format === PRINT_FORMATS.STANDARD ? 6.5 : 8.5}mm;
           width: auto;
           max-width: 100%;
           object-fit: contain;
@@ -399,24 +398,24 @@ export function AssetQrInventoryPage() {
         }
         .asset-code { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 9.5 : format === PRINT_FORMATS.STANDARD ? 12.5 : 15}pt; 
-          line-height: 1.05; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 8.5 : format === PRINT_FORMATS.STANDARD ? 11 : 13.5}pt; 
+          line-height: 1.1; 
           font-weight: 800;
           letter-spacing: 0.02em;
           color: #000000;
           white-space: nowrap;
           overflow: hidden;
-          margin: 0;
+          margin: ${format === PRINT_FORMATS.COMPACT ? 1.2 : format === PRINT_FORMATS.STANDARD ? 1.8 : 2.2}mm 0 0 0;
         }
         .asset-desc { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.8 : format === PRINT_FORMATS.STANDARD ? 8.2 : 10}pt; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.2 : format === PRINT_FORMATS.STANDARD ? 7.4 : 9}pt; 
           font-weight: 400; 
           line-height: 1.25;
           color: #222222;
           word-break: normal;
           overflow-wrap: break-word;
-          margin: 0;
+          margin: ${format === PRINT_FORMATS.COMPACT ? 0.6 : format === PRINT_FORMATS.STANDARD ? 0.8 : 1.2}mm 0 0 0;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
