@@ -328,13 +328,12 @@ export function AssetQrInventoryPage() {
       
       const style = document.createElement("style");
       style.textContent = `
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Inter:wght@500;600;700;800;900&display=swap');
         @page { size: A4; margin: ${format === PRINT_FORMATS.COMPACT ? "6mm" : "10mm"}; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
           margin: 0;
           color: #000000;
-          font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
           background: #FFFFFF;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -399,22 +398,22 @@ export function AssetQrInventoryPage() {
           margin: 0;
         }
         .asset-code { 
-          font-family: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 9 : format === PRINT_FORMATS.STANDARD ? 12 : 14.5}pt; 
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 9.5 : format === PRINT_FORMATS.STANDARD ? 12.5 : 15}pt; 
           line-height: 1.05; 
           font-weight: 800;
-          letter-spacing: -0.01em;
+          letter-spacing: 0.02em;
           color: #000000;
           white-space: nowrap;
           overflow: hidden;
           margin: 0;
         }
         .asset-desc { 
-          font-family: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.5 : format === PRINT_FORMATS.STANDARD ? 8.2 : 9.8}pt; 
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 8.8 : 10.5}pt; 
           font-weight: 600; 
           line-height: 1.2;
-          color: #1F2937;
+          color: #111111;
           word-break: normal;
           overflow-wrap: break-word;
           margin: 0;
