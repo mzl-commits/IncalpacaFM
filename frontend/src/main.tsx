@@ -1,6 +1,5 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { registerSW } from "virtual:pwa-register";
 import { App } from "@/app/App";
 import "@/styles/index.css";
 import "@/styles/executive.css";
@@ -22,7 +21,11 @@ import "@/styles/almacen.css";
 import "@/styles/theme-monochromatic.css";
 
 if (import.meta.env.PROD) {
-  registerSW({ immediate: true });
+  import("virtual:pwa-register")
+    .then(({ registerSW }) => {
+      registerSW({ immediate: true });
+    })
+    .catch(() => {});
 }
 
 createRoot(document.getElementById("root")!).render(
