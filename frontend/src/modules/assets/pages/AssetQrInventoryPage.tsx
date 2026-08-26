@@ -71,6 +71,17 @@ function getLocation(asset: RegisteredAsset) {
   return path.length ? path.join(" / ") : "Ubicación no registrada";
 }
 
+function getAssetLabelDescription(asset: RegisteredAsset): string {
+  const name = (asset.draft.name || asset.draft.description || "").trim();
+  const room = (asset.locationDetail?.room || asset.draft.room || "").trim();
+
+  if (room && room !== "General" && room !== "Sin asignar" && room !== "Ubicación por confirmar") {
+    return name ? `${name} · ${room}` : room;
+  }
+
+  return name;
+}
+
 function getAssetFullDisplayCode(asset: RegisteredAsset): string {
   if (asset.fmCode) {
     if (asset.fmCode.includes("-") && asset.fmCode.split("-").length >= 3) {
@@ -509,7 +520,7 @@ export function AssetQrInventoryPage() {
         
         const desc = document.createElement("div");
         desc.className = "asset-desc";
-        desc.textContent = (asset.draft.name?.trim() || asset.draft.description?.trim() || "").trim();
+        desc.textContent = getAssetLabelDescription(asset);
         
         const instruction = document.createElement("div");
         instruction.className = "asset-instruction";
