@@ -67,7 +67,6 @@ export function AssetDetailPage() {
 
   // Assignment Catalog from Database
   const [catalog, setCatalog] = useState<AssignmentCatalog | null>(null);
-  const [selectedRespType, setSelectedRespType] = useState<string>("ALL");
   const [selectedRespId, setSelectedRespId] = useState<string>("");
   const [selectedLocId, setSelectedLocId] = useState<string>("");
 
@@ -161,14 +160,8 @@ export function AssetDetailPage() {
       (t.prefix && asset?.taxonomy_detail?.prefix === t.prefix)
   ) || null;
 
-  // Derived lists from DB Catalog for dropdowns and filters
-  const filteredResponsibles = (catalog?.responsibles || []).filter((r) => {
-    if (selectedRespType === "ALL") return true;
-    return r.type === selectedRespType;
-  });
-
   // Filtered by what the user types in the searchable input
-  const searchedResponsibles = filteredResponsibles.filter((r) => {
+  const searchedResponsibles = (catalog?.responsibles || []).filter((r) => {
     if (!respSearchQuery.trim()) return true;
     const q = respSearchQuery.toLowerCase();
     return (
@@ -270,7 +263,6 @@ export function AssetDetailPage() {
   }
 
   function handleOpenAddResponsible() {
-    setSelectedRespType("ALL");
     setSelectedRespId("");
     setSelectedLocId("");
     setRespSearchQuery("");
@@ -1073,52 +1065,10 @@ export function AssetDetailPage() {
               </div>
             </div>
 
-            <form onSubmit={saveNewResponsible} style={{ padding: "16px 24px 20px" }}>
+            <form onSubmit={saveNewResponsible} style={{ padding: "20px 24px 20px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                 
-                {/* 1. FILTRO DE TIPO DE RESPONSABLE */}
-                <div style={{ gridColumn: "1 / -1", background: "#F5F5F5", padding: "12px 14px", borderRadius: "8px", border: "1px solid #D4D4D4" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#000000" }}>
-                      1. Filtrar responsables de la Base de Datos por tipo:
-                    </span>
-                    <span style={{ fontSize: "11.5px", color: "#525252", fontWeight: 600 }}>
-                      {filteredResponsibles.length} disponible{filteredResponsibles.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {[
-                      { id: "ALL", label: "Todos" },
-                      { id: "PERSONA", label: "Personas / Colaboradores" },
-                      { id: "AREA", label: "Áreas / Departamentos" },
-                      { id: "ESPACIO_COMUN", label: "Espacios Comunes" },
-                    ].map((t) => {
-                      const isSelected = selectedRespType === t.id;
-                      return (
-                        <button
-                          type="button"
-                          key={t.id}
-                          style={{
-                            padding: "5px 12px",
-                            fontSize: "12px",
-                            fontWeight: isSelected ? 700 : 600,
-                            borderRadius: "6px",
-                            border: "1px solid #000000",
-                            background: isSelected ? "#000000" : "#FFFFFF",
-                            color: isSelected ? "#FFFFFF" : "#000000",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                          onClick={() => setSelectedRespType(t.id)}
-                        >
-                          {t.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 2. SELECTOR INTELIGENTE DE RESPONSABLE (ESCRITURA / BÚSQUEDA) */}
+                {/* 1. SELECTOR INTELIGENTE DE RESPONSABLE (ESCRITURA / BÚSQUEDA) */}
                 <div style={{ gridColumn: "1 / -1", position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
                     <label style={{ fontSize: "13px", fontWeight: 700, color: "#000000" }}>
