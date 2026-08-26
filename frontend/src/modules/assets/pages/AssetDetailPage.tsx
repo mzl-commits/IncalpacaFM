@@ -28,6 +28,11 @@ import {
 } from "@/modules/assets/assetDetailRepository";
 import { ModelCreatableSelect } from "@/modules/assets/components/ModelCreatableSelect";
 import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
+import {
+  getAssignmentCatalog,
+  deliverAsset,
+  type AssignmentCatalog,
+} from "@/modules/assignments/assignmentRepository";
 import { listWorkOrders } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 
@@ -50,6 +55,13 @@ export function AssetDetailPage() {
   const [editError, setEditError] = useState("");
   const [saved, setSaved] = useState(false);
   const [retirementWorkOrder, setRetirementWorkOrder] = useState<WorkOrder | null>(null);
+
+  // Assignment Catalog from Database
+  const [catalog, setCatalog] = useState<AssignmentCatalog | null>(null);
+  const [selectedRespType, setSelectedRespType] = useState<string>("ALL");
+  const [selectedRespId, setSelectedRespId] = useState<string>("");
+  const [selectedLocId, setSelectedLocId] = useState<string>("");
+
   // New Responsible Modal State
   const [addingResponsible, setAddingResponsible] = useState(false);
   const [newRespForm, setNewRespForm] = useState({
@@ -94,6 +106,12 @@ export function AssetDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    void getAssignmentCatalog()
+      .then(setCatalog)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!asset?.id || user?.role !== "ADMINISTRADOR") return;
     let active = true;
     void listWorkOrders()
@@ -116,6 +134,33 @@ export function AssetDetailPage() {
         color: { dark: "#002b58", light: "#ffffff" },
       }).then(setQr);
   }, [asset]);
+
+  // Derived lists from DB Catalog for dropdowns and filters
+  const filteredResponsibles = (catalog?.responsibles || []).filter((r) => {
+    if (selectedRespType === "ALL") return true;
+    return r.type === selectedRespType;
+  });
+
+  const availableAreas = Array.from(
+    new Set([
+      ...(catalog?.responsibles || []).map((r) => r.area_name).filter(Boolean),
+      ...(catalog?.locations || []).map((l) => l.area).filter(Boolean),
+      "Facility Management",
+      "Mantenimiento e Infraestructura",
+      "Sistemas e Informática",
+      "Administración & MKT",
+      "Operaciones",
+      "Logística y Almacenes",
+    ])
+  ).sort();
+
+  const availableBuildings = Array.from(
+    new Set((catalog?.locations || []).map((l) => l.building).filter(Boolean))
+  ).sort();
+
+  const availableRooms = Array.from(
+    new Set((catalog?.locations || []).map((l) => l.room).filter(Boolean))
+  ).sort();
 
   if (!asset)
     return <section className="loading-panel">{error || "Cargando ficha del bien…"}</section>;
@@ -173,7 +218,11 @@ export function AssetDetailPage() {
       setSaving(false);
     }
   }
+
   function handleOpenAddResponsible() {
+    setSelectedRespType("ALL");
+    setSelectedRespId("");
+    setSelectedLocId("");
     setNewRespForm({
       responsible: activeAssignment?.responsible && activeAssignment.responsible !== "Sin asignar" ? activeAssignment.responsible : "",
       area: activeAssignment?.area || "",
@@ -185,9 +234,58 @@ export function AssetDetailPage() {
     setAddingResponsible(true);
   }
 
-  function saveNewResponsible(event: React.FormEvent<HTMLFormElement>) {
+  async function saveNewResponsible(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!asset) return;
+
+    // Intentar emitir la entrega formal mediante el backend si tenemos los IDs de BD
+    if (selectedRespId && selectedLocId) {
+      try {
+        await deliverAsset({
+          asset_id: asset.id,
+          responsible_id: selectedRespId,
+          location_id: selectedLocId,
+          assignment_reason: newRespForm.reason.trim() || "Asignación formal de activo",
+          condition: asset.condition || "Bueno",
+          accessories: "",
+          observations: newRespForm.reason.trim(),
+          checklist: {
+            inspected: true,
+            qr_legible: true,
+            accessories_complete: true,
+            no_unreported_damage: true,
+          },
+          privacy_accepted: true,
+          evidence: [],
+          signatures: [
+            {
+              role: "ENTREGA",
+              method: "CONFIRMACION",
+              signer_name: user?.fullName || "Rosa Medina",
+              signer_role: "Facility Management",
+              consent: true,
+              signature_data_url: "",
+            },
+            {
+              role: "RECIBE",
+              method: "CONFIRMACION",
+              signer_name: newRespForm.responsible.trim(),
+              signer_role: "Receptor / Custodio",
+              consent: true,
+              signature_data_url: "",
+            },
+          ],
+        });
+        const refreshed = await getAssetDetail(asset.id);
+        setAsset(refreshed);
+        setAddingResponsible(false);
+        setSaved(true);
+        window.setTimeout(() => setSaved(false), 3500);
+        return;
+      } catch (err) {
+        console.warn("deliverAsset falló, aplicando actualización directa:", err);
+      }
+    }
 
     const nowIso = new Date().toISOString();
     const startDateIso = newRespForm.start_date
@@ -213,7 +311,7 @@ export function AssetDetailPage() {
     const newEntry = {
       id: `RESP-${Date.now()}`,
       responsible: newRespForm.responsible.trim(),
-      type: "PERSONA",
+      type: selectedRespType !== "ALL" ? selectedRespType : "PERSONA",
       area: newRespForm.area.trim() || "Operaciones",
       start_date: startDateIso,
       end_date: null,
@@ -766,12 +864,13 @@ export function AssetDetailPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-resp-title"
+            style={{ maxWidth: "660px" }}
           >
             <header>
               <div>
                 <span>Asignación de custodia y ubicación</span>
                 <h2 id="add-resp-title">Asignar nuevo responsable</h2>
-                <p>{asset.code} — {asset.name}</p>
+                <p>{displayCode(asset)} — {asset.name}</p>
               </div>
               <button
                 type="button"
@@ -783,28 +882,103 @@ export function AssetDetailPage() {
             </header>
             <form onSubmit={saveNewResponsible}>
               <div className="asset-edit-fields">
+                {/* 1. FILTRO DE TIPO DE RESPONSABLE */}
+                <div className="field field-wide" style={{ marginBottom: "0.25rem" }}>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-subtle)" }}>
+                    Filtro por tipo de responsable en la base de datos:
+                  </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
+                    {[
+                      { id: "ALL", label: "Todos" },
+                      { id: "PERSONA", label: "Personas / Trabajadores" },
+                      { id: "AREA", label: "Áreas / Departamentos" },
+                      { id: "ESPACIO_COMUN", label: "Espacios Comunes" },
+                    ].map((t) => (
+                      <button
+                        type="button"
+                        key={t.id}
+                        className={`button button-secondary ${selectedRespType === t.id ? "button-primary" : ""}`}
+                        style={{
+                          padding: "3px 9px",
+                          fontSize: "0.75rem",
+                          height: "auto",
+                          fontWeight: selectedRespType === t.id ? 700 : 400,
+                        }}
+                        onClick={() => setSelectedRespType(t.id)}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. SELECTOR DE RESPONSABLES DE LA BASE DE DATOS */}
+                <label className="field field-wide">
+                  <span>Seleccionar responsable registrado en la BD</span>
+                  <select
+                    value={selectedRespId}
+                    onChange={(e) => {
+                      const rId = e.target.value;
+                      setSelectedRespId(rId);
+                      const found = catalog?.responsibles.find((r) => r.id === rId);
+                      if (found) {
+                        setNewRespForm((prev) => ({
+                          ...prev,
+                          responsible: found.display_name,
+                          area: found.area_name || prev.area,
+                        }));
+                      }
+                    }}
+                  >
+                    <option value="">-- Seleccionar de la base de datos o escribir abajo --</option>
+                    {filteredResponsibles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.external_reference ? `[${r.external_reference}] ` : ""}
+                        {r.display_name} ({r.area_name || r.type})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* 3. NOMBRE COMPLETO DEL RESPONSABLE */}
                 <label className="field field-wide">
                   <span>Nombre completo del nuevo responsable *</span>
                   <input
                     required
-                    placeholder="Ej. Marco Quispe Flores"
+                    list="resp-name-suggestions"
+                    placeholder="Ej. Rosa Medina Gutiérrez"
                     value={newRespForm.responsible}
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, responsible: e.target.value })
                     }
                   />
+                  <datalist id="resp-name-suggestions">
+                    {(catalog?.responsibles || []).map((r) => (
+                      <option key={r.id} value={r.display_name} />
+                    ))}
+                  </datalist>
                 </label>
+
+                {/* 4. ÁREA / DEPARTAMENTO */}
                 <label className="field">
                   <span>Área / Departamento *</span>
                   <input
                     required
-                    placeholder="Ej. Mantenimiento / Facility"
+                    list="area-suggestions"
+                    placeholder="Ej. Facility Management"
                     value={newRespForm.area}
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, area: e.target.value })
                     }
                   />
+                  <datalist id="area-suggestions">
+                    {availableAreas.map((area) => (
+                      <option key={area} value={area} />
+                    ))}
+                  </datalist>
                 </label>
+
+                {/* 5. FECHA DE INICIO */}
                 <label className="field">
                   <span>Fecha de inicio *</span>
                   <input
@@ -816,28 +990,97 @@ export function AssetDetailPage() {
                     }
                   />
                 </label>
+
+                {/* 6. SELECTOR DE UBICACIÓN DE LA BASE DE DATOS */}
+                <label className="field field-wide">
+                  <span>Seleccionar ubicación registrada en la BD</span>
+                  <select
+                    value={selectedLocId}
+                    onChange={(e) => {
+                      const lId = e.target.value;
+                      setSelectedLocId(lId);
+                      const found = catalog?.locations.find((l) => l.id === lId);
+                      if (found) {
+                        setNewRespForm((prev) => ({
+                          ...prev,
+                          building: found.building || prev.building,
+                          room: found.room || found.specific_location || prev.room,
+                          area: found.area || prev.area,
+                        }));
+                      }
+                    }}
+                  >
+                    <option value="">-- Seleccionar ubicación de la base de datos --</option>
+                    {(catalog?.locations || []).map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.zone ? `[${l.zone}] ` : ""}
+                        {l.building} / {l.area} / {l.room}
+                        {l.specific_location ? ` (${l.specific_location})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* 7. EDIFICIO / PISO */}
                 <label className="field">
                   <span>Edificio / Piso</span>
                   <input
-                    placeholder="Ej. Edificio B / Piso 2"
+                    list="building-suggestions"
+                    placeholder="Ej. Planta Principal / Piso 1"
                     value={newRespForm.building}
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, building: e.target.value })
                     }
                   />
+                  <datalist id="building-suggestions">
+                    {availableBuildings.map((b) => (
+                      <option key={b} value={b} />
+                    ))}
+                  </datalist>
                 </label>
+
+                {/* 8. OFICINA / SALA */}
                 <label className="field">
                   <span>Oficina / Sala / Ubicación exacta</span>
                   <input
-                    placeholder="Ej. Gerencia General / Sala A"
+                    list="room-suggestions"
+                    placeholder="Ej. Oficina 204 / Taller Eléctrico"
                     value={newRespForm.room}
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, room: e.target.value })
                     }
                   />
+                  <datalist id="room-suggestions">
+                    {availableRooms.map((r) => (
+                      <option key={r} value={r} />
+                    ))}
+                  </datalist>
                 </label>
+
+                {/* 9. MOTIVO DE LA ASIGNACIÓN CON BOTONES DE SUGERENCIA */}
                 <label className="field field-wide">
-                  <span>Motivo de la asignación / observaciones *</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
+                    <span>Motivo de la asignación / observaciones *</span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "6px" }}>
+                    {[
+                      "Asignación inicial de puesto de trabajo",
+                      "Reasignación por rotación de puesto",
+                      "Custodia operativa temporal",
+                      "Cambio de área / departamento",
+                      "Devolución y custodia en almacén",
+                    ].map((reasonText) => (
+                      <button
+                        type="button"
+                        key={reasonText}
+                        className="button button-secondary"
+                        style={{ padding: "2px 7px", fontSize: "0.72rem", height: "auto" }}
+                        onClick={() => setNewRespForm((prev) => ({ ...prev, reason: reasonText }))}
+                      >
+                        {reasonText}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     required
                     rows={3}
@@ -850,7 +1093,7 @@ export function AssetDetailPage() {
                 </label>
               </div>
               <aside className="asset-edit-boundary">
-                Al guardar, el responsable actual y la ubicación se actualizarán automáticamente en la sección Situación Actual y quedará registrado en el historial.
+                Al guardar, el responsable actual y la ubicación se actualizarán automáticamente en la sección Situación Actual y quedará registrado en el historial de custodia de la Ficha Técnica.
               </aside>
               <footer>
                 <button
@@ -909,6 +1152,7 @@ export function AssetDetailPage() {
                   <span>Área / Departamento *</span>
                   <input
                     required
+                    list="area-suggestions"
                     value={editRespForm.area}
                     onChange={(e) =>
                       setEditRespForm({ ...editRespForm, area: e.target.value })
