@@ -61,6 +61,7 @@ function dataUrlToFile(dataUrl: string, name: string, mimeType: string) {
 }
 
 function mapAsset(item: AssetApiRecord): RegisteredAsset {
+  const payload = item.entry_payload || ({} as Partial<AssetEntryDraft>);
   return {
     id: item.id,
     code: item.code,
@@ -70,17 +71,17 @@ function mapAsset(item: AssetApiRecord): RegisteredAsset {
     photoUrl: item.photo_url ?? null,
     qrDataUrl: "",
     createdAt: item.created_at,
-    createdBy: item.registered_by_name,
+    createdBy: item.registered_by_name || "Sistema",
     administrativeStatus: item.administrative_status,
     operationalStatus: item.operational_status,
     assignmentStatus: item.assignment_status,
     locationDetail: item.location_detail ? {
-      id: item.location_detail.id,
-      zone: item.location_detail.zone,
-      building: item.location_detail.building,
-      area: item.location_detail.area,
-      room: item.location_detail.room,
-      specificLocation: item.location_detail.specific_location,
+      id: item.location_detail.id || "",
+      zone: item.location_detail.zone || "",
+      building: item.location_detail.building || "",
+      area: item.location_detail.area || "",
+      room: item.location_detail.room || "",
+      specificLocation: item.location_detail.specific_location || "",
       marker: item.location_detail.marker ? {
         mapId: item.location_detail.marker.map_id,
         mapVersion: item.location_detail.marker.map_version,
@@ -90,28 +91,28 @@ function mapAsset(item: AssetApiRecord): RegisteredAsset {
     } : null,
     draft: {
       ...emptyAssetEntryDraft,
-      ...item.entry_payload,
-      name: item.name,
-      description: item.description,
-      brand: item.brand,
-      model: item.model,
+      ...payload,
+      name: item.name || "",
+      description: item.description || "",
+      brand: item.brand || "",
+      model: item.model || "",
       serialNumber: item.serial_number ?? "",
-      condition: item.condition,
-      criticality: item.criticality,
-      entryType: item.entry_type,
-      taxonomyId: item.taxonomy_detail?.id ?? item.entry_payload.taxonomyId ?? "",
-      taxonomyPrefix: item.taxonomy_detail?.prefix ?? item.entry_payload.taxonomyPrefix ?? "",
+      condition: item.condition || "Bueno",
+      criticality: item.criticality || "Media",
+      entryType: item.entry_type || "purchase",
+      taxonomyId: item.taxonomy_detail?.id ?? payload.taxonomyId ?? "",
+      taxonomyPrefix: item.taxonomy_detail?.prefix ?? payload.taxonomyPrefix ?? "",
       taxonomyVersion:
-        item.taxonomy_detail?.source_version ?? item.entry_payload.taxonomyVersion ?? "",
+        item.taxonomy_detail?.source_version ?? payload.taxonomyVersion ?? "",
       taxonomySnapshot: item.taxonomy_detail
         ? {
-            name: item.taxonomy_detail.name,
-            assetType: item.taxonomy_detail.asset_type,
-            category: item.taxonomy_detail.category,
-            subcategory: item.taxonomy_detail.subcategory,
-            specialty: item.taxonomy_detail.specialty,
+            name: item.taxonomy_detail.name || "",
+            assetType: item.taxonomy_detail.asset_type || "",
+            category: item.taxonomy_detail.category || "",
+            subcategory: item.taxonomy_detail.subcategory || "",
+            specialty: item.taxonomy_detail.specialty || "",
           }
-        : item.entry_payload.taxonomySnapshot ?? null,
+        : payload.taxonomySnapshot ?? null,
     },
   };
 }
