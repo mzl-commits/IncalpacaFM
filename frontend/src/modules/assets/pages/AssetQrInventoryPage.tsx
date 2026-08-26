@@ -389,7 +389,7 @@ export function AssetQrInventoryPage() {
         }
         .brand-logo-img {
           display: block;
-          height: ${format === PRINT_FORMATS.COMPACT ? 4.8 : format === PRINT_FORMATS.STANDARD ? 6.5 : 8.5}mm;
+          height: ${format === PRINT_FORMATS.COMPACT ? 4.6 : format === PRINT_FORMATS.STANDARD ? 6.2 : 8.2}mm;
           width: auto;
           max-width: 100%;
           object-fit: contain;
@@ -405,7 +405,7 @@ export function AssetQrInventoryPage() {
           color: #000000;
           white-space: nowrap;
           overflow: hidden;
-          margin: ${format === PRINT_FORMATS.COMPACT ? 1.2 : format === PRINT_FORMATS.STANDARD ? 1.8 : 2.2}mm 0 0 0;
+          margin: ${format === PRINT_FORMATS.COMPACT ? 2.2 : format === PRINT_FORMATS.STANDARD ? 3.4 : 4.2}mm 0 0 0;
         }
         .asset-desc { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
@@ -415,7 +415,7 @@ export function AssetQrInventoryPage() {
           color: #222222;
           word-break: normal;
           overflow-wrap: break-word;
-          margin: ${format === PRINT_FORMATS.COMPACT ? 0.6 : format === PRINT_FORMATS.STANDARD ? 0.8 : 1.2}mm 0 0 0;
+          margin: ${format === PRINT_FORMATS.COMPACT ? 0.8 : format === PRINT_FORMATS.STANDARD ? 1.2 : 1.6}mm 0 0 0;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
