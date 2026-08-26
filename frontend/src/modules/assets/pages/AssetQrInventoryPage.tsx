@@ -449,7 +449,7 @@ export function AssetQrInventoryPage() {
         
         const desc = document.createElement("div");
         desc.className = "asset-desc";
-        desc.textContent = (asset.draft.description?.trim() || asset.draft.name?.trim() || "").trim();
+        desc.textContent = (asset.draft.name?.trim() || asset.draft.description?.trim() || "").trim();
         
         copy.append(logoImg, code, desc);
         label.append(imageWrapper, copy);
