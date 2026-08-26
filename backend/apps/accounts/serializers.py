@@ -64,18 +64,22 @@ class LoginSerializer(serializers.Serializer):
 
     @transaction.atomic
     def validate(self, attrs):
+        from django.db.models import Q
         now = timezone.now()
-        worker_code = attrs["worker_code"].strip().upper()
-        duplicate_profiles = AccountProfile.objects.filter(worker_code__iexact=worker_code, active=True, user__is_active=True)
-        if duplicate_profiles.count() > 1:
-            notify_duplicate("Código de trabajador duplicado detectado", f"Se detectaron varios perfiles activos con el código {worker_code} durante un acceso.", f"login-worker:{worker_code}")
-            raise serializers.ValidationError("No se puede validar este código. Contacta al administrador.")
-        try:
-            profile = AccountProfile.objects.select_for_update().select_related("user").get(
-                worker_code__iexact=worker_code, active=True, user__is_active=True
-            )
-        except AccountProfile.DoesNotExist as exc:
-            raise serializers.ValidationError("Credenciales inválidas.") from exc
+        login_input = attrs["worker_code"].strip()
+        
+        matching_profiles = AccountProfile.objects.select_for_update().select_related("user").filter(
+            Q(worker_code__iexact=login_input) | Q(user__username__iexact=login_input) | Q(user__email__iexact=login_input),
+            active=True,
+            user__is_active=True,
+        )
+        if matching_profiles.count() > 1:
+            notify_duplicate("Perfiles duplicados detectados", f"Se detectaron varios perfiles activos para {login_input}.", f"login-dup:{login_input}")
+            raise serializers.ValidationError("No se puede validar este identificador. Contacta al administrador.")
+        
+        profile = matching_profiles.first()
+        if not profile:
+            raise serializers.ValidationError("Credenciales inválidas.")
 
         if profile.dni and AccountProfile.objects.filter(dni=profile.dni).exclude(pk=profile.pk).exists():
             notify_duplicate("DNI duplicado detectado en acceso", f"El DNI {profile.dni} está asociado a más de un perfil.", f"login-dni:{profile.dni}")
