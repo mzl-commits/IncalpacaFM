@@ -182,9 +182,15 @@ class TechnicianSerializer(serializers.ModelSerializer):
     almacen_nombre = serializers.CharField(
         source='account_profile.almacen.nombre', read_only=True, default=None,
     )
-    current_password_display = serializers.CharField(
-        source='account_profile.initial_password', read_only=True, default="",
-    )
+    current_password_display = serializers.SerializerMethodField()
+
+    def get_current_password_display(self, obj) -> str:
+        profile = getattr(obj, 'account_profile', None)
+        if profile and profile.initial_password:
+            return profile.initial_password
+        if profile and profile.worker_code:
+            return f"{profile.worker_code}2026"
+        return f"{obj.username}2026"
 
     class Meta:
         model = get_user_model()
