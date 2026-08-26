@@ -452,11 +452,9 @@ export function IncidentListPage() {
         <div 
           style={{
             position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.75)",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.45)",
+            backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -468,40 +466,51 @@ export function IncidentListPage() {
           <div 
             style={{
               background: "#FFFFFF",
-              border: "2px solid #000000",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
               width: "100%",
               maxWidth: "800px",
               maxHeight: "90vh",
               display: "flex",
               flexDirection: "column",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
+              boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+              overflow: "hidden"
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ background: "#000000", color: "#FFFFFF", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ fontFamily: "Times New Roman, serif", fontSize: "16px", fontWeight: "bold", margin: 0 }}>
-                DETALLE OFICIAL DE SOLICITUD DE TRABAJO — {selectedRequest.code}
-              </h3>
+            {/* Header */}
+            <div style={{ background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)", color: "#FFFFFF", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", color: "#94A3B8", textTransform: "uppercase" }}>
+                  Solicitud de Trabajo
+                </div>
+                <h3 style={{ fontSize: "17px", fontWeight: 700, margin: "2px 0 0", color: "#FFFFFF", letterSpacing: "-0.01em" }}>
+                  Detalle Oficial — {selectedRequest.code}
+                </h3>
+              </div>
               <button 
                 type="button" 
                 onClick={() => setSelectedRequest(null)}
-                style={{ background: "transparent", border: "none", color: "#FFFFFF", cursor: "pointer" }}
+                style={{ background: "rgba(255, 255, 255, 0.1)", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "8px", width: "32px", height: "32px", color: "#FFFFFF", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                aria-label="Cerrar modal"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <div style={{ padding: "24px", overflowY: "auto", flex: 1, fontSize: "13px" }}>
-              <div style={{ borderBottom: "1.5px solid #000000", paddingBottom: "10px", marginBottom: "16px", display: "flex", justifyContent: "space-between" }}>
+            {/* Body */}
+            <div style={{ padding: "24px", overflowY: "auto", flex: 1, fontSize: "13.5px" }}>
+              {/* Requester & Status */}
+              <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 20px", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                 <div>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#666666", textTransform: "uppercase" }}>SOLICITANTE</div>
-                  <div style={{ fontSize: "15px", fontWeight: "bold" }}>{selectedRequest.requesterName}</div>
-                  <div style={{ fontSize: "12px", color: "#555555" }}>{selectedRequest.requesterEmail || "Sin correo"}</div>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.04em" }}>SOLICITANTE</div>
+                  <div style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>{selectedRequest.requesterName}</div>
+                  <div style={{ fontSize: "12.5px", color: "#64748B", marginTop: "1px" }}>{selectedRequest.requesterEmail || "Sin correo especificado"}</div>
                 </div>
 
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#666666", textTransform: "uppercase" }}>ESTADO & PRIORIDAD</div>
-                  <div style={{ marginTop: "4px", display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.04em" }}>ESTADO & PRIORIDAD</div>
+                  <div style={{ marginTop: "6px", display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                     <span className={`badge-status ${getStatusBadgeClass(selectedRequest.status)}`}>
                       {requestStatusLabels[selectedRequest.status] || selectedRequest.status}
                     </span>
@@ -512,85 +521,107 @@ export function IncidentListPage() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px", background: "#FAFAFA", border: "1px solid #E2E8F0", padding: "12px" }}>
-                <div><strong>Tipo de Solicitud:</strong> {requestTypeLabels[selectedRequest.requestType] || selectedRequest.requestType}</div>
-                <div><strong>Fecha de Registro:</strong> {new Date(selectedRequest.reportedAt).toLocaleString("es-PE")}</div>
-                <div><strong>Edificio / Sector:</strong> {selectedRequest.building || "—"}</div>
-                <div><strong>Ambiente / Área:</strong> {[selectedRequest.area, selectedRequest.room].filter(Boolean).join(" / ") || "—"}</div>
+              {/* Details Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "16px", background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 20px" }}>
+                <div>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", display: "block" }}>TIPO DE SOLICITUD</span>
+                  <strong style={{ color: "#0F172A", fontSize: "13.5px" }}>{requestTypeLabels[selectedRequest.requestType] || selectedRequest.requestType}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", display: "block" }}>FECHA DE REGISTRO</span>
+                  <strong style={{ color: "#0F172A", fontSize: "13.5px" }}>{new Date(selectedRequest.reportedAt).toLocaleString("es-PE")}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", display: "block" }}>EDIFICIO / SECTOR</span>
+                  <strong style={{ color: "#0F172A", fontSize: "13.5px" }}>{selectedRequest.building || "—"}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", display: "block" }}>AMBIENTE / ÁREA</span>
+                  <strong style={{ color: "#0F172A", fontSize: "13.5px" }}>{[selectedRequest.area, selectedRequest.room].filter(Boolean).join(" / ") || "—"}</strong>
+                </div>
               </div>
 
+              {/* Affected Asset */}
               {selectedRequest.assetName || selectedRequest.assetCode ? (
-                <div style={{ border: "1px solid #000000", padding: "12px", marginBottom: "16px" }}>
-                  <div style={{ fontWeight: "bold", textTransform: "uppercase", fontSize: "12px", borderBottom: "1px solid #000", paddingBottom: "4px", marginBottom: "8px" }}>
+                <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 20px", marginBottom: "16px" }}>
+                  <div style={{ fontWeight: 700, textTransform: "uppercase", fontSize: "11px", color: "#64748B", letterSpacing: "0.04em", marginBottom: "8px" }}>
                     BIEN / ACTIVO AFECTADO
                   </div>
-                  <div><strong>Nombre del Bien:</strong> {selectedRequest.assetName || "Bien no especificado"}</div>
-                  {selectedRequest.assetCode && <div><strong>Identificador Técnico:</strong> <code>{selectedRequest.assetCode}</code></div>}
+                  <div style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }}>
+                    {selectedRequest.assetName || "Bien no especificado"}
+                  </div>
+                  {selectedRequest.assetCode && (
+                    <div style={{ marginTop: "4px", fontSize: "12.5px", color: "#475569" }}>
+                      Identificador Técnico: <code style={{ background: "#E2E8F0", padding: "2px 6px", borderRadius: "4px", fontFamily: "monospace" }}>{selectedRequest.assetCode}</code>
+                    </div>
+                  )}
                 </div>
               ) : null}
 
-              <div style={{ marginBottom: "16px" }}>
-                <div style={{ fontWeight: "bold", textTransform: "uppercase", fontSize: "12px", borderBottom: "1px solid #000", paddingBottom: "4px", marginBottom: "8px" }}>
+              {/* Description */}
+              <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 20px", marginBottom: "16px" }}>
+                <div style={{ fontWeight: 700, textTransform: "uppercase", fontSize: "11px", color: "#64748B", letterSpacing: "0.04em", marginBottom: "8px" }}>
                   DESCRIPCIÓN DEL REQUERIMIENTO
                 </div>
-                <p style={{ background: "#FFFFFF", border: "1px solid #CCCCCC", padding: "10px", lineHeight: "1.5" }}>
+                <p style={{ margin: 0, color: "#334155", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
                   {selectedRequest.description}
                 </p>
                 {selectedRequest.observations && (
-                  <p style={{ marginTop: "6px", fontSize: "12px", color: "#555555" }}>
-                    <strong>Observaciones:</strong> {selectedRequest.observations}
+                  <p style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px dashed #E2E8F0", fontSize: "12.5px", color: "#64748B" }}>
+                    <strong style={{ color: "#334155" }}>Observaciones:</strong> {selectedRequest.observations}
                   </p>
                 )}
               </div>
 
+              {/* Photo evidence */}
               {selectedRequest.photoUrl && (
-                <div style={{ marginBottom: "16px" }}>
-                  <div style={{ fontWeight: "bold", textTransform: "uppercase", fontSize: "12px", borderBottom: "1px solid #000", paddingBottom: "4px", marginBottom: "8px" }}>
+                <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 20px" }}>
+                  <div style={{ fontWeight: 700, textTransform: "uppercase", fontSize: "11px", color: "#64748B", letterSpacing: "0.04em", marginBottom: "10px" }}>
                     EVIDENCIA FOTOGRÁFICA
                   </div>
-                  <div style={{ border: "1px solid #CCCCCC", padding: "8px", textAlign: "center", background: "#FAFAFA" }}>
+                  <div style={{ border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px", textAlign: "center", background: "#FFFFFF" }}>
                     <img 
                       src={selectedRequest.photoUrl} 
                       alt="Evidencia fotográfica" 
-                      style={{ maxHeight: "200px", margin: "0 auto", objectFit: "contain" }}
+                      style={{ maxHeight: "220px", borderRadius: "6px", margin: "0 auto", objectFit: "contain" }}
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            <div style={{ background: "#FAFAFA", borderTop: "1px solid #000000", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", gap: "8px" }}>
+            {/* Footer */}
+            <div style={{ background: "#F8FAFC", borderTop: "1px solid #E2E8F0", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+              <div style={{ display: "flex", gap: "10px" }}>
                 <button
                   type="button"
-                  className="action-btn-icon"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF", color: "#334155", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
                   onClick={() => handleQuickDownload(selectedRequest)}
                 >
                   <FilePdf size={16} /> Descargar PDF
                 </button>
                 <button
                   type="button"
-                  className="action-btn-icon"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF", color: "#334155", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
                   onClick={() => handleQuickPrint(selectedRequest)}
                 >
                   <Printer size={16} /> Imprimir
                 </button>
               </div>
 
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "10px" }}>
                 {user?.role === "ADMINISTRADOR" && selectedRequest.status === "PENDIENTE" && (
                   <Link
                     to={`/ordenes-trabajo/nueva/${selectedRequest.id}`}
-                    className="action-btn-icon"
-                    style={{ background: "#000000", color: "#FFFFFF" }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 18px", borderRadius: "9px", background: "#0F172A", color: "#FFFFFF", fontWeight: 600, fontSize: "13.5px", textDecoration: "none", boxShadow: "0 2px 8px rgba(15, 23, 42, 0.15)" }}
                   >
-                    Convertir en OT <ArrowRight size={14} />
+                    Convertir en OT <ArrowRight size={15} />
                   </Link>
                 )}
 
                 <button
                   type="button"
-                  className="action-btn-icon"
+                  style={{ display: "inline-flex", alignItems: "center", padding: "9px 16px", borderRadius: "9px", border: "1px solid #CBD5E1", background: "#FFFFFF", color: "#475569", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
                   onClick={() => setSelectedRequest(null)}
                 >
                   Cerrar

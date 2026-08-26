@@ -32,25 +32,27 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0, 0, 0, 0.5)",
+        background: "rgba(15, 23, 42, 0.45)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: 16,
+        padding: 20,
         zIndex: 99999,
       }}
       onClick={onClose}
     >
       <div
         style={{
-          background: "#fff",
-          borderRadius: 12,
+          background: "#FFFFFF",
+          borderRadius: 16,
+          border: "1px solid #E2E8F0",
           padding: 24,
           width: "100%",
           maxWidth,
           maxHeight: "90vh",
           overflowY: "auto",
-          boxShadow: "0 10px 40px rgba(0,0,0,0.25)",
+          boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -59,21 +61,29 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: 16,
+            marginBottom: 20,
+            paddingBottom: 12,
+            borderBottom: "1px solid #F1F5F9",
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#0F172A", letterSpacing: "-0.01em" }}>{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
             style={{
-              border: "none",
-              background: "transparent",
-              fontSize: 20,
+              border: "1px solid #E2E8F0",
+              borderRadius: 8,
+              background: "#F8FAFC",
+              color: "#64748B",
+              width: 30,
+              height: 30,
+              fontSize: 18,
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               lineHeight: 1,
-              padding: 4,
             }}
           >
             ×
