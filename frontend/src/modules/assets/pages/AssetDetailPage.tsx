@@ -273,12 +273,16 @@ export function AssetDetailPage() {
     setSelectedRespType("ALL");
     setSelectedRespId("");
     setSelectedLocId("");
+    setRespSearchQuery("");
+    setLocSearchQuery("");
+    setIsRespDropdownOpen(false);
+    setIsLocDropdownOpen(false);
     setNewRespForm({
-      responsible: activeAssignment?.responsible && activeAssignment.responsible !== "Sin asignar" ? activeAssignment.responsible : "",
-      area: activeAssignment?.area || "",
+      responsible: "",
+      area: "",
       building: asset?.location_detail?.building || "",
       room: asset?.location_detail?.room || "",
-      reason: "",
+      reason: "Asignación de puesto de trabajo",
       start_date: new Date().toISOString().slice(0, 10),
     });
     setAddingResponsible(true);
@@ -288,109 +292,114 @@ export function AssetDetailPage() {
     event.preventDefault();
     if (!asset) return;
 
-    // Intentar emitir la entrega formal mediante el backend si tenemos los IDs de BD
-    if (selectedRespId && selectedLocId) {
-      try {
-        await deliverAsset({
-          asset_id: asset.id,
-          responsible_id: selectedRespId,
-          location_id: selectedLocId,
-          assignment_reason: newRespForm.reason.trim() || "Asignación formal de activo",
-          condition: asset.condition || "Bueno",
-          accessories: "",
-          observations: newRespForm.reason.trim(),
-          checklist: {
-            inspected: true,
-            qr_legible: true,
-            accessories_complete: true,
-            no_unreported_damage: true,
-          },
-          privacy_accepted: true,
-          evidence: [],
-          signatures: [
-            {
-              role: "ENTREGA",
-              method: "CONFIRMACION",
-              signer_name: user?.fullName || "Rosa Medina",
-              signer_role: "Facility Management",
-              consent: true,
-              signature_data_url: "",
+    const responsibleName = (newRespForm.responsible || respSearchQuery).trim();
+    if (!responsibleName) return;
+
+    setSaving(true);
+    try {
+      // 1. Intentar entrega formal con acta y trazabilidad si tenemos los IDs del catálogo
+      if (selectedRespId && selectedLocId) {
+        try {
+          await deliverAsset({
+            asset_id: asset.id,
+            responsible_id: selectedRespId,
+            location_id: selectedLocId,
+            assignment_reason: newRespForm.reason.trim() || "Asignación formal de activo",
+            condition: asset.condition || "Bueno",
+            accessories: "",
+            observations: newRespForm.reason.trim(),
+            checklist: {
+              inspected: true,
+              qr_legible: true,
+              accessories_complete: true,
+              no_unreported_damage: true,
             },
-            {
-              role: "RECIBE",
-              method: "CONFIRMACION",
-              signer_name: newRespForm.responsible.trim(),
-              signer_role: "Receptor / Custodio",
-              consent: true,
-              signature_data_url: "",
-            },
-          ],
-        });
-        const refreshed = await getAssetDetail(asset.id);
-        setAsset(refreshed);
-        setAddingResponsible(false);
-        setSaved(true);
-        window.setTimeout(() => setSaved(false), 3500);
-        return;
-      } catch (err) {
-        console.warn("deliverAsset falló, aplicando actualización directa:", err);
+            privacy_accepted: true,
+            evidence: [],
+            signatures: [
+              {
+                role: "ENTREGA",
+                method: "CONFIRMACION",
+                signer_name: user?.fullName || "Facility Management",
+                signer_role: "Facility Management",
+                consent: true,
+                signature_data_url: "",
+              },
+              {
+                role: "RECIBE",
+                method: "CONFIRMACION",
+                signer_name: responsibleName,
+                signer_role: "Receptor / Custodio",
+                consent: true,
+                signature_data_url: "",
+              },
+            ],
+          });
+          const refreshed = await getAssetDetail(asset.id);
+          setAsset(refreshed);
+          setAddingResponsible(false);
+          setSaved(true);
+          window.setTimeout(() => setSaved(false), 3500);
+          return;
+        } catch (err) {
+          console.warn("deliverAsset falló, aplicando sincronización directa:", err);
+        }
       }
+
+      // 2. Sincronización en historial de responsables del bien
+      const nowIso = new Date().toISOString();
+      const startDateIso = newRespForm.start_date
+        ? new Date(newRespForm.start_date).toISOString()
+        : nowIso;
+
+      const updatedHistory = asset.responsible_history.map((item) => {
+        if (
+          item.status?.toUpperCase() === "ACTIVA" ||
+          item.status?.toUpperCase() === "ACTIVO" ||
+          !item.end_date
+        ) {
+          return { ...item, status: "FINALIZADA", end_date: startDateIso };
+        }
+        return item;
+      });
+
+      const newEntry: ResponsibleItem = {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        responsible: responsibleName,
+        area: newRespForm.area.trim() || "Facility Management",
+        status: "ACTIVA",
+        start_date: startDateIso,
+        end_date: null,
+        reason: newRespForm.reason.trim() || "Asignación de custodia",
+      };
+
+      const updatedLocation =
+        newRespForm.building || newRespForm.room
+          ? {
+              zone: asset.location_detail?.zone || "Sede Principal",
+              building: newRespForm.building.trim() || asset.location_detail?.building || "Edificio Principal",
+              area: newRespForm.area.trim() || asset.location_detail?.area || "Área Operativa",
+              room: newRespForm.room.trim() || asset.location_detail?.room || "Oficina",
+              specific_location: asset.location_detail?.specific_location || "",
+            }
+          : asset.location_detail;
+
+      const updatedAsset: AssetDetailRecord = {
+        ...asset,
+        assignment_status: "Asignado",
+        location_detail: updatedLocation,
+        responsible_history: [newEntry, ...updatedHistory],
+      };
+
+      setAsset(updatedAsset);
+      setAddingResponsible(false);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 3500);
+    } catch {
+      setError("No se pudo registrar la asignación.");
+    } finally {
+      setSaving(false);
     }
-
-    const nowIso = new Date().toISOString();
-    const startDateIso = newRespForm.start_date
-      ? new Date(newRespForm.start_date).toISOString()
-      : nowIso;
-
-    // Finalize previous active assignment if any
-    const updatedHistory = asset.responsible_history.map((item) => {
-      if (
-        item.status?.toUpperCase() === "ACTIVA" ||
-        item.status?.toUpperCase() === "ACTIVO" ||
-        !item.end_date
-      ) {
-        return {
-          ...item,
-          status: "FINALIZADA",
-          end_date: startDateIso,
-        };
-      }
-      return item;
-    });
-
-    const newEntry = {
-      id: `RESP-${Date.now()}`,
-      responsible: newRespForm.responsible.trim(),
-      type: selectedRespType !== "ALL" ? selectedRespType : "PERSONA",
-      area: newRespForm.area.trim() || "Operaciones",
-      start_date: startDateIso,
-      end_date: null,
-      status: "ACTIVA",
-      reason: newRespForm.reason.trim() || "Asignación oficial de activo",
-    };
-
-    const updatedLocation =
-      newRespForm.building || newRespForm.room
-        ? {
-            zone: asset.location_detail?.zone || "Sede Principal",
-            building: newRespForm.building.trim() || asset.location_detail?.building || "Edificio Principal",
-            area: newRespForm.area.trim() || asset.location_detail?.area || "Área Operativa",
-            room: newRespForm.room.trim() || asset.location_detail?.room || "Oficina",
-            specific_location: asset.location_detail?.specific_location || "",
-          }
-        : asset.location_detail;
-
-    const updatedAsset: AssetDetailRecord = {
-      ...asset,
-      assignment_status: "Asignado",
-      location_detail: updatedLocation,
-      responsible_history: [newEntry, ...updatedHistory],
-    };
-
-    setAsset(updatedAsset);
-    setAddingResponsible(false);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 3500);
   }
 
   function handleOpenEditResponsible(item: ResponsibleItem) {
@@ -1109,11 +1118,11 @@ export function AssetDetailPage() {
                   </div>
                 </div>
 
-                {/* 2. SELECTOR DE RESPONSABLES DE LA BASE DE DATOS (CON BÚSQUEDA EN VIVO AL ESCRIBIR) */}
+                {/* 2. SELECTOR INTELIGENTE DE RESPONSABLE (ESCRITURA / BÚSQUEDA) */}
                 <div style={{ gridColumn: "1 / -1", position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
                     <label style={{ fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                      2. Seleccionar responsable registrado en la BD (escribe para buscar):
+                      Responsable / Custodio *
                     </label>
                     {respSearchQuery && (
                       <button
@@ -1121,6 +1130,7 @@ export function AssetDetailPage() {
                         onClick={() => {
                           setRespSearchQuery("");
                           setSelectedRespId("");
+                          setNewRespForm((prev) => ({ ...prev, responsible: "" }));
                           setIsRespDropdownOpen(false);
                         }}
                         style={{
@@ -1133,18 +1143,20 @@ export function AssetDetailPage() {
                           textDecoration: "underline",
                         }}
                       >
-                        Limpiar búsqueda
+                        Limpiar
                       </button>
                     )}
                   </div>
                   <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                     <input
+                      required
                       type="text"
-                      placeholder="Escribe el nombre, código (TRAB-...), o área del responsable..."
-                      value={respSearchQuery}
+                      placeholder="Escribe el nombre o código del colaborador (ej. Rosa Medina, TRAB-4082)..."
+                      value={respSearchQuery || newRespForm.responsible}
                       onChange={(e) => {
                         const val = e.target.value;
                         setRespSearchQuery(val);
+                        setNewRespForm((prev) => ({ ...prev, responsible: val }));
                         setIsRespDropdownOpen(true);
                       }}
                       onFocus={() => setIsRespDropdownOpen(true)}
@@ -1175,7 +1187,7 @@ export function AssetDetailPage() {
                         left: 0,
                         right: 0,
                         marginTop: "4px",
-                        maxHeight: "220px",
+                        maxHeight: "200px",
                         overflowY: "auto",
                         background: "#FFFFFF",
                         border: "1.5px solid #000000",
@@ -1185,8 +1197,8 @@ export function AssetDetailPage() {
                       }}
                     >
                       {searchedResponsibles.length === 0 ? (
-                        <div style={{ padding: "12px 14px", fontSize: "12.5px", color: "#737373" }}>
-                          No se encontraron responsables registrados con "{respSearchQuery}". Puedes escribir el nombre directamente abajo.
+                        <div style={{ padding: "10px 12px", fontSize: "12px", color: "#737373" }}>
+                          No se encontraron coincidencias en la BD. Se usará el nombre ingresado.
                         </div>
                       ) : (
                         searchedResponsibles.map((r) => {
@@ -1219,11 +1231,7 @@ export function AssetDetailPage() {
                             >
                               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                 {r.external_reference ? (
-                                  <span style={{
-                                    fontSize: "12px",
-                                    fontWeight: 600,
-                                    color: "#525252",
-                                  }}>
+                                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#525252" }}>
                                     [{r.external_reference}]
                                   </span>
                                 ) : null}
@@ -1238,39 +1246,7 @@ export function AssetDetailPage() {
                   )}
                 </div>
 
-                {/* 3. NOMBRE COMPLETO DEL RESPONSABLE */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                    Nombre completo del responsable *
-                  </label>
-                  <input
-                    required
-                    list="resp-name-suggestions"
-                    placeholder="Ej. Rosa Medina Gutiérrez"
-                    value={newRespForm.responsible}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, responsible: e.target.value })
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "9px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #737373",
-                      background: "#FFFFFF",
-                      color: "#000000",
-                      fontSize: "13.5px",
-                      fontWeight: 500,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  <datalist id="resp-name-suggestions">
-                    {(catalog?.responsibles || []).map((r) => (
-                      <option key={r.id} value={r.display_name} />
-                    ))}
-                  </datalist>
-                </div>
-
-                {/* 4. ÁREA / DEPARTAMENTO */}
+                {/* 3. ÁREA / DEPARTAMENTO */}
                 <div>
                   <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
                     Área / Departamento *
@@ -1302,7 +1278,7 @@ export function AssetDetailPage() {
                   </datalist>
                 </div>
 
-                {/* 5. FECHA DE INICIO */}
+                {/* 4. FECHA DE ASIGNACIÓN */}
                 <div>
                   <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
                     Fecha de inicio de custodia *
@@ -1328,11 +1304,11 @@ export function AssetDetailPage() {
                   />
                 </div>
 
-                {/* 6. SELECTOR DE UBICACIÓN DE LA BASE DE DATOS (CON BÚSQUEDA EN VIVO AL ESCRIBIR) */}
-                <div style={{ gridColumn: "1 / -1", marginTop: "4px", position: "relative" }}>
+                {/* 5. SELECTOR INTELIGENTE DE UBICACIÓN (ESCRITURA / BÚSQUEDA) */}
+                <div style={{ gridColumn: "1 / -1", position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
                     <label style={{ fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                      3. Ubicación física validada en la BD (escribe para buscar):
+                      Ubicación física (buscar en BD o escribir)
                     </label>
                     {locSearchQuery && (
                       <button
@@ -1352,18 +1328,19 @@ export function AssetDetailPage() {
                           textDecoration: "underline",
                         }}
                       >
-                        Limpiar búsqueda
+                        Limpiar
                       </button>
                     )}
                   </div>
                   <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                     <input
                       type="text"
-                      placeholder="Escribe para buscar edificio, piso, área o sala de la BD..."
-                      value={locSearchQuery}
+                      placeholder="Escribe edificio, piso o sala (ej. Planta Principal, Taller, Oficina 204)..."
+                      value={locSearchQuery || (newRespForm.building ? `${newRespForm.building}${newRespForm.room ? ` / ${newRespForm.room}` : ""}` : "")}
                       onChange={(e) => {
                         const val = e.target.value;
                         setLocSearchQuery(val);
+                        setNewRespForm((prev) => ({ ...prev, building: val }));
                         setIsLocDropdownOpen(true);
                       }}
                       onFocus={() => setIsLocDropdownOpen(true)}
@@ -1394,7 +1371,7 @@ export function AssetDetailPage() {
                         left: 0,
                         right: 0,
                         marginTop: "4px",
-                        maxHeight: "220px",
+                        maxHeight: "200px",
                         overflowY: "auto",
                         background: "#FFFFFF",
                         border: "1.5px solid #000000",
@@ -1404,8 +1381,8 @@ export function AssetDetailPage() {
                       }}
                     >
                       {searchedLocations.length === 0 ? (
-                        <div style={{ padding: "12px 14px", fontSize: "12.5px", color: "#737373" }}>
-                          No se encontraron ubicaciones registradas con "{locSearchQuery}". Puedes completarlo abajo.
+                        <div style={{ padding: "10px 12px", fontSize: "12px", color: "#737373" }}>
+                          No se encontraron coincidencias en la BD. Se usará el texto ingresado.
                         </div>
                       ) : (
                         searchedLocations.map((l) => {
@@ -1439,11 +1416,7 @@ export function AssetDetailPage() {
                             >
                               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                 {l.zone && (
-                                  <span style={{
-                                    fontSize: "12px",
-                                    fontWeight: 600,
-                                    color: "#525252",
-                                  }}>
+                                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#525252" }}>
                                     [{l.zone}]
                                   </span>
                                 )}
@@ -1457,11 +1430,6 @@ export function AssetDetailPage() {
                                   </>
                                 )}
                               </div>
-                              {l.specific_location && (
-                                <span style={{ fontSize: "11.5px", color: "#737373", fontStyle: "italic" }}>
-                                  ({l.specific_location})
-                                </span>
-                              )}
                             </div>
                           );
                         })
@@ -1470,108 +1438,14 @@ export function AssetDetailPage() {
                   )}
                 </div>
 
-                {/* 7. EDIFICIO / PISO */}
-                <div>
+                {/* 6. MOTIVO DE LA ASIGNACIÓN */}
+                <div style={{ gridColumn: "1 / -1" }}>
                   <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                    Edificio / Piso
+                    Motivo de asignación / Observaciones *
                   </label>
                   <input
-                    list="building-suggestions"
-                    placeholder="Ej. Planta Principal / Piso 1"
-                    value={newRespForm.building}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, building: e.target.value })
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "9px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #737373",
-                      background: "#FFFFFF",
-                      color: "#000000",
-                      fontSize: "13.5px",
-                      fontWeight: 500,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  <datalist id="building-suggestions">
-                    {availableBuildings.map((b) => (
-                      <option key={b} value={b} />
-                    ))}
-                  </datalist>
-                </div>
-
-                {/* 8. OFICINA / SALA */}
-                <div>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                    Oficina / Sala / Ubicación exacta
-                  </label>
-                  <input
-                    list="room-suggestions"
-                    placeholder="Ej. Oficina 204 / Taller Eléctrico"
-                    value={newRespForm.room}
-                    onChange={(e) =>
-                      setNewRespForm({ ...newRespForm, room: e.target.value })
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "9px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #737373",
-                      background: "#FFFFFF",
-                      color: "#000000",
-                      fontSize: "13.5px",
-                      fontWeight: 500,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  <datalist id="room-suggestions">
-                    {availableRooms.map((r) => (
-                      <option key={r} value={r} />
-                    ))}
-                  </datalist>
-                </div>
-
-                {/* 9. MOTIVO DE LA ASIGNACIÓN CON CHIPS RÁPIDOS */}
-                <div style={{ gridColumn: "1 / -1", marginTop: "4px" }}>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                    Motivo de la asignación / observaciones *
-                  </label>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-                    {[
-                      "Asignación inicial de puesto de trabajo",
-                      "Reasignación por rotación de puesto",
-                      "Custodia operativa temporal",
-                      "Cambio de área / departamento",
-                      "Devolución y custodia en almacén",
-                    ].map((reasonText) => {
-                      const isMatch = newRespForm.reason === reasonText;
-                      return (
-                        <button
-                          type="button"
-                          key={reasonText}
-                          style={{
-                            padding: "4px 10px",
-                            fontSize: "12px",
-                            fontWeight: isMatch ? 700 : 500,
-                            borderRadius: "4px",
-                            border: isMatch ? "1px solid #000000" : "1px solid #CCCCCC",
-                            background: isMatch ? "#000000" : "#FFFFFF",
-                            color: isMatch ? "#FFFFFF" : "#000000",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                          onClick={() => setNewRespForm((prev) => ({ ...prev, reason: reasonText }))}
-                        >
-                          {reasonText}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <textarea
                     required
-                    rows={3}
-                    placeholder="Ej. Reasignación por rotación de puesto / custodia operativa"
+                    placeholder="Ej. Asignación de puesto de trabajo / Custodia operativa"
                     value={newRespForm.reason}
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, reason: e.target.value })
@@ -1584,26 +1458,11 @@ export function AssetDetailPage() {
                       background: "#FFFFFF",
                       color: "#000000",
                       fontSize: "13.5px",
-                      lineHeight: "1.5",
-                      resize: "vertical",
+                      fontWeight: 500,
                       boxSizing: "border-box",
                     }}
                   />
                 </div>
-              </div>
-
-              {/* ASIDE INFO BANNER */}
-              <div style={{
-                marginTop: "16px",
-                padding: "10px 14px",
-                background: "#F5F5F5",
-                border: "1px solid #D4D4D4",
-                borderRadius: "6px",
-                fontSize: "12px",
-                color: "#333333",
-                lineHeight: "1.45",
-              }}>
-                ℹ️ Al confirmar, el custodio actual y la ubicación física se actualizarán en la Situación Actual del bien y quedará asentado en el historial trazable para los reportes y Fichas Técnicas.
               </div>
 
               {/* ACTION BUTTONS FOOTER */}
@@ -1633,6 +1492,7 @@ export function AssetDetailPage() {
                 </button>
                 <button
                   type="submit"
+                  disabled={saving}
                   style={{
                     padding: "9px 24px",
                     borderRadius: "6px",
@@ -1648,7 +1508,7 @@ export function AssetDetailPage() {
                   }}
                 >
                   <UserPlus size={16} weight="bold" />
-                  Asignar responsable
+                  {saving ? "Asignando…" : "Asignar responsable"}
                 </button>
               </footer>
             </form>
