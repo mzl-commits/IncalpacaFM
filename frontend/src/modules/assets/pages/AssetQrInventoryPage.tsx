@@ -851,15 +851,15 @@ export function AssetQrInventoryPage() {
                             Iniciar baja
                           </Link>
                         )}
-                        <a
-                          href={asset.publicUrl}
+                        <Link
+                          to={`/q/${asset.publicToken}`}
                           target="_blank"
                           rel="noreferrer"
                           aria-label={`Abrir ficha pública de ${getAssetDisplayCode(asset)} en una pestaña nueva`}
                         >
                           <ArrowSquareOut size={17} aria-hidden="true" />
                           Ficha pública
-                        </a>
+                        </Link>
                       </footer>
                     </article>
                   </li>
