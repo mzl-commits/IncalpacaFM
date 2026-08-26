@@ -536,8 +536,29 @@ export function AssetDetailPage() {
         </div>
       </div>
       
-      {printModalOpen && (
-        <div className="print-modal-overlay" onClick={() => setPrintModalOpen(false)}>
+      {printModalOpen && createPortal(
+        <div
+          className="print-modal-overlay"
+          onClick={() => setPrintModalOpen(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(30, 41, 59, 0.75)",
+            backdropFilter: "blur(4px)",
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            boxSizing: "border-box",
+            margin: 0,
+          }}
+        >
           <div className="print-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="print-modal-header">
               <div className="print-modal-title-group">
@@ -594,7 +615,7 @@ export function AssetDetailPage() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       {user?.role === "ADMINISTRADOR" && (!asset.fm_code || !asset.taxonomy_detail) && (
         <section className="asset-classification-callout">
           <Tag size={25} weight="duotone" />
