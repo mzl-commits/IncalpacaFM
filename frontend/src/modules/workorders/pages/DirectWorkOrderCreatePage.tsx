@@ -1,4 +1,4 @@
-﻿import { ArrowLeft, Broom, FloppyDisk, Wrench } from "@phosphor-icons/react";
+import { ArrowLeft, Broom, FloppyDisk, Wrench } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -409,7 +409,7 @@ export function DirectWorkOrderCreatePage() {
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-actions">
-          <Link className="button button-secondary" to="/órdenes-trabajo/nueva">Cancelar</Link>
+          <Link className="button button-secondary" to="/ordenes-trabajo/nueva">Cancelar</Link>
           <button className="button button-primary" type="submit" disabled={saving}>
             <FloppyDisk size={18} weight="bold" />
             {saving ? "Generando..." : `Generar ${orderName}`}
