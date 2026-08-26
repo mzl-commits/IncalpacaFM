@@ -410,10 +410,10 @@ export function AssetQrInventoryPage() {
         }
         .asset-desc { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 8.8 : 10.5}pt; 
-          font-weight: 600; 
-          line-height: 1.2;
-          color: #111111;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.8 : format === PRINT_FORMATS.STANDARD ? 8.2 : 10}pt; 
+          font-weight: 400; 
+          line-height: 1.25;
+          color: #222222;
           word-break: normal;
           overflow-wrap: break-word;
           margin: 0;
