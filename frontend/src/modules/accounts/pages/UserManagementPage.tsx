@@ -1,4 +1,4 @@
-import { FloppyDisk, PencilSimple, Plus, UploadSimple, UsersThree, X } from "@phosphor-icons/react";
+import { DownloadSimple, FloppyDisk, PencilSimple, Plus, Printer, UploadSimple, UsersThree, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
@@ -6,6 +6,7 @@ import { createManagedUser, importTechnicians, listManagedUsers, updateManagedUs
 import type { UserRole } from "@/modules/accounts/types";
 import { listAlmacenes } from "@/modules/almacen/catalogoRepository";
 import type { Almacen } from "@/modules/almacen/types";
+import { downloadExcel } from "@/utils/exportCsv";
 
 const ROLES_CON_ALMACEN: UserRole[] = ["ALMACENERO", "INSPECTOR"];
 
@@ -88,6 +89,39 @@ export function UserManagementPage() {
       setFeedback(editing ? "Usuario actualizado correctamente." : "Usuario creado. Deberá cambiar su contraseña al ingresar."); setEditing(undefined);
     } catch (saveError) { setError(getErrorMessage(saveError)); } finally { setSaving(false); }
   }
+
+  function exportUsersExcel() {
+    const filename = `usuarios-incalpaca-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const headers = [
+      "Nombre Completo",
+      "Rol",
+      "Código de Trabajador",
+      "DNI",
+      "Correo Electrónico",
+      "Área o Cargo",
+      "Especialidad",
+      "Almacén Asignado",
+      "Tarifa por Hora (S/)",
+      "Estado de Acceso",
+    ];
+    const rows = visibleUsers.map((u) => {
+      const almacenNombre = almacenes.find((a) => a.id === (u as unknown as { almacen_id?: number }).almacen_id)?.nombre || "—";
+      return [
+        u.full_name,
+        roleName(u.role),
+        u.worker_code,
+        u.dni || "—",
+        u.email || "—",
+        u.position || "—",
+        u.specialty || "—",
+        almacenNombre,
+        u.hourly_rate ? `S/ ${Number(u.hourly_rate).toFixed(2)}` : "—",
+        u.active ? "Activo" : "Inactivo",
+      ];
+    });
+    downloadExcel(filename, headers, rows, "Directorio de Usuarios");
+  }
+
   async function importFile(file?: File) {
     if (!file) return; setError(""); setFeedback("");
     try { const result = await importTechnicians(file); setFeedback(`Importación completada: ${result.created} creados y ${result.updated} actualizados.${result.errors.length ? ` ${result.errors.length} fila(s) requieren revisión.` : ""}`); await load(); }
@@ -101,6 +135,8 @@ export function UserManagementPage() {
         <div className="user-management-actions">
           <input ref={fileInput} hidden type="file" accept=".xlsx,.xlsm" onChange={(event) => void importFile(event.target.files?.[0])} />
           <button className="button button-secondary" type="button" onClick={() => fileInput.current?.click()}><UploadSimple size={18} />Importar Excel</button>
+          <button className="button button-secondary" type="button" onClick={exportUsersExcel} title="Descargar directorio en formato XLSX"><DownloadSimple size={18} />Exportar Excel</button>
+          <button className="button button-secondary" type="button" onClick={() => window.print()} title="Imprimir directorio o guardar en PDF"><Printer size={18} />Imprimir</button>
           <button className="button button-primary" type="button" onClick={openCreate}><Plus size={18} />Nuevo usuario</button>
         </div>
       </header>
