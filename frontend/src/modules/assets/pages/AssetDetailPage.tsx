@@ -29,6 +29,10 @@ import {
 import { ModelCreatableSelect } from "@/modules/assets/components/ModelCreatableSelect";
 import { TaxonomyPicker } from "@/modules/taxonomy/components/TaxonomyPicker";
 import {
+  listTaxonomies,
+  type TaxonomyRecord,
+} from "@/modules/taxonomy/taxonomyRepository";
+import {
   getAssignmentCatalog,
   deliverAsset,
   type AssignmentCatalog,
@@ -55,6 +59,9 @@ export function AssetDetailPage() {
   const [editError, setEditError] = useState("");
   const [saved, setSaved] = useState(false);
   const [retirementWorkOrder, setRetirementWorkOrder] = useState<WorkOrder | null>(null);
+
+  // Live Taxonomy Data from Database
+  const [taxonomies, setTaxonomies] = useState<TaxonomyRecord[]>([]);
 
   // Assignment Catalog from Database
   const [catalog, setCatalog] = useState<AssignmentCatalog | null>(null);
@@ -109,6 +116,9 @@ export function AssetDetailPage() {
     void getAssignmentCatalog()
       .then(setCatalog)
       .catch(() => {});
+    void listTaxonomies({ active: true })
+      .then(setTaxonomies)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -134,6 +144,14 @@ export function AssetDetailPage() {
         color: { dark: "#002b58", light: "#ffffff" },
       }).then(setQr);
   }, [asset]);
+
+  // Live matching of taxonomy in real-time from DB
+  const liveTaxonomy = taxonomies.find(
+    (t) =>
+      t.id === asset?.taxonomy_detail?.id ||
+      (t.prefix && asset?.fm_code?.startsWith(t.prefix)) ||
+      (t.prefix && asset?.taxonomy_detail?.prefix === t.prefix)
+  ) || null;
 
   // Derived lists from DB Catalog for dropdowns and filters
   const filteredResponsibles = (catalog?.responsibles || []).filter((r) => {
@@ -929,45 +947,63 @@ export function AssetDetailPage() {
               </button>
             </header>
 
-            {/* TAXONOMY SUMMARY BANNER (MONOCHROME) */}
+            {/* TAXONOMY SUMMARY BANNER (REAL-TIME DATABASE SYNC) */}
             <div style={{
               margin: "14px 24px 0",
-              padding: "10px 14px",
+              padding: "12px 14px",
               background: "#F5F5F5",
               border: "1px solid #D4D4D4",
               borderRadius: "8px",
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               gap: "12px",
               fontSize: "12.5px",
               color: "#000000",
             }}>
-              <Tag size={20} weight="bold" style={{ flexShrink: 0, color: "#000000" }} />
+              <Tag size={20} weight="bold" style={{ flexShrink: 0, color: "#000000", marginTop: "2px" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                  <strong style={{ color: "#000000" }}>Taxonomía Vinculada:</strong>
-                  <span style={{
-                    background: "#000000",
-                    color: "#FFFFFF",
-                    padding: "2px 7px",
-                    borderRadius: "4px",
-                    fontWeight: 700,
-                    fontSize: "11.5px",
-                  }}>
-                    {asset.taxonomy_detail?.category || asset.entry_type_label || "Categoría General"}
-                  </span>
-                  {asset.taxonomy_detail?.subcategory && (
-                    <>
-                      <span style={{ color: "#737373" }}>›</span>
-                      <span style={{ fontWeight: 700, color: "#000000" }}>{asset.taxonomy_detail.subcategory}</span>
-                    </>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                    <strong style={{ color: "#000000" }}>Taxonomía en Tiempo Real (BD):</strong>
+                    <span style={{
+                      background: "#000000",
+                      color: "#FFFFFF",
+                      padding: "2px 7px",
+                      borderRadius: "4px",
+                      fontWeight: 700,
+                      fontSize: "11px",
+                      letterSpacing: "0.03em",
+                    }}>
+                      {liveTaxonomy?.category || asset.taxonomy_detail?.category || asset.entry_type_label || "Categoría General"}
+                    </span>
+                    {(liveTaxonomy?.subcategory || asset.taxonomy_detail?.subcategory) && (
+                      <>
+                        <span style={{ color: "#737373" }}>›</span>
+                        <span style={{ fontWeight: 700, color: "#000000" }}>{liveTaxonomy?.subcategory || asset.taxonomy_detail?.subcategory}</span>
+                      </>
+                    )}
+                  </div>
+                  {(liveTaxonomy?.prefix || asset.taxonomy_detail?.prefix) && (
+                    <span style={{
+                      background: "#E5E5E5",
+                      color: "#000000",
+                      padding: "1px 6px",
+                      borderRadius: "3px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                    }}>
+                      Prefijo: {liveTaxonomy?.prefix || asset.taxonomy_detail?.prefix}
+                    </span>
                   )}
-                  {asset.taxonomy_detail?.specialty && (
-                    <>
-                      <span style={{ color: "#737373" }}>·</span>
-                      <span style={{ color: "#525252", fontWeight: 600 }}>Especialidad: {asset.taxonomy_detail.specialty}</span>
-                    </>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "11.5px", color: "#525252", flexWrap: "wrap" }}>
+                  <span>Especialidad: <strong>{liveTaxonomy?.specialty || asset.taxonomy_detail?.specialty || "Facility Management"}</strong></span>
+                  {(liveTaxonomy?.assetType || asset.taxonomy_detail?.asset_type) && (
+                    <span>· Tipo: <strong>{liveTaxonomy?.assetType || asset.taxonomy_detail?.asset_type}</strong></span>
                   )}
+                  {liveTaxonomy?.usefulLifeYears ? (
+                    <span>· Vida útil estimada: <strong>{liveTaxonomy.usefulLifeYears} años</strong></span>
+                  ) : null}
                 </div>
               </div>
             </div>
