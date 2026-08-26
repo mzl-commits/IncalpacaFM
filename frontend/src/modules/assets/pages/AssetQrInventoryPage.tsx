@@ -302,6 +302,23 @@ export function AssetQrInventoryPage() {
 
     setActionMessage("");
     try {
+      // Cargar logo oficial en data URL para garantizar renderizado instantáneo en impresión
+      let logoDataUrl = "/logo-incalpaca.png";
+      try {
+        const res = await fetch("/logo-incalpaca.png");
+        if (res.ok) {
+          const blob = await res.blob();
+          logoDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => resolve("/logo-incalpaca.png");
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch {
+        logoDataUrl = "/logo-incalpaca.png";
+      }
+
       const labels = await Promise.all(
         items.flatMap((asset) => Array.from({ length: normalizedCopies }, async () => ({
           asset,
@@ -329,24 +346,28 @@ export function AssetQrInventoryPage() {
         }
         article {
           break-inside: avoid;
+          page-break-inside: avoid;
           display: grid;
           grid-template-columns: ${format.qrMm}mm minmax(0, 1fr);
-          align-items: stretch;
-          gap: ${format === PRINT_FORMATS.COMPACT ? 1.5 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
+          align-items: center;
+          gap: ${format === PRINT_FORMATS.COMPACT ? 2 : 3}mm;
           height: ${format.heightMm}mm;
-          padding: ${format === PRINT_FORMATS.COMPACT ? 1.5 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
-          border: 1px solid #CCC;
-          border-radius: 4px;
+          width: ${format.widthMm}mm;
+          padding: ${format === PRINT_FORMATS.COMPACT ? 1.8 : 2.5}mm;
+          border: 1px solid #111111;
+          border-radius: 3px;
           overflow: hidden;
-          background: #FFF;
+          background: #FFFFFF;
         }
         .qr-image { 
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1mm;
+          width: 100%;
+          height: 100%;
+          padding: 0;
         }
-        img { 
+        .qr-image img { 
           display: block; 
           width: 100%; 
           height: 100%; 
@@ -356,61 +377,44 @@ export function AssetQrInventoryPage() {
           display: flex;
           flex-direction: column;
           justify-content: center;
-          padding: 1mm 1mm 1mm 0;
+          height: 100%;
+          padding: 0.5mm 0;
+          overflow: hidden;
         }
-        .brand-logo {
-          display: flex;
-          align-items: center;
-          gap: 1.5mm;
-          margin-bottom: ${format === PRINT_FORMATS.COMPACT ? 1 : 2}mm;
+        .brand-logo-img {
+          display: block;
+          height: ${format === PRINT_FORMATS.COMPACT ? 5.5 : format === PRINT_FORMATS.STANDARD ? 7.5 : 10}mm;
+          width: auto;
+          max-width: 100%;
+          object-fit: contain;
+          object-position: left center;
+          margin-bottom: ${format === PRINT_FORMATS.COMPACT ? 1 : 1.5}mm;
         }
-        .brand-logo svg {
-          width: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 12 : 14}px;
-          height: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 12 : 14}px;
-        }
-        .brand-logo span {
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 9 : 11}px;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          color: #000;
-          line-height: 1;
-        }
-        strong { 
-          font-family: "Courier New", Courier, monospace;
+        .asset-code { 
+          font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
           margin: 0 0 ${format === PRINT_FORMATS.COMPACT ? 1 : 1.5}mm 0; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 15}px; 
-          line-height: 1; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 10.5 : 13}pt; 
+          line-height: 1.1; 
           font-weight: 800;
-          letter-spacing: -0.05em;
+          letter-spacing: -0.02em;
+          color: #000000;
           word-break: break-all;
         }
-        .name { 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 9 : 11}px; 
-          font-weight: 600; 
-          line-height: 1.2;
-          color: #333;
+        .asset-desc { 
+          font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.2 : format === PRINT_FORMATS.STANDARD ? 7.8 : 9.5}pt; 
+          font-weight: 500; 
+          line-height: 1.25;
+          color: #333333;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          margin-bottom: 1mm;
-        }
-        .technical { 
-          color: #666; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.5 : format === PRINT_FORMATS.STANDARD ? 7.5 : 9}px; 
-          line-height: 1.2; 
-          margin-bottom: auto;
-        }
-        .instruction { 
-          margin-top: auto; 
-          color: #888; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6 : format === PRINT_FORMATS.STANDARD ? 7 : 8}px; 
-          line-height: 1.1; 
-          font-style: italic;
+          margin: 0;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-          article { border-color: #000; }
+          article { border-color: #000000 !important; }
         }
       `;
       const main = document.createElement("main");
@@ -422,35 +426,26 @@ export function AssetQrInventoryPage() {
         imageWrapper.className = "qr-image";
         const image = document.createElement("img");
         image.src = dataUrl;
-        image.alt = "";
+        image.alt = "QR";
         imageWrapper.appendChild(image);
         
         const copy = document.createElement("div");
         copy.className = "content";
         
-        const logoDiv = document.createElement("div");
-        logoDiv.className = "brand-logo";
-        logoDiv.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="8" height="8" fill="#000"/><rect x="8" y="8" width="8" height="8" fill="#000"/><rect x="16" y="16" width="8" height="8" fill="#000"/></svg><span>FM INCALPACA</span>`;
+        const logoImg = document.createElement("img");
+        logoImg.className = "brand-logo-img";
+        logoImg.src = logoDataUrl;
+        logoImg.alt = "INCALPACA FM";
         
-        const code = document.createElement("strong");
+        const code = document.createElement("div");
+        code.className = "asset-code";
         code.textContent = getAssetDisplayCode(asset);
         
-        const name = document.createElement("div");
-        name.className = "name";
-        name.textContent = asset.draft.name;
+        const desc = document.createElement("div");
+        desc.className = "asset-desc";
+        desc.textContent = (asset.draft.description?.trim() || asset.draft.name?.trim() || "").trim();
         
-        const technicalCode = document.createElement("div");
-        technicalCode.className = "technical";
-        technicalCode.textContent = asset.fmCode ? `ID: ${asset.code}` : "";
-        
-        const instruction = document.createElement("div");
-        instruction.className = "instruction";
-        instruction.textContent = "Escanea para más info";
-
-        copy.append(logoDiv, code, name);
-        if (asset.fmCode) copy.append(technicalCode);
-        copy.append(instruction);
-        
+        copy.append(logoImg, code, desc);
         label.append(imageWrapper, copy);
         main.append(label);
       });
