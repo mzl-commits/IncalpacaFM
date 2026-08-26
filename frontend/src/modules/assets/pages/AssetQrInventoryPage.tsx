@@ -59,6 +59,18 @@ function getCategory(asset: RegisteredAsset) {
   return asset.draft.category?.trim() || "Sin categoría";
 }
 
+function getLocation(asset: RegisteredAsset) {
+  if (asset.draft.locationPending) return "Ubicación por confirmar";
+  const path = [
+    asset.draft.zone || asset.locationDetail?.zone,
+    asset.draft.building || asset.locationDetail?.building,
+    asset.draft.locationArea || asset.locationDetail?.area,
+    asset.draft.room || asset.locationDetail?.room,
+  ].filter(Boolean);
+
+  return path.length ? path.join(" / ") : "Ubicación no registrada";
+}
+
 function getAssetFullDisplayCode(asset: RegisteredAsset): string {
   if (asset.fmCode && asset.fmCode.includes("-") && asset.fmCode.split("-").length >= 3) {
     return asset.fmCode;
