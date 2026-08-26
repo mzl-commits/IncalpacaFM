@@ -37,9 +37,9 @@ const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
 const FILTER_KEYS = ["q", "category", "assignment", "condition", "criticality"] as const;
 
 const PRINT_FORMATS = {
-  COMPACT: { label: "Compacta", detail: "50 × 30 mm", widthMm: 50, heightMm: 30, qrMm: 22, columns: 3, gapMm: 3, perPage: 24 },
-  STANDARD: { label: "Estándar", detail: "68 × 38 mm", widthMm: 68, heightMm: 38, qrMm: 28, columns: 2, gapMm: 5, perPage: 12 },
-  LARGE: { label: "Grande", detail: "90 × 48 mm", widthMm: 90, heightMm: 48, qrMm: 38, columns: 2, gapMm: 5, perPage: 10 },
+  COMPACT: { label: "Compacta", detail: "55 × 32 mm", widthMm: 55, heightMm: 32, qrMm: 24, columns: 3, gapMm: 3, perPage: 24 },
+  STANDARD: { label: "Estándar", detail: "72 × 40 mm", widthMm: 72, heightMm: 40, qrMm: 30, columns: 2, gapMm: 5, perPage: 12 },
+  LARGE: { label: "Grande", detail: "95 × 52 mm", widthMm: 95, heightMm: 52, qrMm: 40, columns: 2, gapMm: 5, perPage: 10 },
 } as const;
 
 type PrintFormat = keyof typeof PRINT_FORMATS;
@@ -72,7 +72,32 @@ function getLocation(asset: RegisteredAsset) {
 }
 
 function getAssetFullDisplayCode(asset: RegisteredAsset): string {
-  if (asset.fmCode && asset.fmCode.includes("-") && asset.fmCode.split("-").length >= 3) {
+  if (asset.fmCode) {
+    if (asset.fmCode.includes("-") && asset.fmCode.split("-").length >= 3) {
+      return asset.fmCode;
+    }
+    const loc = asset.locationDetail;
+    const draft = asset.draft;
+    const b = loc?.building || draft.building || "";
+    const a = loc?.area || draft.locationArea || "";
+    const r = loc?.room || draft.room || "";
+
+    const toCode = (text: string) => {
+      const t = text.trim().toUpperCase();
+      if (!t || t === "GENERAL" || t === "SIN ASIGNAR") return "";
+      if (/^[A-Z0-9]{2,6}(-\d+)?$/.test(t)) return t;
+      const words = t.split(/\s+/).filter((w) => !["DE", "LA", "EL", "LOS", "LAS", "Y", "EN", "PARA", "CON", "DEL"].includes(w));
+      if (words.length === 1) return words[0].slice(0, 4);
+      return words.map((w) => w.slice(0, 3)).join("");
+    };
+
+    const locParts = [toCode(b), toCode(a), toCode(r)].filter(Boolean);
+    if (locParts.length > 0) {
+      const locPrefix = locParts.join("-");
+      if (!asset.fmCode.toUpperCase().startsWith(locPrefix)) {
+        return `${locPrefix}-${asset.fmCode}`;
+      }
+    }
     return asset.fmCode;
   }
 
@@ -82,39 +107,20 @@ function getAssetFullDisplayCode(asset: RegisteredAsset): string {
   const n3 = ((payload.n3_code || payload.area_code || payload.building_code || "") as string).trim().toUpperCase();
   const n4 = ((payload.n4_code || payload.room_code || "") as string).trim().toUpperCase();
 
-  if (n1 || n2 || n3 || n4) {
-    const locPrefix = [n1, n2, n3, n4].filter(Boolean).join("-");
-    const classCode = asset.fmCode || asset.draft.taxonomyPrefix || asset.code;
-    return `${locPrefix}-${classCode}`;
+  const locPrefix = [n1, n2, n3, n4].filter(Boolean).join("-");
+  const taxonomyPrefix = (asset.draft.taxonomyPrefix || asset.draft.category?.slice(0, 3) || "").trim().toUpperCase();
+  const seqMatch = asset.code.match(/(\d+)$/);
+  const seq = seqMatch ? seqMatch[1] : asset.code;
+
+  if (locPrefix && taxonomyPrefix) {
+    return `${locPrefix}-${taxonomyPrefix}-${seq}`;
   }
 
-  const loc = asset.locationDetail;
-  const draft = asset.draft;
-
-  const b = loc?.building || draft.building || "";
-  const a = loc?.area || draft.locationArea || "";
-  const r = loc?.room || draft.room || "";
-
-  const toCode = (text: string) => {
-    const t = text.trim().toUpperCase();
-    if (!t || t === "GENERAL" || t === "SIN ASIGNAR") return "";
-    if (/^[A-Z0-9]{2,6}(-\d+)?$/.test(t)) return t;
-    const words = t.split(/\s+/).filter((w) => !["DE", "LA", "EL", "LOS", "LAS", "Y", "EN", "PARA", "CON", "DEL"].includes(w));
-    if (words.length === 1) return words[0].slice(0, 4);
-    return words.map((w) => w.slice(0, 3)).join("");
-  };
-
-  const locParts = [toCode(b), toCode(a), toCode(r)].filter(Boolean);
-  const baseCode = asset.fmCode || asset.code;
-
-  if (locParts.length > 0) {
-    const locPrefix = locParts.join("-");
-    if (locPrefix && !baseCode.toUpperCase().startsWith(locPrefix)) {
-      return `${locPrefix}-${baseCode}`;
-    }
+  if (locPrefix) {
+    return `${locPrefix}-${seq}`;
   }
 
-  return baseCode;
+  return asset.code;
 }
 
 function matchesSearch(asset: RegisteredAsset, search: string) {
@@ -398,10 +404,10 @@ export function AssetQrInventoryPage() {
           display: grid;
           grid-template-columns: ${format.qrMm}mm 1fr;
           align-items: center;
-          gap: 3mm;
+          gap: ${format === PRINT_FORMATS.COMPACT ? 2.5 : 3.5}mm;
           height: ${format.heightMm}mm;
           width: ${format.widthMm}mm;
-          padding: 2.2mm 2.8mm;
+          padding: ${format === PRINT_FORMATS.COMPACT ? 2 : 2.5}mm 2.8mm;
           border: 1.2px solid #000000;
           border-radius: 4px;
           overflow: hidden;
@@ -426,8 +432,7 @@ export function AssetQrInventoryPage() {
         .content {
           display: flex;
           flex-direction: column;
-          justify-content: center;
-          align-items: flex-start;
+          justify-content: space-between;
           height: 100%;
           padding: 0.2mm 0;
           overflow: hidden;
@@ -435,7 +440,7 @@ export function AssetQrInventoryPage() {
         }
         .brand-logo-img {
           display: block;
-          height: ${format === PRINT_FORMATS.COMPACT ? 4.6 : format === PRINT_FORMATS.STANDARD ? 6.2 : 8.2}mm;
+          height: ${format === PRINT_FORMATS.COMPACT ? 4.2 : format === PRINT_FORMATS.STANDARD ? 5.6 : 7.6}mm;
           width: auto;
           max-width: 100%;
           object-fit: contain;
@@ -444,32 +449,34 @@ export function AssetQrInventoryPage() {
         }
         .asset-code { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 7.8 : format === PRINT_FORMATS.STANDARD ? 9.8 : 12.5}pt; 
-          line-height: 1.15; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 7.2 : format === PRINT_FORMATS.STANDARD ? 9.2 : 11.5}pt; 
+          line-height: 1.12; 
           font-weight: 800;
           letter-spacing: 0.01em;
           color: #000000;
           word-break: break-word;
           overflow: hidden;
-          margin: ${format === PRINT_FORMATS.COMPACT ? 1.8 : format === PRINT_FORMATS.STANDARD ? 2.8 : 3.6}mm 0 0 0;
+          margin: 0;
         }
         .asset-desc { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.2 : format === PRINT_FORMATS.STANDARD ? 7.4 : 9}pt; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 5.8 : format === PRINT_FORMATS.STANDARD ? 7.2 : 8.8}pt; 
           font-weight: 400; 
-          line-height: 1.25;
-          color: #222222;
-          word-break: normal;
-          overflow-wrap: break-word;
-          margin: ${format === PRINT_FORMATS.COMPACT ? 0.8 : format === PRINT_FORMATS.STANDARD ? 1.2 : 1.6}mm 0 0 0;
+          line-height: 1.2;
+          color: #111111;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          margin: 0;
         }
         .asset-instruction {
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 5.2 : format === PRINT_FORMATS.STANDARD ? 6.2 : 7.5}pt;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 4.8 : format === PRINT_FORMATS.STANDARD ? 5.8 : 7}pt;
           font-weight: 400;
           line-height: 1.1;
           color: #555555;
-          margin: ${format === PRINT_FORMATS.COMPACT ? 0.6 : format === PRINT_FORMATS.STANDARD ? 1 : 1.4}mm 0 0 0;
+          margin: 0;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
