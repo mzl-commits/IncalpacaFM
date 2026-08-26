@@ -1,9 +1,11 @@
 import {
   ArrowLeft,
   Archive,
+  CaretDown,
   CheckCircle,
   DownloadSimple,
   FloppyDisk,
+  MagnifyingGlass,
   MapPin,
   PencilSimple,
   Printer,
@@ -14,7 +16,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/modules/accounts/AuthContext";
@@ -68,6 +70,12 @@ export function AssetDetailPage() {
   const [selectedRespType, setSelectedRespType] = useState<string>("ALL");
   const [selectedRespId, setSelectedRespId] = useState<string>("");
   const [selectedLocId, setSelectedLocId] = useState<string>("");
+
+  // Searchable combobox input states (permite escribir para filtrar en tiempo real)
+  const [respSearchQuery, setRespSearchQuery] = useState("");
+  const [isRespDropdownOpen, setIsRespDropdownOpen] = useState(false);
+  const [locSearchQuery, setLocSearchQuery] = useState("");
+  const [isLocDropdownOpen, setIsLocDropdownOpen] = useState(false);
 
   // New Responsible Modal State
   const [addingResponsible, setAddingResponsible] = useState(false);
@@ -157,6 +165,30 @@ export function AssetDetailPage() {
   const filteredResponsibles = (catalog?.responsibles || []).filter((r) => {
     if (selectedRespType === "ALL") return true;
     return r.type === selectedRespType;
+  });
+
+  // Filtered by what the user types in the searchable input
+  const searchedResponsibles = filteredResponsibles.filter((r) => {
+    if (!respSearchQuery.trim()) return true;
+    const q = respSearchQuery.toLowerCase();
+    return (
+      r.display_name.toLowerCase().includes(q) ||
+      (r.external_reference && r.external_reference.toLowerCase().includes(q)) ||
+      (r.area_name && r.area_name.toLowerCase().includes(q)) ||
+      (r.type && r.type.toLowerCase().includes(q))
+    );
+  });
+
+  const searchedLocations = (catalog?.locations || []).filter((l) => {
+    if (!locSearchQuery.trim()) return true;
+    const q = locSearchQuery.toLowerCase();
+    return (
+      (l.building && l.building.toLowerCase().includes(q)) ||
+      (l.area && l.area.toLowerCase().includes(q)) ||
+      (l.room && l.room.toLowerCase().includes(q)) ||
+      (l.zone && l.zone.toLowerCase().includes(q)) ||
+      (l.specific_location && l.specific_location.toLowerCase().includes(q))
+    );
   });
 
   const availableAreas = Array.from(
@@ -1077,44 +1109,134 @@ export function AssetDetailPage() {
                   </div>
                 </div>
 
-                {/* 2. SELECTOR DE RESPONSABLES DE LA BASE DE DATOS */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                    2. Seleccionar responsable registrado en la BD:
-                  </label>
-                  <select
-                    value={selectedRespId}
-                    onChange={(e) => {
-                      const rId = e.target.value;
-                      setSelectedRespId(rId);
-                      const found = catalog?.responsibles.find((r) => r.id === rId);
-                      if (found) {
-                        setNewRespForm((prev) => ({
-                          ...prev,
-                          responsible: found.display_name,
-                          area: found.area_name || prev.area,
-                        }));
-                      }
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "9px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #737373",
-                      background: "#FFFFFF",
-                      color: "#000000",
-                      fontSize: "13.5px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    <option value="">-- Seleccionar de la base de datos o escribir abajo --</option>
-                    {filteredResponsibles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.external_reference ? `[${r.external_reference}] ` : ""}
-                        {r.display_name} — ({r.area_name || r.type})
-                      </option>
-                    ))}
-                  </select>
+                {/* 2. SELECTOR DE RESPONSABLES DE LA BASE DE DATOS (CON BÚSQUEDA EN VIVO AL ESCRIBIR) */}
+                <div style={{ gridColumn: "1 / -1", position: "relative" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+                    <label style={{ fontSize: "13px", fontWeight: 700, color: "#000000" }}>
+                      2. Seleccionar responsable registrado en la BD (escribe para buscar):
+                    </label>
+                    {respSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRespSearchQuery("");
+                          setSelectedRespId("");
+                          setIsRespDropdownOpen(false);
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#737373",
+                          fontSize: "11.5px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Limpiar búsqueda
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input
+                      type="text"
+                      placeholder="Escribe el nombre, código (TRAB-...), o área del responsable..."
+                      value={respSearchQuery}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRespSearchQuery(val);
+                        setIsRespDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsRespDropdownOpen(true)}
+                      style={{
+                        width: "100%",
+                        padding: "9px 36px 9px 12px",
+                        borderRadius: "6px",
+                        border: "1px solid #737373",
+                        background: "#FFFFFF",
+                        color: "#000000",
+                        fontSize: "13.5px",
+                        fontWeight: 600,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <div style={{ position: "absolute", right: "12px", pointerEvents: "none", color: "#525252", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <MagnifyingGlass size={16} weight="bold" />
+                      <CaretDown size={14} weight="bold" />
+                    </div>
+                  </div>
+
+                  {/* DESPLEGABLE FLOTANTE DE RESPONSABLES */}
+                  {isRespDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        maxHeight: "220px",
+                        overflowY: "auto",
+                        background: "#FFFFFF",
+                        border: "1.5px solid #000000",
+                        borderRadius: "6px",
+                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.25)",
+                        zIndex: 1000,
+                      }}
+                    >
+                      {searchedResponsibles.length === 0 ? (
+                        <div style={{ padding: "12px 14px", fontSize: "12.5px", color: "#737373" }}>
+                          No se encontraron responsables registrados con "{respSearchQuery}". Puedes escribir el nombre directamente abajo.
+                        </div>
+                      ) : (
+                        searchedResponsibles.map((r) => {
+                          const isSelected = selectedRespId === r.id;
+                          return (
+                            <div
+                              key={r.id}
+                              onMouseDown={() => {
+                                setSelectedRespId(r.id);
+                                setRespSearchQuery(r.display_name);
+                                setNewRespForm((prev) => ({
+                                  ...prev,
+                                  responsible: r.display_name,
+                                  area: r.area_name || prev.area,
+                                }));
+                                setIsRespDropdownOpen(false);
+                              }}
+                              style={{
+                                padding: "8px 12px",
+                                borderBottom: "1px solid #E5E5E5",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                                background: isSelected ? "#F5F5F5" : "#FFFFFF",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "#F5F5F5")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = isSelected ? "#F5F5F5" : "#FFFFFF")}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                <span style={{
+                                  background: "#000000",
+                                  color: "#FFFFFF",
+                                  padding: "1px 5px",
+                                  borderRadius: "3px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                }}>
+                                  {r.external_reference || r.type}
+                                </span>
+                                <strong style={{ fontSize: "13px", color: "#000000" }}>{r.display_name}</strong>
+                              </div>
+                              <span style={{ fontSize: "12px", color: "#525252", fontWeight: 600 }}>{r.area_name || r.type}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. NOMBRE COMPLETO DEL RESPONSABLE */}
@@ -1207,46 +1329,149 @@ export function AssetDetailPage() {
                   />
                 </div>
 
-                {/* 6. SELECTOR DE UBICACIÓN DE LA BASE DE DATOS */}
-                <div style={{ gridColumn: "1 / -1", marginTop: "4px" }}>
-                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 700, color: "#000000" }}>
-                    3. Ubicación física validada en la BD:
-                  </label>
-                  <select
-                    value={selectedLocId}
-                    onChange={(e) => {
-                      const lId = e.target.value;
-                      setSelectedLocId(lId);
-                      const found = catalog?.locations.find((l) => l.id === lId);
-                      if (found) {
-                        setNewRespForm((prev) => ({
-                          ...prev,
-                          building: found.building || prev.building,
-                          room: found.room || found.specific_location || prev.room,
-                          area: found.area || prev.area,
-                        }));
-                      }
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "9px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #737373",
-                      background: "#FFFFFF",
-                      color: "#000000",
-                      fontSize: "13.5px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    <option value="">-- Seleccionar ubicación física de la BD --</option>
-                    {(catalog?.locations || []).map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.zone ? `[${l.zone}] ` : ""}
-                        {l.building} / {l.area} / {l.room}
-                        {l.specific_location ? ` (${l.specific_location})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                {/* 6. SELECTOR DE UBICACIÓN DE LA BASE DE DATOS (CON BÚSQUEDA EN VIVO AL ESCRIBIR) */}
+                <div style={{ gridColumn: "1 / -1", marginTop: "4px", position: "relative" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+                    <label style={{ fontSize: "13px", fontWeight: 700, color: "#000000" }}>
+                      3. Ubicación física validada en la BD (escribe para buscar):
+                    </label>
+                    {locSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocSearchQuery("");
+                          setSelectedLocId("");
+                          setIsLocDropdownOpen(false);
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#737373",
+                          fontSize: "11.5px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Limpiar búsqueda
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input
+                      type="text"
+                      placeholder="Escribe para buscar edificio, piso, área o sala de la BD..."
+                      value={locSearchQuery}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setLocSearchQuery(val);
+                        setIsLocDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsLocDropdownOpen(true)}
+                      style={{
+                        width: "100%",
+                        padding: "9px 36px 9px 12px",
+                        borderRadius: "6px",
+                        border: "1px solid #737373",
+                        background: "#FFFFFF",
+                        color: "#000000",
+                        fontSize: "13.5px",
+                        fontWeight: 600,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <div style={{ position: "absolute", right: "12px", pointerEvents: "none", color: "#525252", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <MagnifyingGlass size={16} weight="bold" />
+                      <CaretDown size={14} weight="bold" />
+                    </div>
+                  </div>
+
+                  {/* DESPLEGABLE FLOTANTE DE UBICACIONES */}
+                  {isLocDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        maxHeight: "220px",
+                        overflowY: "auto",
+                        background: "#FFFFFF",
+                        border: "1.5px solid #000000",
+                        borderRadius: "6px",
+                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.25)",
+                        zIndex: 1000,
+                      }}
+                    >
+                      {searchedLocations.length === 0 ? (
+                        <div style={{ padding: "12px 14px", fontSize: "12.5px", color: "#737373" }}>
+                          No se encontraron ubicaciones registradas con "{locSearchQuery}". Puedes completarlo abajo.
+                        </div>
+                      ) : (
+                        searchedLocations.map((l) => {
+                          const isSelected = selectedLocId === l.id;
+                          return (
+                            <div
+                              key={l.id}
+                              onMouseDown={() => {
+                                setSelectedLocId(l.id);
+                                setLocSearchQuery(`${l.building} / ${l.area} / ${l.room || l.specific_location || ""}`);
+                                setNewRespForm((prev) => ({
+                                  ...prev,
+                                  building: l.building || prev.building,
+                                  room: l.room || l.specific_location || prev.room,
+                                  area: l.area || prev.area,
+                                }));
+                                setIsLocDropdownOpen(false);
+                              }}
+                              style={{
+                                padding: "8px 12px",
+                                borderBottom: "1px solid #E5E5E5",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                                background: isSelected ? "#F5F5F5" : "#FFFFFF",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "#F5F5F5")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = isSelected ? "#F5F5F5" : "#FFFFFF")}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                {l.zone && (
+                                  <span style={{
+                                    background: "#000000",
+                                    color: "#FFFFFF",
+                                    padding: "1px 5px",
+                                    borderRadius: "3px",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                  }}>
+                                    {l.zone}
+                                  </span>
+                                )}
+                                <strong style={{ fontSize: "13px", color: "#000000" }}>{l.building}</strong>
+                                <span style={{ color: "#737373" }}>/</span>
+                                <span style={{ fontSize: "12.5px", color: "#000000", fontWeight: 600 }}>{l.area}</span>
+                                {l.room && (
+                                  <>
+                                    <span style={{ color: "#737373" }}>/</span>
+                                    <span style={{ fontSize: "12.5px", color: "#525252" }}>{l.room}</span>
+                                  </>
+                                )}
+                              </div>
+                              {l.specific_location && (
+                                <span style={{ fontSize: "11.5px", color: "#737373", fontStyle: "italic" }}>
+                                  ({l.specific_location})
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 7. EDIFICIO / PISO */}
