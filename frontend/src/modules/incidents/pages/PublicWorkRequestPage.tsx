@@ -45,6 +45,7 @@ interface PublicRequestFormState {
   description: string;
   issueCategory: string;
   otherIssueCategoryDetail: string;
+  assetTypeDetail: string;
   assetCondition: string;
   startedWhen: string;
   photoName: string;
@@ -71,6 +72,7 @@ const initialForm: PublicRequestFormState = {
   description: "",
   issueCategory: "",
   otherIssueCategoryDetail: "",
+  assetTypeDetail: "",
   assetCondition: "",
   startedWhen: "",
   photoName: "",
@@ -354,6 +356,7 @@ export function PublicWorkRequestPage() {
           issueCategory: form.issueCategory,
           otherIssueCategoryDetail: form.issueCategory === "OTRO" ? form.otherIssueCategoryDetail.trim() : "",
           otherRequestDetail: form.issueCategory === "OTRO" ? form.otherIssueCategoryDetail.trim() : "",
+          assetTypeDetail: form.assetTypeDetail.trim(),
           assetCondition: form.assetCondition,
           startedWhen: form.startedWhen,
           stopsWork: form.stopsWork,
@@ -522,6 +525,15 @@ export function PublicWorkRequestPage() {
                 }}>
                   <option value="">Seleccionar tipo</option><option value="ELECTRICO">Eléctrico o iluminación</option><option value="GASFITERIA">Agua, desagüe o gas</option><option value="CLIMATIZACION">Climatización</option><option value="MOBILIARIO">Mobiliario, puertas o ventanas</option><option value="INFRAESTRUCTURA">Acabados, pintura, paredes o techo</option><option value="EQUIPO">Equipo o dispositivo</option><option value="OTRO">Otro</option>
                 </select>
+              </label>
+              <label className="field">
+                <span>Tipo de bien o equipo afectado</span>
+                <input
+                  value={form.assetTypeDetail}
+                  onChange={(event) => updateField("assetTypeDetail", event.target.value)}
+                  placeholder={asset ? `Ej. ${asset.name}` : "Ej. Laptop, Impresora, Silla ergonómica, Aire acondicionado"}
+                  maxLength={120}
+                />
               </label>
               {form.issueCategory === "OTRO" && (
                 <label className="field field-wide">
