@@ -123,7 +123,7 @@ export function AssetDetailPage() {
     void getAssignmentCatalog()
       .then(setCatalog)
       .catch(() => {});
-    void listTaxonomies({ active: true })
+    void listTaxonomies({ active: "true" })
       .then(setTaxonomies)
       .catch(() => {});
   }, []);
@@ -358,6 +358,7 @@ export function AssetDetailPage() {
       const newEntry: ResponsibleItem = {
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
         responsible: responsibleName,
+        type: "ASIGNACION",
         area: newRespForm.area.trim() || "Facility Management",
         status: "ACTIVA",
         start_date: startDateIso,
