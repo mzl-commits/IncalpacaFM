@@ -418,12 +418,13 @@ export function AssetQrInventoryPage() {
           gap: ${format === PRINT_FORMATS.COMPACT ? 2.5 : 3.5}mm;
           height: ${format.heightMm}mm;
           width: ${format.widthMm}mm;
-          padding: ${format === PRINT_FORMATS.COMPACT ? 2 : 2.5}mm 2.8mm;
-          border: 1.2px solid #000000;
+          padding: ${format === PRINT_FORMATS.COMPACT ? 1.8 : 2.2}mm 2.5mm;
+          border: 1.3px solid #111111;
           border-radius: 4px;
           overflow: hidden;
           background: #FFFFFF;
           box-sizing: border-box;
+          box-shadow: inset 0 0 0 0.5px #111111;
         }
         .qr-image { 
           display: flex;
@@ -433,6 +434,8 @@ export function AssetQrInventoryPage() {
           height: ${format.qrMm}mm;
           padding: 0;
           background: #FFFFFF;
+          border-right: 0.75pt solid #CBD5E1;
+          padding-right: ${format === PRINT_FORMATS.COMPACT ? 1.8 : 2.2}mm;
         }
         .qr-image img { 
           display: block; 
@@ -445,18 +448,20 @@ export function AssetQrInventoryPage() {
           flex-direction: column;
           justify-content: space-between;
           height: 100%;
-          padding: 0.2mm 0;
+          padding: 0.1mm 0;
           overflow: hidden;
           min-width: 0;
         }
         .brand-logo-img {
           display: block;
-          height: ${format === PRINT_FORMATS.COMPACT ? 4.2 : format === PRINT_FORMATS.STANDARD ? 5.6 : 7.6}mm;
+          height: ${format === PRINT_FORMATS.COMPACT ? 4 : format === PRINT_FORMATS.STANDARD ? 5.2 : 7.2}mm;
           width: auto;
           max-width: 100%;
           object-fit: contain;
           object-position: left center;
           margin: 0;
+          border-bottom: 0.5pt solid #E2E8F0;
+          padding-bottom: 0.6mm;
         }
         .asset-code { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
@@ -467,7 +472,7 @@ export function AssetQrInventoryPage() {
           color: #000000;
           word-break: break-word;
           overflow: hidden;
-          margin: 0;
+          margin: 0.4mm 0 0.2mm 0;
         }
         .asset-desc { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
@@ -486,8 +491,10 @@ export function AssetQrInventoryPage() {
           font-size: ${format === PRINT_FORMATS.COMPACT ? 4.8 : format === PRINT_FORMATS.STANDARD ? 5.8 : 7}pt;
           font-weight: 400;
           line-height: 1.1;
-          color: #555555;
+          color: #444444;
           margin: 0;
+          border-top: 0.5pt solid #E2E8F0;
+          padding-top: 0.5mm;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
