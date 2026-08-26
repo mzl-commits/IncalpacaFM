@@ -7,42 +7,53 @@ import { VitePWA } from "vite-plugin-pwa";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig({
-  cacheDir: ".vite/cache",
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA({
-      registerType: "autoUpdate",
-      devOptions: {
-        enabled: false,
-      },
-      manifest: {
-        name: "SGTB Incalpaca",
-        short_name: "SGTB",
-        description: "Sistema de Gestión y Trazabilidad de Bienes",
-        theme_color: "#071f38",
-        background_color: "#f3f6fa",
-        display: "standalone",
-        start_url: "/",
-        lang: "es",
-        icons: [
-          {
-            src: "/favicon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any maskable",
-          },
-        ],
-      },
-      workbox: {
-        navigateFallback: "/index.html",
-      },
-    }),
+    ...(mode === "production"
+      ? [
+          VitePWA({
+            registerType: "autoUpdate",
+            manifest: {
+              name: "SGTB Incalpaca",
+              short_name: "SGTB",
+              description: "Sistema de Gestión y Trazabilidad de Bienes",
+              theme_color: "#071f38",
+              background_color: "#f3f6fa",
+              display: "standalone",
+              start_url: "/",
+              lang: "es",
+              icons: [
+                {
+                  src: "/favicon.svg",
+                  sizes: "any",
+                  type: "image/svg+xml",
+                  purpose: "any maskable",
+                },
+              ],
+            },
+            workbox: {
+              navigateFallback: "/index.html",
+            },
+          }),
+        ]
+      : []),
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+    },
+  },
+  server: {
+    port: 8008,
+    strictPort: true,
+    host: true,
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
     },
   },
   build: {
@@ -77,16 +88,4 @@ export default defineConfig({
       },
     },
   },
-  server: {
-    // Keep the development origin aligned with the public QR links.
-    port: 8008,
-    strictPort: true,
-    host: true,
-    proxy: {
-      "/api": {
-        target: "http://127.0.0.1:8000",
-        changeOrigin: true,
-      },
-    },
-  },
-});
+}));
