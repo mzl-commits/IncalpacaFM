@@ -856,65 +856,173 @@ export function AssetDetailPage() {
         </div>
       , document.body)}
 
-      {/* ADD NEW RESPONSIBLE MODAL */}
+      {/* ADD NEW RESPONSIBLE MODAL - PROFESSIONAL UX/UI WITH TAXONOMY INTEGRATION */}
       {addingResponsible && (
-        <div className="asset-edit-backdrop" role="presentation">
+        <div className="asset-edit-backdrop" role="presentation" style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)" }}>
           <section
             className="asset-edit-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-resp-title"
-            style={{ maxWidth: "660px" }}
+            style={{
+              maxWidth: "680px",
+              width: "95%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              background: "#FFFFFF",
+              padding: 0,
+            }}
           >
-            <header>
+            {/* MODAL HEADER WITH ASSET & TAXONOMY INFO */}
+            <header style={{
+              background: "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)",
+              borderBottom: "1px solid #E2E8F0",
+              padding: "20px 24px 16px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+            }}>
               <div>
-                <span>Asignación de custodia y ubicación</span>
-                <h2 id="add-resp-title">Asignar nuevo responsable</h2>
-                <p>{displayCode(asset)} — {asset.name}</p>
+                <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", color: "#64748B", textTransform: "uppercase" }}>
+                  Custodia y Ubicación Patrimonial
+                </span>
+                <h2 id="add-resp-title" style={{ margin: "4px 0 6px", fontSize: "20px", fontWeight: 700, color: "#0F172A" }}>
+                  Asignar nuevo responsable
+                </h2>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    background: "#002B58",
+                    color: "#FFFFFF",
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                    padding: "3px 8px",
+                    borderRadius: "6px",
+                  }}>
+                    {displayCode(asset)}
+                  </span>
+                  <strong style={{ fontSize: "13.5px", color: "#1E293B" }}>{asset.name}</strong>
+                </div>
               </div>
               <button
                 type="button"
                 aria-label="Cerrar modal"
                 onClick={() => setAddingResponsible(false)}
+                style={{
+                  background: "#F1F5F9",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: "8px",
+                  width: "32px",
+                  height: "32px",
+                  display: "grid",
+                  placeItems: "center",
+                  cursor: "pointer",
+                  color: "#475569",
+                }}
               >
-                <X />
+                <X size={18} />
               </button>
             </header>
-            <form onSubmit={saveNewResponsible}>
-              <div className="asset-edit-fields">
-                {/* 1. FILTRO DE TIPO DE RESPONSABLE */}
-                <div className="field field-wide" style={{ marginBottom: "0.25rem" }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-subtle)" }}>
-                    Filtro por tipo de responsable en la base de datos:
+
+            {/* TAXONOMY SUMMARY BANNER */}
+            <div style={{
+              margin: "14px 24px 0",
+              padding: "10px 14px",
+              background: "#F0F7FF",
+              border: "1px solid #BAE6FD",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              fontSize: "12.5px",
+              color: "#0369A1",
+            }}>
+              <Tag size={20} weight="duotone" style={{ flexShrink: 0, color: "#0284C7" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <strong style={{ color: "#0C4A6E" }}>Taxonomía Vinculada:</strong>
+                  <span style={{
+                    background: "#E0F2FE",
+                    color: "#0369A1",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                    fontWeight: 600,
+                    fontSize: "11.5px",
+                  }}>
+                    {asset.taxonomy_detail?.category || asset.entry_type_label || "Categoría General"}
                   </span>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
+                  {asset.taxonomy_detail?.subcategory && (
+                    <>
+                      <span>›</span>
+                      <span style={{ fontWeight: 600, color: "#0C4A6E" }}>{asset.taxonomy_detail.subcategory}</span>
+                    </>
+                  )}
+                  {asset.taxonomy_detail?.specialty && (
+                    <>
+                      <span>·</span>
+                      <span style={{ color: "#0284C7" }}>Especialidad: {asset.taxonomy_detail.specialty}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={saveNewResponsible} style={{ padding: "16px 24px 20px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                
+                {/* 1. FILTRO DE TIPO DE RESPONSABLE */}
+                <div style={{ gridColumn: "1 / -1", background: "#F8FAFC", padding: "12px 14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                      1. Filtrar responsables de la Base de Datos por tipo:
+                    </span>
+                    <span style={{ fontSize: "11.5px", color: "#64748B" }}>
+                      {filteredResponsibles.length} disponible{filteredResponsibles.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                     {[
                       { id: "ALL", label: "Todos" },
-                      { id: "PERSONA", label: "Personas / Trabajadores" },
+                      { id: "PERSONA", label: "Personas / Colaboradores" },
                       { id: "AREA", label: "Áreas / Departamentos" },
                       { id: "ESPACIO_COMUN", label: "Espacios Comunes" },
-                    ].map((t) => (
-                      <button
-                        type="button"
-                        key={t.id}
-                        className={`button button-secondary ${selectedRespType === t.id ? "button-primary" : ""}`}
-                        style={{
-                          padding: "3px 9px",
-                          fontSize: "0.75rem",
-                          height: "auto",
-                          fontWeight: selectedRespType === t.id ? 700 : 400,
-                        }}
-                        onClick={() => setSelectedRespType(t.id)}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
+                    ].map((t) => {
+                      const isSelected = selectedRespType === t.id;
+                      return (
+                        <button
+                          type="button"
+                          key={t.id}
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            fontWeight: isSelected ? 700 : 500,
+                            borderRadius: "20px",
+                            border: isSelected ? "1.5px solid #002B58" : "1px solid #CBD5E1",
+                            background: isSelected ? "#002B58" : "#FFFFFF",
+                            color: isSelected ? "#FFFFFF" : "#334155",
+                            cursor: "pointer",
+                            boxShadow: isSelected ? "0 2px 4px rgba(0,43,88,0.2)" : "none",
+                            transition: "all 0.15s ease",
+                          }}
+                          onClick={() => setSelectedRespType(t.id)}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* 2. SELECTOR DE RESPONSABLES DE LA BASE DE DATOS */}
-                <label className="field field-wide">
-                  <span>Seleccionar responsable registrado en la BD</span>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    2. Seleccionar responsable registrado en la BD:
+                  </label>
                   <select
                     value={selectedRespId}
                     onChange={(e) => {
@@ -929,20 +1037,32 @@ export function AssetDetailPage() {
                         }));
                       }
                     }}
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #94A3B8",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      fontWeight: 500,
+                    }}
                   >
-                    <option value="">-- Seleccionar de la base de datos o escribir abajo --</option>
+                    <option value="">-- Seleccionar de la base de datos o escribir en el campo inferior --</option>
                     {filteredResponsibles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.external_reference ? `[${r.external_reference}] ` : ""}
-                        {r.display_name} ({r.area_name || r.type})
+                        {r.display_name} — ({r.area_name || r.type})
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
 
                 {/* 3. NOMBRE COMPLETO DEL RESPONSABLE */}
-                <label className="field field-wide">
-                  <span>Nombre completo del nuevo responsable *</span>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    Nombre completo del responsable <span style={{ color: "#DC2626" }}>*</span>
+                  </label>
                   <input
                     required
                     list="resp-name-suggestions"
@@ -951,17 +1071,29 @@ export function AssetDetailPage() {
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, responsible: e.target.value })
                     }
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #CBD5E1",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      boxSizing: "border-box",
+                    }}
                   />
                   <datalist id="resp-name-suggestions">
                     {(catalog?.responsibles || []).map((r) => (
                       <option key={r.id} value={r.display_name} />
                     ))}
                   </datalist>
-                </label>
+                </div>
 
                 {/* 4. ÁREA / DEPARTAMENTO */}
-                <label className="field">
-                  <span>Área / Departamento *</span>
+                <div>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    Área / Departamento <span style={{ color: "#DC2626" }}>*</span>
+                  </label>
                   <input
                     required
                     list="area-suggestions"
@@ -970,17 +1102,29 @@ export function AssetDetailPage() {
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, area: e.target.value })
                     }
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #CBD5E1",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      boxSizing: "border-box",
+                    }}
                   />
                   <datalist id="area-suggestions">
                     {availableAreas.map((area) => (
                       <option key={area} value={area} />
                     ))}
                   </datalist>
-                </label>
+                </div>
 
                 {/* 5. FECHA DE INICIO */}
-                <label className="field">
-                  <span>Fecha de inicio *</span>
+                <div>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    Fecha de inicio de custodia <span style={{ color: "#DC2626" }}>*</span>
+                  </label>
                   <input
                     type="date"
                     required
@@ -988,12 +1132,24 @@ export function AssetDetailPage() {
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, start_date: e.target.value })
                     }
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #CBD5E1",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      boxSizing: "border-box",
+                    }}
                   />
-                </label>
+                </div>
 
                 {/* 6. SELECTOR DE UBICACIÓN DE LA BASE DE DATOS */}
-                <label className="field field-wide">
-                  <span>Seleccionar ubicación registrada en la BD</span>
+                <div style={{ gridColumn: "1 / -1", marginTop: "4px" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    3. Ubicación física validada en la BD:
+                  </label>
                   <select
                     value={selectedLocId}
                     onChange={(e) => {
@@ -1009,8 +1165,18 @@ export function AssetDetailPage() {
                         }));
                       }
                     }}
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #94A3B8",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      fontWeight: 500,
+                    }}
                   >
-                    <option value="">-- Seleccionar ubicación de la base de datos --</option>
+                    <option value="">-- Seleccionar ubicación física de la BD --</option>
                     {(catalog?.locations || []).map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.zone ? `[${l.zone}] ` : ""}
@@ -1019,11 +1185,13 @@ export function AssetDetailPage() {
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
 
                 {/* 7. EDIFICIO / PISO */}
-                <label className="field">
-                  <span>Edificio / Piso</span>
+                <div>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    Edificio / Piso
+                  </label>
                   <input
                     list="building-suggestions"
                     placeholder="Ej. Planta Principal / Piso 1"
@@ -1031,17 +1199,29 @@ export function AssetDetailPage() {
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, building: e.target.value })
                     }
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #CBD5E1",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      boxSizing: "border-box",
+                    }}
                   />
                   <datalist id="building-suggestions">
                     {availableBuildings.map((b) => (
                       <option key={b} value={b} />
                     ))}
                   </datalist>
-                </label>
+                </div>
 
                 {/* 8. OFICINA / SALA */}
-                <label className="field">
-                  <span>Oficina / Sala / Ubicación exacta</span>
+                <div>
+                  <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    Oficina / Sala / Ubicación exacta
+                  </label>
                   <input
                     list="room-suggestions"
                     placeholder="Ej. Oficina 204 / Taller Eléctrico"
@@ -1049,37 +1229,59 @@ export function AssetDetailPage() {
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, room: e.target.value })
                     }
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #CBD5E1",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      boxSizing: "border-box",
+                    }}
                   />
                   <datalist id="room-suggestions">
                     {availableRooms.map((r) => (
                       <option key={r} value={r} />
                     ))}
                   </datalist>
-                </label>
+                </div>
 
-                {/* 9. MOTIVO DE LA ASIGNACIÓN CON BOTONES DE SUGERENCIA */}
-                <label className="field field-wide">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
-                    <span>Motivo de la asignación / observaciones *</span>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "6px" }}>
+                {/* 9. MOTIVO DE LA ASIGNACIÓN CON CHIPS RÁPIDOS */}
+                <div style={{ gridColumn: "1 / -1", marginTop: "4px" }}>
+                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                    Motivo de la asignación / observaciones <span style={{ color: "#DC2626" }}>*</span>
+                  </label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
                     {[
                       "Asignación inicial de puesto de trabajo",
                       "Reasignación por rotación de puesto",
                       "Custodia operativa temporal",
                       "Cambio de área / departamento",
                       "Devolución y custodia en almacén",
-                    ].map((reasonText) => (
-                      <button
-                        type="button"
-                        key={reasonText}
-                        className="button button-secondary"
-                        style={{ padding: "2px 7px", fontSize: "0.72rem", height: "auto" }}
-                        onClick={() => setNewRespForm((prev) => ({ ...prev, reason: reasonText }))}
-                      >
-                        {reasonText}
-                      </button>
-                    ))}
+                    ].map((reasonText) => {
+                      const isMatch = newRespForm.reason === reasonText;
+                      return (
+                        <button
+                          type="button"
+                          key={reasonText}
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: "12px",
+                            fontWeight: isMatch ? 700 : 500,
+                            borderRadius: "6px",
+                            border: isMatch ? "1.5px solid #002B58" : "1px solid #CBD5E1",
+                            background: isMatch ? "#002B58" : "#F8FAFC",
+                            color: isMatch ? "#FFFFFF" : "#334155",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                          onClick={() => setNewRespForm((prev) => ({ ...prev, reason: reasonText }))}
+                        >
+                          {reasonText}
+                        </button>
+                      );
+                    })}
                   </div>
                   <textarea
                     required
@@ -1089,22 +1291,79 @@ export function AssetDetailPage() {
                     onChange={(e) =>
                       setNewRespForm({ ...newRespForm, reason: e.target.value })
                     }
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #CBD5E1",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
+                      fontSize: "13.5px",
+                      lineHeight: "1.5",
+                      resize: "vertical",
+                      boxSizing: "border-box",
+                    }}
                   />
-                </label>
+                </div>
               </div>
-              <aside className="asset-edit-boundary">
-                Al guardar, el responsable actual y la ubicación se actualizarán automáticamente en la sección Situación Actual y quedará registrado en el historial de custodia de la Ficha Técnica.
-              </aside>
-              <footer>
+
+              {/* ASIDE INFO BANNER */}
+              <div style={{
+                marginTop: "16px",
+                padding: "10px 14px",
+                background: "#F8FAFC",
+                border: "1px solid #E2E8F0",
+                borderRadius: "8px",
+                fontSize: "12px",
+                color: "#64748B",
+                lineHeight: "1.45",
+              }}>
+                ℹ️ Al confirmar, el custodio actual y la ubicación física se actualizarán en la Situación Actual del bien y quedará asentado en el historial trazable para los reportes y Fichas Técnicas.
+              </div>
+
+              {/* ACTION BUTTONS FOOTER */}
+              <footer style={{
+                marginTop: "18px",
+                paddingTop: "14px",
+                borderTop: "1px solid #E2E8F0",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}>
                 <button
-                  className="button button-secondary"
                   type="button"
                   onClick={() => setAddingResponsible(false)}
+                  style={{
+                    padding: "9px 18px",
+                    borderRadius: "8px",
+                    border: "1.5px solid #CBD5E1",
+                    background: "#FFFFFF",
+                    color: "#334155",
+                    fontSize: "13.5px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
                 >
                   Cancelar
                 </button>
-                <button className="button button-primary" type="submit">
-                  <UserPlus />
+                <button
+                  type="submit"
+                  style={{
+                    padding: "9px 22px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "#002B58",
+                    color: "#FFFFFF",
+                    fontSize: "13.5px",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 6px rgba(0, 43, 88, 0.25)",
+                  }}
+                >
+                  <UserPlus size={16} weight="bold" />
                   Asignar responsable
                 </button>
               </footer>
