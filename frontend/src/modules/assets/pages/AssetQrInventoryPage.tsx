@@ -37,9 +37,9 @@ const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
 const FILTER_KEYS = ["q", "category", "assignment", "condition", "criticality"] as const;
 
 const PRINT_FORMATS = {
-  COMPACT: { label: "Compacta", detail: "38 × 30 mm", widthMm: 38, heightMm: 30, qrMm: 16, columns: 5, gapMm: 1.5, perPage: 30 },
-  STANDARD: { label: "Estándar", detail: "60 × 45 mm", widthMm: 60, heightMm: 45, qrMm: 32, columns: 3, gapMm: 4, perPage: 15 },
-  LARGE: { label: "Grande", detail: "90 × 60 mm", widthMm: 90, heightMm: 60, qrMm: 44, columns: 2, gapMm: 4, perPage: 8 },
+  COMPACT: { label: "Compacta", detail: "50 × 30 mm", widthMm: 50, heightMm: 30, qrMm: 22, columns: 3, gapMm: 3, perPage: 24 },
+  STANDARD: { label: "Estándar", detail: "68 × 38 mm", widthMm: 68, heightMm: 38, qrMm: 28, columns: 2, gapMm: 5, perPage: 12 },
+  LARGE: { label: "Grande", detail: "90 × 48 mm", widthMm: 90, heightMm: 48, qrMm: 38, columns: 2, gapMm: 5, perPage: 10 },
 } as const;
 
 type PrintFormat = keyof typeof PRINT_FORMATS;
@@ -328,12 +328,13 @@ export function AssetQrInventoryPage() {
       
       const style = document.createElement("style");
       style.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Inter:wght@500;600;700;800;900&display=swap');
         @page { size: A4; margin: ${format === PRINT_FORMATS.COMPACT ? "6mm" : "10mm"}; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
           margin: 0;
           color: #000000;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           background: #FFFFFF;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -352,11 +353,11 @@ export function AssetQrInventoryPage() {
           display: grid;
           grid-template-columns: ${format.qrMm}mm 1fr;
           align-items: center;
-          gap: ${format === PRINT_FORMATS.COMPACT ? 2.5 : 3.5}mm;
+          gap: 3mm;
           height: ${format.heightMm}mm;
           width: ${format.widthMm}mm;
-          padding: ${format === PRINT_FORMATS.COMPACT ? 2 : 2.8}mm;
-          border: 1px solid #1A1A1A;
+          padding: 2.2mm 2.8mm;
+          border: 1.2px solid #000000;
           border-radius: 4px;
           overflow: hidden;
           background: #FFFFFF;
@@ -366,9 +367,9 @@ export function AssetQrInventoryPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 100%;
-          height: 100%;
-          padding: 0.5mm;
+          width: ${format.qrMm}mm;
+          height: ${format.qrMm}mm;
+          padding: 0;
           background: #FFFFFF;
         }
         .qr-image img { 
@@ -380,42 +381,43 @@ export function AssetQrInventoryPage() {
         .content {
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
+          justify-content: center;
+          align-items: flex-start;
+          gap: 1.2mm;
           height: 100%;
-          padding: 0.8mm 0;
+          padding: 0.2mm 0;
           overflow: hidden;
+          min-width: 0;
         }
         .brand-logo-img {
           display: block;
-          height: ${format === PRINT_FORMATS.COMPACT ? 5.5 : format === PRINT_FORMATS.STANDARD ? 7.8 : 10}mm;
+          height: ${format === PRINT_FORMATS.COMPACT ? 5.5 : format === PRINT_FORMATS.STANDARD ? 7.2 : 9.5}mm;
           width: auto;
           max-width: 100%;
           object-fit: contain;
           object-position: left center;
-          margin-bottom: auto;
+          margin: 0;
         }
         .asset-code { 
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-          margin: 1mm 0 0.8mm 0; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 8.2 : format === PRINT_FORMATS.STANDARD ? 11 : 13.5}pt; 
-          line-height: 1.1; 
-          font-weight: 900;
-          letter-spacing: -0.02em;
+          font-family: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 9 : format === PRINT_FORMATS.STANDARD ? 12 : 14.5}pt; 
+          line-height: 1.05; 
+          font-weight: 800;
+          letter-spacing: -0.01em;
           color: #000000;
-          word-break: break-all;
-        }
-        .asset-desc { 
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.2 : format === PRINT_FORMATS.STANDARD ? 7.8 : 9.5}pt; 
-          font-weight: 500; 
-          line-height: 1.25;
-          color: #262626;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
+          white-space: nowrap;
           overflow: hidden;
           margin: 0;
-          margin-top: auto;
+        }
+        .asset-desc { 
+          font-family: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.5 : format === PRINT_FORMATS.STANDARD ? 8.2 : 9.8}pt; 
+          font-weight: 600; 
+          line-height: 1.2;
+          color: #1F2937;
+          word-break: normal;
+          overflow-wrap: break-word;
+          margin: 0;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
