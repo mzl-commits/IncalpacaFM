@@ -115,66 +115,160 @@ export function IncidentCreatePage() {
 
   return (
     <section className="incident-create-page">
-      <div className="page-heading"><div><p className="breadcrumb">Mantenimiento / Solicitudes / Nueva solicitud</p><h1>Nueva solicitud de trabajo</h1><p>Registra el problema, ubícalo en el catálogo oficial y adjunta una evidencia para facilitar su evaluación.</p></div><Link className="button button-secondary" to="/incidencias"><ArrowLeft size={18} /> Volver</Link></div>
+      <div className="page-heading">
+        <div>
+          <p className="breadcrumb">Mantenimiento / Solicitudes / Nueva solicitud</p>
+          <h1>Nueva solicitud de trabajo</h1>
+          <p>Registra el problema o necesidad indicando la ubicación oficial y adjunta evidencia si es necesario.</p>
+        </div>
+        <Link className="button button-secondary" to="/incidencias">
+          <ArrowLeft size={18} /> Volver
+        </Link>
+      </div>
 
       <form className="data-panel" onSubmit={handleSubmit}>
-        <div className="form-section">
-          <div className="section-heading"><div><span className="section-number">1</span><div><h2>Ubicación de la solicitud</h2><p>Busca por código, oficina, ambiente, área o edificio. La plataforma completará la jerarquía automáticamente.</p></div></div></div>
-          <div className="incident-location-layout">
-            <div className="incident-location-search">
-              <label className="field"><span>Buscar ubicación oficial *</span><div className="incident-location-combobox"><MagnifyingGlass /><input
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded={locationFocused && locationResults.length > 0}
-                aria-controls="incident-location-results"
-                aria-activedescendant={locationResults[activeResult] ? `incident-location-${locationResults[activeResult].id}` : undefined}
-                value={locationQuery}
-                onFocus={() => setLocationFocused(true)}
-                onBlur={() => window.setTimeout(() => setLocationFocused(false), 120)}
-                onChange={(event) => changeLocationQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (!locationResults.length) return;
-                  if (event.key === "ArrowDown") { event.preventDefault(); setActiveResult((current) => Math.min(current + 1, locationResults.length - 1)); }
-                  if (event.key === "ArrowUp") { event.preventDefault(); setActiveResult((current) => Math.max(current - 1, 0)); }
-                  if (event.key === "Enter") { event.preventDefault(); selectLocation(locationResults[activeResult]); }
-                  if (event.key === "Escape") setLocationFocused(false);
-                }}
-                placeholder="Ej. AMB-0001, Oficina FM o Mantenimiento"
-                aria-invalid={Boolean(error && !form.locationId)}
-                aria-describedby={error && !form.locationId ? errorId : undefined}
-              /></div></label>
-              {locationFocused && locationQuery.trim() && !selectedLocation && <div className="incident-location-results" id="incident-location-results" role="listbox">
-                {locationsQuery.isPending ? <p>Cargando ubicaciones oficiales…</p>
-                : locationResults.length ? locationResults.map((location, index) => <button id={`incident-location-${location.id}`} role="option" aria-selected={index === activeResult} className={index === activeResult ? "is-active" : ""} type="button" key={location.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectLocation(location)}><MapPin weight="duotone" /><span><strong>{locationLabel(location)}</strong><small>{location.zone} / {location.building} / {location.area}</small></span>{location.activeMap ? <em><ImageSquare weight="fill" /> Con imagen</em> : <em>Sin imagen</em>}</button>)
-                : <p>No hay coincidencias. Prueba con otro código o nombre.</p>}
-              </div>}
-              {selectedLocation && <div className="incident-location-selected"><CheckCircle weight="fill" /><div><strong>{locationLabel(selectedLocation)}</strong><span>{selectedLocation.zone} / {selectedLocation.building} / {selectedLocation.area}</span></div><button type="button" onClick={() => changeLocationQuery("")}>Cambiar</button></div>}
+        <div className="form-layout-split">
+          <fieldset className="form-section">
+            <legend>Ubicación y Clasificación</legend>
+            <div className="form-grid">
+              <label className="field field-wide">
+                <span>Buscar ubicación oficial *</span>
+                <div className="incident-location-combobox">
+                  <MagnifyingGlass />
+                  <input
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={locationFocused && locationResults.length > 0}
+                    aria-controls="incident-location-results"
+                    aria-activedescendant={locationResults[activeResult] ? `incident-location-${locationResults[activeResult].id}` : undefined}
+                    value={locationQuery}
+                    onFocus={() => setLocationFocused(true)}
+                    onBlur={() => window.setTimeout(() => setLocationFocused(false), 120)}
+                    onChange={(event) => changeLocationQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (!locationResults.length) return;
+                      if (event.key === "ArrowDown") { event.preventDefault(); setActiveResult((current) => Math.min(current + 1, locationResults.length - 1)); }
+                      if (event.key === "ArrowUp") { event.preventDefault(); setActiveResult((current) => Math.max(current - 1, 0)); }
+                      if (event.key === "Enter") { event.preventDefault(); selectLocation(locationResults[activeResult]); }
+                      if (event.key === "Escape") setLocationFocused(false);
+                    }}
+                    placeholder="Ej. AMB-0001, Oficina FM o Mantenimiento"
+                    aria-invalid={Boolean(error && !form.locationId)}
+                    aria-describedby={error && !form.locationId ? errorId : undefined}
+                  />
+                </div>
+              </label>
+
+              {locationFocused && locationQuery.trim() && !selectedLocation && (
+                <div className="incident-location-results field-wide" id="incident-location-results" role="listbox">
+                  {locationsQuery.isPending ? <p>Cargando ubicaciones oficiales…</p>
+                  : locationResults.length ? locationResults.map((location, index) => (
+                    <button id={`incident-location-${location.id}`} role="option" aria-selected={index === activeResult} className={index === activeResult ? "is-active" : ""} type="button" key={location.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectLocation(location)}>
+                      <MapPin weight="duotone" />
+                      <span><strong>{locationLabel(location)}</strong><small>{location.zone} / {location.building} / {location.area}</small></span>
+                      {location.activeMap ? <em><ImageSquare weight="fill" /> Con imagen</em> : <em>Sin imagen</em>}
+                    </button>
+                  ))
+                  : <p>No hay coincidencias. Prueba con otro código o nombre.</p>}
+                </div>
+              )}
+
+              {selectedLocation && (
+                <div className="incident-location-selected field-wide">
+                  <CheckCircle weight="fill" />
+                  <div>
+                    <strong>{locationLabel(selectedLocation)}</strong>
+                    <span>{selectedLocation.zone} / {selectedLocation.building} / {selectedLocation.area}</span>
+                  </div>
+                  <button type="button" onClick={() => changeLocationQuery("")}>Cambiar</button>
+                </div>
+              )}
+
+              <label className="field">
+                <span>Tipo de solicitud *</span>
+                <select required value={form.requestType} aria-invalid={Boolean(error && !form.requestType)} aria-describedby={error && !form.requestType ? errorId : undefined} onChange={(event) => updateField("requestType", event.target.value as RequestType)}>
+                  <option value="">Seleccionar tipo</option>
+                  {REQUEST_TYPES.map((type) => (
+                    <option key={type} value={type}>{requestTypeLabels[type]}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Prioridad del usuario *</span>
+                <select required value={form.requesterPriority} onChange={(event) => updateField("requesterPriority", event.target.value as RequestPriority)}>
+                  {REQUEST_PRIORITIES.map((priority) => (
+                    <option key={priority} value={priority}>{requestPriorityLabels[priority]}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            {selectedLocation && <dl className="incident-location-summary"><div><dt>Zona</dt><dd>{selectedLocation.zone}</dd></div><div><dt>Edificio</dt><dd>{selectedLocation.building}</dd></div><div><dt>Área</dt><dd>{selectedLocation.area}</dd></div><div><dt>Ambiente</dt><dd>{selectedLocation.room}</dd></div></dl>}
+          </fieldset>
+
+          <fieldset className="form-section">
+            <legend>Detalle del problema y Evidencia</legend>
+            <div className="form-grid">
+              <label className="field field-wide">
+                <span>Descripción del problema *</span>
+                <textarea
+                  required
+                  value={form.description}
+                  minLength={10}
+                  aria-invalid={Boolean(error && form.description.trim().length < 10)}
+                  aria-describedby={error && form.description.trim().length < 10 ? errorId : undefined}
+                  onChange={(event) => updateField("description", event.target.value)}
+                  placeholder="Describe qué ocurre, desde cuándo y cualquier detalle importante."
+                  rows={4}
+                  maxLength={1000}
+                />
+                <small>{form.description.length} / 1000 caracteres</small>
+              </label>
+
+              <label className="field field-wide checkbox-field">
+                <input type="checkbox" checked={form.project} onChange={(event) => updateField("project", event.target.checked)} />
+                <span>La solicitud corresponde a un proyecto</span>
+              </label>
+
+              <div className="field field-wide upload-box-wrapper">
+                <span className="field-label-custom" style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "6px", display: "block" }}>Fotografía o Evidencia (Opcional)</span>
+                <div className="upload-box compact-upload-box" style={{ padding: "12px 16px", borderRadius: "8px", background: "#f8fafc", border: "1px dashed #cbd5e1", display: "flex", alignItems: "center", gap: "12px" }}>
+                  <Camera size={26} style={{ color: "#475569" }} />
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: "13px", display: "block" }}>Adjuntar fotografía</strong>
+                    <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>JPG, PNG o WEBP</p>
+                  </div>
+                  <label className="button button-secondary upload-btn" style={{ padding: "6px 12px", fontSize: "12px", gap: "4px" }}>
+                    Seleccionar
+                    <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => updateField("photoName", event.target.files?.[0]?.name ?? "")} />
+                  </label>
+                </div>
+                {form.photoName && <p className="selected-file" style={{ marginTop: "6px", fontSize: "12px", color: "#047857" }}>Archivo seleccionado: <strong>{form.photoName}</strong></p>}
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        {selectedLocation?.activeMap && (
+          <div style={{ marginTop: "20px" }}>
+            <LocationMarkerPicker
+              locationName={locationLabel(selectedLocation)}
+              locationMap={selectedLocation.activeMap}
+              markerX={form.locationMarkerX}
+              markerY={form.locationMarkerY}
+              subjectLabel="incidente"
+              onChange={(x, y) => setForm((current) => ({ ...current, locationMarkerX: x, locationMarkerY: y }))}
+            />
           </div>
-
-          {selectedLocation?.activeMap ? <LocationMarkerPicker locationName={locationLabel(selectedLocation)} locationMap={selectedLocation.activeMap} markerX={form.locationMarkerX} markerY={form.locationMarkerY} subjectLabel="incidente" onChange={(x, y) => setForm((current) => ({ ...current, locationMarkerX: x, locationMarkerY: y }))} />
-          : selectedLocation ? <aside className="incident-reference-unavailable"><ImageSquare weight="duotone" /><p><strong>Este ambiente todavía no tiene imagen referencial.</strong><span>La solicitud se registrará con la ubicación oficial. Un administrador podrá incorporar la imagen posteriormente.</span></p></aside> : null}
-        </div>
-
-        <div className="form-section">
-          <div className="section-heading"><div><span className="section-number">2</span><div><h2>Detalle del trabajo solicitado</h2><p>Describe claramente la necesidad o el problema reportado.</p></div></div></div>
-          <div className="form-grid">
-            <label className="field"><span>Tipo de solicitud *</span><select required value={form.requestType} aria-invalid={Boolean(error && !form.requestType)} aria-describedby={error && !form.requestType ? errorId : undefined} onChange={(event) => updateField("requestType", event.target.value as RequestType)}><option value="">Seleccionar tipo</option>{REQUEST_TYPES.map((type) => <option key={type} value={type}>{requestTypeLabels[type]}</option>)}</select></label>
-            <label className="field"><span>Prioridad del usuario *</span><select required value={form.requesterPriority} onChange={(event) => updateField("requesterPriority", event.target.value as RequestPriority)}>{REQUEST_PRIORITIES.map((priority) => <option key={priority} value={priority}>{requestPriorityLabels[priority]}</option>)}</select></label>
-            <label className="field field-wide"><span>Descripción del problema *</span><textarea required value={form.description} minLength={10} aria-invalid={Boolean(error && form.description.trim().length < 10)} aria-describedby={error && form.description.trim().length < 10 ? errorId : undefined} onChange={(event) => updateField("description", event.target.value)} placeholder="Describe qué ocurre, desde cuándo y cualquier detalle importante." rows={5} maxLength={1000} /><small>{form.description.length} / 1000 caracteres</small></label>
-            <label className="field checkbox-field"><input type="checkbox" checked={form.project} onChange={(event) => updateField("project", event.target.checked)} /><span>La solicitud corresponde a un proyecto</span></label>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <div className="section-heading"><div><span className="section-number">3</span><div><h2>Evidencia</h2><p>Adjunta una fotografía que ayude a identificar el problema.</p></div></div></div>
-          <div className="upload-box"><Camera size={32} /><div><strong>Adjuntar fotografía</strong><p>Formatos permitidos: JPG, PNG o WEBP.</p></div><label className="button button-secondary">Seleccionar archivo<input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => updateField("photoName", event.target.files?.[0]?.name ?? "")} /></label></div>
-          {form.photoName && <p className="selected-file">Archivo seleccionado: <strong>{form.photoName}</strong></p>}
-        </div>
+        )}
 
         {error && <div className="form-error" id={errorId} role="alert" aria-live="assertive"><WarningCircle />{error}</div>}
-        <div className="form-actions"><Link className="button button-secondary" to="/incidencias">Cancelar</Link><button className="button button-primary" type="submit"><FloppyDisk size={18} weight="bold" /> Registrar solicitud</button></div>
+        <div className="form-actions">
+          <Link className="button button-secondary" to="/incidencias">Cancelar</Link>
+          <button className="button button-primary" type="submit">
+            <FloppyDisk size={18} weight="bold" />
+            Registrar solicitud
+          </button>
+        </div>
       </form>
     </section>
   );

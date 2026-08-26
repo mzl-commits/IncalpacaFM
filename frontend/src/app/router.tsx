@@ -190,8 +190,8 @@ export const router = createBrowserRouter([
       {
         path: "incidencias/nueva",
         lazy: lazyRoute(
-          () => import("@/modules/workorders/pages/WorkOrderTypeSelectorPage"),
-          "WorkOrderTypeSelectorPage",
+          () => import("@/modules/incidents/pages/IncidentCreatePage"),
+          "IncidentCreatePage",
         ),
       },
       {
