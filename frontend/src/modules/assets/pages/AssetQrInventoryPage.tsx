@@ -59,16 +59,50 @@ function getCategory(asset: RegisteredAsset) {
   return asset.draft.category?.trim() || "Sin categoría";
 }
 
-function getLocation(asset: RegisteredAsset) {
-  if (asset.draft.locationPending) return "Ubicación por confirmar";
-  const path = [
-    asset.draft.zone,
-    asset.draft.building,
-    asset.draft.locationArea,
-    asset.draft.room,
-  ].filter(Boolean);
+function getAssetFullDisplayCode(asset: RegisteredAsset): string {
+  if (asset.fmCode && asset.fmCode.includes("-") && asset.fmCode.split("-").length >= 3) {
+    return asset.fmCode;
+  }
 
-  return path.length ? path.join(" / ") : "Ubicación no registrada";
+  const payload = (asset.draft as unknown as Record<string, unknown>) || {};
+  const n1 = ((payload.n1_code || payload.site_code || "") as string).trim().toUpperCase();
+  const n2 = ((payload.n2_code || payload.macro_area_code || "") as string).trim().toUpperCase();
+  const n3 = ((payload.n3_code || payload.area_code || payload.building_code || "") as string).trim().toUpperCase();
+  const n4 = ((payload.n4_code || payload.room_code || "") as string).trim().toUpperCase();
+
+  if (n1 || n2 || n3 || n4) {
+    const locPrefix = [n1, n2, n3, n4].filter(Boolean).join("-");
+    const classCode = asset.fmCode || asset.draft.taxonomyPrefix || asset.code;
+    return `${locPrefix}-${classCode}`;
+  }
+
+  const loc = asset.locationDetail;
+  const draft = asset.draft;
+
+  const b = loc?.building || draft.building || "";
+  const a = loc?.area || draft.locationArea || "";
+  const r = loc?.room || draft.room || "";
+
+  const toCode = (text: string) => {
+    const t = text.trim().toUpperCase();
+    if (!t || t === "GENERAL" || t === "SIN ASIGNAR") return "";
+    if (/^[A-Z0-9]{2,6}(-\d+)?$/.test(t)) return t;
+    const words = t.split(/\s+/).filter((w) => !["DE", "LA", "EL", "LOS", "LAS", "Y", "EN", "PARA", "CON", "DEL"].includes(w));
+    if (words.length === 1) return words[0].slice(0, 4);
+    return words.map((w) => w.slice(0, 3)).join("");
+  };
+
+  const locParts = [toCode(b), toCode(a), toCode(r)].filter(Boolean);
+  const baseCode = asset.fmCode || asset.code;
+
+  if (locParts.length > 0) {
+    const locPrefix = locParts.join("-");
+    if (locPrefix && !baseCode.toUpperCase().startsWith(locPrefix)) {
+      return `${locPrefix}-${baseCode}`;
+    }
+  }
+
+  return baseCode;
 }
 
 function matchesSearch(asset: RegisteredAsset, search: string) {
@@ -398,14 +432,14 @@ export function AssetQrInventoryPage() {
         }
         .asset-code { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 8.5 : format === PRINT_FORMATS.STANDARD ? 11 : 13.5}pt; 
-          line-height: 1.1; 
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 7.8 : format === PRINT_FORMATS.STANDARD ? 9.8 : 12.5}pt; 
+          line-height: 1.15; 
           font-weight: 800;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.01em;
           color: #000000;
-          white-space: nowrap;
+          word-break: break-word;
           overflow: hidden;
-          margin: ${format === PRINT_FORMATS.COMPACT ? 2.2 : format === PRINT_FORMATS.STANDARD ? 3.4 : 4.2}mm 0 0 0;
+          margin: ${format === PRINT_FORMATS.COMPACT ? 1.8 : format === PRINT_FORMATS.STANDARD ? 2.8 : 3.6}mm 0 0 0;
         }
         .asset-desc { 
           font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
@@ -452,7 +486,7 @@ export function AssetQrInventoryPage() {
         
         const code = document.createElement("div");
         code.className = "asset-code";
-        code.textContent = getAssetDisplayCode(asset);
+        code.textContent = getAssetFullDisplayCode(asset);
         
         const desc = document.createElement("div");
         desc.className = "asset-desc";
