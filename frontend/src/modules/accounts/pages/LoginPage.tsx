@@ -59,17 +59,18 @@ export function LoginPage() {
           <header>
             <span>FM Incalpaca</span>
             <h2>Iniciar sesión</h2>
-            <p>Ingresa con el código de trabajador asignado.</p>
+            <p>Ingresa con tu código de usuario o correo electrónico.</p>
           </header>
           {error && <div className="login-error" role="alert">{error}</div>}
           <label className="login-field">
-            <span>Código de trabajador</span>
+            <span>Código de usuario o correo</span>
             <div>
               <User size={19} />
               <input
                 autoComplete="username"
                 value={workerCode}
                 onChange={(event) => setWorkerCode(event.target.value)}
+                placeholder="Ej. 22046 o usuario@incalpaca.com"
                 required
               />
             </div>
