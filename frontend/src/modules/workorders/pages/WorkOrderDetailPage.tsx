@@ -37,7 +37,6 @@ import {
 } from "@/modules/workorders/workOrderModel";
 import {
   adminReviewWorkOrder,
-  deleteWorkOrderPhoto,
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
   listWorkOrders,
@@ -46,7 +45,6 @@ import {
   startWorkOrder,
   updateServiceOrderStatus,
   updateWorkOrderPlanning,
-  updateWorkOrderPhoto,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 
@@ -249,65 +247,11 @@ export function WorkOrderDetailPage() {
   const [serviceAttachments, setServiceAttachments] = useState<string[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [photoUrls, setPhotoUrls] = useState<{ start: string | null; finish: string | null }>({ start: null, finish: null });
-  const [uploadingPhoto, setUploadingPhoto] = useState<"start" | "finish" | null>(null);
-  const [photoMessage, setPhotoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [editingPlanning, setEditingPlanning] = useState(false);
   const [planningPeople, setPlanningPeople] = useState<Technician[]>([]);
   const [planningError, setPlanningError] = useState("");
   const [savingPlanning, setSavingPlanning] = useState(false);
   const [planning, setPlanning] = useState<PlanningForm>({ specialty: "ELECTRICIDAD", adminPriority: "MEDIA", status: "PROGRAMADA", scheduledDate: "", scheduledStartTime: "08:00", plannedHours: 2, operatorId: "", supervisorId: "", administratorNotes: "" });
-
-  async function handleUploadPhoto(type: "start" | "finish", file: File) {
-    if (!workOrder) return;
-    setUploadingPhoto(type);
-    setPhotoMessage(null);
-    try {
-      const stage = type === "start" ? "START" : "FINISH";
-      const updated = await updateWorkOrderPhoto(workOrder.id, stage, file);
-      setWorkOrder(updated);
-      setPhotoMessage({
-        type: "success",
-        text: `✅ Foto de "${type === "start" ? "Antes" : "Después"}" subida correctamente.`,
-      });
-    } catch (err: any) {
-      const detail =
-        err?.response?.data?.detail ||
-        err?.response?.data?.photo ||
-        err?.response?.data?.startPhoto ||
-        err?.response?.data?.finishPhoto ||
-        err?.response?.data?.action ||
-        "No se pudo guardar la fotografía. Intenta nuevamente.";
-      setPhotoMessage({
-        type: "error",
-        text: `❌ ${typeof detail === "string" ? detail : JSON.stringify(detail)}`,
-      });
-    } finally {
-      setUploadingPhoto(null);
-    }
-  }
-
-  async function handleDeletePhoto(type: "start" | "finish") {
-    if (!workOrder) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar la foto de "${type === "start" ? "Antes" : "Después"}"?`)) return;
-    setUploadingPhoto(type);
-    setPhotoMessage(null);
-    try {
-      const stage = type === "start" ? "START" : "FINISH";
-      const updated = await deleteWorkOrderPhoto(workOrder.id, stage);
-      setWorkOrder(updated);
-      setPhotoMessage({
-        type: "success",
-        text: `🗑️ Foto de "${type === "start" ? "Antes" : "Después"}" eliminada correctamente.`,
-      });
-    } catch {
-      setPhotoMessage({
-        type: "error",
-        text: "❌ No se pudo eliminar la fotografía.",
-      });
-    } finally {
-      setUploadingPhoto(null);
-    }
-  }
 
   useEffect(() => {
     if (!id) return;
@@ -1023,98 +967,18 @@ export function WorkOrderDetailPage() {
             <ClipboardText size={18} weight="bold" />
             <div>
               <h2>Evidencia fotográfica</h2>
-              <p className="wo-subtitle-sm">Comparativa visual del trabajo (Antes / Después).</p>
+              <p className="wo-subtitle-sm">Comparativa visual registrada desde la ejecución.</p>
             </div>
           </div>
-
-          {photoMessage && (
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: "8px",
-                marginBottom: "14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                background: photoMessage.type === "success" ? "#E8F5E9" : "#FFEBEE",
-                color: photoMessage.type === "success" ? "#1B5E20" : "#C62828",
-                border: `1px solid ${photoMessage.type === "success" ? "#C8E6C9" : "#FFCDD2"}`,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span>{photoMessage.text}</span>
-              <button
-                type="button"
-                style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700, color: "inherit" }}
-                onClick={() => setPhotoMessage(null)}
-              >
-                ✕
-              </button>
-            </div>
-          )}
 
           <div className="work-order-photo-grid wo-compact-photo-grid">
             {([
               ["Antes", photoUrls.start, "Sin foto de inicio.", "start" as const],
               ["Después", photoUrls.finish, "Sin foto final.", "finish" as const],
-            ] as const).map(([label, url, help, photoType]) => (
+            ] as const).map(([label, url, help]) => (
               <figure className="work-order-photo-card wo-compact-photo-card" key={label}>
-                <figcaption style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <figcaption>
                   <strong>{label}</strong>
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                    {url && (
-                      <button
-                        type="button"
-                        style={{
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          color: "#C62828",
-                          fontWeight: 600,
-                          background: "#FFEBEE",
-                          border: "1px solid #FFCDD2",
-                          borderRadius: "6px",
-                          padding: "4px 10px",
-                          transition: "all 0.15s ease",
-                        }}
-                        disabled={uploadingPhoto !== null}
-                        onClick={() => void handleDeletePhoto(photoType)}
-                      >
-                        🗑️ Borrar
-                      </button>
-                    )}
-                    <label
-                      style={{
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        fontSize: "12px",
-                        color: "#FFFFFF",
-                        fontWeight: 600,
-                        background: "#111111",
-                        border: "1px solid #111111",
-                        borderRadius: "6px",
-                        padding: "4px 12px",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {uploadingPhoto === photoType ? "Subiendo..." : url ? "📷 Cambiar foto" : "+ Subir foto"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        disabled={uploadingPhoto !== null}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            void handleUploadPhoto(photoType, file);
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
                 </figcaption>
                 {url ? <img src={url} alt={`Estado del bien ${label.toLowerCase()}`} /> : <div className="work-order-photo-empty">{help}</div>}
               </figure>
