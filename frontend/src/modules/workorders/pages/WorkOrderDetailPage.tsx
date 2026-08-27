@@ -43,6 +43,7 @@ import {
   registerWorkOrderProgress,
   scheduleWorkOrderCorrection,
   startWorkOrder,
+  superviseWorkOrder,
   updateServiceOrderStatus,
   updateWorkOrderPlanning,
 } from "@/modules/workorders/workOrderRepository";
@@ -234,10 +235,14 @@ export function WorkOrderDetailPage() {
   const [adminComment, setAdminComment] = useState("");
   const [adminError, setAdminError] = useState("");
   const [savingAdminReview, setSavingAdminReview] = useState(false);
+  const [supervisorReviewComment, setSupervisorReviewComment] = useState("");
+  const [supervisorReviewError, setSupervisorReviewError] = useState("");
+  const [savingSupervisorReview, setSavingSupervisorReview] = useState(false);
   const [correctionDate, setCorrectionDate] = useState(todayKey());
   const [correctionTime, setCorrectionTime] = useState("08:00");
   const [correctionHours, setCorrectionHours] = useState(2);
   const [correctionNotes, setCorrectionNotes] = useState("");
+  const [correctionOperatorId, setCorrectionOperatorId] = useState("");
   const [correctionError, setCorrectionError] = useState("");
   const [correctionSuccess, setCorrectionSuccess] = useState("");
   const [savingCorrection, setSavingCorrection] = useState(false);
@@ -261,6 +266,7 @@ export function WorkOrderDetailPage() {
       setCorrectionTime(order.scheduledStartTime?.slice(0, 5) || "08:00");
       setCorrectionHours(order.plannedHours || 2);
       setCorrectionNotes(order.administratorNotes || "");
+      setCorrectionOperatorId(order.operatorId || "");
       setRequest(await getWorkRequestById(order.requestId));
     });
     void listWorkOrders().then(setOrders);
@@ -321,9 +327,33 @@ export function WorkOrderDetailPage() {
     }
   }
 
+  async function handleSupervisorReview(requireComment: boolean) {
+    if (!workOrder) return;
+    if (requireComment && supervisorReviewComment.trim().length < 8) {
+      setSupervisorReviewError("Escribe una observación breve para administración.");
+      return;
+    }
+
+    setSavingSupervisorReview(true);
+    setSupervisorReviewError("");
+    try {
+      const updated = await superviseWorkOrder(workOrder.id, true, supervisorReviewComment.trim());
+      setWorkOrder(updated);
+      setSupervisorReviewComment("");
+    } catch {
+      setSupervisorReviewError("No se pudo registrar la revisión del supervisor.");
+    } finally {
+      setSavingSupervisorReview(false);
+    }
+  }
+
   async function handleScheduleCorrection(event?: React.FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (!workOrder) return;
+    if (!correctionOperatorId) {
+      setCorrectionError("Selecciona el operario que atenderá la corrección.");
+      return;
+    }
     if (!correctionDate) {
       setCorrectionError("Selecciona la fecha de corrección.");
       return;
@@ -334,7 +364,7 @@ export function WorkOrderDetailPage() {
     }
     const conflicts = findScheduleConflicts({
       orders,
-      operatorId: workOrder.operatorId,
+      operatorId: correctionOperatorId,
       dates: [correctionDate],
       startTime: correctionTime,
       plannedHours: correctionHours,
@@ -354,11 +384,17 @@ export function WorkOrderDetailPage() {
         scheduledStartTime: correctionTime,
         plannedHours: correctionHours,
         administratorNotes: correctionNotes.trim(),
+        operatorId: correctionOperatorId,
       });
       setWorkOrder(updated);
       setCorrectionSuccess("Programación guardada. El operario verá la corrección en su agenda.");
-    } catch {
-      setCorrectionError("No se pudo programar la corrección. Revisa los datos e intenta nuevamente.");
+    } catch (error: any) {
+      const detail = error?.response?.data;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : Object.values(detail ?? {}).flat().join(" ");
+      setCorrectionError(message || "No se pudo programar la corrección. Revisa los datos e intenta nuevamente.");
     } finally {
       setSavingCorrection(false);
     }
@@ -386,6 +422,25 @@ export function WorkOrderDetailPage() {
       setSavingServiceStatus(false);
     }
   }
+
+  useEffect(() => {
+    if (user?.role !== "ADMINISTRADOR" || planningPeople.length) return;
+    void listTechnicians()
+      .then((people) => setPlanningPeople(people.filter((person) => person.active)))
+      .catch(() => setPlanningError("No se pudo cargar el equipo para programar la corrección."));
+  }, [planningPeople.length, user?.role]);
+
+  useEffect(() => {
+    if (!workOrder || user?.role !== "ADMINISTRADOR" || correctionOperatorId) return;
+    if (workOrder.operatorId) {
+      setCorrectionOperatorId(workOrder.operatorId);
+      return;
+    }
+    const technicians = planningPeople.filter((person) => person.role === "TECNICO");
+    if (technicians.length === 1) {
+      setCorrectionOperatorId(technicians[0].id);
+    }
+  }, [correctionOperatorId, planningPeople, user?.role, workOrder]);
 
   if (!workOrder) {
     return (
@@ -439,8 +494,23 @@ export function WorkOrderDetailPage() {
   };
 
   const isAdmin = user?.role === "ADMINISTRADOR";
-  const canEditPlanning = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
-  const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
+  const isAssignedSupervisor = user?.role === "SUPERVISOR" && (
+    user.id === workOrder.supervisorId ||
+    String(user.userId) === String(workOrder.supervisorId) ||
+    user.fullName === workOrder.supervisorName
+  );
+  const canEditPlanning = isAdmin;
+  const hasSupervisorApproval = workOrder.supervisor_validation?.approved === true;
+  const hasAdminDecision = typeof workOrder.administrator_validation?.approved === "boolean";
+  const needsAdminReview =
+    workOrder.status === "PENDIENTE_DE_VALIDACION" ||
+    (
+      hasSupervisorApproval &&
+      !hasAdminDecision &&
+      !["CERRADA", "CANCELADA", "DEVUELTA"].includes(workOrder.status)
+    );
+  const needsSupervisorReview = workOrder.status === "PENDIENTE_DE_SUPERVISION";
+  const canSupervisorReview = isAssignedSupervisor && needsSupervisorReview;
   const isAssignedTechnician = user?.id === workOrder.operatorId;
   const canRegisterProgress = isAssignedTechnician && !isServiceOrder && !workOrder.correctionWorkOrderId && ![
     "CERRADA",
@@ -456,6 +526,8 @@ export function WorkOrderDetailPage() {
   const correctionSchedule = getCorrectionSchedule(workOrder);
   const hasLinkedCorrection = Boolean(workOrder.correctionWorkOrderId);
   const canScheduleCorrection = isAdmin && Boolean(returnInfo) && !correctionSchedule && !hasLinkedCorrection;
+  const correctionTechnicians = planningPeople.filter((person) => person.role === "TECNICO");
+  const selectedCorrectionOperator = correctionTechnicians.find((person) => person.id === correctionOperatorId);
   const serviceDetails = getServiceOrderDetails(workOrder.administratorNotes);
   const serviceStatusCopy = getServiceStatusCopy(workOrder);
   const savedServiceAttachments = getStringList(workOrder.administrator_validation, "attachments");
@@ -769,6 +841,20 @@ export function WorkOrderDetailPage() {
                 <p>{orderCopy.correctionHelp}</p>
               </div>
               <div className="form-grid">
+                <label className="field field-wide">
+                  <span>{isCleaningOrder ? "Responsable de limpieza" : "Operario para la corrección"}</span>
+                  <select
+                    value={correctionOperatorId}
+                    onChange={(event) => setCorrectionOperatorId(event.target.value)}
+                  >
+                    <option value="">{isCleaningOrder ? "Seleccionar responsable" : "Seleccionar operario"}</option>
+                    {correctionTechnicians.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.full_name} - {person.specialty || "Sin especialidad"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="field">
                   <span>Fecha</span>
                   <input
@@ -808,8 +894,8 @@ export function WorkOrderDetailPage() {
                 <div className="field field-wide">
                   <OperatorAvailabilityPanel
                     orders={orders}
-                    operatorId={workOrder.operatorId}
-                    operatorName={workOrder.operatorName}
+                    operatorId={correctionOperatorId}
+                    operatorName={selectedCorrectionOperator?.full_name || workOrder.operatorName}
                     selectedDate={correctionDate}
                     startTime={correctionTime}
                     plannedHours={correctionHours}
@@ -829,8 +915,48 @@ export function WorkOrderDetailPage() {
             </form>
           )}
 
+          {canSupervisorReview && (
+            <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleSupervisorReview(false); }}>
+              <div>
+                <strong>Revisión del supervisor</strong>
+                <p>Valida el trabajo terminado y envíalo a administración para su decisión final.</p>
+              </div>
+              <label className="field field-wide">
+                <span>Observación para administración</span>
+                <textarea
+                  rows={2}
+                  value={supervisorReviewComment}
+                  onChange={(event) => setSupervisorReviewComment(event.target.value)}
+                  placeholder="Ej. Trabajo conforme. Evidencias revisadas."
+                />
+              </label>
+
+              {supervisorReviewError && <div className="form-error">{supervisorReviewError}</div>}
+
+              <div className="admin-evaluation-actions">
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  disabled={savingSupervisorReview}
+                  onClick={() => void handleSupervisorReview(true)}
+                >
+                  <ClipboardText size={16} weight="bold" />
+                  Enviar observación a administración
+                </button>
+                <button className="button button-primary" disabled={savingSupervisorReview}>
+                  <CheckCircle size={16} weight="bold" />
+                  Aprobar y enviar a administración
+                </button>
+              </div>
+            </form>
+          )}
+
           {isAdmin && needsAdminReview && (
             <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleAdminReview(true); }}>
+              <div>
+                <strong>Validación administrativa</strong>
+                <p>Confirma la ejecución o devuelve la orden para crear una corrección vinculada.</p>
+              </div>
               <label className="field field-wide">
                 <span>Comentario administrativo</span>
                 <textarea
@@ -868,7 +994,7 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card work-order-planning-editor">
           <div className="detail-card-heading compact-heading">
             <Briefcase size={18} weight="bold" />
-            <div><h2>Edición operativa</h2><p>Administrador y supervisor pueden actualizar planificación, responsables y estado. Los tiempos reales se conservan desde la ejecución.</p></div>
+            <div><h2>Edición operativa</h2><p>Administración puede actualizar planificación, responsables y estado. Los tiempos reales se conservan desde la ejecución.</p></div>
             <button className="button button-secondary button-sm" type="button" onClick={() => void openPlanningEditor()}>{editingPlanning ? "Actualizando…" : "Editar orden"}</button>
           </div>
           {editingPlanning && <form className="work-order-planning-form" onSubmit={savePlanning}>

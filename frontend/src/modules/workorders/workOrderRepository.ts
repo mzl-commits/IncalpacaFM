@@ -222,6 +222,7 @@ export async function scheduleWorkOrderCorrection(
     scheduledStartTime: string;
     plannedHours: number;
     administratorNotes: string;
+    operatorId?: string;
   },
 ): Promise<WorkOrder> {
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {

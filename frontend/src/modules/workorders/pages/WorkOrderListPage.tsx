@@ -136,7 +136,7 @@ const emptyOrderForm: WorkOrderFormState = {
   assetId: "",
   locationId: "",
   operatorId: "",
-  supervisorId: "USR-SUP-001",
+  supervisorId: "",
   specialty: "ELECTRICIDAD",
   orderType: "OT",
   cleaningMode: "ESPECIFICA",

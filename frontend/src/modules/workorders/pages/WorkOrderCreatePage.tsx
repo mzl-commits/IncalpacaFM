@@ -49,17 +49,6 @@ interface WorkOrderFormState {
   administratorNotes: string;
 }
 
-const supervisors = [
-  {
-    id: "USR-SUP-001",
-    name: "Rosa Medina",
-  },
-  {
-    id: "USR-SUP-002",
-    name: "Elena Torres",
-  },
-];
-
 const initialForm: WorkOrderFormState = {
   operatorId: "",
   operatorName: "",
@@ -104,6 +93,13 @@ export function WorkOrderCreatePage() {
     return candidates.length > 0 ? candidates[0] : null;
   }, [request, technicians, orders]);
 
+  const supervisors = useMemo(() => {
+    const activeSupervisors = technicians.filter((person) => person.role === "SUPERVISOR");
+    return activeSupervisors.length
+      ? activeSupervisors
+      : technicians.filter((person) => person.role === "ADMINISTRADOR");
+  }, [technicians]);
+
   const [form, setForm] =
     useState<WorkOrderFormState>(initialForm);
 
@@ -120,6 +116,18 @@ export function WorkOrderCreatePage() {
       [field]: value,
     }));
   }
+
+  useEffect(() => {
+    if (supervisors.length === 1 && form.supervisorId !== supervisors[0].id) {
+      updateField("supervisorId", supervisors[0].id);
+      updateField("supervisorName", supervisors[0].full_name);
+      return;
+    }
+    if (form.supervisorId && !supervisors.some((person) => person.id === form.supervisorId)) {
+      updateField("supervisorId", "");
+      updateField("supervisorName", "");
+    }
+  }, [form.supervisorId, supervisors]);
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
@@ -413,7 +421,7 @@ export function WorkOrderCreatePage() {
 
                   updateField(
                     "supervisorName",
-                    supervisor?.name ?? "",
+                    supervisor?.full_name ?? "",
                   );
                 }}
               >
@@ -426,10 +434,11 @@ export function WorkOrderCreatePage() {
                     key={supervisor.id}
                     value={supervisor.id}
                   >
-                    {supervisor.name}
+                    {supervisor.full_name}
                   </option>
                 ))}
               </select>
+              {!supervisors.length && <small>No hay supervisores activos registrados.</small>}
             </label>
           </div>
         </div>

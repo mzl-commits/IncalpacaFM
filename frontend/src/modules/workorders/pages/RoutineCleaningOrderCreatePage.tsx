@@ -30,11 +30,6 @@ interface RoutineCleaningFormState {
   administratorNotes: string;
 }
 
-const supervisors = [
-  { id: "USR-SUP-001", name: "Rosa Medina" },
-  { id: "USR-SUP-002", name: "Elena Torres" },
-];
-
 const weekdayOptions = [
   { value: 1, label: "Lun" },
   { value: 2, label: "Mar" },
@@ -114,6 +109,12 @@ export function RoutineCleaningOrderCreatePage() {
 
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
   const cleaningTechnicians = useMemo(() => technicians.filter(hasCleaningSpecialty), [technicians]);
+  const supervisors = useMemo(() => {
+    const activeSupervisors = technicians.filter((person) => person.role === "SUPERVISOR");
+    return activeSupervisors.length
+      ? activeSupervisors
+      : technicians.filter((person) => person.role === "ADMINISTRADOR");
+  }, [technicians]);
   const supportingTechnicians = cleaningTechnicians.filter((person) => person.worker_code !== form.technicianWorkerCode);
   const routineDates = useMemo(
     () => buildRoutineDates(form.startDate, form.endDate, form.weekdays),
@@ -143,6 +144,18 @@ export function RoutineCleaningOrderCreatePage() {
       selectTechnician(null);
     }
   }, [cleaningTechnicians, form.operatorId]);
+
+  useEffect(() => {
+    if (supervisors.length === 1 && form.supervisorId !== supervisors[0].id) {
+      updateField("supervisorId", supervisors[0].id);
+      updateField("supervisorName", supervisors[0].full_name);
+      return;
+    }
+    if (form.supervisorId && !supervisors.some((person) => person.id === form.supervisorId)) {
+      updateField("supervisorId", "");
+      updateField("supervisorName", "");
+    }
+  }, [form.supervisorId, supervisors]);
 
   function toggleWeekday(day: number) {
     setForm((current) => ({
@@ -342,14 +355,15 @@ export function RoutineCleaningOrderCreatePage() {
                 onChange={(event) => {
                   const supervisor = supervisors.find((item) => item.id === event.target.value);
                   updateField("supervisorId", supervisor?.id ?? "");
-                  updateField("supervisorName", supervisor?.name ?? "");
+                  updateField("supervisorName", supervisor?.full_name ?? "");
                 }}
               >
                 <option value="">Seleccionar supervisor</option>
                 {supervisors.map((supervisor) => (
-                  <option key={supervisor.id} value={supervisor.id}>{supervisor.name}</option>
+                  <option key={supervisor.id} value={supervisor.id}>{supervisor.full_name}</option>
                 ))}
               </select>
+              {!supervisors.length && <small>No hay supervisores activos registrados.</small>}
             </label>
 
             <label className="field">
