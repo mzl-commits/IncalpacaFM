@@ -1,8 +1,8 @@
-import { FloppyDisk, PencilSimple, Plus, UploadSimple, UsersThree, X } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FloppyDisk, PencilSimple, Plus, UsersThree, X } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
 
 import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
-import { createManagedUser, importTechnicians, listManagedUsers, updateManagedUser, type Technician, type TechnicianInput } from "@/modules/accounts/technicianRepository";
+import { createManagedUser, listManagedUsers, updateManagedUser, type Technician, type TechnicianInput } from "@/modules/accounts/technicianRepository";
 import type { UserRole } from "@/modules/accounts/types";
 import { listAlmacenes } from "@/modules/almacen/catalogoRepository";
 import type { Almacen } from "@/modules/almacen/types";
@@ -36,7 +36,6 @@ export function UserManagementPage() {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -88,19 +87,12 @@ export function UserManagementPage() {
       setFeedback(editing ? "Usuario actualizado correctamente." : "Usuario creado. Deberá cambiar su contraseña al ingresar."); setEditing(undefined);
     } catch (saveError) { setError(getErrorMessage(saveError)); } finally { setSaving(false); }
   }
-  async function importFile(file?: File) {
-    if (!file) return; setError(""); setFeedback("");
-    try { const result = await importTechnicians(file); setFeedback(`Importación completada: ${result.created} creados y ${result.updated} actualizados.${result.errors.length ? ` ${result.errors.length} fila(s) requieren revisión.` : ""}`); await load(); }
-    catch (importError) { setError(getErrorMessage(importError)); } finally { if (fileInput.current) fileInput.current.value = ""; }
-  }
 
   return (
     <section className="user-management-page">
       <header className="page-heading user-management-heading">
         <div><p className="breadcrumb">Administración / Usuarios</p><h1>Usuarios</h1><p>Administra accesos, roles y datos laborales desde un solo lugar.</p></div>
         <div className="user-management-actions">
-          <input ref={fileInput} hidden type="file" accept=".xlsx,.xlsm" onChange={(event) => void importFile(event.target.files?.[0])} />
-          <button className="button button-secondary" type="button" onClick={() => fileInput.current?.click()}><UploadSimple size={18} />Importar Excel</button>
           <button className="button button-primary" type="button" onClick={openCreate}><Plus size={18} />Nuevo usuario</button>
         </div>
       </header>

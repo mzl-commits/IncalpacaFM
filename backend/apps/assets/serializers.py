@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
@@ -84,7 +85,16 @@ class AssetSerializer(serializers.ModelSerializer):
     def get_public_url(self, obj) -> str:
         request = self.context.get('request')
         path = f'/q/{obj.public_token}'
-        origin = request.headers.get('X-Frontend-Origin', 'http://localhost:5173') if request else 'http://localhost:5173'
+        if request:
+            origin = request.headers.get('X-Frontend-Origin') or request.headers.get('Origin')
+            if not origin:
+                referer = request.headers.get('Referer')
+                if referer:
+                    origin = '/'.join(referer.split('/')[:3])
+            if not origin:
+                origin = 'http://localhost:8008'
+        else:
+            origin = 'http://localhost:8008'
         return f'{origin.rstrip("/")}{path}'
 
     def get_photo_url(self, obj) -> str | None:

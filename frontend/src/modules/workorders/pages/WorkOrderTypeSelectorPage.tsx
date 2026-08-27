@@ -1,7 +1,11 @@
 import { ArrowLeft, ArrowRight, CalendarBlank, ClipboardText, Package, Wrench } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/modules/accounts/AuthContext";
 
 export function WorkOrderTypeSelectorPage() {
+  const { user } = useAuth();
+  const backTarget = user?.role === "USUARIO" ? "/incidencias" : "/ordenes-trabajo";
+
   return (
     <section className="order-type-selector-page">
       <div className="page-heading">
@@ -10,7 +14,7 @@ export function WorkOrderTypeSelectorPage() {
           <h1>Crear orden</h1>
           <p>Elige el tipo de orden según cómo se atenderá el trabajo.</p>
         </div>
-        <Link className="button button-secondary" to="/ordenes-trabajo">
+        <Link className="button button-secondary" to={backTarget}>
           <ArrowLeft size={18} />
           Volver
         </Link>

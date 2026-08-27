@@ -11,6 +11,7 @@ import type {
   UsuarioLista,
   DocumentoInspeccion,
   TipoDocumentoInspeccion,
+  ObservacionInspeccion,
 } from "./types";
 
 // ─── Usuarios (para selects de responsable/inspector) ─────────────────────────
@@ -139,17 +140,17 @@ export interface RespuestaInput {
 export interface InspeccionCreatePayload {
   tipo: TipoInspeccion;
   tipo_inspeccion?: "planificada" | "no_planificada";
+  modalidad?: "planificada" | "no_planificada";
   area?: string;
+  area_trabajo?: string;
   frecuencia?: string;
+  referencia_orden?: string;
+  tipos_herramientas?: string[];
   material: number;
   pieza?: number | null;
   piezas_lote?: number[];
   plantilla: number;
   inspector: number;
-  modalidad?: "planificada" | "no_planificada";
-  area_trabajo?: string;
-  referencia_orden?: string;
-  tipos_herramientas?: string[];
   proxima_inspeccion?: string | null;
   cantidad_inspeccionada?: number | null;
   cantidad_apta?: number | null;
@@ -158,37 +159,80 @@ export interface InspeccionCreatePayload {
   accion_tomada: AccionInspeccion;
   observaciones?: string;
   respuestas: RespuestaInput[];
+  items_con_observacion?: ObservacionInspeccion[];
 }
 
-export async function getChecklistContexto(materialId?: number, almacenId?: number) {
-  const params: Record<string, string | number> = {};
-  if (materialId) params["material"] = materialId;
-  if (almacenId) params["almacen"] = almacenId;
-  const { data } = await api.get("/checklist-contexto/", { params });
-  return data as {
-    color_mes: { hex: string; nombre: string; meses: string; rgb_excel: string };
-    leyenda_colores: { trimestre: number; nombre: string; meses: string; hex: string }[];
-    frecuencia_sugerida: {
-      frecuencia_sugerida: string;
-      frecuencia?: string;
-      label?: string;
-      categoria_abc?: string;
-      total_salidas_90d?: number;
-      usos_por_mes?: number;
-      dias_sin_uso?: number | null;
-      tasa_incidencias?: number;
-      total_inspecciones?: number;
-      total_hallazgos?: number;
-    } | null;
+export interface FrecuenciaSugeridaResponse {
+  categoria_abc: string;
+  usos_por_mes: number;
+  total_salidas_90d: number;
+  dias_sin_uso: number | null;
+  total_inspecciones: number;
+  total_hallazgos: number;
+  tasa_incidencias: number;
+  frecuencia: string;
+  frecuencia_sugerida: string;
+  periodicidad_dias: number;
+  label: string;
+  material_id?: number;
+  material_nombre?: string;
+  categoria_nombre?: string;
+}
 
-    fecha_actual: string;
-    proxima_fecha_calculada: string;
-    inspecciones_hoy: number;
-    inspecciones_en_proxima_fecha: number;
-    es_herramienta_manual: boolean;
-    ordenes_disponibles: { codigo: string; label: string; tipo: string }[];
-    tipos_orden: { codigo: string; nombre: string }[];
-  };
+export interface Color5SItem {
+  // Common
+  periodo?: number;
+  label?: string;
+  nombre: string;
+  meses: string;
+  meses_num?: number[];
+  hex: string;
+  rgb_excel: string;
+  txt_color?: string;
+  descripcion?: string;
+  // Trimestral
+  trimestre?: number;
+  // Bimestral
+  bimestre?: number;
+}
+
+export interface OrdenDisponible {
+  id: string;
+  codigo: string;
+  descripcion: string;
+  tipo?: string;
+  estado?: string;
+}
+
+// Función separada para obtener solo las órdenes disponibles al usuario autenticado
+export async function getOrdenesDisponibles(): Promise<OrdenDisponible[]> {
+  const { data } = await api.get<ChecklistContextoResponse>("/checklist-contexto/");
+  return data.ordenes_disponibles ?? [];
+}
+
+export interface ChecklistContextoResponse {
+  es_herramienta_manual: boolean;
+  frecuencia_sugerida: FrecuenciaSugeridaResponse | null;
+  proxima_fecha_calculada: string | null;
+  color_actual: Color5SItem;
+  leyenda_colores: Color5SItem[];
+  tipo_periodo_color?: "bimestral" | "trimestral";
+  ordenes_disponibles: OrdenDisponible[];
+}
+
+export async function getChecklistContexto(
+  materialId?: number,
+  almacenId?: number,
+  frecuencia?: string,
+): Promise<ChecklistContextoResponse> {
+  const { data } = await api.get<ChecklistContextoResponse>("/checklist-contexto/", {
+    params: {
+      ...(materialId ? { material: materialId } : {}),
+      ...(almacenId ? { almacen: almacenId } : {}),
+      ...(frecuencia ? { frecuencia } : {}),
+    },
+  });
+  return data;
 }
 
 export async function createInspeccion(
@@ -197,6 +241,7 @@ export async function createInspeccion(
   const { data } = await api.post<Inspeccion>("/inspecciones/", payload);
   return data;
 }
+
 
 // ─── Exportación ─────────────────────────────────────────────────────────────
 

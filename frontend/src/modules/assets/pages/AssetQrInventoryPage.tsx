@@ -37,9 +37,9 @@ const assignmentOrder: RegisteredAsset["assignmentStatus"][] = [
 const FILTER_KEYS = ["q", "category", "assignment", "condition", "criticality"] as const;
 
 const PRINT_FORMATS = {
-  COMPACT: { label: "Compacta", detail: "38 × 30 mm", widthMm: 38, heightMm: 30, qrMm: 16, columns: 5, gapMm: 1.5, perPage: 30 },
-  STANDARD: { label: "Estándar", detail: "60 × 45 mm", widthMm: 60, heightMm: 45, qrMm: 32, columns: 3, gapMm: 4, perPage: 15 },
-  LARGE: { label: "Grande", detail: "90 × 60 mm", widthMm: 90, heightMm: 60, qrMm: 44, columns: 2, gapMm: 4, perPage: 8 },
+  COMPACT: { label: "Compacta", detail: "55 × 32 mm", widthMm: 55, heightMm: 32, qrMm: 24, columns: 3, gapMm: 3, perPage: 24 },
+  STANDARD: { label: "Estándar", detail: "72 × 40 mm", widthMm: 72, heightMm: 40, qrMm: 30, columns: 2, gapMm: 5, perPage: 12 },
+  LARGE: { label: "Grande", detail: "95 × 52 mm", widthMm: 95, heightMm: 52, qrMm: 40, columns: 2, gapMm: 5, perPage: 10 },
 } as const;
 
 type PrintFormat = keyof typeof PRINT_FORMATS;
@@ -62,13 +62,76 @@ function getCategory(asset: RegisteredAsset) {
 function getLocation(asset: RegisteredAsset) {
   if (asset.draft.locationPending) return "Ubicación por confirmar";
   const path = [
-    asset.draft.zone,
-    asset.draft.building,
-    asset.draft.locationArea,
-    asset.draft.room,
+    asset.draft.zone || asset.locationDetail?.zone,
+    asset.draft.building || asset.locationDetail?.building,
+    asset.draft.locationArea || asset.locationDetail?.area,
+    asset.draft.room || asset.locationDetail?.room,
   ].filter(Boolean);
 
   return path.length ? path.join(" / ") : "Ubicación no registrada";
+}
+
+function getAssetLabelDescription(asset: RegisteredAsset): string {
+  const name = (asset.draft.name || asset.draft.description || "").trim();
+  const room = (asset.locationDetail?.room || asset.draft.room || "").trim();
+
+  if (room && room !== "General" && room !== "Sin asignar" && room !== "Ubicación por confirmar") {
+    return name ? `${name} · ${room}` : room;
+  }
+
+  return name;
+}
+
+function getAssetFullDisplayCode(asset: RegisteredAsset): string {
+  if (asset.fmCode) {
+    if (asset.fmCode.includes("-") && asset.fmCode.split("-").length >= 3) {
+      return asset.fmCode;
+    }
+    const loc = asset.locationDetail;
+    const draft = asset.draft;
+    const b = loc?.building || draft.building || "";
+    const a = loc?.area || draft.locationArea || "";
+    const r = loc?.room || draft.room || "";
+
+    const toCode = (text: string) => {
+      const t = text.trim().toUpperCase();
+      if (!t || t === "GENERAL" || t === "SIN ASIGNAR") return "";
+      if (/^[A-Z0-9]{2,6}(-\d+)?$/.test(t)) return t;
+      const words = t.split(/\s+/).filter((w) => !["DE", "LA", "EL", "LOS", "LAS", "Y", "EN", "PARA", "CON", "DEL"].includes(w));
+      if (words.length === 1) return words[0].slice(0, 4);
+      return words.map((w) => w.slice(0, 3)).join("");
+    };
+
+    const locParts = [toCode(b), toCode(a), toCode(r)].filter(Boolean);
+    if (locParts.length > 0) {
+      const locPrefix = locParts.join("-");
+      if (!asset.fmCode.toUpperCase().startsWith(locPrefix)) {
+        return `${locPrefix}-${asset.fmCode}`;
+      }
+    }
+    return asset.fmCode;
+  }
+
+  const payload = (asset.draft as unknown as Record<string, unknown>) || {};
+  const n1 = ((payload.n1_code || payload.site_code || "") as string).trim().toUpperCase();
+  const n2 = ((payload.n2_code || payload.macro_area_code || "") as string).trim().toUpperCase();
+  const n3 = ((payload.n3_code || payload.area_code || payload.building_code || "") as string).trim().toUpperCase();
+  const n4 = ((payload.n4_code || payload.room_code || "") as string).trim().toUpperCase();
+
+  const locPrefix = [n1, n2, n3, n4].filter(Boolean).join("-");
+  const taxonomyPrefix = (asset.draft.taxonomyPrefix || asset.draft.category?.slice(0, 3) || "").trim().toUpperCase();
+  const seqMatch = asset.code.match(/(\d+)$/);
+  const seq = seqMatch ? seqMatch[1] : asset.code;
+
+  if (locPrefix && taxonomyPrefix) {
+    return `${locPrefix}-${taxonomyPrefix}-${seq}`;
+  }
+
+  if (locPrefix) {
+    return `${locPrefix}-${seq}`;
+  }
+
+  return asset.code;
 }
 
 function matchesSearch(asset: RegisteredAsset, search: string) {
@@ -302,22 +365,41 @@ export function AssetQrInventoryPage() {
 
     setActionMessage("");
     try {
+      // Cargar logo oficial proporcionado en data URL para garantizar renderizado nítido e instantáneo
+      let logoDataUrl = "/logo_incalpaca_fm_official.png";
+      try {
+        const res = await fetch("/logo_incalpaca_fm_official.png");
+        if (res.ok) {
+          const blob = await res.blob();
+          logoDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => resolve("/logo_incalpaca_fm_official.png");
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch {
+        logoDataUrl = "/logo_incalpaca_fm_official.png";
+      }
+
       const labels = await Promise.all(
         items.flatMap((asset) => Array.from({ length: normalizedCopies }, async () => ({
           asset,
-          dataUrl: await createQrDataUrl(asset.publicUrl, Math.max(240, format.qrMm * 8)),
+          dataUrl: await createQrDataUrl(asset.publicUrl, Math.max(260, format.qrMm * 8)),
         }))),
       );
       
       const style = document.createElement("style");
       style.textContent = `
         @page { size: A4; margin: ${format === PRINT_FORMATS.COMPACT ? "6mm" : "10mm"}; }
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
           margin: 0;
-          color: #000;
-          font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-          background: #fff;
+          color: #000000;
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
+          background: #FFFFFF;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         main {
           display: grid;
@@ -329,24 +411,33 @@ export function AssetQrInventoryPage() {
         }
         article {
           break-inside: avoid;
+          page-break-inside: avoid;
           display: grid;
-          grid-template-columns: ${format.qrMm}mm minmax(0, 1fr);
-          align-items: stretch;
-          gap: ${format === PRINT_FORMATS.COMPACT ? 1.5 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
+          grid-template-columns: ${format.qrMm}mm 1fr;
+          align-items: center;
+          gap: ${format === PRINT_FORMATS.COMPACT ? 2.5 : 3.5}mm;
           height: ${format.heightMm}mm;
-          padding: ${format === PRINT_FORMATS.COMPACT ? 1.5 : Math.max(2, Math.round(format.gapMm / 1.5))}mm;
-          border: 1px solid #CCC;
+          width: ${format.widthMm}mm;
+          padding: ${format === PRINT_FORMATS.COMPACT ? 1.8 : 2.2}mm 2.5mm;
+          border: 1.3px solid #111111;
           border-radius: 4px;
           overflow: hidden;
-          background: #FFF;
+          background: #FFFFFF;
+          box-sizing: border-box;
+          box-shadow: inset 0 0 0 0.5px #111111;
         }
         .qr-image { 
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1mm;
+          width: ${format.qrMm}mm;
+          height: ${format.qrMm}mm;
+          padding: 0;
+          background: #FFFFFF;
+          border-right: 0.75pt solid #CBD5E1;
+          padding-right: ${format === PRINT_FORMATS.COMPACT ? 1.8 : 2.2}mm;
         }
-        img { 
+        .qr-image img { 
           display: block; 
           width: 100%; 
           height: 100%; 
@@ -355,62 +446,59 @@ export function AssetQrInventoryPage() {
         .content {
           display: flex;
           flex-direction: column;
-          justify-content: center;
-          padding: 1mm 1mm 1mm 0;
+          justify-content: space-between;
+          height: 100%;
+          padding: 0.1mm 0;
+          overflow: hidden;
+          min-width: 0;
         }
-        .brand-logo {
-          display: flex;
-          align-items: center;
-          gap: 1.5mm;
-          margin-bottom: ${format === PRINT_FORMATS.COMPACT ? 1 : 2}mm;
+        .brand-logo-img {
+          display: block;
+          height: ${format === PRINT_FORMATS.COMPACT ? 4 : format === PRINT_FORMATS.STANDARD ? 5.2 : 7.2}mm;
+          width: auto;
+          max-width: 100%;
+          object-fit: contain;
+          object-position: left center;
+          margin: 0;
+          border-bottom: 0.5pt solid #E2E8F0;
+          padding-bottom: 0.6mm;
         }
-        .brand-logo svg {
-          width: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 12 : 14}px;
-          height: ${format === PRINT_FORMATS.COMPACT ? 8 : format === PRINT_FORMATS.STANDARD ? 12 : 14}px;
-        }
-        .brand-logo span {
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 9 : 11}px;
+        .asset-code { 
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 7.2 : format === PRINT_FORMATS.STANDARD ? 9.2 : 11.5}pt; 
+          line-height: 1.12; 
           font-weight: 800;
-          letter-spacing: 0.05em;
-          color: #000;
-          line-height: 1;
+          letter-spacing: 0.01em;
+          color: #000000;
+          word-break: break-word;
+          overflow: hidden;
+          margin: 0.4mm 0 0.2mm 0;
         }
-        strong { 
-          font-family: "Courier New", Courier, monospace;
-          margin: 0 0 ${format === PRINT_FORMATS.COMPACT ? 1 : 1.5}mm 0; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 10 : format === PRINT_FORMATS.STANDARD ? 13 : 15}px; 
-          line-height: 1; 
-          font-weight: 800;
-          letter-spacing: -0.05em;
-          word-break: break-all;
-        }
-        .name { 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 7 : format === PRINT_FORMATS.STANDARD ? 9 : 11}px; 
-          font-weight: 600; 
+        .asset-desc { 
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 5.8 : format === PRINT_FORMATS.STANDARD ? 7.2 : 8.8}pt; 
+          font-weight: 400; 
           line-height: 1.2;
-          color: #333;
+          color: #111111;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          margin-bottom: 1mm;
+          margin: 0;
         }
-        .technical { 
-          color: #666; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6.5 : format === PRINT_FORMATS.STANDARD ? 7.5 : 9}px; 
-          line-height: 1.2; 
-          margin-bottom: auto;
-        }
-        .instruction { 
-          margin-top: auto; 
-          color: #888; 
-          font-size: ${format === PRINT_FORMATS.COMPACT ? 6 : format === PRINT_FORMATS.STANDARD ? 7 : 8}px; 
-          line-height: 1.1; 
-          font-style: italic;
+        .asset-instruction {
+          font-family: "Times New Roman", Times, "Liberation Serif", Georgia, serif;
+          font-size: ${format === PRINT_FORMATS.COMPACT ? 4.8 : format === PRINT_FORMATS.STANDARD ? 5.8 : 7}pt;
+          font-weight: 400;
+          line-height: 1.1;
+          color: #444444;
+          margin: 0;
+          border-top: 0.5pt solid #E2E8F0;
+          padding-top: 0.5mm;
         }
         @media print {
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-          article { border-color: #000; }
+          article { border-color: #000000 !important; }
         }
       `;
       const main = document.createElement("main");
@@ -422,35 +510,30 @@ export function AssetQrInventoryPage() {
         imageWrapper.className = "qr-image";
         const image = document.createElement("img");
         image.src = dataUrl;
-        image.alt = "";
+        image.alt = "QR";
         imageWrapper.appendChild(image);
         
         const copy = document.createElement("div");
         copy.className = "content";
         
-        const logoDiv = document.createElement("div");
-        logoDiv.className = "brand-logo";
-        logoDiv.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="8" height="8" fill="#000"/><rect x="8" y="8" width="8" height="8" fill="#000"/><rect x="16" y="16" width="8" height="8" fill="#000"/></svg><span>FM INCALPACA</span>`;
+        const logoImg = document.createElement("img");
+        logoImg.className = "brand-logo-img";
+        logoImg.src = logoDataUrl;
+        logoImg.alt = "INCALPACA FM";
         
-        const code = document.createElement("strong");
-        code.textContent = getAssetDisplayCode(asset);
+        const code = document.createElement("div");
+        code.className = "asset-code";
+        code.textContent = getAssetFullDisplayCode(asset);
         
-        const name = document.createElement("div");
-        name.className = "name";
-        name.textContent = asset.draft.name;
-        
-        const technicalCode = document.createElement("div");
-        technicalCode.className = "technical";
-        technicalCode.textContent = asset.fmCode ? `ID: ${asset.code}` : "";
+        const desc = document.createElement("div");
+        desc.className = "asset-desc";
+        desc.textContent = getAssetLabelDescription(asset);
         
         const instruction = document.createElement("div");
-        instruction.className = "instruction";
-        instruction.textContent = "Escanea para más info";
-
-        copy.append(logoDiv, code, name);
-        if (asset.fmCode) copy.append(technicalCode);
-        copy.append(instruction);
+        instruction.className = "asset-instruction";
+        instruction.textContent = "Escanear para más info";
         
+        copy.append(logoImg, code, desc, instruction);
         label.append(imageWrapper, copy);
         main.append(label);
       });
@@ -786,15 +869,15 @@ export function AssetQrInventoryPage() {
                             Iniciar baja
                           </Link>
                         )}
-                        <a
-                          href={asset.publicUrl}
+                        <Link
+                          to={`/q/${asset.publicToken}`}
                           target="_blank"
                           rel="noreferrer"
                           aria-label={`Abrir ficha pública de ${getAssetDisplayCode(asset)} en una pestaña nueva`}
                         >
                           <ArrowSquareOut size={17} aria-hidden="true" />
                           Ficha pública
-                        </a>
+                        </Link>
                       </footer>
                     </article>
                   </li>

@@ -7,6 +7,7 @@ import { useAuth } from "@/modules/accounts/AuthContext";
 import { listTechnicians, type Technician } from "@/modules/accounts/technicianRepository";
 import { listRegisteredAssets } from "@/modules/assets/assetEntryRepository";
 import { useLocations } from "@/modules/assets/locationMapQueries";
+import type { LocationOption } from "@/modules/assets/locationMapTypes";
 import {
   FilterDate,
   FilterSelect,
@@ -123,6 +124,7 @@ interface WorkOrderFormState {
   routineWeekdays: number[];
   scheduledStartTime: string;
   plannedHours: number;
+  locationSite: string;
   locationZone: string;
   locationBuilding: string;
   locationArea: string;
@@ -134,7 +136,7 @@ const emptyOrderForm: WorkOrderFormState = {
   assetId: "",
   locationId: "",
   operatorId: "",
-  supervisorId: "USR-SUP-001",
+  supervisorId: "",
   specialty: "ELECTRICIDAD",
   orderType: "OT",
   cleaningMode: "ESPECIFICA",
@@ -145,6 +147,7 @@ const emptyOrderForm: WorkOrderFormState = {
   routineWeekdays: [1, 2, 3, 4, 5],
   scheduledStartTime: "08:00",
   plannedHours: 2,
+  locationSite: "",
   locationZone: "",
   locationBuilding: "",
   locationArea: "",
@@ -174,10 +177,25 @@ const scheduleLabels: Record<string, string> = {
   overdue: "Programación vencida",
 };
 
+function locationSite(location: LocationOption) {
+  return location.site || "Sede principal";
+}
+
+function uniqueSorted(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b, "es-PE"));
+}
+
 const terminalStatuses = new Set<WorkOrderStatus>([
   "APROBADA_POR_SUPERVISOR",
   "CERRADA",
   "CANCELADA",
+]);
+
+const technicianExecutableStatuses = new Set<WorkOrderStatus>([
+  "PROGRAMADA",
+  "ASIGNADA",
+  "EN_PROCESO",
+  "REPROCESO",
 ]);
 
 const statusClass: Record<WorkOrderStatus, string> = {
@@ -206,6 +224,28 @@ function formatDate(value: string) {
 function isOverdue(scheduledDate: string, status: WorkOrderStatus) {
   const today = new Date().toISOString().slice(0, 10);
   return scheduledDate < today && !terminalStatuses.has(status);
+}
+
+function canTechnicianExecuteOrder(
+  workOrder: Awaited<ReturnType<typeof listWorkOrders>>[number],
+  user: ReturnType<typeof useAuth>["user"],
+) {
+  if (user?.role !== "TECNICO") return false;
+  if ((workOrder.orderType ?? "OT") === "OS") return false;
+  if (!technicianExecutableStatuses.has(workOrder.status)) return false;
+  if (workOrder.progressPercentage >= 100) return false;
+
+  return (
+    workOrder.operatorId === user.id ||
+    workOrder.operatorName === user.fullName
+  );
+}
+
+function getTechnicianExecutionLabel(workOrder: Awaited<ReturnType<typeof listWorkOrders>>[number]) {
+  const isCleaning = (workOrder.orderType ?? "OT") === "OL";
+  const hasStarted = workOrder.status === "EN_PROCESO" || workOrder.progressPercentage > 0;
+  if (hasStarted) return isCleaning ? "Continuar limpieza" : "Continuar trabajo";
+  return isCleaning ? "Iniciar limpieza" : "Iniciar trabajo";
 }
 
 const typeShortLabels: Record<WorkOrderType, string> = {
@@ -311,10 +351,15 @@ export function WorkOrderListPage() {
 
   function handleSelectAsset(assetId: string) {
     const asset = assets.find((a) => a.id === assetId);
+    const assetLocation = locations.find((item) => item.id === asset?.locationDetail?.id);
     setOrderForm((prev) => ({
       ...prev,
       assetId,
-      locationId: asset?.locationDetail?.id || prev.locationId,
+      locationId: assetLocation?.id || prev.locationId,
+      locationSite: assetLocation ? locationSite(assetLocation) : prev.locationSite,
+      locationZone: assetLocation?.zone || prev.locationZone,
+      locationBuilding: assetLocation?.building || prev.locationBuilding,
+      locationArea: assetLocation?.area || prev.locationArea,
     }));
   }
 
@@ -541,52 +586,46 @@ export function WorkOrderListPage() {
     () => buildRoutineDates(orderForm.routineStartDate, orderForm.routineEndDate, orderForm.routineWeekdays),
     [orderForm.routineEndDate, orderForm.routineStartDate, orderForm.routineWeekdays],
   );
-  const locationZones = useMemo(
-    () => Array.from(new Set(locations.map((item) => item.zone).filter(Boolean))).sort(),
+  const locationSites = useMemo(
+    () => uniqueSorted(locations.map(locationSite)),
     [locations],
   );
-  const locationBuildings = useMemo(
+  const locationZones = useMemo(
     () =>
-      Array.from(
-        new Set(
-          locations
-            .filter((item) => !orderForm.locationZone || item.zone === orderForm.locationZone)
-            .map((item) => item.building)
-            .filter(Boolean),
-        ),
-      ).sort(),
-    [locations, orderForm.locationZone],
+      uniqueSorted(
+        locations
+          .filter((item) => !orderForm.locationSite || locationSite(item) === orderForm.locationSite)
+          .map((item) => item.zone),
+      ),
+    [locations, orderForm.locationSite],
   );
   const locationAreas = useMemo(
     () =>
-      Array.from(
-        new Set(
-          locations
-            .filter((item) => !orderForm.locationZone || item.zone === orderForm.locationZone)
-            .filter((item) => !orderForm.locationBuilding || item.building === orderForm.locationBuilding)
-            .map((item) => item.area)
-            .filter(Boolean),
-        ),
-      ).sort(),
-    [locations, orderForm.locationBuilding, orderForm.locationZone],
+      uniqueSorted(
+        locations
+          .filter((item) => !orderForm.locationSite || locationSite(item) === orderForm.locationSite)
+          .filter((item) => !orderForm.locationZone || item.zone === orderForm.locationZone)
+          .map((item) => item.area),
+      ),
+    [locations, orderForm.locationSite, orderForm.locationZone],
   );
   const filteredModalLocations = useMemo(
     () =>
       locations
+        .filter((item) => !orderForm.locationSite || locationSite(item) === orderForm.locationSite)
         .filter((item) => !orderForm.locationZone || item.zone === orderForm.locationZone)
-        .filter((item) => !orderForm.locationBuilding || item.building === orderForm.locationBuilding)
         .filter((item) => !orderForm.locationArea || item.area === orderForm.locationArea),
-    [locations, orderForm.locationArea, orderForm.locationBuilding, orderForm.locationZone],
+    [locations, orderForm.locationArea, orderForm.locationSite, orderForm.locationZone],
   );
 
   useEffect(() => {
     if (!workOrderModalOpen) return;
-    if (!orderForm.locationZone && locationZones.length === 1) {
-      setOrderForm((current) => ({ ...current, locationZone: locationZones[0] }));
+    if (!orderForm.locationSite && locationSites.length === 1) {
+      setOrderForm((current) => ({ ...current, locationSite: locationSites[0] }));
       return;
     }
-    if (!orderForm.locationBuilding && locationBuildings.length === 1) {
-      setOrderForm((current) => ({ ...current, locationBuilding: locationBuildings[0] }));
+    if (!orderForm.locationZone && locationZones.length === 1) {
+      setOrderForm((current) => ({ ...current, locationZone: locationZones[0] }));
       return;
     }
     if (!orderForm.locationArea && locationAreas.length === 1) {
@@ -599,11 +638,11 @@ export function WorkOrderListPage() {
   }, [
     filteredModalLocations,
     locationAreas,
-    locationBuildings,
+    locationSites,
     locationZones,
     orderForm.locationArea,
-    orderForm.locationBuilding,
     orderForm.locationId,
+    orderForm.locationSite,
     orderForm.locationZone,
     workOrderModalOpen,
   ]);
@@ -718,14 +757,16 @@ export function WorkOrderListPage() {
     <section className="work-orders-list-page">
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Mantenimiento / Órdenes operativas</p>
-          <h1>Órdenes operativas</h1>
+          <p className="breadcrumb">OTs / Órdenes de trabajo</p>
+          <h1>Órdenes de trabajo</h1>
           <p>Consulta programación, responsables, avance y estado de OT, OL y OS generadas.</p>
         </div>
-        <button className="button button-primary" type="button" onClick={openCreateOrderModal}>
-          <Plus size={18} weight="bold" />
-          <span>Agregar orden operativa</span>
-        </button>
+        {isAdministrator && (
+          <button className="button button-primary" type="button" onClick={openCreateOrderModal}>
+            <Plus size={18} weight="bold" />
+            <span>Agregar orden</span>
+          </button>
+        )}
       </div>
 
       {orderSuccess && (
@@ -897,6 +938,7 @@ export function WorkOrderListPage() {
               {workOrders.map((workOrder) => {
                 const orderType = getOrderType(workOrder);
                 const isServiceOrder = orderType === "OS";
+                const canExecute = canTechnicianExecuteOrder(workOrder, user);
                 return (
                 <tr key={workOrder.id} className={`work-order-row is-${orderType.toLowerCase()}`}>
                   <td>
@@ -928,9 +970,16 @@ export function WorkOrderListPage() {
                     </span>
                   </td>
                   <td>
-                    <Link className="table-action" to={`/ordenes-trabajo/${workOrder.id}`}>
-                      Ver detalle
-                    </Link>
+                    <div className="work-order-row-actions">
+                      {canExecute && (
+                        <Link className="table-action is-primary-action" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
+                          {getTechnicianExecutionLabel(workOrder)}
+                        </Link>
+                      )}
+                      <Link className="table-action" to={`/ordenes-trabajo/${workOrder.id}`}>
+                        Ver detalle
+                      </Link>
+                    </div>
                   </td>
                 </tr>
                 );
@@ -949,7 +998,7 @@ export function WorkOrderListPage() {
 
         <div
           className="operational-mobile-list hidden max-[720px]:grid gap-2 p-3"
-          aria-label="Órdenes operativas"
+          aria-label="Órdenes de trabajo"
         >
           {workOrders.map((workOrder) => {
             const orderType = getOrderType(workOrder);
@@ -1204,30 +1253,31 @@ export function WorkOrderListPage() {
                         <span>3</span>
                         <div>
                           <h3>Ubicación / ambiente</h3>
-                          <p>Filtra por partes para no buscar en una lista larga.</p>
+                          <p>Selecciona la sede, área macro, área y módulo/ambiente final.</p>
                         </div>
                       </div>
 
                       <div className="form-group-row">
                         <label className="field">
-                          <span>Zona</span>
+                          <span>Sede</span>
                           <select
-                            value={orderForm.locationZone}
-                            onChange={(event) => setOrderForm({ ...orderForm, locationZone: event.target.value, locationBuilding: "", locationArea: "", locationId: "" })}
+                            value={orderForm.locationSite}
+                            onChange={(event) => setOrderForm({ ...orderForm, locationSite: event.target.value, locationZone: "", locationBuilding: "", locationArea: "", locationId: "" })}
                           >
-                            <option value="">Todas las zonas</option>
-                            {locationZones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                            <option value="">Seleccionar sede...</option>
+                            {locationSites.map((site) => <option key={site} value={site}>{site}</option>)}
                           </select>
                         </label>
 
                         <label className="field">
-                          <span>Edificio</span>
+                          <span>Área macro</span>
                           <select
-                            value={orderForm.locationBuilding}
-                            onChange={(event) => setOrderForm({ ...orderForm, locationBuilding: event.target.value, locationArea: "", locationId: "" })}
+                            value={orderForm.locationZone}
+                            disabled={!orderForm.locationSite}
+                            onChange={(event) => setOrderForm({ ...orderForm, locationZone: event.target.value, locationBuilding: "", locationArea: "", locationId: "" })}
                           >
-                            <option value="">Todos los edificios</option>
-                            {locationBuildings.map((building) => <option key={building} value={building}>{building}</option>)}
+                            <option value="">Seleccionar área macro...</option>
+                            {locationZones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
                           </select>
                         </label>
                       </div>
@@ -1237,23 +1287,25 @@ export function WorkOrderListPage() {
                           <span>Área</span>
                           <select
                             value={orderForm.locationArea}
+                            disabled={!orderForm.locationZone}
                             onChange={(event) => setOrderForm({ ...orderForm, locationArea: event.target.value, locationId: "" })}
                           >
-                            <option value="">Todas las áreas</option>
+                            <option value="">Seleccionar área...</option>
                             {locationAreas.map((area) => <option key={area} value={area}>{area}</option>)}
                           </select>
                         </label>
 
                         <label className="field">
-                          <span>Ambiente</span>
+                          <span>Módulo / ambiente de trabajo</span>
                           <select
                             value={orderForm.locationId}
+                            disabled={!orderForm.locationArea}
                             onChange={(event) => setOrderForm({ ...orderForm, locationId: event.target.value })}
                           >
-                            <option value="">Seleccionar ambiente...</option>
+                            <option value="">Seleccionar módulo...</option>
                             {filteredModalLocations.map((item) => (
                               <option key={item.id} value={item.id}>
-                                {item.locationCode ? `${item.locationCode} - ` : ""}{item.building} / {item.area} / {item.room}
+                                {item.locationCode ? `${item.locationCode} - ` : ""}{item.area} / {item.room}
                               </option>
                             ))}
                           </select>

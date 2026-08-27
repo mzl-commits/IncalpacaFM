@@ -641,7 +641,6 @@ class WorkOrderActionSerializer(serializers.Serializer):
             # Check for necessary_no_blocking materials whose required progress percentage is met
             # and check if they still lack stock to notify administrators
             from apps.workorders.models import WorkOrderMaterial
-            from apps.notifications.services import queue_for_administrators
             
             materiales_pendientes = order.materiales_usados.filter(
                 tipo=WorkOrderMaterial.Tipo.NECESARIO_NO_BLOQUEANTE,
@@ -742,6 +741,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
             scheduled_start_time = payload.get("scheduledStartTime") or "08:00"
             planned_hours = payload.get("plannedHours") or 2
             notes = str(payload.get("administratorNotes") or "").strip()
+            operator_id = payload.get("operatorId")
 
             try:
                 parsed_date = datetime.fromisoformat(str(scheduled_date)).date()
@@ -769,6 +769,20 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 raise serializers.ValidationError({
                     'plannedHours': 'Las horas estimadas deben estar entre 1 y 16.'
                 })
+            correction_technician = order.technician
+            if operator_id:
+                users = get_user_model().objects.select_related("account_profile").filter(
+                    is_active=True,
+                    account_profile__role=AccountProfile.Role.TECHNICIAN,
+                )
+                correction_technician = (
+                    users.filter(account_profile__id=operator_id).first()
+                    or users.filter(pk=operator_id).first()
+                )
+                if not correction_technician:
+                    raise serializers.ValidationError({
+                        "operatorId": "Selecciona un operario válido para la corrección."
+                    })
 
             existing_correction = order.correction_orders.order_by("-created_at").first()
             if existing_correction:
@@ -777,7 +791,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 })
 
             validate_technician_availability(
-                order.technician,
+                correction_technician,
                 parsed_date,
                 parsed_time,
                 parsed_hours,
@@ -788,7 +802,7 @@ class WorkOrderActionSerializer(serializers.Serializer):
                 code=next_correction_code(order),
                 incident=order.incident,
                 correction_of=order,
-                technician=order.technician,
+                technician=correction_technician,
                 supervisor=order.supervisor,
                 specialty=order.specialty,
                 admin_priority=order.admin_priority,
@@ -808,9 +822,10 @@ class WorkOrderActionSerializer(serializers.Serializer):
                     ),
                     "scheduledBy": request.user.get_full_name() or request.user.username,
                     "scheduledAt": now.isoformat(),
+                    "selected": getattr(correction_technician.account_profile, "worker_code", "") or correction_technician.username,
                 },
             )
-            correction_order.supporting_technicians.set(order.supporting_technicians.all())
+            correction_order.supporting_technicians.set(order.supporting_technicians.exclude(pk=correction_technician.pk))
             order.recommendation_snapshot = {
                 **(order.recommendation_snapshot or {}),
                 "correctionWorkOrderId": str(correction_order.id),

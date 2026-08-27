@@ -324,6 +324,15 @@ export interface RespuestaCriterio {
   observacion: string;
 }
 
+export interface ObservacionInspeccion {
+  id?: number;
+  codigo: string;
+  nombre: string;
+  observacion_encontrada: string;
+  accion_recomendada?: string;
+  estado?: string;
+}
+
 export interface Inspeccion {
   id: number;
   codigo_inspeccion: string;
@@ -353,6 +362,7 @@ export interface Inspeccion {
   /** Periodicidad del material dueño (o del contenedor, si es pieza), en días. Requerido por TrimestreBadge. */
   material_periodicidad_inspeccion_dias: number | null;
   respuestas: RespuestaCriterio[];
+  items_con_observacion?: ObservacionInspeccion[];
 }
 
 // ─── Planificación (Plan Anual / Programación de inspecciones) ───────────────

@@ -75,11 +75,34 @@ def calcular_frecuencia_sugerida(material, meses: int = 3) -> dict:
     # Si la herramienta lleva más de 90 días sin usarse, decae a bajo uso aunque tuviera historial pasado
     es_inactiva_reciente = dias_sin_uso is not None and dias_sin_uso > 90 and total_salidas == 0
 
+    subcat = getattr(material, "subcategoria", None)
+    subcat_nombre = (subcat.nombre if subcat else "").lower()
+    plantilla_nombre = (subcat.plantilla_inspeccion.nombre if subcat and getattr(subcat, "plantilla_inspeccion", None) else "").lower()
+    cat_nombre = (subcat.categoria.nombre if subcat and subcat.categoria else "").lower()
+    mat_nombre = (material.nombre or "").lower()
+
+    es_electrico_o_inalambrico = (
+        "inalambric" in subcat_nombre
+        or "electri" in subcat_nombre
+        or "inalambric" in plantilla_nombre
+        or "electri" in plantilla_nombre
+        or "inalámbric" in mat_nombre
+        or "eléctric" in mat_nombre
+        or "taladro" in mat_nombre
+        or "amoladora" in mat_nombre
+        or "esmeril" in mat_nombre
+        or "rotomartillo" in mat_nombre
+        or "sierra circular" in mat_nombre
+        or "caladora" in mat_nombre
+        or "lijadora" in mat_nombre
+        or "mezclador" in mat_nombre
+    )
+
     if es_inactiva_reciente:
         categoria_abc = "C"
-        frecuencia = "trimestral"
-        periodicidad_dias = 90
-        label = "Trimestral (sin uso reciente)"
+        frecuencia = "bimestral" if es_electrico_o_inalambrico else "trimestral"
+        periodicidad_dias = 60 if es_electrico_o_inalambrico else 90
+        label = "Bimestral (eléctrica/inalámbrica sin uso reciente)" if es_electrico_o_inalambrico else "Trimestral (sin uso reciente)"
     elif usos_por_mes > UMBRAL_USO_ALTO or (usos_por_mes >= 12 and tasa_incidencias >= 0.25):
         categoria_abc = "A"
         frecuencia = "semanal"
@@ -98,9 +121,9 @@ def calcular_frecuencia_sugerida(material, meses: int = 3) -> dict:
             label = "Mensual (uso medio)"
     else:
         categoria_abc = "C"
-        frecuencia = "trimestral"
-        periodicidad_dias = 90
-        label = "Trimestral (bajo uso)"
+        frecuencia = "bimestral" if es_electrico_o_inalambrico else "trimestral"
+        periodicidad_dias = 60 if es_electrico_o_inalambrico else 90
+        label = "Bimestral (norma SST herramientas eléctricas e inalámbricas)" if es_electrico_o_inalambrico else "Trimestral (bajo uso)"
 
     return {
         "categoria_abc": categoria_abc,
@@ -184,63 +207,159 @@ def calcular_frecuencia_categoria(almacen, categoria_nombre: str, meses: int = 3
 
 
 
-# ── Sistema de colores 5S por trimestre (según Tabla 5 oficial) ─────────────
+# ── Sistema de colores 5S por trimestre y bimestre (según estándar oficial SST) ──
 
-LEYENDA_COLORES = [
+LEYENDA_COLORES_TRIMESTRAL = [
     {
+        "periodo": 1,
         "trimestre": 1,
+        "label": "I Trimestre",
         "nombre": "Amarillo",
-        "hex": "#EAB308",
-        "meses": "Enero – Febrero – Marzo",
+        "hex": "#FFFF00",
+        "meses": "Enero - Febrero - Marzo",
         "meses_num": [1, 2, 3],
-        "rgb_excel": "EAB308",   # para openpyxl
+        "rgb_excel": "FFFF00",
+        "txt_color": "000000",
     },
     {
+        "periodo": 2,
         "trimestre": 2,
+        "label": "II Trimestre",
         "nombre": "Verde",
-        "hex": "#22C55E",
-        "meses": "Abril – Mayo – Junio",
+        "hex": "#00B050",
+        "meses": "Abril - Mayo - Junio",
         "meses_num": [4, 5, 6],
-        "rgb_excel": "22C55E",
+        "rgb_excel": "00B050",
+        "txt_color": "FFFFFF",
     },
     {
+        "periodo": 3,
         "trimestre": 3,
+        "label": "III Trimestre",
         "nombre": "Azul",
-        "hex": "#2563EB",
-        "meses": "Julio – Agosto – Septiembre",
+        "hex": "#0070C0",
+        "meses": "Julio - Agosto - Septiembre",
         "meses_num": [7, 8, 9],
-        "rgb_excel": "2563EB",
+        "rgb_excel": "0070C0",
+        "txt_color": "FFFFFF",
     },
     {
+        "periodo": 4,
         "trimestre": 4,
+        "label": "IV Trimestre",
         "nombre": "Rojo",
-        "hex": "#DC2626",
-        "meses": "Octubre – Noviembre – Diciembre",
+        "hex": "#FF0000",
+        "meses": "Octubre - Noviembre - Diciembre",
         "meses_num": [10, 11, 12],
-        "rgb_excel": "DC2626",
+        "rgb_excel": "FF0000",
+        "txt_color": "FFFFFF",
     },
 ]
 
+LEYENDA_COLORES_BIMESTRAL = [
+    {
+        "periodo": 1,
+        "bimestre": 1,
+        "label": "I Bimestre",
+        "nombre": "Amarillo",
+        "hex": "#FFFF00",
+        "meses": "Enero - Febrero",
+        "meses_num": [1, 2],
+        "rgb_excel": "FFFF00",
+        "txt_color": "000000",
+    },
+    {
+        "periodo": 2,
+        "bimestre": 2,
+        "label": "II Bimestre",
+        "nombre": "Verde",
+        "hex": "#00B050",
+        "meses": "Marzo - Abril",
+        "meses_num": [3, 4],
+        "rgb_excel": "00B050",
+        "txt_color": "FFFFFF",
+    },
+    {
+        "periodo": 3,
+        "bimestre": 3,
+        "label": "III Bimestre",
+        "nombre": "Rojo",
+        "hex": "#FF0000",
+        "meses": "Mayo - Junio",
+        "meses_num": [5, 6],
+        "rgb_excel": "FF0000",
+        "txt_color": "FFFFFF",
+    },
+    {
+        "periodo": 4,
+        "bimestre": 4,
+        "label": "IV Bimestre",
+        "nombre": "Azul",
+        "hex": "#0070C0",
+        "meses": "Julio - Agosto",
+        "meses_num": [7, 8],
+        "rgb_excel": "0070C0",
+        "txt_color": "FFFFFF",
+    },
+    {
+        "periodo": 5,
+        "bimestre": 5,
+        "label": "V Bimestre",
+        "nombre": "Negro",
+        "hex": "#000000",
+        "meses": "Septiembre - Octubre",
+        "meses_num": [9, 10],
+        "rgb_excel": "000000",
+        "txt_color": "FFFFFF",
+    },
+    {
+        "periodo": 6,
+        "bimestre": 6,
+        "label": "VI Bimestre",
+        "nombre": "Blanco",
+        "hex": "#FFFFFF",
+        "meses": "Noviembre - Diciembre",
+        "meses_num": [11, 12],
+        "rgb_excel": "FFFFFF",
+        "txt_color": "000000",
+    },
+]
 
-def color_inspeccion_actual(para_fecha: date | None = None) -> dict:
+LEYENDA_COLORES = LEYENDA_COLORES_TRIMESTRAL
+
+
+def color_inspeccion_actual(para_fecha: date | None = None, frecuencia: str = "trimestral") -> dict:
     """
-    Devuelve el color del trimestre actual (o de la fecha indicada) y la leyenda completa.
+    Devuelve el color del periodo actual (bimestre o trimestre) y la leyenda completa.
+
+    Args:
+        para_fecha: Fecha base para determinar el mes.
+        frecuencia: 'bimestral', 'trimestral' u otra.
 
     Returns:
         {
-          "actual": {
-            "trimestre": int,
-            "nombre": str,
-            "hex": str,
-            "meses": str,
-            "rgb_excel": str,
-          },
-          "leyenda": [ ... lista de los 4 colores ... ],
+          "tipo_periodo": "bimestral" | "trimestral",
+          "actual": { ... datos del color y periodo activo ... },
+          "leyenda": [ ... lista de colores del esquema ... ],
         }
     """
     hoy = para_fecha or date.today()
-    trimestre_idx = (hoy.month - 1) // 3  # 0, 1, 2, 3
-    return {
-        "actual": LEYENDA_COLORES[trimestre_idx],
-        "leyenda": LEYENDA_COLORES,
-    }
+    mes = hoy.month  # 1 a 12
+    freq_norm = (frecuencia or "trimestral").lower()
+
+    if freq_norm == "bimestral":
+        bimestre_idx = (mes - 1) // 2  # 0 a 5
+        actual = LEYENDA_COLORES_BIMESTRAL[bimestre_idx]
+        return {
+            "tipo_periodo": "bimestral",
+            "actual": actual,
+            "leyenda": LEYENDA_COLORES_BIMESTRAL,
+        }
+    else:
+        trimestre_idx = (mes - 1) // 3  # 0 a 3
+        actual = LEYENDA_COLORES_TRIMESTRAL[trimestre_idx]
+        return {
+            "tipo_periodo": "trimestral",
+            "actual": actual,
+            "leyenda": LEYENDA_COLORES_TRIMESTRAL,
+        }

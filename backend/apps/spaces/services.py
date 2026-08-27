@@ -32,8 +32,9 @@ class SpatialValidationError(ValidationError):
 
 def node_snapshot(node: SpaceNode) -> dict:
     try:
-        legacy_location_id = str(node.legacy_location.id)
-    except ObjectDoesNotExist:
+        loc = getattr(node, "legacy_location", None)
+        legacy_location_id = str(loc.id) if loc else None
+    except (ObjectDoesNotExist, AttributeError):
         legacy_location_id = None
     return {
         "id": str(node.id),

@@ -23,8 +23,9 @@ router.register("programaciones-inspeccion", ProgramacionInspeccionViewSet, base
 router.register("plan-anual", PlanInspeccionAnualViewSet, basename="plan-anual")
 router.register("documentos-inspeccion", DocumentoInspeccionViewSet)
 
-urlpatterns = router.urls + [
+urlpatterns = [
     path("color-mes/", color_mes_view, name="color-mes"),
     path("frecuencia-uso/", frecuencia_uso_view, name="frecuencia-uso"),
     path("checklist-contexto/", checklist_contexto_view, name="checklist-contexto"),
-]
+    path("inspecciones/checklist-contexto/", checklist_contexto_view, name="inspeccion-checklist-contexto"),
+] + router.urls

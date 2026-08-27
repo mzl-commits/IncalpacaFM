@@ -190,8 +190,8 @@ export const router = createBrowserRouter([
       {
         path: "incidencias/nueva",
         lazy: lazyRoute(
-          () => import("@/modules/incidents/pages/IncidentCreatePage"),
-          "IncidentCreatePage",
+          () => import("@/modules/incidents/pages/PublicWorkRequestPage"),
+          "PublicWorkRequestPage",
         ),
       },
       {
@@ -225,35 +225,35 @@ export const router = createBrowserRouter([
       },
       {
         path: "ordenes-trabajo/nueva",
-        lazy: administratorLazyRoute(
+        lazy: lazyRoute(
           () => import("@/modules/workorders/pages/WorkOrderTypeSelectorPage"),
           "WorkOrderTypeSelectorPage",
         ),
       },
       {
         path: "ordenes-trabajo/nueva/ot",
-        lazy: administratorLazyRoute(
+        lazy: lazyRoute(
           () => import("@/modules/workorders/pages/DirectWorkOrderCreatePage"),
           "DirectWorkOrderCreatePage",
         ),
       },
       {
         path: "ordenes-trabajo/nueva/ol",
-        lazy: administratorLazyRoute(
+        lazy: lazyRoute(
           () => import("@/modules/workorders/pages/DirectWorkOrderCreatePage"),
           "DirectWorkOrderCreatePage",
         ),
       },
       {
         path: "ordenes-trabajo/nueva/ol-rutinaria",
-        lazy: administratorLazyRoute(
+        lazy: lazyRoute(
           () => import("@/modules/workorders/pages/RoutineCleaningOrderCreatePage"),
           "RoutineCleaningOrderCreatePage",
         ),
       },
       {
         path: "ordenes-trabajo/nueva/os",
-        lazy: administratorLazyRoute(
+        lazy: lazyRoute(
           () => import("@/modules/workorders/pages/ServiceOrderCreatePage"),
           "ServiceOrderCreatePage",
         ),

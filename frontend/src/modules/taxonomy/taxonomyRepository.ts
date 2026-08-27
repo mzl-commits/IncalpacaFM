@@ -11,6 +11,16 @@ import type {
   TaxonomyTreeFamily,
 } from "./types";
 
+export type {
+  TaxonomyFilters,
+  TaxonomyInput,
+  TaxonomyOption,
+  TaxonomyOptionsResult,
+  TaxonomyRecord,
+  TaxonomyReviewStatus,
+  TaxonomyTreeFamily,
+};
+
 type TaxonomyApiRecord = {
   id: string;
   family_id?: string;

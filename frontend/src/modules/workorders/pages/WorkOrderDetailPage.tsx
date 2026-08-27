@@ -37,16 +37,15 @@ import {
 } from "@/modules/workorders/workOrderModel";
 import {
   adminReviewWorkOrder,
-  deleteWorkOrderPhoto,
   getWorkOrderAssetDisplayCode,
   getWorkOrderById,
   listWorkOrders,
   registerWorkOrderProgress,
   scheduleWorkOrderCorrection,
   startWorkOrder,
+  superviseWorkOrder,
   updateServiceOrderStatus,
   updateWorkOrderPlanning,
-  updateWorkOrderPhoto,
 } from "@/modules/workorders/workOrderRepository";
 import type { WorkOrder } from "@/modules/workorders/types";
 
@@ -236,10 +235,14 @@ export function WorkOrderDetailPage() {
   const [adminComment, setAdminComment] = useState("");
   const [adminError, setAdminError] = useState("");
   const [savingAdminReview, setSavingAdminReview] = useState(false);
+  const [supervisorReviewComment, setSupervisorReviewComment] = useState("");
+  const [supervisorReviewError, setSupervisorReviewError] = useState("");
+  const [savingSupervisorReview, setSavingSupervisorReview] = useState(false);
   const [correctionDate, setCorrectionDate] = useState(todayKey());
   const [correctionTime, setCorrectionTime] = useState("08:00");
   const [correctionHours, setCorrectionHours] = useState(2);
   const [correctionNotes, setCorrectionNotes] = useState("");
+  const [correctionOperatorId, setCorrectionOperatorId] = useState("");
   const [correctionError, setCorrectionError] = useState("");
   const [correctionSuccess, setCorrectionSuccess] = useState("");
   const [savingCorrection, setSavingCorrection] = useState(false);
@@ -249,65 +252,11 @@ export function WorkOrderDetailPage() {
   const [serviceAttachments, setServiceAttachments] = useState<string[]>([]);
   const [orders, setOrders] = useState<Awaited<ReturnType<typeof listWorkOrders>>>([]);
   const [photoUrls, setPhotoUrls] = useState<{ start: string | null; finish: string | null }>({ start: null, finish: null });
-  const [uploadingPhoto, setUploadingPhoto] = useState<"start" | "finish" | null>(null);
-  const [photoMessage, setPhotoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [editingPlanning, setEditingPlanning] = useState(false);
   const [planningPeople, setPlanningPeople] = useState<Technician[]>([]);
   const [planningError, setPlanningError] = useState("");
   const [savingPlanning, setSavingPlanning] = useState(false);
   const [planning, setPlanning] = useState<PlanningForm>({ specialty: "ELECTRICIDAD", adminPriority: "MEDIA", status: "PROGRAMADA", scheduledDate: "", scheduledStartTime: "08:00", plannedHours: 2, operatorId: "", supervisorId: "", administratorNotes: "" });
-
-  async function handleUploadPhoto(type: "start" | "finish", file: File) {
-    if (!workOrder) return;
-    setUploadingPhoto(type);
-    setPhotoMessage(null);
-    try {
-      const stage = type === "start" ? "START" : "FINISH";
-      const updated = await updateWorkOrderPhoto(workOrder.id, stage, file);
-      setWorkOrder(updated);
-      setPhotoMessage({
-        type: "success",
-        text: `✅ Foto de "${type === "start" ? "Antes" : "Después"}" subida correctamente.`,
-      });
-    } catch (err: any) {
-      const detail =
-        err?.response?.data?.detail ||
-        err?.response?.data?.photo ||
-        err?.response?.data?.startPhoto ||
-        err?.response?.data?.finishPhoto ||
-        err?.response?.data?.action ||
-        "No se pudo guardar la fotografía. Intenta nuevamente.";
-      setPhotoMessage({
-        type: "error",
-        text: `❌ ${typeof detail === "string" ? detail : JSON.stringify(detail)}`,
-      });
-    } finally {
-      setUploadingPhoto(null);
-    }
-  }
-
-  async function handleDeletePhoto(type: "start" | "finish") {
-    if (!workOrder) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar la foto de "${type === "start" ? "Antes" : "Después"}"?`)) return;
-    setUploadingPhoto(type);
-    setPhotoMessage(null);
-    try {
-      const stage = type === "start" ? "START" : "FINISH";
-      const updated = await deleteWorkOrderPhoto(workOrder.id, stage);
-      setWorkOrder(updated);
-      setPhotoMessage({
-        type: "success",
-        text: `🗑️ Foto de "${type === "start" ? "Antes" : "Después"}" eliminada correctamente.`,
-      });
-    } catch {
-      setPhotoMessage({
-        type: "error",
-        text: "❌ No se pudo eliminar la fotografía.",
-      });
-    } finally {
-      setUploadingPhoto(null);
-    }
-  }
 
   useEffect(() => {
     if (!id) return;
@@ -317,6 +266,7 @@ export function WorkOrderDetailPage() {
       setCorrectionTime(order.scheduledStartTime?.slice(0, 5) || "08:00");
       setCorrectionHours(order.plannedHours || 2);
       setCorrectionNotes(order.administratorNotes || "");
+      setCorrectionOperatorId(order.operatorId || "");
       setRequest(await getWorkRequestById(order.requestId));
     });
     void listWorkOrders().then(setOrders);
@@ -377,9 +327,33 @@ export function WorkOrderDetailPage() {
     }
   }
 
+  async function handleSupervisorReview(requireComment: boolean) {
+    if (!workOrder) return;
+    if (requireComment && supervisorReviewComment.trim().length < 8) {
+      setSupervisorReviewError("Escribe una observación breve para administración.");
+      return;
+    }
+
+    setSavingSupervisorReview(true);
+    setSupervisorReviewError("");
+    try {
+      const updated = await superviseWorkOrder(workOrder.id, true, supervisorReviewComment.trim());
+      setWorkOrder(updated);
+      setSupervisorReviewComment("");
+    } catch {
+      setSupervisorReviewError("No se pudo registrar la revisión del supervisor.");
+    } finally {
+      setSavingSupervisorReview(false);
+    }
+  }
+
   async function handleScheduleCorrection(event?: React.FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (!workOrder) return;
+    if (!correctionOperatorId) {
+      setCorrectionError("Selecciona el operario que atenderá la corrección.");
+      return;
+    }
     if (!correctionDate) {
       setCorrectionError("Selecciona la fecha de corrección.");
       return;
@@ -390,7 +364,7 @@ export function WorkOrderDetailPage() {
     }
     const conflicts = findScheduleConflicts({
       orders,
-      operatorId: workOrder.operatorId,
+      operatorId: correctionOperatorId,
       dates: [correctionDate],
       startTime: correctionTime,
       plannedHours: correctionHours,
@@ -410,11 +384,17 @@ export function WorkOrderDetailPage() {
         scheduledStartTime: correctionTime,
         plannedHours: correctionHours,
         administratorNotes: correctionNotes.trim(),
+        operatorId: correctionOperatorId,
       });
       setWorkOrder(updated);
       setCorrectionSuccess("Programación guardada. El operario verá la corrección en su agenda.");
-    } catch {
-      setCorrectionError("No se pudo programar la corrección. Revisa los datos e intenta nuevamente.");
+    } catch (error: any) {
+      const detail = error?.response?.data;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : Object.values(detail ?? {}).flat().join(" ");
+      setCorrectionError(message || "No se pudo programar la corrección. Revisa los datos e intenta nuevamente.");
     } finally {
       setSavingCorrection(false);
     }
@@ -442,6 +422,25 @@ export function WorkOrderDetailPage() {
       setSavingServiceStatus(false);
     }
   }
+
+  useEffect(() => {
+    if (user?.role !== "ADMINISTRADOR" || planningPeople.length) return;
+    void listTechnicians()
+      .then((people) => setPlanningPeople(people.filter((person) => person.active)))
+      .catch(() => setPlanningError("No se pudo cargar el equipo para programar la corrección."));
+  }, [planningPeople.length, user?.role]);
+
+  useEffect(() => {
+    if (!workOrder || user?.role !== "ADMINISTRADOR" || correctionOperatorId) return;
+    if (workOrder.operatorId) {
+      setCorrectionOperatorId(workOrder.operatorId);
+      return;
+    }
+    const technicians = planningPeople.filter((person) => person.role === "TECNICO");
+    if (technicians.length === 1) {
+      setCorrectionOperatorId(technicians[0].id);
+    }
+  }, [correctionOperatorId, planningPeople, user?.role, workOrder]);
 
   if (!workOrder) {
     return (
@@ -495,8 +494,23 @@ export function WorkOrderDetailPage() {
   };
 
   const isAdmin = user?.role === "ADMINISTRADOR";
-  const canEditPlanning = user?.role === "ADMINISTRADOR" || user?.role === "SUPERVISOR";
-  const needsAdminReview = workOrder.status === "PENDIENTE_DE_VALIDACION";
+  const isAssignedSupervisor = user?.role === "SUPERVISOR" && (
+    user.id === workOrder.supervisorId ||
+    String(user.userId) === String(workOrder.supervisorId) ||
+    user.fullName === workOrder.supervisorName
+  );
+  const canEditPlanning = isAdmin;
+  const hasSupervisorApproval = workOrder.supervisor_validation?.approved === true;
+  const hasAdminDecision = typeof workOrder.administrator_validation?.approved === "boolean";
+  const needsAdminReview =
+    workOrder.status === "PENDIENTE_DE_VALIDACION" ||
+    (
+      hasSupervisorApproval &&
+      !hasAdminDecision &&
+      !["CERRADA", "CANCELADA", "DEVUELTA"].includes(workOrder.status)
+    );
+  const needsSupervisorReview = workOrder.status === "PENDIENTE_DE_SUPERVISION";
+  const canSupervisorReview = isAssignedSupervisor && needsSupervisorReview;
   const isAssignedTechnician = user?.id === workOrder.operatorId;
   const canRegisterProgress = isAssignedTechnician && !isServiceOrder && !workOrder.correctionWorkOrderId && ![
     "CERRADA",
@@ -512,6 +526,8 @@ export function WorkOrderDetailPage() {
   const correctionSchedule = getCorrectionSchedule(workOrder);
   const hasLinkedCorrection = Boolean(workOrder.correctionWorkOrderId);
   const canScheduleCorrection = isAdmin && Boolean(returnInfo) && !correctionSchedule && !hasLinkedCorrection;
+  const correctionTechnicians = planningPeople.filter((person) => person.role === "TECNICO");
+  const selectedCorrectionOperator = correctionTechnicians.find((person) => person.id === correctionOperatorId);
   const serviceDetails = getServiceOrderDetails(workOrder.administratorNotes);
   const serviceStatusCopy = getServiceStatusCopy(workOrder);
   const savedServiceAttachments = getStringList(workOrder.administrator_validation, "attachments");
@@ -825,6 +841,20 @@ export function WorkOrderDetailPage() {
                 <p>{orderCopy.correctionHelp}</p>
               </div>
               <div className="form-grid">
+                <label className="field field-wide">
+                  <span>{isCleaningOrder ? "Responsable de limpieza" : "Operario para la corrección"}</span>
+                  <select
+                    value={correctionOperatorId}
+                    onChange={(event) => setCorrectionOperatorId(event.target.value)}
+                  >
+                    <option value="">{isCleaningOrder ? "Seleccionar responsable" : "Seleccionar operario"}</option>
+                    {correctionTechnicians.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.full_name} - {person.specialty || "Sin especialidad"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="field">
                   <span>Fecha</span>
                   <input
@@ -864,8 +894,8 @@ export function WorkOrderDetailPage() {
                 <div className="field field-wide">
                   <OperatorAvailabilityPanel
                     orders={orders}
-                    operatorId={workOrder.operatorId}
-                    operatorName={workOrder.operatorName}
+                    operatorId={correctionOperatorId}
+                    operatorName={selectedCorrectionOperator?.full_name || workOrder.operatorName}
                     selectedDate={correctionDate}
                     startTime={correctionTime}
                     plannedHours={correctionHours}
@@ -885,8 +915,48 @@ export function WorkOrderDetailPage() {
             </form>
           )}
 
+          {canSupervisorReview && (
+            <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleSupervisorReview(false); }}>
+              <div>
+                <strong>Revisión del supervisor</strong>
+                <p>Valida el trabajo terminado y envíalo a administración para su decisión final.</p>
+              </div>
+              <label className="field field-wide">
+                <span>Observación para administración</span>
+                <textarea
+                  rows={2}
+                  value={supervisorReviewComment}
+                  onChange={(event) => setSupervisorReviewComment(event.target.value)}
+                  placeholder="Ej. Trabajo conforme. Evidencias revisadas."
+                />
+              </label>
+
+              {supervisorReviewError && <div className="form-error">{supervisorReviewError}</div>}
+
+              <div className="admin-evaluation-actions">
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  disabled={savingSupervisorReview}
+                  onClick={() => void handleSupervisorReview(true)}
+                >
+                  <ClipboardText size={16} weight="bold" />
+                  Enviar observación a administración
+                </button>
+                <button className="button button-primary" disabled={savingSupervisorReview}>
+                  <CheckCircle size={16} weight="bold" />
+                  Aprobar y enviar a administración
+                </button>
+              </div>
+            </form>
+          )}
+
           {isAdmin && needsAdminReview && (
             <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleAdminReview(true); }}>
+              <div>
+                <strong>Validación administrativa</strong>
+                <p>Confirma la ejecución o devuelve la orden para crear una corrección vinculada.</p>
+              </div>
               <label className="field field-wide">
                 <span>Comentario administrativo</span>
                 <textarea
@@ -924,7 +994,7 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card work-order-planning-editor">
           <div className="detail-card-heading compact-heading">
             <Briefcase size={18} weight="bold" />
-            <div><h2>Edición operativa</h2><p>Administrador y supervisor pueden actualizar planificación, responsables y estado. Los tiempos reales se conservan desde la ejecución.</p></div>
+            <div><h2>Edición operativa</h2><p>Administración puede actualizar planificación, responsables y estado. Los tiempos reales se conservan desde la ejecución.</p></div>
             <button className="button button-secondary button-sm" type="button" onClick={() => void openPlanningEditor()}>{editingPlanning ? "Actualizando…" : "Editar orden"}</button>
           </div>
           {editingPlanning && <form className="work-order-planning-form" onSubmit={savePlanning}>
@@ -1023,98 +1093,18 @@ export function WorkOrderDetailPage() {
             <ClipboardText size={18} weight="bold" />
             <div>
               <h2>Evidencia fotográfica</h2>
-              <p className="wo-subtitle-sm">Comparativa visual del trabajo (Antes / Después).</p>
+              <p className="wo-subtitle-sm">Comparativa visual registrada desde la ejecución.</p>
             </div>
           </div>
-
-          {photoMessage && (
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: "8px",
-                marginBottom: "14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                background: photoMessage.type === "success" ? "#E8F5E9" : "#FFEBEE",
-                color: photoMessage.type === "success" ? "#1B5E20" : "#C62828",
-                border: `1px solid ${photoMessage.type === "success" ? "#C8E6C9" : "#FFCDD2"}`,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span>{photoMessage.text}</span>
-              <button
-                type="button"
-                style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700, color: "inherit" }}
-                onClick={() => setPhotoMessage(null)}
-              >
-                ✕
-              </button>
-            </div>
-          )}
 
           <div className="work-order-photo-grid wo-compact-photo-grid">
             {([
               ["Antes", photoUrls.start, "Sin foto de inicio.", "start" as const],
               ["Después", photoUrls.finish, "Sin foto final.", "finish" as const],
-            ] as const).map(([label, url, help, photoType]) => (
+            ] as const).map(([label, url, help]) => (
               <figure className="work-order-photo-card wo-compact-photo-card" key={label}>
-                <figcaption style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <figcaption>
                   <strong>{label}</strong>
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                    {url && (
-                      <button
-                        type="button"
-                        style={{
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          color: "#C62828",
-                          fontWeight: 600,
-                          background: "#FFEBEE",
-                          border: "1px solid #FFCDD2",
-                          borderRadius: "6px",
-                          padding: "4px 10px",
-                          transition: "all 0.15s ease",
-                        }}
-                        disabled={uploadingPhoto !== null}
-                        onClick={() => void handleDeletePhoto(photoType)}
-                      >
-                        🗑️ Borrar
-                      </button>
-                    )}
-                    <label
-                      style={{
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        fontSize: "12px",
-                        color: "#FFFFFF",
-                        fontWeight: 600,
-                        background: "#111111",
-                        border: "1px solid #111111",
-                        borderRadius: "6px",
-                        padding: "4px 12px",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {uploadingPhoto === photoType ? "Subiendo..." : url ? "📷 Cambiar foto" : "+ Subir foto"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        disabled={uploadingPhoto !== null}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            void handleUploadPhoto(photoType, file);
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
                 </figcaption>
                 {url ? <img src={url} alt={`Estado del bien ${label.toLowerCase()}`} /> : <div className="work-order-photo-empty">{help}</div>}
               </figure>

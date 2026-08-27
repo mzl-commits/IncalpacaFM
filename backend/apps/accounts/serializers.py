@@ -64,18 +64,22 @@ class LoginSerializer(serializers.Serializer):
 
     @transaction.atomic
     def validate(self, attrs):
+        from django.db.models import Q
         now = timezone.now()
-        worker_code = attrs["worker_code"].strip().upper()
-        duplicate_profiles = AccountProfile.objects.filter(worker_code__iexact=worker_code, active=True, user__is_active=True)
-        if duplicate_profiles.count() > 1:
-            notify_duplicate("Código de trabajador duplicado detectado", f"Se detectaron varios perfiles activos con el código {worker_code} durante un acceso.", f"login-worker:{worker_code}")
-            raise serializers.ValidationError("No se puede validar este código. Contacta al administrador.")
-        try:
-            profile = AccountProfile.objects.select_for_update().select_related("user").get(
-                worker_code__iexact=worker_code, active=True, user__is_active=True
-            )
-        except AccountProfile.DoesNotExist as exc:
-            raise serializers.ValidationError("Credenciales inválidas.") from exc
+        login_input = attrs["worker_code"].strip()
+        
+        matching_profiles = AccountProfile.objects.select_for_update().select_related("user").filter(
+            Q(worker_code__iexact=login_input) | Q(user__username__iexact=login_input) | Q(user__email__iexact=login_input),
+            active=True,
+            user__is_active=True,
+        )
+        if matching_profiles.count() > 1:
+            notify_duplicate("Perfiles duplicados detectados", f"Se detectaron varios perfiles activos para {login_input}.", f"login-dup:{login_input}")
+            raise serializers.ValidationError("No se puede validar este identificador. Contacta al administrador.")
+        
+        profile = matching_profiles.first()
+        if not profile:
+            raise serializers.ValidationError("Credenciales inválidas.")
 
         if profile.dni and AccountProfile.objects.filter(dni=profile.dni).exclude(pk=profile.pk).exists():
             notify_duplicate("DNI duplicado detectado en acceso", f"El DNI {profile.dni} está asociado a más de un perfil.", f"login-dni:{profile.dni}")
@@ -162,7 +166,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
     position = serializers.CharField(source='account_profile.position', max_length=100, allow_blank=True, required=False)
     hourly_rate = serializers.DecimalField(source='account_profile.hourly_rate', max_digits=10, decimal_places=2, min_value=0, required=False)
     active = serializers.BooleanField(source='account_profile.active', required=False)
-    temporary_password = serializers.CharField(write_only=True, min_length=10, required=False)
+    temporary_password = serializers.CharField(write_only=True, min_length=6, required=False, allow_blank=True)
     role = serializers.ChoiceField(
         choices=AccountProfile.Role.choices,
         source='account_profile.role',
@@ -178,12 +182,21 @@ class TechnicianSerializer(serializers.ModelSerializer):
     almacen_nombre = serializers.CharField(
         source='account_profile.almacen.nombre', read_only=True, default=None,
     )
+    current_password_display = serializers.SerializerMethodField()
+
+    def get_current_password_display(self, obj) -> str:
+        profile = getattr(obj, 'account_profile', None)
+        if profile and profile.initial_password:
+            return profile.initial_password
+        if profile and profile.worker_code:
+            return f"{profile.worker_code}2026"
+        return f"{obj.username}2026"
 
     class Meta:
         model = get_user_model()
         fields = (
             'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'position',
-            'hourly_rate', 'active', 'temporary_password', 'role', 'almacen', 'almacen_nombre',
+            'hourly_rate', 'active', 'temporary_password', 'current_password_display', 'role', 'almacen', 'almacen_nombre',
         )
 
     def validate_worker_code(self, value):
@@ -254,6 +267,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
             role=profile_data.get('role', AccountProfile.Role.TECHNICIAN),
             almacen=profile_data.get('almacen'),
             must_change_password=True,
+            initial_password=password,
         )
         return user
 
@@ -271,6 +285,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
             instance.account_profile.must_change_password = True
+            instance.account_profile.initial_password = password
         instance.save()
         profile = instance.account_profile
         for field in ('worker_code', 'specialty', 'position', 'hourly_rate', 'active', 'role', 'almacen'):

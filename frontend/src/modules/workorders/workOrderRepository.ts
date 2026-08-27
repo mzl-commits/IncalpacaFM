@@ -40,7 +40,7 @@ export async function createWorkOrder(
     ...workOrder,
     technicianWorkerCode: workOrder.technicianWorkerCode || "tecnico",
     technicianWorkerCodes: workOrder.technicianWorkerCodes || [],
-    supervisorWorkerCode: "supervisor",
+    supervisorWorkerCode: workOrder.supervisorWorkerCode,
   });
   notifyChanges();
   return data;
@@ -222,6 +222,7 @@ export async function scheduleWorkOrderCorrection(
     scheduledStartTime: string;
     plannedHours: number;
     administratorNotes: string;
+    operatorId?: string;
   },
 ): Promise<WorkOrder> {
   const { data } = await api.post<WorkOrder>(`/work-orders/${id}/actions/`, {

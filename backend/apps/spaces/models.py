@@ -181,5 +181,19 @@ class SpaceNode(models.Model):
             )
         super().save(*args, **kwargs)
 
+    @property
+    def legacy_location(self):
+        from apps.assets.models import Location
+        try:
+            linked = Location.objects.filter(space_node=self).first()
+            if linked:
+                return linked
+            return Location.objects.filter(
+                site__iexact=self.site.name,
+                room__iexact=self.name,
+            ).first()
+        except Exception:
+            return None
+
     def __str__(self):
         return f"{self.path_code or self.code_segment} · {self.name}"

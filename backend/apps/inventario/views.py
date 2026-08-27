@@ -608,32 +608,34 @@ class WorkOrderActivasView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        hoy = timezone.localdate()
-        # Mismos estados que el sweep periódico (apps.notifications.monitoring)
-        # usa para decidir si una OT "venció" por fecha sin completarse.
-        # Una OT en supervisión/validación/conformidad puede tener fecha
-        # pasada legítimamente (el trabajo ya se hizo) y no debe excluirse.
-        estados_vence_por_fecha = [
-            WorkOrder.Status.SCHEDULED,
-            WorkOrder.Status.IN_PROGRESS,
-            WorkOrder.Status.RETURNED,
-        ]
-        qs = (
-            WorkOrder.objects.exclude(
-                status__in=[
-                    WorkOrder.Status.CLOSED,
-                    WorkOrder.Status.CANCELLED,
-                    # Ya marcada como vencida por el sweep periódico.
-                    WorkOrder.Status.PENDING_RESCHEDULE,
-                ]
-            )
-            .exclude(status__in=estados_vence_por_fecha, scheduled_date__lt=hoy)
+        from apps.accounts.permissions import user_role
+        from apps.accounts.models import AccountProfile
+        from apps.workorders.models import WorkOrder
+        from django.db.models import Q
+
+        rol = user_role(request.user)
+        es_admin = (
+            rol == AccountProfile.Role.ADMIN
+            or getattr(request.user, "is_superuser", False)
         )
 
-        # El ADMINISTRADOR ve todas las OTs activas; el ALMACENERO solo las
-        # que se le hayan autorizado explícitamente para este almacén.
-        if user_role(request.user) != AccountProfile.Role.ADMIN:
-            qs = qs.filter(almaceneros_autorizados=request.user)
+        qs = WorkOrder.objects.exclude(
+            status__in=[
+                WorkOrder.Status.CLOSED,
+                WorkOrder.Status.CANCELLED,
+            ]
+        )
+
+        # El ADMINISTRADOR ve todas las OTs activas; los demás usuarios ven
+        # las que se les hayan asignado/autorizado explícitamente.
+        if not es_admin:
+            qs = qs.filter(
+                Q(almaceneros_autorizados=request.user)
+                | Q(technician=request.user)
+                | Q(supporting_technicians=request.user)
+                | Q(supervisor=request.user)
+                | Q(created_by=request.user)
+            ).distinct()
 
         qs = (
             qs.select_related("technician")

@@ -266,7 +266,7 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-PUBLIC_FRONTEND_URL = os.environ.get("PUBLIC_FRONTEND_URL", "http://localhost:5173")
+PUBLIC_FRONTEND_URL = os.environ.get("PUBLIC_FRONTEND_URL", "http://localhost:8008")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "SGTB Incalpaca <no-reply@incalpaca.test>")
 # The generic variables take precedence in production, while the Brevo names
 # keep existing deployments working without duplicating credentials.

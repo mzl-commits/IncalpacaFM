@@ -114,6 +114,7 @@ export function RequestTrackingPage() {
   const params = useParams();
   const navigate = useNavigate();
   const token = params.code ?? params.id ?? "";
+  const hasLoggedUser = Boolean(sessionStorage.getItem("sgtb_current_user"));
   const [searchCode, setSearchCode] = useState(token);
   const [tracking, setTracking] = useState<RequestTracking>();
   const [loading, setLoading] = useState(false);
@@ -177,7 +178,7 @@ export function RequestTrackingPage() {
             <h1>Consulta el avance de tu solicitud</h1>
             <p>Ingresa el código que recibiste al registrar la solicitud.</p>
           </div>
-          <Link className="button button-secondary" to="/solicitud-trabajo">
+          <Link className="button button-secondary" to={hasLoggedUser ? "/incidencias/nueva" : "/solicitud-trabajo"}>
             Nueva solicitud
           </Link>
         </div>

@@ -1,5 +1,5 @@
-import { ArrowLeft, Camera, CheckCircle, FloppyDisk, ImageSquare, MagnifyingGlass, MapPin, WarningCircle } from "@phosphor-icons/react";
-import { useId, useMemo, useState } from "react";
+import { ArrowLeft, Camera, CheckCircle, FloppyDisk, ImageSquare, WarningCircle } from "@phosphor-icons/react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { currentUser } from "@/modules/accounts/currentUser";
 import { LocationMarkerPicker } from "@/modules/assets/components/LocationMarkerPicker";
@@ -11,6 +11,7 @@ import { createClientId } from "@/utils/uuid";
 
 interface RequestFormState {
   locationId: string;
+  site: string;
   zone: string;
   building: string;
   area: string;
@@ -26,12 +27,32 @@ interface RequestFormState {
 }
 
 const initialForm: RequestFormState = {
-  locationId: "", zone: "", building: "", area: "", room: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null,
-  requestType: "", description: "", requesterPriority: "NORMAL", project: false, photoName: "",
+  locationId: "",
+  site: "",
+  zone: "",
+  building: "",
+  area: "",
+  room: "",
+  locationMapId: "",
+  locationMarkerX: null,
+  locationMarkerY: null,
+  requestType: "",
+  description: "",
+  requesterPriority: "NORMAL",
+  project: false,
+  photoName: "",
 };
 
 function locationLabel(location: LocationOption) {
   return `${location.locationCode ? `${location.locationCode} · ` : ""}${location.room}`;
+}
+
+function locationSite(location: LocationOption) {
+  return location.site || "Sede principal";
+}
+
+function uniqueSorted(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b, "es-PE"));
 }
 
 export function IncidentCreatePage() {
@@ -40,26 +61,73 @@ export function IncidentCreatePage() {
   const locationsQuery = useLocations();
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const [form, setForm] = useState<RequestFormState>(initialForm);
-  const [locationQuery, setLocationQuery] = useState("");
-  const [locationFocused, setLocationFocused] = useState(false);
-  const [activeResult, setActiveResult] = useState(0);
   const [error, setError] = useState("");
   const selectedLocation = locations.find((item) => item.id === form.locationId) ?? null;
 
-  const locationResults = useMemo(() => {
-    const normalized = locationQuery.trim().toLocaleLowerCase("es-PE");
-    if (!normalized || selectedLocation) return [];
-    return locations.filter((item) => `${item.locationCode} ${item.room} ${item.area} ${item.building} ${item.zone}`.toLocaleLowerCase("es-PE").includes(normalized)).slice(0, 8);
-  }, [locationQuery, locations, selectedLocation]);
+  const sites = useMemo(() => uniqueSorted(locations.map(locationSite)), [locations]);
+  const macroAreas = useMemo(
+    () => uniqueSorted(locations.filter((item) => !form.site || locationSite(item) === form.site).map((item) => item.zone)),
+    [form.site, locations],
+  );
+  const areas = useMemo(
+    () =>
+      uniqueSorted(
+        locations
+          .filter((item) => !form.site || locationSite(item) === form.site)
+          .filter((item) => !form.zone || item.zone === form.zone)
+          .map((item) => item.area),
+      ),
+    [form.site, form.zone, locations],
+  );
+  const modules = useMemo(
+    () =>
+      locations
+        .filter((item) => !form.site || locationSite(item) === form.site)
+        .filter((item) => !form.zone || item.zone === form.zone)
+        .filter((item) => !form.area || item.area === form.area),
+    [form.area, form.site, form.zone, locations],
+  );
+
+  useEffect(() => {
+    if (!form.site && sites.length === 1) {
+      setForm((current) => ({ ...current, site: sites[0] }));
+      return;
+    }
+    if (form.site && !form.zone && macroAreas.length === 1) {
+      setForm((current) => ({ ...current, zone: macroAreas[0] }));
+      return;
+    }
+    if (form.zone && !form.area && areas.length === 1) {
+      setForm((current) => ({ ...current, area: areas[0] }));
+      return;
+    }
+    if (form.area && !form.locationId && modules.length === 1) {
+      selectLocation(modules[0]);
+    }
+  }, [areas, form.area, form.locationId, form.site, form.zone, macroAreas, modules, sites]);
 
   function updateField<K extends keyof RequestFormState>(field: K, value: RequestFormState[K]) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function clearSelectedLocation(partial: Partial<RequestFormState>) {
+    setForm((current) => ({
+      ...current,
+      ...partial,
+      locationId: "",
+      building: "",
+      room: "",
+      locationMapId: "",
+      locationMarkerX: null,
+      locationMarkerY: null,
+    }));
   }
 
   function selectLocation(location: LocationOption) {
     setForm((current) => ({
       ...current,
       locationId: location.id,
+      site: locationSite(location),
       zone: location.zone,
       building: location.building,
       area: location.area,
@@ -68,22 +136,13 @@ export function IncidentCreatePage() {
       locationMarkerX: null,
       locationMarkerY: null,
     }));
-    setLocationQuery(locationLabel(location));
-    setLocationFocused(false);
-    setActiveResult(0);
     setError("");
-  }
-
-  function changeLocationQuery(value: string) {
-    setLocationQuery(value);
-    setActiveResult(0);
-    setForm((current) => ({ ...current, locationId: "", zone: "", building: "", area: "", room: "", locationMapId: "", locationMarkerX: null, locationMarkerY: null }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.locationId || !form.requestType || form.description.trim().length < 10) {
-      setError("Selecciona una ubicación oficial, completa el tipo de solicitud y describe el problema con al menos 10 caracteres.");
+      setError("Selecciona sede, área macro, área y módulo/ambiente; luego completa el tipo y la descripción.");
       return;
     }
     setError("");
@@ -115,66 +174,184 @@ export function IncidentCreatePage() {
 
   return (
     <section className="incident-create-page">
-      <div className="page-heading"><div><p className="breadcrumb">Mantenimiento / Solicitudes / Nueva solicitud</p><h1>Nueva solicitud de trabajo</h1><p>Registra el problema, ubícalo en el catálogo oficial y adjunta una evidencia para facilitar su evaluación.</p></div><Link className="button button-secondary" to="/incidencias"><ArrowLeft size={18} /> Volver</Link></div>
+      <div className="page-heading">
+        <div>
+          <p className="breadcrumb">Mantenimiento / Solicitudes / Nueva solicitud</p>
+          <h1>Nueva solicitud de trabajo</h1>
+          <p>Registra la solicitud, ubícala en el catálogo oficial y adjunta evidencia para facilitar su evaluación.</p>
+        </div>
+        <Link className="button button-secondary" to="/incidencias">
+          <ArrowLeft size={18} /> Volver
+        </Link>
+      </div>
 
       <form className="data-panel" onSubmit={handleSubmit}>
         <div className="form-section">
-          <div className="section-heading"><div><span className="section-number">1</span><div><h2>Ubicación de la solicitud</h2><p>Busca por código, oficina, ambiente, área o edificio. La plataforma completará la jerarquía automáticamente.</p></div></div></div>
-          <div className="incident-location-layout">
-            <div className="incident-location-search">
-              <label className="field"><span>Buscar ubicación oficial *</span><div className="incident-location-combobox"><MagnifyingGlass /><input
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded={locationFocused && locationResults.length > 0}
-                aria-controls="incident-location-results"
-                aria-activedescendant={locationResults[activeResult] ? `incident-location-${locationResults[activeResult].id}` : undefined}
-                value={locationQuery}
-                onFocus={() => setLocationFocused(true)}
-                onBlur={() => window.setTimeout(() => setLocationFocused(false), 120)}
-                onChange={(event) => changeLocationQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (!locationResults.length) return;
-                  if (event.key === "ArrowDown") { event.preventDefault(); setActiveResult((current) => Math.min(current + 1, locationResults.length - 1)); }
-                  if (event.key === "ArrowUp") { event.preventDefault(); setActiveResult((current) => Math.max(current - 1, 0)); }
-                  if (event.key === "Enter") { event.preventDefault(); selectLocation(locationResults[activeResult]); }
-                  if (event.key === "Escape") setLocationFocused(false);
-                }}
-                placeholder="Ej. AMB-0001, Oficina FM o Mantenimiento"
-                aria-invalid={Boolean(error && !form.locationId)}
-                aria-describedby={error && !form.locationId ? errorId : undefined}
-              /></div></label>
-              {locationFocused && locationQuery.trim() && !selectedLocation && <div className="incident-location-results" id="incident-location-results" role="listbox">
-                {locationsQuery.isPending ? <p>Cargando ubicaciones oficiales…</p>
-                : locationResults.length ? locationResults.map((location, index) => <button id={`incident-location-${location.id}`} role="option" aria-selected={index === activeResult} className={index === activeResult ? "is-active" : ""} type="button" key={location.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectLocation(location)}><MapPin weight="duotone" /><span><strong>{locationLabel(location)}</strong><small>{location.zone} / {location.building} / {location.area}</small></span>{location.activeMap ? <em><ImageSquare weight="fill" /> Con imagen</em> : <em>Sin imagen</em>}</button>)
-                : <p>No hay coincidencias. Prueba con otro código o nombre.</p>}
-              </div>}
-              {selectedLocation && <div className="incident-location-selected"><CheckCircle weight="fill" /><div><strong>{locationLabel(selectedLocation)}</strong><span>{selectedLocation.zone} / {selectedLocation.building} / {selectedLocation.area}</span></div><button type="button" onClick={() => changeLocationQuery("")}>Cambiar</button></div>}
+          <div className="section-heading">
+            <div>
+              <span className="section-number">1</span>
+              <div>
+                <h2>Ubicación de la solicitud</h2>
+                <p>Selecciona la sede, área macro, área y módulo/ambiente de trabajo.</p>
+              </div>
             </div>
-            {selectedLocation && <dl className="incident-location-summary"><div><dt>Zona</dt><dd>{selectedLocation.zone}</dd></div><div><dt>Edificio</dt><dd>{selectedLocation.building}</dd></div><div><dt>Área</dt><dd>{selectedLocation.area}</dd></div><div><dt>Ambiente</dt><dd>{selectedLocation.room}</dd></div></dl>}
           </div>
 
-          {selectedLocation?.activeMap ? <LocationMarkerPicker locationName={locationLabel(selectedLocation)} locationMap={selectedLocation.activeMap} markerX={form.locationMarkerX} markerY={form.locationMarkerY} subjectLabel="incidente" onChange={(x, y) => setForm((current) => ({ ...current, locationMarkerX: x, locationMarkerY: y }))} />
-          : selectedLocation ? <aside className="incident-reference-unavailable"><ImageSquare weight="duotone" /><p><strong>Este ambiente todavía no tiene imagen referencial.</strong><span>La solicitud se registrará con la ubicación oficial. Un administrador podrá incorporar la imagen posteriormente.</span></p></aside> : null}
-        </div>
+          {locationsQuery.isError && (
+            <aside className="incident-reference-unavailable">
+              <ImageSquare weight="duotone" />
+              <p>
+                <strong>No se pudieron cargar las ubicaciones.</strong>
+                <span>Recarga la página e inténtalo nuevamente.</span>
+              </p>
+            </aside>
+          )}
 
-        <div className="form-section">
-          <div className="section-heading"><div><span className="section-number">2</span><div><h2>Detalle del trabajo solicitado</h2><p>Describe claramente la necesidad o el problema reportado.</p></div></div></div>
           <div className="form-grid">
-            <label className="field"><span>Tipo de solicitud *</span><select required value={form.requestType} aria-invalid={Boolean(error && !form.requestType)} aria-describedby={error && !form.requestType ? errorId : undefined} onChange={(event) => updateField("requestType", event.target.value as RequestType)}><option value="">Seleccionar tipo</option>{REQUEST_TYPES.map((type) => <option key={type} value={type}>{requestTypeLabels[type]}</option>)}</select></label>
-            <label className="field"><span>Prioridad del usuario *</span><select required value={form.requesterPriority} onChange={(event) => updateField("requesterPriority", event.target.value as RequestPriority)}>{REQUEST_PRIORITIES.map((priority) => <option key={priority} value={priority}>{requestPriorityLabels[priority]}</option>)}</select></label>
-            <label className="field field-wide"><span>Descripción del problema *</span><textarea required value={form.description} minLength={10} aria-invalid={Boolean(error && form.description.trim().length < 10)} aria-describedby={error && form.description.trim().length < 10 ? errorId : undefined} onChange={(event) => updateField("description", event.target.value)} placeholder="Describe qué ocurre, desde cuándo y cualquier detalle importante." rows={5} maxLength={1000} /><small>{form.description.length} / 1000 caracteres</small></label>
-            <label className="field checkbox-field"><input type="checkbox" checked={form.project} onChange={(event) => updateField("project", event.target.checked)} /><span>La solicitud corresponde a un proyecto</span></label>
+            <label className="field">
+              <span>Sede *</span>
+              <select value={form.site} onChange={(event) => clearSelectedLocation({ site: event.target.value, zone: "", area: "" })}>
+                <option value="">Seleccionar sede...</option>
+                {sites.map((site) => <option key={site} value={site}>{site}</option>)}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Área macro *</span>
+              <select value={form.zone} disabled={!form.site} onChange={(event) => clearSelectedLocation({ zone: event.target.value, area: "" })}>
+                <option value="">Seleccionar área macro...</option>
+                {macroAreas.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Área *</span>
+              <select value={form.area} disabled={!form.zone} onChange={(event) => clearSelectedLocation({ area: event.target.value })}>
+                <option value="">Seleccionar área...</option>
+                {areas.map((area) => <option key={area} value={area}>{area}</option>)}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Módulo / ambiente de trabajo *</span>
+              <select value={form.locationId} disabled={!form.area} onChange={(event) => {
+                const location = modules.find((item) => item.id === event.target.value);
+                if (location) selectLocation(location);
+              }}>
+                <option value="">Seleccionar módulo...</option>
+                {modules.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {locationLabel(location)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {selectedLocation && (
+            <div className="incident-location-selected">
+              <CheckCircle weight="fill" />
+              <div>
+                <strong>{locationLabel(selectedLocation)}</strong>
+                <span>{locationSite(selectedLocation)} / {selectedLocation.zone} / {selectedLocation.area}</span>
+              </div>
+              <button type="button" onClick={() => clearSelectedLocation({ locationId: "" })}>Cambiar</button>
+            </div>
+          )}
+
+          {selectedLocation?.activeMap ? (
+            <div style={{ marginTop: "20px" }}>
+              <LocationMarkerPicker
+                locationName={locationLabel(selectedLocation)}
+                locationMap={selectedLocation.activeMap}
+                markerX={form.locationMarkerX}
+                markerY={form.locationMarkerY}
+                subjectLabel="incidente"
+                onChange={(x, y) => setForm((current) => ({ ...current, locationMarkerX: x, locationMarkerY: y }))}
+              />
+            </div>
+          ) : selectedLocation ? (
+            <aside className="incident-reference-unavailable">
+              <ImageSquare weight="duotone" />
+              <p>
+                <strong>Este ambiente todavía no tiene imagen referencial.</strong>
+                <span>La solicitud se registrará con la ubicación oficial. Un administrador podrá incorporar la imagen posteriormente.</span>
+              </p>
+            </aside>
+          ) : null}
+        </div>
+
+        <div className="form-section">
+          <div className="section-heading">
+            <div>
+              <span className="section-number">2</span>
+              <div>
+                <h2>Detalle del trabajo solicitado</h2>
+                <p>Describe claramente la necesidad o solicitud registrada.</p>
+              </div>
+            </div>
+          </div>
+          <div className="form-grid">
+            <label className="field">
+              <span>Tipo de solicitud *</span>
+              <select required value={form.requestType} onChange={(event) => updateField("requestType", event.target.value as RequestType)}>
+                <option value="">Seleccionar tipo</option>
+                {REQUEST_TYPES.map((type) => <option key={type} value={type}>{requestTypeLabels[type]}</option>)}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Prioridad del usuario *</span>
+              <select required value={form.requesterPriority} onChange={(event) => updateField("requesterPriority", event.target.value as RequestPriority)}>
+                {REQUEST_PRIORITIES.map((priority) => <option key={priority} value={priority}>{requestPriorityLabels[priority]}</option>)}
+              </select>
+            </label>
+
+            <label className="field field-wide">
+              <span>Descripción de la solicitud *</span>
+              <textarea required value={form.description} minLength={10} aria-invalid={Boolean(error && form.description.trim().length < 10)} aria-describedby={error && form.description.trim().length < 10 ? errorId : undefined} onChange={(event) => updateField("description", event.target.value)} placeholder="Describe qué se necesita, desde cuándo y cualquier detalle importante." rows={5} maxLength={1000} />
+              <small>{form.description.length} / 1000 caracteres</small>
+            </label>
+
+            <label className="field checkbox-field">
+              <input type="checkbox" checked={form.project} onChange={(event) => updateField("project", event.target.checked)} />
+              <span>La solicitud corresponde a un proyecto</span>
+            </label>
           </div>
         </div>
 
         <div className="form-section">
-          <div className="section-heading"><div><span className="section-number">3</span><div><h2>Evidencia</h2><p>Adjunta una fotografía que ayude a identificar el problema.</p></div></div></div>
-          <div className="upload-box"><Camera size={32} /><div><strong>Adjuntar fotografía</strong><p>Formatos permitidos: JPG, PNG o WEBP.</p></div><label className="button button-secondary">Seleccionar archivo<input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => updateField("photoName", event.target.files?.[0]?.name ?? "")} /></label></div>
+          <div className="section-heading">
+            <div>
+              <span className="section-number">3</span>
+              <div>
+                <h2>Evidencia</h2>
+                <p>Adjunta una fotografía que ayude a identificar la solicitud.</p>
+              </div>
+            </div>
+          </div>
+          <div className="upload-box">
+            <Camera size={32} />
+            <div>
+              <strong>Adjuntar fotografía</strong>
+              <p>Formatos permitidos: JPG, PNG o WEBP.</p>
+            </div>
+            <label className="button button-secondary">
+              Seleccionar archivo
+              <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => updateField("photoName", event.target.files?.[0]?.name ?? "")} />
+            </label>
+          </div>
           {form.photoName && <p className="selected-file">Archivo seleccionado: <strong>{form.photoName}</strong></p>}
         </div>
 
         {error && <div className="form-error" id={errorId} role="alert" aria-live="assertive"><WarningCircle />{error}</div>}
-        <div className="form-actions"><Link className="button button-secondary" to="/incidencias">Cancelar</Link><button className="button button-primary" type="submit"><FloppyDisk size={18} weight="bold" /> Registrar solicitud</button></div>
+        <div className="form-actions">
+          <Link className="button button-secondary" to="/incidencias">Cancelar</Link>
+          <button className="button button-primary" type="submit">
+            <FloppyDisk size={18} weight="bold" />
+            Registrar solicitud
+          </button>
+        </div>
       </form>
     </section>
   );
