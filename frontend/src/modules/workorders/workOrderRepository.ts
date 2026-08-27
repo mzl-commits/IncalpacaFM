@@ -40,7 +40,7 @@ export async function createWorkOrder(
     ...workOrder,
     technicianWorkerCode: workOrder.technicianWorkerCode || "tecnico",
     technicianWorkerCodes: workOrder.technicianWorkerCodes || [],
-    supervisorWorkerCode: "supervisor",
+    supervisorWorkerCode: workOrder.supervisorWorkerCode,
   });
   notifyChanges();
   return data;
