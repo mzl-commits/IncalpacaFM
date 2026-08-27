@@ -70,6 +70,7 @@ class Inspeccion(models.Model):
         ("semanal", "Semanal"),
         ("quincenal", "Quincenal"),
         ("mensual", "Mensual"),
+        ("bimestral", "Bimestral"),
         ("trimestral", "Trimestral"),
         ("semestral", "Semestral"),
         ("anual", "Anual"),

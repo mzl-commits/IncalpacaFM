@@ -95,8 +95,8 @@ export function InspeccionFormPage() {
   // Contexto inteligente del backend (Frecuencia ABC, color 5S, detección manual)
   // Solo se activa cuando hay un material seleccionado
   const { data: contexto } = useQuery({
-    queryKey: ["checklist-contexto", materialId, almacenId],
-    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined),
+    queryKey: ["checklist-contexto", materialId, almacenId, frecuencia],
+    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined, frecuencia || undefined),
     enabled: materialId > 0,
   });
 
@@ -167,6 +167,21 @@ export function InspeccionFormPage() {
       ))
   );
 
+  // Auto-poblar frecuencia y próxima inspección cuando cambia el material o contexto
+  useEffect(() => {
+    if (material) {
+      const sub = (material.subcategoria_nombre || "").toLowerCase();
+      const nom = (material.nombre || "").toLowerCase();
+      const esElectrico = /inalámbric|electri|taladro|amoladora|esmeril|rotomartillo|caladora|lijadora|sierra|mezclador/i.test(sub + " " + nom);
+      if (esElectrico) {
+        setFrecuencia("bimestral");
+        const hoy = new Date();
+        hoy.setDate(hoy.getDate() + 60);
+        setProximaInspeccion(hoy.toISOString().slice(0, 10));
+      }
+    }
+  }, [material]);
+
   // Auto-poblar frecuencia sugerida desde el cálculo ABC del backend
   useEffect(() => {
     if (contexto?.frecuencia_sugerida?.frecuencia_sugerida) {
@@ -176,10 +191,10 @@ export function InspeccionFormPage() {
 
   // Auto-poblar próxima inspección calculada
   useEffect(() => {
-    if (contexto?.proxima_fecha_calculada && !proximaInspeccion) {
+    if (contexto?.proxima_fecha_calculada) {
       setProximaInspeccion(contexto.proxima_fecha_calculada);
     }
-  }, [contexto?.proxima_fecha_calculada]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contexto?.proxima_fecha_calculada]);
 
   const toggleTipoHerramienta = (item: string) => {
     setTiposHerramientas((prev) =>
@@ -566,11 +581,29 @@ export function InspeccionFormPage() {
                   <Field label="Frecuencia planificada">
                     <select
                       value={frecuencia}
-                      onChange={(e) => setFrecuencia(e.target.value)}
+                      onChange={(e) => {
+                        const f = e.target.value;
+                        setFrecuencia(f);
+                        // Recalcular próxima inspección automáticamente
+                        const diasMap: Record<string, number> = {
+                          semanal: 7,
+                          quincenal: 15,
+                          mensual: 30,
+                          bimestral: 60,
+                          trimestral: 90,
+                          semestral: 180,
+                          anual: 365,
+                        };
+                        const dias = diasMap[f] ?? 90;
+                        const hoy = new Date();
+                        hoy.setDate(hoy.getDate() + dias);
+                        setProximaInspeccion(hoy.toISOString().slice(0, 10));
+                      }}
                     >
                       <option value="semanal">Semanal (7 días)</option>
                       <option value="quincenal">Quincenal (15 días)</option>
                       <option value="mensual">Mensual (30 días)</option>
+                      <option value="bimestral">Bimestral (60 días)</option>
                       <option value="trimestral">Trimestral (90 días)</option>
                       <option value="semestral">Semestral (180 días)</option>
                       <option value="anual">Anual (365 días)</option>
@@ -708,12 +741,39 @@ export function InspeccionFormPage() {
                   )}
                 </Field>
 
-                {/* Banner visual del Color Trimestral 5S */}
+                {/* Banner visual del Color Bimestral/Trimestral 5S */}
                 {contexto?.color_actual && (
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--muted, #64748b)" }}>
-                      Código de Color Trimestral (Sistema 5S)
+                      {contexto.tipo_periodo_color === "bimestral"
+                        ? "Código de Color Bimestral (Sistema 5S)"
+                        : "Código de Color Trimestral (Sistema 5S)"}
                     </label>
+                    {/* Leyenda de todos los periodos */}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                      {contexto.leyenda_colores.map((item) => {
+                        const esPeriodoActivo = item.meses_num?.includes(new Date().getMonth() + 1);
+                        return (
+                          <div
+                            key={item.label ?? item.meses}
+                            title={item.meses}
+                            style={{
+                              background: item.hex,
+                              color: item.txt_color ? (item.txt_color.startsWith('#') ? item.txt_color : `#${item.txt_color}`) : (item.hex === "#FFFF00" || item.hex === "#FFFFFF" ? "#000" : "#fff"),
+                              borderRadius: 4,
+                              padding: "3px 8px",
+                              fontSize: 11,
+                              fontWeight: esPeriodoActivo ? 700 : 500,
+                              border: esPeriodoActivo ? "2px solid #0f172a" : (item.hex === "#FFFFFF" ? "1px solid #cbd5e1" : "1px solid rgba(0,0,0,0.15)"),
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {item.label ?? item.meses}{esPeriodoActivo ? " ★" : ""}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Periodo activo detallado */}
                     <div
                       style={{
                         display: "flex",
@@ -732,15 +792,16 @@ export function InspeccionFormPage() {
                           borderRadius: "50%",
                           background: contexto.color_actual.hex,
                           boxShadow: "0 0 0 2px rgba(0,0,0,0.1)",
+                          border: contexto.color_actual.hex === "#FFFFFF" ? "1px solid #94a3b8" : "none",
                           flexShrink: 0,
                         }}
                       />
                       <div>
                         <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--foreground, #0f172a)" }}>
-                          Trimestre {contexto.color_actual.trimestre} ({contexto.color_actual.meses}): {contexto.color_actual.nombre}
+                          {contexto.color_actual.label ?? (contexto.tipo_periodo_color === "bimestral" ? `Bimestre ${contexto.color_actual.bimestre}` : `Trimestre ${contexto.color_actual.trimestre}`)} — {contexto.color_actual.nombre} ({contexto.color_actual.meses})
                         </div>
                         <div style={{ fontSize: 11, color: "var(--muted, #64748b)" }}>
-                          {contexto.color_actual.descripcion}
+                          Periodo vigente según el sistema 5S
                         </div>
                       </div>
                     </div>
@@ -867,9 +928,25 @@ export function InspeccionFormPage() {
           {/* Paso 4: Criterios dinámicos */}
           {criterios.length > 0 && (
             <div className="form-panel">
-              <div className="form-section-heading">
-                <span>Paso 4</span>
-                <h2>Criterios de inspección ({criterios.length})</h2>
+              <div className="form-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <span>Paso 4</span>
+                  <h2>Criterios de inspección ({criterios.length})</h2>
+                </div>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
+                  onClick={() => {
+                    const nuevas: Record<number, { valor: ValorRespuesta; observacion: string }> = {};
+                    criterios.forEach((c) => {
+                      nuevas[c.id] = { valor: "cumple", observacion: respuestas[c.id]?.observacion || "" };
+                    });
+                    setRespuestas((prev) => ({ ...prev, ...nuevas }));
+                  }}
+                >
+                  ✓ Marcar todos como Cumple
+                </button>
               </div>
               <div>
                 {criterios

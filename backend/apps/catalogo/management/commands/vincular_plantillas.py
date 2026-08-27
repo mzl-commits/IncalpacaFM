@@ -29,7 +29,7 @@ MAPEO = {
     ("Herramientas", "Inalámbrica"): "Inalámbrica",
     ("Herramientas", "Electricidad"): "Manual",
     ("Herramientas", "Accesorios"): "Manual",
-    ("Equipo de Protección Personal", "Protección contra Caídas"): "EPP (equipo de protección personal)",
+    ("Equipo de Protección Personal", "Protección contra Caídas"): "Equipos de protección contra caídas",
     ("Equipo de Protección Personal", "Protección Corporal"): "EPP (equipo de protección personal)",
     ("Equipo de Protección Personal", "Protección para Manos"): "EPP (equipo de protección personal)",
     ("Equipo de Protección Personal", "Protección para Pies"): "EPP (equipo de protección personal)",

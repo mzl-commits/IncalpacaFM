@@ -518,6 +518,7 @@ def color_mes_view(request):
     from apps.inspeccion.utils import color_inspeccion_actual
 
     fecha_param = request.query_params.get("fecha")
+    frecuencia_param = request.query_params.get("frecuencia", "trimestral")
     fecha = None
     if fecha_param:
         try:
@@ -526,7 +527,7 @@ def color_mes_view(request):
         except ValueError:
             return Response({"detail": "Formato de fecha inválido. Use YYYY-MM-DD."}, status=400)
 
-    return Response(color_inspeccion_actual(para_fecha=fecha))
+    return Response(color_inspeccion_actual(para_fecha=fecha, frecuencia=frecuencia_param))
 
 
 @api_view(["GET"])
@@ -588,7 +589,6 @@ def checklist_contexto_view(request):
     from apps.inspeccion.utils import (
         calcular_frecuencia_sugerida,
         color_inspeccion_actual,
-        LEYENDA_COLORES,
     )
     from datetime import date, timedelta
 
@@ -640,8 +640,11 @@ def checklist_contexto_view(request):
         periodicidad = frecuencia_data.get("periodicidad_dias", 90)
         proxima_fecha = (date.today() + timedelta(days=periodicidad)).isoformat()
 
-    # 3. Código y Leyenda de Color 5S
-    color_info = color_inspeccion_actual()
+    # 3. Código y Leyenda de Color 5S (según frecuencia: bimestral o trimestral)
+    frecuencia_solicitada = request.query_params.get("frecuencia")
+    if not frecuencia_solicitada and frecuencia_data:
+        frecuencia_solicitada = frecuencia_data.get("frecuencia", "trimestral")
+    color_info = color_inspeccion_actual(para_fecha=date.today(), frecuencia=frecuencia_solicitada or "trimestral")
 
     # 4. Órdenes disponibles (OT / OL / OP) con control de permisos por rol
     #
@@ -713,7 +716,8 @@ def checklist_contexto_view(request):
         "frecuencia_sugerida": frecuencia_data,
         "proxima_fecha_calculada": proxima_fecha,
         "color_actual": color_info["actual"],
-        "leyenda_colores": LEYENDA_COLORES,
+        "leyenda_colores": color_info["leyenda"],
+        "tipo_periodo_color": color_info["tipo_periodo"],
         "ordenes_disponibles": ordenes_disponibles,
     })
 

@@ -180,12 +180,20 @@ export interface FrecuenciaSugeridaResponse {
 }
 
 export interface Color5SItem {
-  trimestre: number;
+  // Common
+  periodo?: number;
+  label?: string;
   nombre: string;
   meses: string;
+  meses_num?: number[];
   hex: string;
   rgb_excel: string;
-  descripcion: string;
+  txt_color?: string;
+  descripcion?: string;
+  // Trimestral
+  trimestre?: number;
+  // Bimestral
+  bimestre?: number;
 }
 
 export interface OrdenDisponible {
@@ -208,17 +216,20 @@ export interface ChecklistContextoResponse {
   proxima_fecha_calculada: string | null;
   color_actual: Color5SItem;
   leyenda_colores: Color5SItem[];
+  tipo_periodo_color?: "bimestral" | "trimestral";
   ordenes_disponibles: OrdenDisponible[];
 }
 
 export async function getChecklistContexto(
   materialId?: number,
   almacenId?: number,
+  frecuencia?: string,
 ): Promise<ChecklistContextoResponse> {
   const { data } = await api.get<ChecklistContextoResponse>("/checklist-contexto/", {
     params: {
       ...(materialId ? { material: materialId } : {}),
       ...(almacenId ? { almacen: almacenId } : {}),
+      ...(frecuencia ? { frecuencia } : {}),
     },
   });
   return data;

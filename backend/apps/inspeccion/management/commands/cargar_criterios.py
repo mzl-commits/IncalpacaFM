@@ -67,6 +67,43 @@ CRITERIOS = {
         "Polea – ¿Se encuentra instalada, en buen estado y se desliza?",
         "Zapatas de Apoyo – ¿Son completas y en buen estado?",
     ],
+    "Equipos de protección contra caídas": [
+        "CONDICIÓN DEL TEJIDO O CORREA – ¿Fibras externas cortadas, desgastadas o desgarradas?",
+        "CONDICIÓN DEL TEJIDO O CORREA – ¿Costuras, cortes o rotura del tejido?",
+        "CONDICIÓN DEL TEJIDO O CORREA – ¿Grietas?",
+        "CONDICIÓN DEL TEJIDO O CORREA – ¿Estiramiento excesivo?",
+        "CONDICIÓN DEL TEJIDO O CORREA – ¿Deterioro general?",
+        "CONDICIÓN DEL TEJIDO O CORREA – ¿Corrosión por exposición a ácidos o productos químicos?",
+        "CONDICIÓN DEL TEJIDO O CORREA – ¿Quemaduras?",
+        "CONDICIÓN DEL TEJIDO O CORREA – Otros",
+        "ARGOLLAS EN \"D\" O ANILLOS – ¿Con deformaciones o desgastes excesivos?",
+        "ARGOLLAS EN \"D\" O ANILLOS – ¿Picaduras o grietas?",
+        "ARGOLLAS EN \"D\" O ANILLOS – ¿Deterioro general?",
+        "ARGOLLAS EN \"D\" O ANILLOS – ¿Corrosión por exposición a ácidos o productos químicos?",
+        "ARGOLLAS EN \"D\" O ANILLOS – Otros",
+        "HEBILLAS – ¿Desgastes excesivos o deformación?",
+        "HEBILLAS – ¿Picaduras o grietas?",
+        "HEBILLAS – ¿Deterioro general?",
+        "HEBILLAS – ¿Defecto de funcionamiento?",
+        "HEBILLAS – ¿Corrosión por exposición a ácidos o productos químicos?",
+        "HEBILLAS – Otros",
+        "LÍNEA DE SUJECIÓN – ¿Cortes o roturas del tejido de correa, deshilachadas o destrenzadas?",
+        "LÍNEA DE SUJECIÓN – ¿Desgastes, deformación o desgarro?",
+        "LÍNEA DE SUJECIÓN – ¿Estiramiento o elongación excesivos?",
+        "LÍNEA DE SUJECIÓN – ¿Corrosión?",
+        "LÍNEA DE SUJECIÓN – ¿Quemaduras?",
+        "LÍNEA DE SUJECIÓN – Otros",
+        "GANCHOS DE RESORTE (MOSQUETÓN) – ¿Desgaste excesivo o deformaciones?",
+        "GANCHOS DE RESORTE (MOSQUETÓN) – ¿Picaduras o grietas?",
+        "GANCHOS DE RESORTE (MOSQUETÓN) – ¿Resorte con fallas?",
+        "GANCHOS DE RESORTE (MOSQUETÓN) – ¿Ajustes inadecuados o incorrectos de los cierres de resortes o de seguridad?",
+        "GANCHOS DE RESORTE (MOSQUETÓN) – ¿Deterioro general?",
+        "GANCHOS DE RESORTE (MOSQUETÓN) – ¿Corrosión?",
+        "GANCHOS DE RESORTE (MOSQUETÓN) – ¿Abertura de garganta excesiva respecto al diámetro del elemento al cual se fija?",
+        "AMORTIGUADOR – ¿Cortes o roturas del tejido de correa, deshilachadas o destrenzadas?",
+        "AMORTIGUADOR – ¿Deformaciones?",
+        "AMORTIGUADOR – ¿Deterioro general?",
+    ],
     "Iluminaria (linternas / equipos de iluminación)": [
         "Carcasa sin fisuras ni roturas.",
         "Encendido y apagado funciona correctamente.",
@@ -79,7 +116,7 @@ CRITERIOS = {
 }
 
 class Command(BaseCommand):
-    help = "Carga los criterios de inspección en las plantillas (Manual, Inalámbrica, Eléctrica, EPP, Escaleras, Iluminaria)."
+    help = "Carga los criterios de inspección en las plantillas (Manual, Inalámbrica, Eléctrica, EPP, Escaleras, Equipos de protección contra caídas, Iluminaria)."
 
     def handle(self, *args, **options):
         for nombre_plantilla, criterios in CRITERIOS.items():
