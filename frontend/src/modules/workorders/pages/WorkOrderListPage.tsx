@@ -191,6 +191,13 @@ const terminalStatuses = new Set<WorkOrderStatus>([
   "CANCELADA",
 ]);
 
+const technicianExecutableStatuses = new Set<WorkOrderStatus>([
+  "PROGRAMADA",
+  "ASIGNADA",
+  "EN_PROCESO",
+  "REPROCESO",
+]);
+
 const statusClass: Record<WorkOrderStatus, string> = {
   PROGRAMADA: "status-neutral",
   PENDIENTE_REPROGRAMACION: "status-error",
@@ -217,6 +224,28 @@ function formatDate(value: string) {
 function isOverdue(scheduledDate: string, status: WorkOrderStatus) {
   const today = new Date().toISOString().slice(0, 10);
   return scheduledDate < today && !terminalStatuses.has(status);
+}
+
+function canTechnicianExecuteOrder(
+  workOrder: Awaited<ReturnType<typeof listWorkOrders>>[number],
+  user: ReturnType<typeof useAuth>["user"],
+) {
+  if (user?.role !== "TECNICO") return false;
+  if ((workOrder.orderType ?? "OT") === "OS") return false;
+  if (!technicianExecutableStatuses.has(workOrder.status)) return false;
+  if (workOrder.progressPercentage >= 100) return false;
+
+  return (
+    workOrder.operatorId === user.id ||
+    workOrder.operatorName === user.fullName
+  );
+}
+
+function getTechnicianExecutionLabel(workOrder: Awaited<ReturnType<typeof listWorkOrders>>[number]) {
+  const isCleaning = (workOrder.orderType ?? "OT") === "OL";
+  const hasStarted = workOrder.status === "EN_PROCESO" || workOrder.progressPercentage > 0;
+  if (hasStarted) return isCleaning ? "Continuar limpieza" : "Continuar trabajo";
+  return isCleaning ? "Iniciar limpieza" : "Iniciar trabajo";
 }
 
 const typeShortLabels: Record<WorkOrderType, string> = {
@@ -909,6 +938,7 @@ export function WorkOrderListPage() {
               {workOrders.map((workOrder) => {
                 const orderType = getOrderType(workOrder);
                 const isServiceOrder = orderType === "OS";
+                const canExecute = canTechnicianExecuteOrder(workOrder, user);
                 return (
                 <tr key={workOrder.id} className={`work-order-row is-${orderType.toLowerCase()}`}>
                   <td>
@@ -940,9 +970,16 @@ export function WorkOrderListPage() {
                     </span>
                   </td>
                   <td>
-                    <Link className="table-action" to={`/ordenes-trabajo/${workOrder.id}`}>
-                      Ver detalle
-                    </Link>
+                    <div className="work-order-row-actions">
+                      {canExecute && (
+                        <Link className="table-action is-primary-action" to={`/ordenes-trabajo/${workOrder.id}/ejecutar`}>
+                          {getTechnicianExecutionLabel(workOrder)}
+                        </Link>
+                      )}
+                      <Link className="table-action" to={`/ordenes-trabajo/${workOrder.id}`}>
+                        Ver detalle
+                      </Link>
+                    </div>
                   </td>
                 </tr>
                 );

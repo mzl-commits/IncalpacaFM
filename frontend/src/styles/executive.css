@@ -778,6 +778,22 @@ tr:hover td {
   background: var(--accent-soft);
 }
 
+.work-order-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.table-action.is-primary-action {
+  background: #111111;
+  color: #ffffff;
+}
+
+.table-action.is-primary-action:hover {
+  background: #333333;
+}
+
 .table-footer {
   min-height: 50px;
   border-top-color: var(--border-soft);
