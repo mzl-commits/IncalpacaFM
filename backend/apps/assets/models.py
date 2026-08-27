@@ -107,6 +107,13 @@ class AssetInternalSequence(UUIDModel):
 
 
 class Location(UUIDModel):
+    space_node = models.OneToOneField(
+        "spaces.SpaceNode",
+        null=True,
+        blank=True,
+        related_name="asset_location",
+        on_delete=models.SET_NULL,
+    )
     location_code = models.CharField(max_length=20, blank=True, db_index=True)
     source_company = models.CharField(max_length=100, blank=True)
     source_row = models.PositiveIntegerField(null=True, blank=True)
@@ -199,6 +206,13 @@ class Location(UUIDModel):
 class BuildingArea(UUIDModel):
     """Superficie declarada para un edificio, independiente de sus ambientes."""
 
+    space_node = models.OneToOneField(
+        "spaces.SpaceNode",
+        null=True,
+        blank=True,
+        related_name="building_area",
+        on_delete=models.SET_NULL,
+    )
     site = models.CharField(max_length=100, blank=True, default='')
     zone = models.CharField(max_length=100)
     building = models.CharField(max_length=100)

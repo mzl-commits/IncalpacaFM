@@ -185,6 +185,9 @@ class SpaceNode(models.Model):
     def legacy_location(self):
         from apps.assets.models import Location
         try:
+            linked = Location.objects.filter(space_node=self).first()
+            if linked:
+                return linked
             return Location.objects.filter(
                 site__iexact=self.site.name,
                 room__iexact=self.name,

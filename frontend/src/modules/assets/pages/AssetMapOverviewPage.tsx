@@ -103,6 +103,7 @@ function spaceNodesToLocations(nodes: SpaceNode[], usersMap: Map<string, any[]>)
         sourceVersion: "",
         requiresReview: false,
         reviewNotes: "",
+        site: "Sede principal",
         zone,
         building,
         area: locationArea,
