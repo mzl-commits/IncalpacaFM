@@ -128,10 +128,24 @@ export function InspeccionFormPage() {
 
   const material = materialDetalle ?? materiales.find((m) => m.id === materialId);
 
-  // Derivar si la plantilla seleccionada es EPP para personalizar etiquetas; todas las plantillas admiten observaciones
+  // Detectar reactivamente si el material seleccionado es herramienta manual
+  const isHerramientaManual: boolean = Boolean(
+    contexto?.es_herramienta_manual ||
+    tiposHerramientas.length > 0 ||
+    (material?.codigo?.toUpperCase().startsWith("H") &&
+      !material?.subcategoria_nombre?.toLowerCase().includes("inalámbric") &&
+      !material?.subcategoria_nombre?.toLowerCase().includes("eléctric")) ||
+    (material?.nombre &&
+      /alicate|destornillador|llave|martillo|sierra|cincel|lima|pinza|tenaza|cizalla|cutter|flexometro|huincha|nivel|brocha|rodillo|espatula|prensa|comba|manual|cortafrío/i.test(
+        material.nombre,
+      ))
+  );
+
+  // Derivar si la plantilla seleccionada es EPP o Manual para admitir la sección de observaciones de ítems
   const nombrePlantillaNorm = (plantillas.find((p) => p.id === plantillaId)?.nombre ?? "").toLowerCase();
   const esPlantillaEPP = nombrePlantillaNorm.includes("epp") || nombrePlantillaNorm.includes("proteccion personal");
-  const admiteObservaciones = tipo === "grupal";
+  const esPlantillaManual = nombrePlantillaNorm.includes("manual") || isHerramientaManual;
+  const admiteObservaciones = esPlantillaEPP || esPlantillaManual;
 
   const addItemObservacion = () => {
     setItemsObservacion((prev) => [
@@ -153,19 +167,6 @@ export function InspeccionFormPage() {
   const removeItemObservacion = (index: number) => {
     setItemsObservacion((prev) => prev.filter((_, i) => i !== index));
   };
-
-  // Detectar reactivamente si el material seleccionado es herramienta manual
-  const isHerramientaManual: boolean = Boolean(
-    contexto?.es_herramienta_manual ||
-    tiposHerramientas.length > 0 ||
-    (material?.codigo?.toUpperCase().startsWith("H") &&
-      !material?.subcategoria_nombre?.toLowerCase().includes("inalámbric") &&
-      !material?.subcategoria_nombre?.toLowerCase().includes("eléctric")) ||
-    (material?.nombre &&
-      /alicate|destornillador|llave|martillo|sierra|cincel|lima|pinza|tenaza|cizalla|cutter|flexometro|huincha|nivel|brocha|rodillo|espatula|prensa|comba|manual|cortafrío/i.test(
-        material.nombre,
-      ))
-  );
 
   // Auto-poblar frecuencia y próxima inspección cuando cambia el material o contexto
   useEffect(() => {

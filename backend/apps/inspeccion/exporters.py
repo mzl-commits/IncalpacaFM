@@ -916,132 +916,136 @@ def _generar_excel_simple(inspeccion):
 
     curr_row = header_row + len(filas_criterios_render)
 
-    # 6.5. Tabla de Herramientas / EPP / Equipos con Observaciones
-    items_obs = list(inspeccion.items_con_observacion.all())
-    curr_row += 1
-    ws.row_dimensions[curr_row].height = 4  # espaciador
-    curr_row += 1
-
-    if hoja_tipo == HOJA_EPP:
-        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=8)
-        sec_obs_title = ws.cell(row=curr_row, column=1, value="EPP CON OBSERVACIONES (registrar únicamente las que presenten condición insegura)")
-        sec_obs_title.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
-        sec_obs_title.fill = _excel_fill(EXCEL_HEADER_BG)
-        sec_obs_title.alignment = Alignment(horizontal="left", vertical="center")
-        ws.row_dimensions[curr_row].height = 20
-        for c in range(1, 9):
-            ws.cell(row=curr_row, column=c).border = _excel_thin_border()
-
+    # 6.5. Tabla de Herramientas / EPP con Observaciones — SOLO para Manuales (FOR-SST-001) y EPP (FOR-SST-004)
+    if hoja_tipo in (HOJA_MANUALES, HOJA_EPP):
+        items_obs = list(inspeccion.items_con_observacion.all())
         curr_row += 1
-        ws.row_dimensions[curr_row].height = 20
-        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
-        ws.cell(row=curr_row, column=1, value="Código")
-        ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
-        ws.cell(row=curr_row, column=3, value="Nombre del EPP")
-        ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=8)
-        ws.cell(row=curr_row, column=5, value="Observación encontrada")
+        ws.row_dimensions[curr_row].height = 4  # espaciador
+        curr_row += 1
 
-        for c_i in range(1, 9):
-            cell = ws.cell(row=curr_row, column=c_i)
-            cell.fill = _excel_fill(EXCEL_SUBHEADER_BG)
-            cell.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
-            cell.border = _excel_thin_border()
-            cell.alignment = Alignment(horizontal="center", vertical="center")
+        if hoja_tipo == HOJA_EPP:
+            ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=8)
+            sec_obs_title = ws.cell(row=curr_row, column=1, value="EPP CON OBSERVACIONES (registrar únicamente las que presenten condición insegura)")
+            sec_obs_title.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
+            sec_obs_title.fill = _excel_fill(EXCEL_HEADER_BG)
+            sec_obs_title.alignment = Alignment(horizontal="left", vertical="center")
+            ws.row_dimensions[curr_row].height = 20
+            for c in range(1, 9):
+                ws.cell(row=curr_row, column=c).border = _excel_thin_border()
 
-        filas_obs = items_obs if len(items_obs) > 0 else [None, None]
-        for obs_item in filas_obs:
             curr_row += 1
-            ws.row_dimensions[curr_row].height = 19
-            cod_val = obs_item.codigo if obs_item else ""
-            nom_val = obs_item.nombre if obs_item else ""
-            obs_val = obs_item.observacion_encontrada if obs_item else ""
-
+            ws.row_dimensions[curr_row].height = 20
             ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
-            c_cod = ws.cell(row=curr_row, column=1, value=cod_val)
-            c_cod.alignment = Alignment(horizontal="center", vertical="center")
-            c_cod.font = Font(size=9, color="0F172A", name="Calibri")
-
+            ws.cell(row=curr_row, column=1, value="Código")
             ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
-            c_nom = ws.cell(row=curr_row, column=3, value=nom_val)
-            c_nom.alignment = Alignment(horizontal="left", vertical="center")
-            c_nom.font = Font(size=9, color="0F172A", name="Calibri")
-
+            ws.cell(row=curr_row, column=3, value="Nombre del EPP")
             ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=8)
-            c_obs = ws.cell(row=curr_row, column=5, value=obs_val)
-            c_obs.alignment = Alignment(horizontal="left", vertical="center")
-            c_obs.font = Font(size=9, color="0F172A", name="Calibri")
+            ws.cell(row=curr_row, column=5, value="Observación encontrada")
 
-            for col_i in range(1, 9):
-                ws.cell(row=curr_row, column=col_i).border = _excel_thin_border()
-                ws.cell(row=curr_row, column=col_i).fill = _excel_fill("FFFFFF")
+            for c_i in range(1, 9):
+                cell = ws.cell(row=curr_row, column=c_i)
+                cell.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+                cell.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
+                cell.border = _excel_thin_border()
+                cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    else:
-        obs_tabla_titulo = "EQUIPOS CON OBSERVACIONES (registrar únicamente los que presenten condición insegura)" if (hoja_tipo in (HOJA_CAIDAS, HOJA_ESCALERAS)) else "HERRAMIENTAS CON OBSERVACIONES (registrar únicamente las que presenten condición insegura)"
-        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=8)
-        sec_obs_title = ws.cell(row=curr_row, column=1, value=obs_tabla_titulo)
-        sec_obs_title.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
-        sec_obs_title.fill = _excel_fill(EXCEL_HEADER_BG)
-        sec_obs_title.alignment = Alignment(horizontal="left", vertical="center")
-        ws.row_dimensions[curr_row].height = 20
-        for c in range(1, 9):
-            ws.cell(row=curr_row, column=c).border = _excel_thin_border()
+            filas_obs = items_obs if len(items_obs) > 0 else [None, None]
+            for obs_item in filas_obs:
+                curr_row += 1
+                ws.row_dimensions[curr_row].height = 19
+                cod_val = obs_item.codigo if obs_item else ""
+                nom_val = obs_item.nombre if obs_item else ""
+                obs_val = obs_item.observacion_encontrada if obs_item else ""
+
+                ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=2)
+                c_cod = ws.cell(row=curr_row, column=1, value=cod_val)
+                c_cod.alignment = Alignment(horizontal="center", vertical="center")
+                c_cod.font = Font(size=9, color="0F172A", name="Calibri")
+
+                ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
+                c_nom = ws.cell(row=curr_row, column=3, value=nom_val)
+                c_nom.alignment = Alignment(horizontal="left", vertical="center")
+                c_nom.font = Font(size=9, color="0F172A", name="Calibri")
+
+                ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=8)
+                c_obs = ws.cell(row=curr_row, column=5, value=obs_val)
+                c_obs.alignment = Alignment(horizontal="left", vertical="center")
+                c_obs.font = Font(size=9, color="0F172A", name="Calibri")
+
+                for col_i in range(1, 9):
+                    ws.cell(row=curr_row, column=col_i).border = _excel_thin_border()
+                    ws.cell(row=curr_row, column=col_i).fill = _excel_fill("FFFFFF")
+
+        else:
+            # HOJA_MANUALES
+            ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=8)
+            sec_obs_title = ws.cell(row=curr_row, column=1, value="HERRAMIENTAS CON OBSERVACIONES (registrar únicamente las que presenten condición insegura)")
+            sec_obs_title.font = Font(bold=True, size=9.5, color="FFFFFF", name="Calibri")
+            sec_obs_title.fill = _excel_fill(EXCEL_HEADER_BG)
+            sec_obs_title.alignment = Alignment(horizontal="left", vertical="center")
+            ws.row_dimensions[curr_row].height = 20
+            for c in range(1, 9):
+                ws.cell(row=curr_row, column=c).border = _excel_thin_border()
+
+            curr_row += 1
+            ws.row_dimensions[curr_row].height = 20
+            ws.cell(row=curr_row, column=1, value="Código")
+            ws.cell(row=curr_row, column=2, value="Nombre de la herramienta")
+            ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
+            ws.cell(row=curr_row, column=3, value="Observación encontrada")
+            ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=6)
+            ws.cell(row=curr_row, column=5, value="Acción recomendada")
+            ws.merge_cells(start_row=curr_row, start_column=7, end_row=curr_row, end_column=8)
+            ws.cell(row=curr_row, column=7, value="Estado")
+
+            for c_i in range(1, 9):
+                cell = ws.cell(row=curr_row, column=c_i)
+                cell.fill = _excel_fill(EXCEL_SUBHEADER_BG)
+                cell.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
+                cell.border = _excel_thin_border()
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            filas_obs = items_obs if len(items_obs) > 0 else [None, None]
+            for obs_item in filas_obs:
+                curr_row += 1
+                ws.row_dimensions[curr_row].height = 19
+                cod_val = obs_item.codigo if obs_item else ""
+                nom_val = obs_item.nombre if obs_item else ""
+                obs_val = obs_item.observacion_encontrada if obs_item else ""
+                acc_val = obs_item.accion_recomendada if obs_item else ""
+                est_val = obs_item.estado if obs_item else ""
+
+                c_cod = ws.cell(row=curr_row, column=1, value=cod_val)
+                c_cod.alignment = Alignment(horizontal="center", vertical="center")
+                c_cod.font = Font(size=9, color="0F172A", name="Calibri")
+
+                c_nom = ws.cell(row=curr_row, column=2, value=nom_val)
+                c_nom.alignment = Alignment(horizontal="left", vertical="center")
+                c_nom.font = Font(size=9, color="0F172A", name="Calibri")
+
+                ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
+                c_obs = ws.cell(row=curr_row, column=3, value=obs_val)
+                c_obs.alignment = Alignment(horizontal="left", vertical="center")
+                c_obs.font = Font(size=9, color="0F172A", name="Calibri")
+
+                ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=6)
+                c_acc = ws.cell(row=curr_row, column=5, value=acc_val)
+                c_acc.alignment = Alignment(horizontal="left", vertical="center")
+                c_acc.font = Font(size=9, color="0F172A", name="Calibri")
+
+                ws.merge_cells(start_row=curr_row, start_column=7, end_row=curr_row, end_column=8)
+                c_est = ws.cell(row=curr_row, column=7, value=est_val)
+                c_est.alignment = Alignment(horizontal="center", vertical="center")
+                c_est.font = Font(size=9, color="0F172A", name="Calibri")
+
+                for col_i in range(1, 9):
+                    ws.cell(row=curr_row, column=col_i).border = _excel_thin_border()
+                    ws.cell(row=curr_row, column=col_i).fill = _excel_fill("FFFFFF")
 
         curr_row += 1
-        ws.row_dimensions[curr_row].height = 20
-        ws.cell(row=curr_row, column=1, value="Código")
-        ws.cell(row=curr_row, column=2, value="Nombre del equipo / herramienta")
-        ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
-        ws.cell(row=curr_row, column=3, value="Observación encontrada")
-        ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=6)
-        ws.cell(row=curr_row, column=5, value="Acción recomendada")
-        ws.merge_cells(start_row=curr_row, start_column=7, end_row=curr_row, end_column=8)
-        ws.cell(row=curr_row, column=7, value="Estado")
+        ws.row_dimensions[curr_row].height = 4  # espaciador
 
-        for c_i in range(1, 9):
-            cell = ws.cell(row=curr_row, column=c_i)
-            cell.fill = _excel_fill(EXCEL_SUBHEADER_BG)
-            cell.font = Font(bold=True, size=9, color="FFFFFF", name="Calibri")
-            cell.border = _excel_thin_border()
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-
-        filas_obs = items_obs if len(items_obs) > 0 else [None, None]
-        for obs_item in filas_obs:
-            curr_row += 1
-            ws.row_dimensions[curr_row].height = 19
-            cod_val = obs_item.codigo if obs_item else ""
-            nom_val = obs_item.nombre if obs_item else ""
-            obs_val = obs_item.observacion_encontrada if obs_item else ""
-            acc_val = obs_item.accion_recomendada if obs_item else ""
-            est_val = obs_item.estado if obs_item else ""
-
-            c_cod = ws.cell(row=curr_row, column=1, value=cod_val)
-            c_cod.alignment = Alignment(horizontal="center", vertical="center")
-            c_cod.font = Font(size=9, color="0F172A", name="Calibri")
-
-            c_nom = ws.cell(row=curr_row, column=2, value=nom_val)
-            c_nom.alignment = Alignment(horizontal="left", vertical="center")
-            c_nom.font = Font(size=9, color="0F172A", name="Calibri")
-
-            ws.merge_cells(start_row=curr_row, start_column=3, end_row=curr_row, end_column=4)
-            c_obs = ws.cell(row=curr_row, column=3, value=obs_val)
-            c_obs.alignment = Alignment(horizontal="left", vertical="center")
-            c_obs.font = Font(size=9, color="0F172A", name="Calibri")
-
-            ws.merge_cells(start_row=curr_row, start_column=5, end_row=curr_row, end_column=6)
-            c_acc = ws.cell(row=curr_row, column=5, value=acc_val)
-            c_acc.alignment = Alignment(horizontal="left", vertical="center")
-            c_acc.font = Font(size=9, color="0F172A", name="Calibri")
-
-            ws.merge_cells(start_row=curr_row, start_column=7, end_row=curr_row, end_column=8)
-            c_est = ws.cell(row=curr_row, column=7, value=est_val)
-            c_est.alignment = Alignment(horizontal="center", vertical="center")
-            c_est.font = Font(size=9, color="0F172A", name="Calibri")
-
-            for col_i in range(1, 9):
-                ws.cell(row=curr_row, column=col_i).border = _excel_thin_border()
-                ws.cell(row=curr_row, column=col_i).fill = _excel_fill("FFFFFF")
-
-    curr_row += 2
+    curr_row += 1
 
     # 7. Sección de Resultados (Fila curr_row)
     if hoja_tipo == HOJA_CAIDAS:
@@ -1923,11 +1927,8 @@ def generar_pdf_inspeccion(inspeccion):
         "SeccionBody", parent=styles["Normal"], fontSize=8, leading=12,
     )
 
-    # ── Tabla de Herramientas / EPP con Observaciones (todas las plantillas) ──
-    plantilla_nombre_norm_pdf = _normalizar(inspeccion.plantilla.nombre if getattr(inspeccion, "plantilla", None) else "")
-    es_epp_pdf = (hoja_nombre == HOJA_EPP)
-
-    if es_epp_pdf:
+    # ── Tabla de Herramientas / EPP con Observaciones — SOLO para Manuales y EPP ──
+    if hoja_nombre == HOJA_EPP:
         obs_items = list(inspeccion.items_con_observacion.all())
         obs_data = [["Código", "Nombre del EPP", "Observación encontrada"]]
         filas = obs_items if len(obs_items) > 0 else [None]
@@ -1951,11 +1952,9 @@ def generar_pdf_inspeccion(inspeccion):
         elementos.append(Paragraph("<b>EPP CON OBSERVACIONES (condición insegura)</b>", seccion_heading_style))
         elementos.append(t_obs)
         elementos.append(Spacer(1, 5))
-    else:
+    elif hoja_nombre == HOJA_MANUALES:
         obs_items = list(inspeccion.items_con_observacion.all())
-        label_equipo = "del equipo / herramienta" if (hoja_nombre in (HOJA_CAIDAS, HOJA_ESCALERAS)) else "de la herramienta"
-        titulo_sec_obs = "EQUIPOS CON OBSERVACIONES (condición insegura)" if (hoja_nombre in (HOJA_CAIDAS, HOJA_ESCALERAS)) else "HERRAMIENTAS CON OBSERVACIONES (condición insegura)"
-        obs_data = [["Código", f"Nombre {label_equipo}", "Observación encontrada", "Acción recomendada", "Estado"]]
+        obs_data = [["Código", "Nombre de la herramienta", "Observación encontrada", "Acción recomendada", "Estado"]]
         filas = obs_items if len(obs_items) > 0 else [None]
         for item in filas:
             obs_data.append([
@@ -1976,7 +1975,7 @@ def generar_pdf_inspeccion(inspeccion):
             ("TOPPADDING", (0, 0), (-1, -1), 2),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
-        elementos.append(Paragraph(f"<b>{titulo_sec_obs}</b>", seccion_heading_style))
+        elementos.append(Paragraph("<b>HERRAMIENTAS CON OBSERVACIONES (condición insegura)</b>", seccion_heading_style))
         elementos.append(t_obs)
         elementos.append(Spacer(1, 5))
 
