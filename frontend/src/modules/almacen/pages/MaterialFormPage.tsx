@@ -392,7 +392,7 @@ export function MaterialFormPage() {
                   onChange={(e) => set("nombre", e.target.value)}
                 />
               </Field>
-              <Field label="Código EKIPU" hint="Código interno del equipo, si aplica" error={errors.codigo_quipu}>
+              <Field label="Código QUIPU" hint="Código interno del equipo, si aplica" error={errors.codigo_quipu}>
                 <input
                   type="text"
                   value={form.codigo_quipu ?? ""}
