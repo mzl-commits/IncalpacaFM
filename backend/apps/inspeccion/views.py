@@ -2,8 +2,10 @@ from rest_framework import viewsets, status
 from datetime import timedelta, date
 
 from django.utils import timezone
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
 from django.db import transaction
 from apps.catalogo.models import Material
 from apps.catalogo.views import AlmacenScopedMixin
@@ -574,159 +576,144 @@ def frecuencia_uso_view(request):
 @drf_permission_classes([IsAuthenticated])
 def checklist_contexto_view(request):
     """
-    Endpoint integrado para el check list:
-    Combina en una sola respuesta el color del mes (5S), la leyenda de colores,
-    la frecuencia de uso sugerida (ABC) y los tipos de orden admitidos (OT/OL/OS/OP).
-
-    GET /api/inspeccion/checklist-contexto/?material=5
-    GET /api/inspeccion/checklist-contexto/?categoria=Herramientas&almacen=1
+    Endpoint contextual para el formulario de Check List de Inspección.
+    Devuelve:
+      - Detección de si el material es herramienta manual.
+      - Frecuencia recomendada según rotación de salidas (fórmula ABC) e historial de fallas.
+      - Próxima fecha calculada a partir de la periodicidad sugerida.
+      - Color oficial 5S del trimestre activo y leyenda de los 4 trimestres.
+      - Lista de órdenes de trabajo (OT/OL/OP) recientes para autocompletar con control de permisos.
     """
+    from apps.catalogo.models import Material
     from apps.inspeccion.utils import (
-        color_inspeccion_actual,
         calcular_frecuencia_sugerida,
-        calcular_frecuencia_categoria,
+        color_inspeccion_actual,
+        LEYENDA_COLORES,
     )
-    from apps.catalogo.models import Material, Almacen
+    from datetime import date, timedelta
 
-    # 1. Color del trimestre actual y leyenda 5S
-    fecha_param = request.query_params.get("fecha")
-    fecha = None
-    if fecha_param:
-        try:
-            from datetime import date as dt_date
-            fecha = dt_date.fromisoformat(fecha_param)
-        except ValueError:
-            pass
-    info_color = color_inspeccion_actual(para_fecha=fecha)
-
-    # 2. Frecuencia sugerida (ABC)
-    meses = int(request.query_params.get("meses", 3))
     material_id = request.query_params.get("material")
-    categoria_nombre = request.query_params.get("categoria")
-    almacen_id = request.query_params.get("almacen")
 
-    frecuencia_info = None
+    material_obj = None
     if material_id:
         try:
-            mat = Material.objects.select_related("subcategoria__categoria").get(pk=material_id)
-            frecuencia_info = calcular_frecuencia_sugerida(mat, meses=meses)
-            frecuencia_info["material_id"] = mat.id
-            frecuencia_info["material_nombre"] = mat.nombre
-            frecuencia_info["categoria_nombre"] = mat.subcategoria.categoria.nombre
+            material_obj = Material.objects.select_related(
+                "subcategoria__categoria", "subcategoria__plantilla_inspeccion"
+            ).get(pk=material_id)
         except Material.DoesNotExist:
             pass
-    elif categoria_nombre and almacen_id:
-        try:
-            alm = Almacen.objects.get(pk=almacen_id)
-            frecuencia_info = calcular_frecuencia_categoria(alm, categoria_nombre, meses=meses)
-            frecuencia_info["categoria"] = categoria_nombre
-            frecuencia_info["almacen_id"] = alm.id
-        except Almacen.DoesNotExist:
-            pass
 
-    from apps.inspeccion.models import Inspeccion, ProgramacionInspeccion
-    from apps.workorders.models import WorkOrder
-    from apps.inventario.models import Movimiento
-    from django.utils import timezone
-    from datetime import timedelta
-
-    hoy = timezone.localdate()
-    inspecciones_hoy = Inspeccion.objects.filter(fecha__date=hoy).count()
-
-    # Calcular fecha exacta y conteo de inspecciones
-    dias_map = {
-        "semanal": 7,
-        "quincenal": 15,
-        "mensual": 30,
-        "trimestral": 90,
-        "anual": 365,
-    }
-    freq_nombre = (frecuencia_info.get("frecuencia_sugerida") or "trimestral").lower() if frecuencia_info else "trimestral"
-    dias_offset = dias_map.get(freq_nombre, 90)
-    proxima_fecha = hoy + timedelta(days=dias_offset)
-    inspecciones_en_proxima_fecha = (
-        Inspeccion.objects.filter(fecha__date=proxima_fecha).count()
-        + ProgramacionInspeccion.objects.filter(fecha_programada=proxima_fecha).count()
-    )
-
+    # 1. Detección de Herramienta Manual
     es_manual = False
-    if material_id:
-        try:
-            mat = Material.objects.select_related("subcategoria__categoria").get(pk=material_id)
-            sub_nom = (mat.subcategoria.nombre if mat.subcategoria else "").lower()
-            cat_nom = (mat.subcategoria.categoria.nombre if mat.subcategoria and mat.subcategoria.categoria else "").lower()
-            mat_nom = mat.nombre.lower()
-            codigo = (mat.codigo or "").upper()
+    frecuencia_data = None
+    proxima_fecha = None
 
-            es_electrica = any(x in sub_nom for x in ["eléctrica", "electrica", "inalámbrica", "inalambrica", "batería", "bateria", "cable"])
-            es_herramienta = "herramienta" in cat_nom or "herramienta" in sub_nom or codigo.startswith("H")
-            es_sub_manual = "manual" in sub_nom or "electricidad" in sub_nom or "paletas y espatulas" in sub_nom or "cerrajería" in sub_nom
+    if material_obj:
+        subcat = material_obj.subcategoria
+        subcat_nombre = (subcat.nombre if subcat else "").lower()
+        cat_nombre = (subcat.categoria.nombre if subcat and subcat.categoria else "").lower()
+        codigo_mat = (material_obj.codigo or "").upper()
+        nombre_mat = (material_obj.nombre or "").lower()
 
-            HERRAMIENTAS_KW = [
-                "alicate", "destornillador", "llave", "martillo", "sierra", "cincel", "lima",
-                "pinza", "tenaza", "cizalla", "cutter", "flexometro", "huincha", "nivel",
-                "brocha", "rodillo", "espatula", "prensa", "comba", "cortafrío", "manual",
-                "rache", "dado", "torquimetro", "remachadora", "cautin", "tijera"
-            ]
+        palabras_clave_manuales = [
+            "alicate", "destornillador", "llave", "martillo", "sierra", "cincel",
+            "lima", "pinza", "tenaza", "cizalla", "cutter", "flexometro", "huincha",
+            "nivel", "brocha", "rodillo", "espatula", "prensa", "comba", "manual",
+            "cortafrío", "formon", "escuadra", "remachadora", "garlopa",
+        ]
 
-            es_manual = (es_herramienta and not es_electrica) or es_sub_manual or any(
-                kw in mat_nom for kw in HERRAMIENTAS_KW
-            )
-        except Material.DoesNotExist:
-            pass
+        if "manual" in subcat_nombre:
+            es_manual = True
+        elif "herramienta" in cat_nombre and not any(k in subcat_nombre for k in ["inalámbric", "eléctric", "neumátic"]):
+            es_manual = True
+        elif codigo_mat.startswith("H") and not any(k in subcat_nombre for k in ["inalámbric", "eléctric"]):
+            es_manual = True
+        elif any(p in nombre_mat for p in palabras_clave_manuales):
+            es_manual = True
 
+        # 2. Cálculo de Frecuencia Sugerida
+        frecuencia_data = calcular_frecuencia_sugerida(material_obj)
+        frecuencia_data["material_id"] = material_obj.id
+        frecuencia_data["material_nombre"] = material_obj.nombre
+        frecuencia_data["categoria_nombre"] = cat_nombre or "General"
 
-    # 3. Listado de Órdenes de Trabajo / Órdenes disponibles para selector
+        periodicidad = frecuencia_data.get("periodicidad_dias", 90)
+        proxima_fecha = (date.today() + timedelta(days=periodicidad)).isoformat()
+
+    # 3. Código y Leyenda de Color 5S
+    color_info = color_inspeccion_actual()
+
+    # 4. Órdenes disponibles (OT / OL / OP) con control de permisos por rol
+    #
+    # Fórmula de visibilidad previa (solo para referencia):
+    #   ordenes_qs = WorkOrder.objects.exclude(
+    #       status=WorkOrder.Status.CLOSED
+    #   ).values("id", "code", "title")[:20]
+    #
+    # Fórmula actual con permisos por rol:
+    #   - ADMIN / superuser → todas las OTs activas (no cerradas, no canceladas)
+    #   - INSPECTOR / TECNICO / SUPERVISOR / ALMACENERO → solo las OTs donde
+    #     el usuario aparece en alguna de estas relaciones:
+    #       · almaceneros_autorizados  (autorizado explícitamente por el admin)
+    #       · technician               (técnico principal de la OT)
+    #       · supporting_technicians   (técnico de apoyo)
+    #       · supervisor               (supervisor de la OT)
+    #       · created_by               (quien creó la orden)
     ordenes_disponibles = []
-    # A) Desde WorkOrders del sistema
     try:
-        wos = (
-            WorkOrder.objects.all()
-            .order_by("-code")[:30]
+        from apps.workorders.models import WorkOrder
+        from apps.accounts.permissions import user_role
+        from apps.accounts.models import AccountProfile
+
+        rol = user_role(request.user)
+        es_admin = (
+            rol == AccountProfile.Role.ADMIN
+            or getattr(request.user, "is_superuser", False)
         )
-        for wo in wos:
-            ordenes_disponibles.append({
-                "codigo": wo.code,
-                "label": f"{wo.code} — {wo.specialty} ({wo.get_status_display()})",
-                "tipo": wo.order_type,
-            })
-    except Exception:
-        pass
 
-    # B) Desde Movimientos con referencia OT/OL/OP/OS
-    refs_mov = (
-        Movimiento.objects.exclude(referencia_externa="")
-        .values_list("referencia_externa", flat=True)
-        .distinct()[:20]
-    )
-    codigos_ya_incluidos = {o["codigo"] for o in ordenes_disponibles}
-    for ref in refs_mov:
-        if ref and ref.strip() and ref.strip() not in codigos_ya_incluidos:
-            ordenes_disponibles.append({
-                "codigo": ref.strip(),
-                "label": f"{ref.strip()} (Movimiento de almacén)",
-                "tipo": "OT" if ref.upper().startswith("OT") else ("OL" if ref.upper().startswith("OL") else "OP"),
-            })
-            codigos_ya_incluidos.add(ref.strip())
+        ordenes_qs = WorkOrder.objects.exclude(
+            status__in=[WorkOrder.Status.CLOSED, WorkOrder.Status.CANCELLED]
+        ).select_related("incident", "technician")
 
-    # 4. Tipos de orden reconocidos
-    tipos_orden = [
-        {"codigo": "OT", "nombre": "Orden de Trabajo"},
-        {"codigo": "OL", "nombre": "Orden de Lubricación"},
-        {"codigo": "OS", "nombre": "Orden de Servicio"},
-        {"codigo": "OP", "nombre": "Orden de Producción"},
-    ]
+        if not es_admin:
+            ordenes_qs = ordenes_qs.filter(
+                Q(almaceneros_autorizados=request.user)
+                | Q(technician=request.user)
+                | Q(supporting_technicians=request.user)
+                | Q(supervisor=request.user)
+                | Q(created_by=request.user)
+            ).distinct()
+
+        ordenes_qs = ordenes_qs.order_by("-created_at")[:100]
+
+        for o in ordenes_qs:
+            desc = ""
+            if o.incident and o.incident.description:
+                desc = o.incident.description.strip()
+                if len(desc) > 55:
+                    desc = desc[:52] + "..."
+            elif o.specialty:
+                desc = o.specialty
+            else:
+                desc = o.get_order_type_display()
+
+            ordenes_disponibles.append({
+                "id": str(o.id),
+                "codigo": o.code,
+                "descripcion": desc,
+                "tipo": o.order_type,
+                "estado": o.status,
+            })
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("checklist_contexto: ordenes failed: %s", e)
 
     return Response({
-        "color_mes": info_color["actual"],
-        "leyenda_colores": info_color["leyenda"],
-        "frecuencia_sugerida": frecuencia_info,
-        "fecha_actual": hoy.isoformat(),
-        "proxima_fecha_calculada": proxima_fecha.isoformat(),
-        "inspecciones_hoy": inspecciones_hoy,
-        "inspecciones_en_proxima_fecha": inspecciones_en_proxima_fecha,
         "es_herramienta_manual": es_manual,
+        "frecuencia_sugerida": frecuencia_data,
+        "proxima_fecha_calculada": proxima_fecha,
+        "color_actual": color_info["actual"],
+        "leyenda_colores": LEYENDA_COLORES,
         "ordenes_disponibles": ordenes_disponibles,
-        "tipos_orden": tipos_orden,
     })
 

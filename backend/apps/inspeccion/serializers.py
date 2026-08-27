@@ -4,11 +4,21 @@ from django.db import transaction
 from apps.inspeccion.models import (
      PlantillaCriterio, Criterio, Inspeccion, RespuestaCriterio,
      PlanInspeccionAnual, ProgramacionInspeccion, DocumentoInspeccion,
+     ObservacionInspeccion,
 )
 
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+class ObservacionInspeccionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ObservacionInspeccion
+        fields = [
+            "id", "inspeccion", "codigo", "nombre",
+            "observacion_encontrada", "accion_recomendada", "estado",
+        ]
+        read_only_fields = ["id", "inspeccion"]
 
 class CriterioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -46,6 +56,7 @@ class InspeccionSerializer(serializers.ModelSerializer):
     inspector_nombre = serializers.SerializerMethodField()
     plantilla_nombre = serializers.CharField(source="plantilla.nombre", read_only=True)
     respuestas = RespuestaCriterioSerializer(many=True, read_only=True)
+    items_con_observacion = ObservacionInspeccionSerializer(many=True, read_only=True)
     # la periodicidad real del material dueño (o del material del contenedor, si esta inspección es de una pieza). 
     # TrimestreBadge la necesita para calcular vigencia (vencida/próxima/al día); antes solo
     # vivía en el Material, no llegaba junto con la Inspeccion.
@@ -56,15 +67,16 @@ class InspeccionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Inspeccion
         fields = [
-            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "area", "frecuencia",
+            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "modalidad", "frecuencia",
+            "area", "area_trabajo", "referencia_orden", "tipos_herramientas",
             "material", "material_codigo", "material_nombre",
             "pieza", "pieza_codigo", "piezas_lote", "piezas_lote_codigos",
             "plantilla", "plantilla_nombre",
             "fecha", "proxima_inspeccion", "inspector", "inspector_nombre",
-            "modalidad", "frecuencia", "area_trabajo", "tipos_herramientas",
             "cantidad_inspeccionada", "cantidad_apta", "cantidad_no_apta",
-            "resultado_general", "accion_tomada", "observaciones", "referencia_orden",
-            "respuestas", "material_periodicidad_inspeccion_dias", "almacen", "almacen_nombre",
+            "resultado_general", "accion_tomada", "observaciones", "respuestas",
+            "items_con_observacion",
+            "material_periodicidad_inspeccion_dias", "almacen", "almacen_nombre",
         ]
 
     def get_inspector_nombre(self, obj) -> str:
@@ -115,9 +127,17 @@ class DocumentoInspeccionSerializer(serializers.ModelSerializer):
                 })
         return super().create(validated_data)
 
+class ItemConObservacionCrearSerializer(serializers.Serializer):
+    codigo = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    nombre = serializers.CharField(max_length=200)
+    observacion_encontrada = serializers.CharField()
+    accion_recomendada = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    estado = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+
 class InspeccionCrearSerializer(serializers.ModelSerializer):
     respuestas = RespuestaCriterioCrearSerializer(many=True, write_only=True, required=False, default=[])
     codigo_inspeccion = serializers.CharField(read_only=True)
+    items_con_observacion = ItemConObservacionCrearSerializer(many=True, write_only=True, required=False, default=[])
     inspector = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True, default=None, 
     )
@@ -125,13 +145,15 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
     class Meta:
         model = Inspeccion
         fields = [
-            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "area", "frecuencia",
+            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "modalidad", "frecuencia",
+            "area", "area_trabajo", "referencia_orden", "tipos_herramientas",
             "material", "pieza", "piezas_lote", "plantilla",
-            "proxima_inspeccion", "inspector", "modalidad",
-            "area_trabajo", "tipos_herramientas", "cantidad_inspeccionada",
-            "cantidad_apta", "cantidad_no_apta", "resultado_general",
-            "accion_tomada", "observaciones", "referencia_orden", "respuestas",
+            "proxima_inspeccion", "inspector",
+            "cantidad_inspeccionada", "cantidad_apta", "cantidad_no_apta",
+            "resultado_general", "accion_tomada", "observaciones", "respuestas",
+            "items_con_observacion",
         ]
+
 
     def validate(self, data):
     # Inspección individual siempre debe apuntar a una pieza específica
@@ -213,6 +235,7 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         respuestas_data = validated_data.pop("respuestas", [])
+        items_con_observacion_data = validated_data.pop("items_con_observacion", [])
         piezas_lote_data = validated_data.pop("piezas_lote", [])
 
         # Si no viene inspector explícito, usar el usuario autenticado. Sin ninguno de los dos, error.
@@ -261,6 +284,16 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     criterio=criterio,
                     valor=resp["valor"],
                     observacion=resp.get("observacion", ""),
+                )
+
+            for item_data in items_con_observacion_data:
+                ObservacionInspeccion.objects.create(
+                    inspeccion=inspeccion,
+                    codigo=item_data.get("codigo", ""),
+                    nombre=item_data.get("nombre", ""),
+                    observacion_encontrada=item_data.get("observacion_encontrada", ""),
+                    accion_recomendada=item_data.get("accion_recomendada", ""),
+                    estado=item_data.get("estado", ""),
                 )
 
             # Sincroniza el estado de la pieza según la acción: mantenimiento es directo;

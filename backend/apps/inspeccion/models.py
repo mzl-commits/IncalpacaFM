@@ -62,6 +62,49 @@ class Inspeccion(models.Model):
         "catalogo.Pieza", blank=True, related_name="inspecciones_grupales",
     )
 
+    MODALIDAD_CHOICES = [
+        ("planificada", "Planificada"),
+        ("no_planificada", "No planificada"),
+    ]
+    FRECUENCIA_CHOICES = [
+        ("semanal", "Semanal"),
+        ("quincenal", "Quincenal"),
+        ("mensual", "Mensual"),
+        ("trimestral", "Trimestral"),
+        ("semestral", "Semestral"),
+        ("anual", "Anual"),
+    ]
+
+    modalidad = models.CharField(
+        max_length=20,
+        choices=MODALIDAD_CHOICES,
+        default="planificada",
+        help_text="Modalidad de la inspección: Planificada o No planificada",
+    )
+    frecuencia = models.CharField(
+        max_length=20,
+        choices=FRECUENCIA_CHOICES,
+        default="trimestral",
+        help_text="Frecuencia planificada para la herramienta",
+    )
+    area_trabajo = models.CharField(
+        max_length=150,
+        blank=True,
+        default="Facility Management",
+        help_text="Área de trabajo / Lugar donde se ubica o usa la herramienta",
+    )
+    referencia_orden = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Referencia OT / OL / OP si aplica",
+    )
+    tipos_herramientas = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Lista de tipos de herramientas manuales seleccionados (ej: golpe, corte, sujeción...)",
+    )
+
     plantilla = models.ForeignKey("PlantillaCriterio", on_delete=models.PROTECT)
     fecha = models.DateTimeField(default=timezone.now)
     proxima_inspeccion = models.DateField(null=True, blank=True)
@@ -178,6 +221,7 @@ class Inspeccion(models.Model):
                 self.frecuencia = f"Cada {dias} días"
         super().save(*args, **kwargs)
 
+
 class RespuestaCriterio(models.Model):
     VALOR_CHOICES = [
         ("cumple", "Cumple"),
@@ -293,5 +337,33 @@ class DocumentoInspeccion(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.tipo}) - Inspección #{self.inspeccion_id}"
+
+
+class ObservacionInspeccion(models.Model):
+    """
+    Herramientas o EPP con observaciones / condición insegura detectada durante
+    la inspección grupal (hojas Manuales y EPP del Excel oficial de Incalpaca).
+    """
+    inspeccion = models.ForeignKey(
+        Inspeccion, on_delete=models.CASCADE, related_name="items_con_observacion"
+    )
+    codigo = models.CharField(max_length=100, blank=True)
+    nombre = models.CharField(max_length=200)
+    observacion_encontrada = models.TextField()
+    accion_recomendada = models.CharField(
+        max_length=255, blank=True,
+        help_text="Solo aplica a plantilla Manual",
+    )
+    estado = models.CharField(
+        max_length=100, blank=True,
+        help_text="Solo aplica a plantilla Manual",
+    )
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.codigo or 'S/C'} - {self.nombre} (Inspección #{self.inspeccion_id})"
+
 
 

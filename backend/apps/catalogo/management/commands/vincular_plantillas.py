@@ -24,11 +24,17 @@ from apps.inspeccion.models import PlantillaCriterio
 # Ve agregando líneas aquí a medida que definas criterios para más rubros
 # (Gasfitería, Carpintería, Acabados, Electricidad, Luminaria, Redes, EPP, Albañilería...).
 MAPEO = {
-    ("Herramientas", "Manuales"): "Manual",
+    ("Herramientas", "Manual"): "Manual",
     ("Herramientas", "Eléctrica"): "Eléctrica",
     ("Herramientas", "Inalámbrica"): "Inalámbrica",
-    ("Herramientas", "Electricidad"): "Manual",  # destornilladores/alicates de electricista: son manuales
-    # ("Herramientas", "Accesorios"): "???",       # aún sin definir
+    ("Herramientas", "Electricidad"): "Manual",
+    ("Herramientas", "Accesorios"): "Manual",
+    ("Equipo de Protección Personal", "Protección contra Caídas"): "EPP (equipo de protección personal)",
+    ("Equipo de Protección Personal", "Protección Corporal"): "EPP (equipo de protección personal)",
+    ("Equipo de Protección Personal", "Protección para Manos"): "EPP (equipo de protección personal)",
+    ("Equipo de Protección Personal", "Protección para Pies"): "EPP (equipo de protección personal)",
+    ("Equipo de Protección Personal", "Protección Visual"): "EPP (equipo de protección personal)",
+    ("Equipo de Protección Personal", "Ropa de Protección Climática"): "EPP (equipo de protección personal)",
 }
 
 
@@ -45,7 +51,7 @@ class Command(BaseCommand):
                     categoria__nombre=cat_nombre, nombre=sub_nombre
                 )
             except Subcategoria.DoesNotExist:
-                errores.append(f"No existe la subcategoría '{cat_nombre} → {sub_nombre}'.")
+                errores.append(f"No existe la subcategoría '{cat_nombre} -> {sub_nombre}'.")
                 continue
 
             try:
@@ -53,16 +59,16 @@ class Command(BaseCommand):
             except PlantillaCriterio.DoesNotExist:
                 errores.append(
                     f"No existe la plantilla '{plantilla_nombre}' "
-                    f"(requerida por '{cat_nombre} → {sub_nombre}')."
+                    f"(requerida por '{cat_nombre} -> {sub_nombre}')."
                 )
                 continue
 
             if sub.plantilla_inspeccion_id != plantilla.id:
                 sub.plantilla_inspeccion = plantilla
                 sub.save(update_fields=["plantilla_inspeccion"])
-                self.stdout.write(f"  ✓ {cat_nombre} → {sub_nombre}  ⇒  {plantilla_nombre}")
+                self.stdout.write(f"  [OK] {cat_nombre} -> {sub_nombre} => {plantilla_nombre}")
             else:
-                self.stdout.write(f"  · {cat_nombre} → {sub_nombre}  ya estaba vinculada.")
+                self.stdout.write(f"  [--] {cat_nombre} -> {sub_nombre} ya estaba vinculada.")
             vinculadas += 1
 
         # Reporte de subcategorías que quedaron sin ningún mapeo (ni acierto ni error arriba)
@@ -76,7 +82,7 @@ class Command(BaseCommand):
             plantilla_inspeccion__isnull=False
         )
 
-        self.stdout.write(self.style.SUCCESS(f"\n{vinculadas} subcategoría(s) vinculada(s) u ok."))
+        self.stdout.write(self.style.SUCCESS(f"\n{vinculadas} subcategoria(s) vinculada(s) u ok."))
 
         if errores:
             self.stdout.write(self.style.ERROR(f"\n{len(errores)} error(es):"))
@@ -85,8 +91,8 @@ class Command(BaseCommand):
 
         if pendientes.exists():
             self.stdout.write(self.style.WARNING(
-                f"\n{pendientes.count()} subcategoría(s) sin plantilla asignada todavía "
+                f"\n{pendientes.count()} subcategoria(s) sin plantilla asignada todavia "
                 f"(sus materiales se seguirán saltando en inicializar_inspecciones_julio):"
             ))
             for s in pendientes:
-                self.stdout.write(f"  - {s.categoria.nombre} → {s.nombre}")
+                self.stdout.write(f"  - {s.categoria.nombre} -> {s.nombre}")
