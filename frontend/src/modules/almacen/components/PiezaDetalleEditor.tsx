@@ -44,7 +44,7 @@ export function PiezaDetalleEditor({
         {value ? (
           <span style={{ color: "var(--text)" }}>{value}</span>
         ) : (
-          <span style={{ color: "var(--muted)", fontStyle: "italic" }}>Sin nombre</span>
+          <span style={{ color: "var(--muted)", fontStyle: "italic" }}>Detalle adicional</span>
         )}
         <button
           type="button"
