@@ -310,7 +310,7 @@ export function AppShell() {
       .join("")
       .toUpperCase() || "SG";
 
-  const technicianNavigation = roleModules.find((mod) => mod.id === "dashboard")?.items ?? [];
+  const technicianNavigation = roleModules.find((mod) => mod.id === "work_orders")?.items ?? [];
   const supervisorNavigation = roleModules.flatMap((mod) => mod.items);
 
   useEffect(() => {

@@ -60,6 +60,7 @@ class PublicLocationListView(APIView):
             {
                 "id": str(location.id),
                 "code": location.location_code,
+                "site": location.site,
                 "zone": location.zone,
                 "building": location.building,
                 "area": location.area,

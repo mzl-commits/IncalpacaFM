@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "@/services/api";
+import type { SystemUser } from "@/modules/accounts/types";
 import { createClientId } from "@/utils/uuid";
 
 type ImpactAnswer = "" | "SI" | "NO";
@@ -12,6 +13,7 @@ type SuggestedPriority = "NORMAL" | "URGENTE" | "EMERGENCIA";
 interface PublicLocationOption {
   id: string;
   code: string;
+  site: string;
   zone: string;
   building: string;
   area: string;
@@ -26,6 +28,7 @@ interface PublicAssetContext {
   photoUrl: string | null;
   generalLocation: string;
   locationId?: string;
+  site?: string;
   zone?: string;
   building?: string;
   area?: string;
@@ -38,6 +41,7 @@ interface PublicRequestFormState {
   requesterDni: string;
   requesterWorkerCode: string;
   locationId: string;
+  site: string;
   zone: string;
   building: string;
   area: string;
@@ -65,6 +69,7 @@ const initialForm: PublicRequestFormState = {
   requesterDni: "",
   requesterWorkerCode: "",
   locationId: "",
+  site: "",
   zone: "",
   building: "",
   area: "",
@@ -84,6 +89,16 @@ const initialForm: PublicRequestFormState = {
   biggerDamageRisk: "",
   affectedPeople: "",
 };
+
+function getLoggedRequester(): SystemUser | null {
+  const raw = sessionStorage.getItem("sgtb_current_user");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as SystemUser;
+  } catch {
+    return null;
+  }
+}
 
 
 const yesNoOptions = [
@@ -137,8 +152,10 @@ function getSubmitErrorMessage(error: unknown) {
 }
 export function PublicWorkRequestPage() {
   const [assetToken] = useState(() => new URLSearchParams(window.location.search).get("asset")?.trim() ?? "");
+  const loggedRequester = useMemo(() => getLoggedRequester(), []);
   const [form, setForm] = useState<PublicRequestFormState>(initialForm);
   const [submittedCode, setSubmittedCode] = useState("");
+  const [submittedId, setSubmittedId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [locations, setLocations] = useState<PublicLocationOption[]>([]);
@@ -149,6 +166,19 @@ export function PublicWorkRequestPage() {
   const [identityMessage, setIdentityMessage] = useState("");
 
   useEffect(() => {
+    if (!loggedRequester) return;
+    setForm((current) => ({
+      ...current,
+      requesterName: loggedRequester.fullName || current.requesterName,
+      requesterEmail: loggedRequester.email || current.requesterEmail,
+      requesterDni: loggedRequester.dni || current.requesterDni,
+      requesterWorkerCode: loggedRequester.workerCode || current.requesterWorkerCode,
+      requesterPhone: "",
+    }));
+  }, [loggedRequester]);
+
+  useEffect(() => {
+    if (loggedRequester) return;
     const dni = form.requesterDni.trim();
     const workerCode = form.requesterWorkerCode.trim();
     if (dni.length !== 8 && !workerCode) { setIdentityMessage(""); return; }
@@ -162,7 +192,7 @@ export function PublicWorkRequestPage() {
         .catch(() => setIdentityMessage("No se pudo verificar la identidad; puedes continuar completando los datos."));
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [form.requesterDni, form.requesterWorkerCode]);
+  }, [form.requesterDni, form.requesterWorkerCode, loggedRequester]);
 
   useEffect(() => {
     let active = true;
@@ -199,6 +229,7 @@ export function PublicWorkRequestPage() {
           setForm((current) => ({
             ...current,
             locationId: data.locationId ?? current.locationId,
+            site: data.site ?? current.site,
             zone: data.zone ?? current.zone,
             building: data.building ?? current.building,
             area: data.area ?? current.area,
@@ -233,22 +264,28 @@ export function PublicWorkRequestPage() {
   );
   const suggestedPriority = calculateSuggestedPriority(form);
   const priorityReasons = getPriorityReasons(form);
-  const zoneOptions = useMemo(() => Array.from(new Set(locations.map((location) => location.zone))).filter(Boolean), [locations]);
+  const siteOptions = useMemo(() => Array.from(new Set(locations.map((location) => location.site || "Sede principal"))).filter(Boolean), [locations]);
+  const zoneOptions = useMemo(() => Array.from(new Set(
+    locations
+      .filter((location) => !form.site || (location.site || "Sede principal") === form.site)
+      .map((location) => location.zone),
+  )).filter(Boolean), [locations, form.site]);
   const buildingOptions = useMemo(() => Array.from(new Set(
     locations
-      .filter((location) => !form.zone || location.zone === form.zone)
+      .filter((location) => (!form.site || (location.site || "Sede principal") === form.site) && (!form.zone || location.zone === form.zone))
       .map((location) => location.building),
-  )).filter(Boolean), [locations, form.zone]);
+  )).filter(Boolean), [locations, form.site, form.zone]);
   const areaOptions = useMemo(() => Array.from(new Set(
     locations
-      .filter((location) => (!form.zone || location.zone === form.zone) && (!form.building || location.building === form.building))
+      .filter((location) => (!form.site || (location.site || "Sede principal") === form.site) && (!form.zone || location.zone === form.zone) && (!form.building || location.building === form.building))
       .map((location) => location.area),
-  )).filter(Boolean), [locations, form.zone, form.building]);
+  )).filter(Boolean), [locations, form.site, form.zone, form.building]);
   const roomOptions = useMemo(() => locations.filter((location) =>
+    (!form.site || (location.site || "Sede principal") === form.site) &&
     (!form.zone || location.zone === form.zone) &&
     (!form.building || location.building === form.building) &&
     (!form.area || location.area === form.area),
-  ), [locations, form.zone, form.building, form.area]);
+  ), [locations, form.site, form.zone, form.building, form.area]);
   const assetLocation = useMemo(() => {
     if (!asset) return null;
     return locations.find((location) => location.id === asset.locationId) ??
@@ -268,6 +305,7 @@ export function PublicWorkRequestPage() {
       return {
         ...current,
         locationId: assetLocation.id,
+        site: assetLocation.site || "Sede principal",
         zone: assetLocation.zone,
         building: assetLocation.building,
         area: assetLocation.area,
@@ -277,6 +315,10 @@ export function PublicWorkRequestPage() {
   }, [assetLocation]);
 
   useEffect(() => {
+    if (!form.site && siteOptions.length === 1) {
+      setForm((current) => ({ ...current, site: siteOptions[0] }));
+      return;
+    }
     if (!form.zone && zoneOptions.length === 1) {
       setForm((current) => ({ ...current, zone: zoneOptions[0] }));
       return;
@@ -294,13 +336,14 @@ export function PublicWorkRequestPage() {
       setForm((current) => ({
         ...current,
         locationId: selected.id,
+        site: selected.site || "Sede principal",
         zone: selected.zone,
         building: selected.building,
         area: selected.area,
         room: selected.room,
       }));
     }
-  }, [areaOptions, buildingOptions, form.area, form.building, form.locationId, form.zone, roomOptions, zoneOptions]);
+  }, [areaOptions, buildingOptions, form.area, form.building, form.locationId, form.site, form.zone, roomOptions, siteOptions, zoneOptions]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -327,13 +370,15 @@ export function PublicWorkRequestPage() {
     setError("");
 
     try {
-      const { data } = await api.post<{ code: string; emailSent?: boolean }>("/incidents/public/", {
+      const requestPayload = {
         requesterName: form.requesterName.trim(),
         requesterEmail: form.requesterEmail.trim(),
         requesterPhone: form.requesterPhone.trim(),
         requesterDni: form.requesterDni.trim(),
         requesterWorkerCode: form.requesterWorkerCode.trim(),
         assetToken: assetToken || undefined,
+        locationId: form.locationId,
+        site: form.site,
         zone: form.zone,
         building: form.building.trim(),
         area: form.area.trim(),
@@ -365,9 +410,48 @@ export function PublicWorkRequestPage() {
           biggerDamageRisk: form.biggerDamageRisk,
           affectedPeople: form.affectedPeople,
         },
-      });
+      };
+
+      const { data } = loggedRequester
+        ? await api.post<{ id: string; code: string }>("/incidents/", {
+            requesterName: loggedRequester.fullName,
+            requesterEmail: loggedRequester.email,
+            requesterContact: {
+              name: loggedRequester.fullName,
+              email: loggedRequester.email,
+              workerCode: loggedRequester.workerCode,
+            },
+            locationId: form.locationId,
+            zone: form.zone,
+            building: form.building.trim(),
+            area: form.area.trim(),
+            room: form.room.trim(),
+            requestType: form.issueCategory || "OTRO",
+            description: form.description.trim(),
+            requesterPriority: suggestedPriority,
+            project: false,
+            evidence: form.photoName
+              ? [
+                  {
+                    id: createClientId("evidence"),
+                    name: form.photoName,
+                    mimeType: "image/*",
+                    size: 0,
+                  },
+                ]
+              : [],
+            impactAssessment: {
+              suggestedPriority,
+              priorityReasons,
+              answers: requestPayload.impactAnswers,
+              noPhotoReason: form.cannotAttachPhoto ? form.noPhotoReason.trim() : "",
+            },
+            status: "PENDIENTE",
+          })
+        : await api.post<{ id?: string; code: string; emailSent?: boolean }>("/incidents/public/", requestPayload);
 
       setSubmittedCode(data.code);
+      setSubmittedId(data.id ?? "");
       setForm(initialForm);
     } catch (submitError) {
       setError(getSubmitErrorMessage(submitError));
@@ -423,8 +507,11 @@ export function PublicWorkRequestPage() {
             <div>
               <strong>Solicitud registrada</strong>
               <p>Tu código de solicitud es {submittedCode}. El administrador revisará la prioridad final.</p>
-              <Link className="button button-secondary" to={`/seguimiento-solicitud/${submittedCode}`}>
-                Ver seguimiento
+              <Link
+                className="button button-secondary"
+                to={loggedRequester && submittedId ? `/incidencias/${submittedId}` : `/seguimiento-solicitud/${submittedCode}`}
+              >
+                {loggedRequester ? "Ver mi solicitud" : "Ver seguimiento"}
               </Link>
             </div>
           </div>
@@ -436,8 +523,8 @@ export function PublicWorkRequestPage() {
               <div>
                 <span className="section-number">1</span>
                 <div>
-                  <h2>Datos de contacto</h2>
-                  <p>Indica tus datos para poder informarte sobre el avance de la solicitud.</p>
+                  <h2>Datos del solicitante</h2>
+                  <p>{loggedRequester ? "Usaremos los datos de tu cuenta para registrar la solicitud." : "Indica tus datos para poder informarte sobre el avance de la solicitud."}</p>
                 </div>
               </div>
             </div>
@@ -449,6 +536,7 @@ export function PublicWorkRequestPage() {
                   required
                   value={form.requesterName}
                   onChange={(event) => updateField("requesterName", event.target.value)}
+                  readOnly={Boolean(loggedRequester)}
                   placeholder="Ej. Ana Torres"
                 />
               </label>
@@ -460,16 +548,8 @@ export function PublicWorkRequestPage() {
                   type="email"
                   value={form.requesterEmail}
                   onChange={(event) => updateField("requesterEmail", event.target.value)}
+                  readOnly={Boolean(loggedRequester)}
                   placeholder="nombre@incalpaca.com"
-                />
-              </label>
-
-              <label className="field">
-                <span>Telefono o anexo</span>
-                <input
-                  value={form.requesterPhone}
-                  onChange={(event) => updateField("requesterPhone", event.target.value)}
-                  placeholder="Ej. 204 o 999 999 999"
                 />
               </label>
 
@@ -483,6 +563,7 @@ export function PublicWorkRequestPage() {
                   maxLength={8}
                   value={form.requesterDni}
                   onChange={(event) => updateField("requesterDni", event.target.value.replace(/\D/g, ""))}
+                  readOnly={Boolean(loggedRequester)}
                   placeholder="8 dígitos"
                 />
               </label>
@@ -493,6 +574,7 @@ export function PublicWorkRequestPage() {
                   required
                   value={form.requesterWorkerCode}
                   onChange={(event) => updateField("requesterWorkerCode", event.target.value.toUpperCase())}
+                  readOnly={Boolean(loggedRequester)}
                   placeholder="Ej. K4F89J"
                 />
               </label>
@@ -506,7 +588,7 @@ export function PublicWorkRequestPage() {
                 <span className="section-number">2</span>
                 <div>
                   <h2>Ubicación de la solicitud</h2>
-                  <p>Ayúdanos a ubicar exactamente dónde se necesita la atención.</p>
+                  <p>Selecciona la sede, área macro, área y módulo/ambiente donde se necesita la atención.</p>
                 </div>
               </div>
             </div>
@@ -558,7 +640,31 @@ export function PublicWorkRequestPage() {
               {!asset && !isAssetLoading && (
                 <>
                   <label className="field">
-                    <span>Zona *</span>
+                    <span>Sede *</span>
+                    <select
+                      required
+                      value={form.site}
+                      onChange={(event) => {
+                        setForm((current) => ({
+                          ...current,
+                          locationId: "",
+                          site: event.target.value,
+                          zone: "",
+                          building: "",
+                          area: "",
+                          room: "",
+                        }));
+                        setError("");
+                      }}
+                      disabled={!locationsLoaded}
+                    >
+                      <option value="">{locationsLoaded ? "Seleccionar sede" : "Cargando ubicaciones..."}</option>
+                      {siteOptions.map((site) => <option key={site} value={site}>{site}</option>)}
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span>Área macro *</span>
                     <select
                       required
                       value={form.zone}
@@ -573,15 +679,15 @@ export function PublicWorkRequestPage() {
                         }));
                         setError("");
                       }}
-                      disabled={!locationsLoaded}
+                      disabled={!form.site}
                     >
-                      <option value="">{locationsLoaded ? "Seleccionar zona" : "Cargando ubicaciones..."}</option>
+                      <option value="">{form.site ? "Seleccionar área macro" : "Primero selecciona una sede"}</option>
                       {zoneOptions.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
                     </select>
                   </label>
 
                   <label className="field">
-                    <span>Edificio *</span>
+                    <span>Área *</span>
                     <select
                       required
                       value={form.building}
@@ -597,13 +703,13 @@ export function PublicWorkRequestPage() {
                       }}
                       disabled={!form.zone}
                     >
-                      <option value="">{form.zone ? "Seleccionar edificio" : "Primero selecciona una zona"}</option>
+                      <option value="">{form.zone ? "Seleccionar área" : "Primero selecciona un área macro"}</option>
                       {buildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
                     </select>
                   </label>
 
                   <label className="field">
-                    <span>Área *</span>
+                    <span>Módulo / ambiente *</span>
                     <select
                       required
                       value={form.area}
@@ -618,13 +724,13 @@ export function PublicWorkRequestPage() {
                       }}
                       disabled={!form.building}
                     >
-                      <option value="">{form.building ? "Seleccionar área" : "Primero selecciona un edificio"}</option>
+                      <option value="">{form.building ? "Seleccionar módulo o ambiente" : "Primero selecciona un área"}</option>
                       {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
                     </select>
                   </label>
 
                   <label className="field">
-                    <span>Ambiente *</span>
+                    <span>Detalle del ambiente *</span>
                     <select
                       required
                       value={form.locationId}
@@ -637,6 +743,7 @@ export function PublicWorkRequestPage() {
                         setForm((current) => ({
                           ...current,
                           locationId: selected.id,
+                          site: selected.site || "Sede principal",
                           zone: selected.zone,
                           building: selected.building,
                           area: selected.area,
@@ -646,7 +753,7 @@ export function PublicWorkRequestPage() {
                       }}
                       disabled={!form.area}
                     >
-                      <option value="">{form.area ? "Seleccionar ambiente" : "Primero selecciona un área"}</option>
+                      <option value="">{form.area ? "Seleccionar detalle" : "Primero selecciona un módulo o ambiente"}</option>
                       {roomOptions.map((location) => (
                         <option key={location.id} value={location.id}>
                           {location.room}{location.specificLocation ? ` - ${location.specificLocation}` : ""} ({location.code})

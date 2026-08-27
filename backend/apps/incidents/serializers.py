@@ -376,6 +376,7 @@ class PublicWorkRequestSerializer(serializers.Serializer):
     requesterDni = serializers.CharField(max_length=12)
     assetToken = serializers.CharField(required=False, allow_blank=True, max_length=100)
     locationId = serializers.CharField(required=False, allow_blank=True)
+    site = serializers.CharField(max_length=120, required=False, allow_blank=True)
     zone = serializers.CharField(max_length=120, required=False, allow_blank=True)
     building = serializers.CharField(max_length=160, required=False, allow_blank=True)
     area = serializers.CharField(max_length=160, required=False, allow_blank=True)
@@ -450,12 +451,14 @@ class PublicWorkRequestSerializer(serializers.Serializer):
         location = {
             "locationId": validated_data.get("locationId") or "-".join(
                 [
+                    validated_data.get("site", ""),
                     validated_data["zone"],
                     validated_data["building"],
                     validated_data["area"],
                     validated_data["room"],
                 ]
             ),
+            "site": validated_data.get("site", ""),
             "zone": validated_data["zone"],
             "building": validated_data["building"],
             "area": validated_data["area"],
@@ -464,6 +467,7 @@ class PublicWorkRequestSerializer(serializers.Serializer):
         if asset and asset.location:
             location = {
                 "locationId": str(asset.location.id),
+                "site": asset.location.site,
                 "zone": asset.location.zone,
                 "building": asset.location.building,
                 "area": asset.location.area,
