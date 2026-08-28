@@ -242,6 +242,18 @@ export async function createInspeccion(
   return data;
 }
 
+export async function updateInspeccion(
+  id: number,
+  payload: Partial<InspeccionCreatePayload>,
+): Promise<Inspeccion> {
+  const { data } = await api.patch<Inspeccion>(`/inspecciones/${id}/`, payload);
+  return data;
+}
+
+export async function deleteInspeccion(id: number): Promise<void> {
+  await api.delete(`/inspecciones/${id}/`);
+}
+
 
 // ─── Exportación ─────────────────────────────────────────────────────────────
 

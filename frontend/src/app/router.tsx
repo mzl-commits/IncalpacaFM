@@ -607,6 +607,10 @@ export const router = createBrowserRouter([
             lazy: lazyRoute(() => import("@/modules/almacen/pages/InspeccionDetailPage"), "InspeccionDetailPage"),
           },
           {
+            path: "inspecciones/:id/editar",
+            lazy: lazyRoute(() => import("@/modules/almacen/pages/InspeccionFormPage"), "InspeccionFormPage"),
+          },
+          {
             path: "calendario",
             lazy: lazyRoute(() => import("@/modules/almacen/pages/CalendarioPage"), "CalendarioPage"),
           },

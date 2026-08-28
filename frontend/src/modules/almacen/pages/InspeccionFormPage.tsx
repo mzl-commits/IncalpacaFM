@@ -11,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { labelPieza } from "@/utils/pieza";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
@@ -23,9 +23,11 @@ import {
 import {
   createInspeccion,
   getChecklistContexto,
+  getInspeccion,
   getOrdenesDisponibles,
   listPlantillasCriterios,
   listUsuarios,
+  updateInspeccion,
 } from "@/modules/almacen/inspeccionRepository";
 import type {
   AccionInspeccion,
@@ -60,6 +62,9 @@ const GRUPOS_HERRAMIENTAS_MANUALES = [
 export function InspeccionFormPage() {
   const qc = useQueryClient();
   const { almacenId } = useAlmacenActivo();
+  const { id } = useParams<{ id?: string }>();
+  const isEditMode = Boolean(id);
+  const editId = Number(id);
   const [params] = useSearchParams();
 
   const preselMaterial = params.get("material") ? Number(params.get("material")) : 0;
@@ -91,6 +96,52 @@ export function InspeccionFormPage() {
   const [observaciones, setObservaciones] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [exito, setExito] = useState<number | null>(null);
+  const [formInicializado, setFormInicializado] = useState(false);
+
+  // Si estamos en modo edición, cargar la inspección existente
+  const { data: inspeccionExistente } = useQuery({
+    queryKey: ["inspeccion", editId],
+    queryFn: () => getInspeccion(editId),
+    enabled: isEditMode && !!editId,
+  });
+
+  useEffect(() => {
+    if (!isEditMode || !inspeccionExistente || formInicializado) return;
+
+    setTipo((inspeccionExistente.tipo as TipoInspeccion) || "individual");
+    setModalidad((inspeccionExistente.modalidad as "planificada" | "no_planificada") || "planificada");
+    setFrecuencia(inspeccionExistente.frecuencia || "trimestral");
+    setAreaTrabajo(inspeccionExistente.area_trabajo || "Facility Management");
+    setReferenciaOrden(inspeccionExistente.referencia_orden || "");
+    setTiposHerramientas(inspeccionExistente.tipos_herramientas || []);
+    setMaterialId(inspeccionExistente.material);
+    setPiezaId(inspeccionExistente.pieza || 0);
+    setPiezasLote(new Set(inspeccionExistente.piezas_lote || []));
+    setInspectorId(inspeccionExistente.inspector || 0);
+    setPlantillaId(inspeccionExistente.plantilla);
+    setResultado(inspeccionExistente.resultado_general);
+    setAccion(inspeccionExistente.accion_tomada);
+    setProximaInspeccion(inspeccionExistente.proxima_inspeccion ? String(inspeccionExistente.proxima_inspeccion) : "");
+    setCantInspeccionada(inspeccionExistente.cantidad_inspeccionada ?? 0);
+    setCantApta(inspeccionExistente.cantidad_apta ?? 0);
+    setCantNoApta(inspeccionExistente.cantidad_no_apta ?? 0);
+    setObservaciones(inspeccionExistente.observaciones || "");
+    if (inspeccionExistente.items_con_observacion) {
+      setItemsObservacion(inspeccionExistente.items_con_observacion);
+    }
+    if (inspeccionExistente.respuestas) {
+      const respMap: Record<number, { valor: ValorRespuesta | ""; observacion: string }> = {};
+      inspeccionExistente.respuestas.forEach((r) => {
+        const critId = typeof r.criterio === "object" && r.criterio !== null ? (r.criterio as { id: number }).id : Number(r.criterio);
+        respMap[critId] = {
+          valor: (r.valor as ValorRespuesta) || "",
+          observacion: r.observacion || "",
+        };
+      });
+      setRespuestas(respMap);
+    }
+    setFormInicializado(true);
+  }, [isEditMode, inspeccionExistente, formInicializado]);
 
   // Contexto inteligente del backend (Frecuencia ABC, color 5S, detección manual)
   // Solo se activa cuando hay un material seleccionado
@@ -168,8 +219,9 @@ export function InspeccionFormPage() {
     setItemsObservacion((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Auto-poblar frecuencia y próxima inspección cuando cambia el material o contexto
+  // Auto-poblar frecuencia y próxima inspección cuando cambia el material o contexto (solo modo creación)
   useEffect(() => {
+    if (isEditMode) return;
     if (material) {
       const sub = (material.subcategoria_nombre || "").toLowerCase();
       const nom = (material.nombre || "").toLowerCase();
@@ -181,21 +233,23 @@ export function InspeccionFormPage() {
         setProximaInspeccion(hoy.toISOString().slice(0, 10));
       }
     }
-  }, [material]);
+  }, [material, isEditMode]);
 
-  // Auto-poblar frecuencia sugerida desde el cálculo ABC del backend
+  // Auto-poblar frecuencia sugerida desde el cálculo ABC del backend (solo modo creación)
   useEffect(() => {
+    if (isEditMode) return;
     if (contexto?.frecuencia_sugerida?.frecuencia_sugerida) {
       setFrecuencia(contexto.frecuencia_sugerida.frecuencia_sugerida.toLowerCase());
     }
-  }, [contexto?.frecuencia_sugerida]);
+  }, [contexto?.frecuencia_sugerida, isEditMode]);
 
-  // Auto-poblar próxima inspección calculada
+  // Auto-poblar próxima inspección calculada (solo modo creación)
   useEffect(() => {
+    if (isEditMode) return;
     if (contexto?.proxima_fecha_calculada) {
       setProximaInspeccion(contexto.proxima_fecha_calculada);
     }
-  }, [contexto?.proxima_fecha_calculada]);
+  }, [contexto?.proxima_fecha_calculada, isEditMode]);
 
   const toggleTipoHerramienta = (item: string) => {
     setTiposHerramientas((prev) =>
@@ -218,9 +272,9 @@ export function InspeccionFormPage() {
   });
   const esEstuche = piezaId > 0 && hijasActivas.length > 0;
 
-  // Auto-seleccionar plantilla de la subcategoría del material (automático y obligatorio)
+  // Auto-seleccionar plantilla de la subcategoría del material (solo modo creación)
   useEffect(() => {
-    if (!material) return;
+    if (isEditMode || !material) return;
     const plantillaIdSub = material.subcategoria_plantilla_inspeccion;
     if (plantillaIdSub) {
       setPlantillaId(plantillaIdSub);
@@ -229,17 +283,18 @@ export function InspeccionFormPage() {
         plantillas.find((p) => p.nombre.toLowerCase().includes("manual")) ?? plantillas[0];
       if (fallback) setPlantillaId(fallback.id);
     }
-  }, [material, plantillas]);
+  }, [material, plantillas, isEditMode]);
 
   // Auto-poblar piezas_lote cuando se detecta estuche.
   useEffect(() => {
+    if (isEditMode) return;
     if (esEstuche) {
       const idsDisponibles = new Set(
         hijasActivas.filter((h) => h.estado === "Disponible").map((h) => h.id),
       );
       setPiezasLote(idsDisponibles);
     }
-  }, [esEstuche, piezaId, hijasActivas]);
+  }, [esEstuche, piezaId, hijasActivas, isEditMode]);
 
   // Recalcula el total inspeccionado automáticamente según el lote
   useEffect(() => {
@@ -337,7 +392,7 @@ export function InspeccionFormPage() {
           observacion: respuestas[c.id].observacion || undefined,
         }));
 
-      return createInspeccion({
+      const payload = {
         tipo,
         modalidad,
         frecuencia,
@@ -360,10 +415,17 @@ export function InspeccionFormPage() {
         items_con_observacion: admiteObservaciones
           ? itemsObservacion.filter((it) => it.nombre.trim() || it.observacion_encontrada.trim())
           : [],
-      });
+      };
+
+      if (isEditMode) {
+        return updateInspeccion(editId, payload);
+      }
+      return createInspeccion(payload);
     },
     onSuccess: (insp) => {
       qc.invalidateQueries({ queryKey: ["inspecciones"] });
+      qc.invalidateQueries({ queryKey: ["inspeccion", insp.id] });
+      qc.invalidateQueries({ queryKey: ["inspecciones-vencidas"] });
       setExito(insp.id);
     },
     onError: (e: { response?: { data?: Record<string, string[]> } }) => {
@@ -379,7 +441,7 @@ export function InspeccionFormPage() {
   if (exito) {
     return (
       <section className="success-panel">
-        <h2>Inspección registrada</h2>
+        <h2>{isEditMode ? "Inspección actualizada" : "Inspección registrada"}</h2>
         <div className="success-actions">
           <Link className="button button-primary" to={`/almacen/${almacenId}/inspecciones/${exito}`}>
             Ver detalle
@@ -387,9 +449,11 @@ export function InspeccionFormPage() {
           <Link className="button button-secondary" to={`/almacen/${almacenId}/inspecciones`}>
             Volver a inspecciones
           </Link>
-          <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
-            Nueva inspección
-          </button>
+          {!isEditMode && (
+            <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
+              Nueva inspección
+            </button>
+          )}
         </div>
       </section>
     );
@@ -402,8 +466,11 @@ export function InspeccionFormPage() {
           <ArrowLeft size={16} /> Inspecciones
         </Link>
         <div>
-          <p className="breadcrumb">Almacén / Inspecciones / Nueva</p>
-          <h1>Nueva inspección</h1>
+          <p className="breadcrumb">
+            <Link to={`/almacen/${almacenId}/inspecciones`}>Almacén</Link> / Inspecciones / {isEditMode ? `Editar #${inspeccionExistente?.codigo_inspeccion || editId}` : "Nueva"}
+          </p>
+          <h1>{isEditMode ? "Editar inspección" : "Nueva inspección"}</h1>
+          <p>{isEditMode ? "Modifica los datos, respuestas de criterios y observaciones de la inspección." : "Registra un control de calidad para una herramienta o lote."}</p>
         </div>
       </div>
 
@@ -1161,7 +1228,9 @@ export function InspeccionFormPage() {
               <ArrowLeft size={15} /> Cancelar
             </Link>
             <button type="submit" className="button button-primary" disabled={mut.isPending}>
-              {mut.isPending ? "Guardando…" : "Registrar inspección"}
+              {isEditMode
+                ? (mut.isPending ? "Guardando cambios…" : "Guardar cambios")
+                : (mut.isPending ? "Guardando…" : "Registrar inspección")}
             </button>
           </div>
         </div>

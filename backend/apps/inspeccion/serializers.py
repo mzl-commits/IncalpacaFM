@@ -156,28 +156,29 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
 
 
     def validate(self, data):
-    # Inspección individual siempre debe apuntar a una pieza específica
-        if data.get("tipo") == "individual" and not data.get("pieza"):
+        tipo = data.get("tipo", getattr(self.instance, "tipo", None))
+        pieza = data.get("pieza", getattr(self.instance, "pieza", None))
+        material = data.get("material", getattr(self.instance, "material", None))
+
+        # Inspección individual siempre debe apuntar a una pieza específica
+        if tipo == "individual" and not pieza:
             raise serializers.ValidationError({
                 "pieza": "Una inspección individual debe especificar una pieza."
             })
 
         # Si el usuario logueado es Inspector/Almacenero con almacén asignado,
-        # el material debe pertenecer a ese almacén. Se valida ANTES de guardar,
-        # mismo patrón que _validar_almacen_forzado en inventario/serializers.py.
-
+        # el material debe pertenecer a ese almacén. Se valida ANTES de guardar.
         almacen_forzado = self.context.get("almacen_forzado")
         if almacen_forzado is not None:
-            material = data.get("material")
             if material and material.almacen_id != almacen_forzado:
                 raise serializers.ValidationError({
-                    "material": "No puedes registrar inspecciones fuera de tu almacén asignado."
+                    "material": "No puedes registrar o editar inspecciones fuera de tu almacén asignado."
                 })
 
         # Las cantidades de la inspección grupal deben cuadrar entre sí
-        apta = data.get("cantidad_apta")
-        no_apta = data.get("cantidad_no_apta")
-        inspeccionada = data.get("cantidad_inspeccionada")
+        apta = data.get("cantidad_apta", getattr(self.instance, "cantidad_apta", None))
+        no_apta = data.get("cantidad_no_apta", getattr(self.instance, "cantidad_no_apta", None))
+        inspeccionada = data.get("cantidad_inspeccionada", getattr(self.instance, "cantidad_inspeccionada", None))
         if apta is not None and no_apta is not None and inspeccionada is not None:
             if apta + no_apta != inspeccionada:
                 raise serializers.ValidationError({
@@ -187,11 +188,7 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                     )
                 })
 
-        # La inspeccionabilidad la decide la categoría/subcategoría (requiere_inspeccion +
-        # plantilla_inspeccion), no tipo_control: un material no_retornable pero instalado
-        # de forma permanente (ej. luminarias de emergencia) también puede requerir inspección.
-        material = data.get("material")
-        plantilla = data.get("plantilla")
+        plantilla = data.get("plantilla", getattr(self.instance, "plantilla", None))
         if material:
             categoria = material.subcategoria.categoria
             plantilla_esperada = material.subcategoria.plantilla_inspeccion
@@ -203,7 +200,7 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                         "no requieren inspección."
                     )
                 })
-            if not material.activo or not material.subcategoria.activo or not categoria.activo:
+            if not self.instance and (not material.activo or not material.subcategoria.activo or not categoria.activo):
                 raise serializers.ValidationError({
                     "material": "No se puede realizar una inspección de un material, subcategoría o categoría inactiva."
                 })
@@ -215,11 +212,8 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                 })
 
         # La pieza debe pertenecer al material, o ser hija de un estuche de ese material
-        pieza = data.get("pieza")
-        material = data.get("material")
         if pieza and material:
             pieza_material_ok = pieza.material_id == material.id
-            # Caso estuche: se inspeccionan las hijas → el material es el del contenedor
             hija_de_este_material = (
                 pieza.padre is not None and pieza.padre.material_id == material.id
             )
@@ -326,6 +320,62 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
                 registrar_inspeccion_completada(programacion, inspeccion, generar_siguiente=not es_baja_definitiva)
 
         return inspeccion
+
+    def update(self, instance, validated_data):
+        respuestas_data = validated_data.pop("respuestas", None)
+        items_con_observacion_data = validated_data.pop("items_con_observacion", None)
+        piezas_lote_data = validated_data.pop("piezas_lote", None)
+
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+
+            if piezas_lote_data is not None:
+                instance.piezas_lote.set(piezas_lote_data)
+
+            if respuestas_data is not None:
+                instance.respuestas.all().delete()
+                for resp in respuestas_data:
+                    criterio = Criterio.objects.get(pk=resp["criterio_id"])
+                    RespuestaCriterio.objects.create(
+                        inspeccion=instance,
+                        criterio=criterio,
+                        valor=resp["valor"],
+                        observacion=resp.get("observacion", ""),
+                    )
+
+            if items_con_observacion_data is not None:
+                instance.items_con_observacion.all().delete()
+                for item_data in items_con_observacion_data:
+                    ObservacionInspeccion.objects.create(
+                        inspeccion=instance,
+                        codigo=item_data.get("codigo", ""),
+                        nombre=item_data.get("nombre", ""),
+                        observacion_encontrada=item_data.get("observacion_encontrada", ""),
+                        accion_recomendada=item_data.get("accion_recomendada", ""),
+                        estado=item_data.get("estado", ""),
+                    )
+
+            if instance.pieza and instance.accion_tomada:
+                pieza = instance.pieza
+                accion = instance.accion_tomada
+                if accion in ["enviar_reparacion", "retirar_servicio"]:
+                    pieza.estado = "Mantenimiento"
+                    pieza.save(update_fields=["estado"])
+                elif accion in ["dar_baja", "reemplazar"]:
+                    from apps.inventario.services import registrar_baja_pieza
+                    registrar_baja_pieza(
+                        pieza=pieza,
+                        responsable=instance.inspector,
+                        observaciones=f"Baja derivada de edición de inspección #{instance.id}: {accion}",
+                    )
+                elif accion == "continua_servicio":
+                    if pieza.estado == "Mantenimiento":
+                        pieza.estado = "Disponible"
+                        pieza.save(update_fields=["estado"])
+
+        return instance
 
 class ProgramacionInspeccionSerializer(serializers.ModelSerializer):
     material_codigo = serializers.CharField(source="material.codigo", read_only=True, default=None)

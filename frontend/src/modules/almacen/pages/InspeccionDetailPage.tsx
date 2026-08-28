@@ -1,15 +1,17 @@
 import {
   ArrowLeft, CaretDown, CaretUp, DownloadSimple, FileArrowDown, FileDoc, FilePdf, FileXls, File as FileIcon,
-  Plus, Trash, UploadSimple, X,
+  PencilSimple, Plus, Trash, UploadSimple, X,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { Modal } from "@/components/shared/Modal";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
 import {
   deleteDocumentoInspeccion,
+  deleteInspeccion,
   exportarExcel,
   exportarPdf,
   getInspeccion,
@@ -34,16 +36,27 @@ const ICONO_POR_TIPO: Record<TipoDocumentoInspeccion, typeof FileIcon> = {
 };
 
 export function InspeccionDetailPage() {
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const inspeccionId = Number(id);
   const { almacenId } = useAlmacenActivo();
   const [descargandoExcel, setDescargandoExcel] = useState(false);
   const [descargandoPdf, setDescargandoPdf] = useState(false);
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
+  const [modalEliminar, setModalEliminar] = useState(false);
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [errorDocumentos, setErrorDocumentos] = useState("");
   const [criteriosAbiertos, setCriteriosAbiertos] = useState(false);
+
+  const eliminarInspeccionMut = useMutation({
+    mutationFn: () => deleteInspeccion(inspeccionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inspecciones"] });
+      queryClient.invalidateQueries({ queryKey: ["inspecciones-vencidas"] });
+      navigate(`/almacen/${almacenId}/inspecciones`);
+    },
+  });
 
   const { data: inspeccion, isLoading, error } = useQuery({
     queryKey: ["inspeccion", inspeccionId],
@@ -160,7 +173,23 @@ export function InspeccionDetailPage() {
           <h1>Inspección {numeroSecuencial ? `#${numeroSecuencial}` : ""}</h1>
           <p>{inspeccion.material_nombre} · {inspeccion.plantilla_nombre}</p>
         </div>
-        <div className="export-actions">
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
+          <Link
+            to={`/almacen/${almacenId}/inspecciones/${inspeccionId}/editar`}
+            className="button button-secondary"
+            title="Editar esta inspección"
+          >
+            <PencilSimple size={16} /> Editar
+          </Link>
+          <button
+            type="button"
+            className="button button-secondary"
+            style={{ color: "#dc2626" }}
+            title="Eliminar esta inspección"
+            onClick={() => setModalEliminar(true)}
+          >
+            <Trash size={16} /> Eliminar
+          </button>
         </div>
       </div>
 
@@ -549,6 +578,44 @@ export function InspeccionDetailPage() {
           </Link>
         </div>
       </div>
+
+      {/* Modal de confirmación para eliminar */}
+      <Modal
+        open={modalEliminar}
+        onClose={() => !eliminarInspeccionMut.isPending && setModalEliminar(false)}
+        title="Eliminar inspección"
+        maxWidth={460}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <p style={{ margin: 0, fontSize: 14, color: "#334155" }}>
+            ¿Estás seguro de que deseas eliminar la inspección de{" "}
+            <strong>{inspeccion.material_nombre}</strong>
+            {inspeccion.pieza_codigo ? ` (Pieza: ${inspeccion.pieza_codigo})` : ""}?
+          </p>
+          <p style={{ margin: 0, fontSize: 13, color: "#64748B" }}>
+            Esta acción eliminará de forma permanente el registro de la inspección, sus respuestas de criterios y documentos asociados.
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setModalEliminar(false)}
+              disabled={eliminarInspeccionMut.isPending}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              style={{ backgroundColor: "#dc2626", borderColor: "#dc2626", color: "#fff" }}
+              onClick={() => eliminarInspeccionMut.mutate()}
+              disabled={eliminarInspeccionMut.isPending}
+            >
+              {eliminarInspeccionMut.isPending ? "Eliminando…" : "Sí, eliminar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 }

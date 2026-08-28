@@ -1,23 +1,26 @@
-import { ArrowRight, CaretDown, ClipboardText, FileXls, Plus, WarningCircle } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, CaretDown, ClipboardText, FileXls, PencilSimple, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { FilterSelect, ListFilterPanel } from "@/components/filters/ListFilterPanel";
 import { buildFilterOptions, useListFilterParams } from "@/components/filters/filterUtils";
+import { Modal } from "@/components/shared/Modal";
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TrimestreBadge } from "@/components/shared/TrimestreBadge";
-import { exportarExcelGeneral, listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
+import { deleteInspeccion, exportarExcelGeneral, listInspecciones, listVencidas } from "@/modules/almacen/inspeccionRepository";
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
-import type { ResultadoInspeccion, TipoInspeccion } from "@/modules/almacen/types";
+import type { Inspeccion, ResultadoInspeccion, TipoInspeccion } from "@/modules/almacen/types";
 
 const FILTER_KEYS = ["q", "tipo", "resultado"] as const;
 
 export function InspeccionesPage() {
+  const qc = useQueryClient();
   const { values, setValue, clearFilters } = useListFilterParams(FILTER_KEYS);
   const { almacenId } = useAlmacenActivo();
   const [exportando, setExportando] = useState(false);
+  const [inspeccionAEliminar, setInspeccionAEliminar] = useState<Inspeccion | null>(null);
 
   const { data: inspecciones = [], isLoading } = useQuery({
     queryKey: ["inspecciones", almacenId, values],
@@ -32,6 +35,15 @@ export function InspeccionesPage() {
   const { data: vencidas = [] } = useQuery({
     queryKey: ["inspecciones-vencidas", almacenId],
     queryFn: () => listVencidas(almacenId),
+  });
+
+  const eliminarMut = useMutation({
+    mutationFn: (id: number) => deleteInspeccion(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inspecciones"] });
+      qc.invalidateQueries({ queryKey: ["inspecciones-vencidas"] });
+      setInspeccionAEliminar(null);
+    },
   });
 
   // Stats
@@ -69,24 +81,20 @@ export function InspeccionesPage() {
     <section>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Inicio / Almacén / Inspecciones</p>
-          <h1>Inspecciones</h1>
-          <p>Registro y control de calidad de herramientas y materiales.</p>
+          <p className="breadcrumb">Almacén / Inspecciones</p>
+          <h1>Control de calidad</h1>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="page-heading-actions" style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
             className="button button-secondary"
             onClick={() => void handleExportarExcel()}
             disabled={exportando || !almacenId}
-            title="Exportar reporte general Excel de inspecciones"
+            title="Descargar reporte consolidado de inspecciones"
           >
             <FileXls size={16} />
-            {exportando ? "Exportando…" : "Exportar Excel"}
+            {exportando ? "Descargando…" : "Exportar Excel"}
           </button>
-          <Link to={`/almacen/${almacenId}/inspecciones/vencidas`} className="button button-secondary">
-            <WarningCircle size={16} /> Vencidas ({vencidas.length})
-          </Link>
           <Link to={`/almacen/${almacenId}/inspecciones/nueva`} className="button button-primary">
             <Plus size={16} /> Nueva inspección
           </Link>
@@ -141,7 +149,7 @@ export function InspeccionesPage() {
                 <th>Tipo</th>
                 <th>Resultado</th>
                 <th>Inspector</th>
-                <th></th>
+                <th style={{ textAlign: "right" }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -165,10 +173,36 @@ export function InspeccionesPage() {
                   <td style={{ fontSize: 12 }}>{insp.tipo === "individual" ? "Individual" : "Grupal"}</td>
                   <td><StatusBadge value={insp.resultado_general} /></td>
                   <td style={{ fontSize: 12 }}>{insp.inspector_nombre}</td>
-                  <td>
-                    <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}`} className="table-action" aria-label="Ver inspección">
-                      <ArrowRight size={15} />
-                    </Link>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <Link
+                        to={`/almacen/${almacenId}/inspecciones/${insp.id}`}
+                        className="table-action"
+                        title="Ver detalle de inspección"
+                        aria-label="Ver inspección"
+                      >
+                        <ArrowRight size={15} />
+                      </Link>
+                      <Link
+                        to={`/almacen/${almacenId}/inspecciones/${insp.id}/editar`}
+                        className="table-action"
+                        title="Editar inspección"
+                        aria-label="Editar inspección"
+                        style={{ color: "#2563eb" }}
+                      >
+                        <PencilSimple size={15} />
+                      </Link>
+                      <button
+                        type="button"
+                        className="table-action"
+                        title="Eliminar inspección"
+                        aria-label="Eliminar inspección"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", padding: 4 }}
+                        onClick={() => setInspeccionAEliminar(insp)}
+                      >
+                        <Trash size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -176,7 +210,6 @@ export function InspeccionesPage() {
           </table>
         </div>
 
-        {/* Vista de tarjetas — solo visible en pantallas angostas (ver almacen.css) */}
         <div className="inspecciones-cards-mobile">
           {isLoading && <p className="empty-row">Cargando inspecciones…</p>}
           {!isLoading && inspecciones.length === 0 && <p className="empty-row">Sin inspecciones registradas.</p>}
@@ -223,9 +256,22 @@ export function InspeccionesPage() {
                       <span className="insp-card-label">Inspector</span>
                       <span className="insp-card-value">{insp.inspector_nombre}</span>
                     </div>
-                    <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}`} className="button button-sm button-secondary insp-card-ver">
-                      <ArrowRight size={14} /> Ver inspección
-                    </Link>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                      <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}`} className="button button-sm button-secondary" style={{ flex: 1 }}>
+                        <ArrowRight size={14} /> Ver
+                      </Link>
+                      <Link to={`/almacen/${almacenId}/inspecciones/${insp.id}/editar`} className="button button-sm button-secondary" style={{ color: "#2563eb" }}>
+                        <PencilSimple size={14} /> Editar
+                      </Link>
+                      <button
+                        type="button"
+                        className="button button-sm button-secondary"
+                        style={{ color: "#dc2626" }}
+                        onClick={() => setInspeccionAEliminar(insp)}
+                      >
+                        <Trash size={14} /> Eliminar
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -233,6 +279,43 @@ export function InspeccionesPage() {
           })}
         </div>
       </div>
+
+      <Modal
+        open={!!inspeccionAEliminar}
+        onClose={() => !eliminarMut.isPending && setInspeccionAEliminar(null)}
+        title="Eliminar inspección"
+        maxWidth={460}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <p style={{ margin: 0, fontSize: 14, color: "#334155" }}>
+            ¿Estás seguro de que deseas eliminar la inspección de{" "}
+            <strong>{inspeccionAEliminar?.material_nombre}</strong>
+            {inspeccionAEliminar?.pieza_codigo ? ` (Pieza: ${inspeccionAEliminar.pieza_codigo})` : ""}?
+          </p>
+          <p style={{ margin: 0, fontSize: 13, color: "#64748B" }}>
+            Esta acción eliminará de forma permanente el registro de la inspección, sus respuestas de criterios y documentos asociados.
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setInspeccionAEliminar(null)}
+              disabled={eliminarMut.isPending}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              style={{ backgroundColor: "#dc2626", borderColor: "#dc2626", color: "#fff" }}
+              onClick={() => inspeccionAEliminar && eliminarMut.mutate(inspeccionAEliminar.id)}
+              disabled={eliminarMut.isPending}
+            >
+              {eliminarMut.isPending ? "Eliminando…" : "Sí, eliminar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 }
