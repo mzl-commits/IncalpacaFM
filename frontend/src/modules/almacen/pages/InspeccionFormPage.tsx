@@ -1,17 +1,7 @@
-import {
-  ArrowLeft,
-  CalendarBlank,
-  ChartLineUp,
-  CheckCircle,
-  Clock,
-  Package,
-  Plus,
-  Trash,
-  WarningCircle,
-} from "@phosphor-icons/react";
+import { ArrowLeft, Package, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { labelPieza } from "@/utils/pieza";
 
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
@@ -23,15 +13,16 @@ import {
 import {
   createInspeccion,
   getChecklistContexto,
-  getInspeccion,
   getOrdenesDisponibles,
+  listMaterialesPendientes,
   listPlantillasCriterios,
   listUsuarios,
-  updateInspeccion,
 } from "@/modules/almacen/inspeccionRepository";
 import type {
   AccionInspeccion,
   Criterio,
+  Material,
+  MaterialDetalle,
   ObservacionInspeccion,
   PiezaBase,
   ResultadoInspeccion,
@@ -48,7 +39,7 @@ import { Combobox } from "../components/shared/Combobox";
 import { Field } from "@/modules/almacen/components/shared/Field";
 import { EstucheGroup } from "@/modules/almacen/components/EstucheGroup";
 
-const GRUPOS_HERRAMIENTAS_MANUALES = [
+const GRUPOS_HERRAMIENTAS = [
   "Herramientas de golpe",
   "Herramientas de corte",
   "Herramientas de cohesión",
@@ -62,9 +53,6 @@ const GRUPOS_HERRAMIENTAS_MANUALES = [
 export function InspeccionFormPage() {
   const qc = useQueryClient();
   const { almacenId } = useAlmacenActivo();
-  const { id } = useParams<{ id?: string }>();
-  const isEditMode = Boolean(id);
-  const editId = Number(id);
   const [params] = useSearchParams();
 
   const preselMaterial = params.get("material") ? Number(params.get("material")) : 0;
@@ -88,7 +76,9 @@ export function InspeccionFormPage() {
   const [respuestas, setRespuestas] = useState<Record<number, { valor: ValorRespuesta | ""; observacion: string }>>({});
   const [resultado, setResultado] = useState<ResultadoInspeccion>("apta");
   const [accion, setAccion] = useState<AccionInspeccion>("continua_servicio");
-  const [proximaInspeccion, setProximaInspeccion] = useState("");
+  const [incluirInspeccionados, setIncluirInspeccionados] = useState(true);
+  const [tipoInspeccion, setTipoInspeccion] = useState<"planificada" | "no_planificada">("planificada");
+  const [area, setArea] = useState("");
   const [cantInspeccionada, setCantInspeccionada] = useState<number>(0);
   const [cantApta, setCantApta] = useState<number>(0);
   const [cantNoApta, setCantNoApta] = useState<number>(0);
@@ -96,82 +86,38 @@ export function InspeccionFormPage() {
   const [observaciones, setObservaciones] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [exito, setExito] = useState<number | null>(null);
-  const [formInicializado, setFormInicializado] = useState(false);
 
-  // Si estamos en modo edición, cargar la inspección existente
-  const { data: inspeccionExistente } = useQuery({
-    queryKey: ["inspeccion", editId],
-    queryFn: () => getInspeccion(editId),
-    enabled: isEditMode && !!editId,
-  });
-
-  useEffect(() => {
-    if (!isEditMode || !inspeccionExistente || formInicializado) return;
-
-    setTipo((inspeccionExistente.tipo as TipoInspeccion) || "individual");
-    setModalidad((inspeccionExistente.modalidad as "planificada" | "no_planificada") || "planificada");
-    setFrecuencia(inspeccionExistente.frecuencia || "trimestral");
-    setAreaTrabajo(inspeccionExistente.area_trabajo || "Facility Management");
-    setReferenciaOrden(inspeccionExistente.referencia_orden || "");
-    setTiposHerramientas(inspeccionExistente.tipos_herramientas || []);
-    setMaterialId(inspeccionExistente.material);
-    setPiezaId(inspeccionExistente.pieza || 0);
-    setPiezasLote(new Set(inspeccionExistente.piezas_lote || []));
-    setInspectorId(inspeccionExistente.inspector || 0);
-    setPlantillaId(inspeccionExistente.plantilla);
-    setResultado(inspeccionExistente.resultado_general);
-    setAccion(inspeccionExistente.accion_tomada);
-    setProximaInspeccion(inspeccionExistente.proxima_inspeccion ? String(inspeccionExistente.proxima_inspeccion) : "");
-    setCantInspeccionada(inspeccionExistente.cantidad_inspeccionada ?? 0);
-    setCantApta(inspeccionExistente.cantidad_apta ?? 0);
-    setCantNoApta(inspeccionExistente.cantidad_no_apta ?? 0);
-    setObservaciones(inspeccionExistente.observaciones || "");
-    if (inspeccionExistente.items_con_observacion) {
-      setItemsObservacion(inspeccionExistente.items_con_observacion);
-    }
-    if (inspeccionExistente.respuestas) {
-      const respMap: Record<number, { valor: ValorRespuesta | ""; observacion: string }> = {};
-      inspeccionExistente.respuestas.forEach((r) => {
-        const critId = typeof r.criterio === "object" && r.criterio !== null ? (r.criterio as { id: number }).id : Number(r.criterio);
-        respMap[critId] = {
-          valor: (r.valor as ValorRespuesta) || "",
-          observacion: r.observacion || "",
-        };
-      });
-      setRespuestas(respMap);
-    }
-    setFormInicializado(true);
-  }, [isEditMode, inspeccionExistente, formInicializado]);
-
-  // Contexto inteligente del backend (Frecuencia ABC, color 5S, detección manual)
-  // Solo se activa cuando hay un material seleccionado
   const { data: contexto } = useQuery({
-    queryKey: ["checklist-contexto", materialId, almacenId, frecuencia],
-    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined, frecuencia || undefined),
-    enabled: materialId > 0,
+    queryKey: ["checklist-contexto", materialId, almacenId],
+    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined),
   });
 
-  // Órdenes disponibles autorizadas — se cargan al entrar al formulario (sin depender del material)
   const { data: ordenesDisponibles = [] } = useQuery({
     queryKey: ["ordenes-disponibles-checklist"],
     queryFn: getOrdenesDisponibles,
   });
 
-  // Queries
   const { data: materiales = [] } = useQuery({
     queryKey: ["materiales", almacenId],
     queryFn: () => listMateriales(almacenId),
     enabled: !!almacenId,
   });
+
   const { data: materialDetalle } = useQuery({
     queryKey: ["material-detalle", materialId],
     queryFn: () => getMaterialDetalle(materialId),
     enabled: materialId > 0,
   });
+  const { data: materialesPendientes = [] } = useQuery({
+    queryKey: ["materiales-pendientes", almacenId, incluirInspeccionados],
+    queryFn: () => listMaterialesPendientes(almacenId, incluirInspeccionados),
+    enabled: !!almacenId,
+  });
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listUsuarios,
   });
+
   const { data: plantillas = [] } = useQuery({
     queryKey: ["plantillas-criterios"],
     queryFn: listPlantillasCriterios,
@@ -179,7 +125,20 @@ export function InspeccionFormPage() {
 
   const material = materialDetalle ?? materiales.find((m) => m.id === materialId);
 
-  // Detectar reactivamente si el material seleccionado es herramienta manual
+  // Auto-poblar frecuencia sugerida cuando el backend la calcula
+  useEffect(() => {
+    if (contexto?.frecuencia_sugerida?.frecuencia_sugerida) {
+      setFrecuencia(contexto.frecuencia_sugerida.frecuencia_sugerida.toLowerCase());
+    }
+  }, [contexto]);
+
+  const toggleTipoHerramienta = (item: string) => {
+    setTiposHerramientas((prev) =>
+      prev.includes(item) ? prev.filter((t) => t !== item) : [...prev, item],
+    );
+  };
+
+  // Detectar si el material es de subcategoría "Herramientas Manuales" (del backend o por nombre/código)
   const isHerramientaManual: boolean = Boolean(
     contexto?.es_herramienta_manual ||
     tiposHerramientas.length > 0 ||
@@ -192,16 +151,33 @@ export function InspeccionFormPage() {
       ))
   );
 
-  // Derivar si la plantilla seleccionada es EPP o Manual para admitir la sección de observaciones de ítems
+  const frecuenciaTexto = useMemo(() => {
+    if (!material) return "Trimestral";
+    const dias = material.periodicidad_inspeccion_dias || 90;
+    if (dias <= 30) return "Mensual";
+    if (dias <= 60) return "Bimestral";
+    if (dias <= 90) return "Trimestral";
+    if (dias <= 180) return "Semestral";
+    if (dias <= 365) return "Anual";
+    return `Cada ${dias} días`;
+  }, [material]);
+
   const nombrePlantillaNorm = (plantillas.find((p) => p.id === plantillaId)?.nombre ?? "").toLowerCase();
-  const esPlantillaEPP = nombrePlantillaNorm.includes("epp") || nombrePlantillaNorm.includes("proteccion personal");
+  const subcatNorm = (material?.subcategoria_nombre ?? "").toLowerCase();
+  const esPlantillaEPP = nombrePlantillaNorm.includes("epp") || nombrePlantillaNorm.includes("proteccion personal") || subcatNorm.includes("epp") || subcatNorm.includes("protección");
   const esPlantillaManual = nombrePlantillaNorm.includes("manual") || isHerramientaManual;
   const admiteObservaciones = esPlantillaEPP || esPlantillaManual;
 
   const addItemObservacion = () => {
     setItemsObservacion((prev) => [
       ...prev,
-      { codigo: "", nombre: "", observacion_encontrada: "", accion_recomendada: "", estado: "" },
+      {
+        codigo: "",
+        nombre: material ? material.nombre : "",
+        observacion_encontrada: "",
+        accion_recomendada: "",
+        estado: "Operativa",
+      },
     ]);
   };
 
@@ -219,49 +195,27 @@ export function InspeccionFormPage() {
     setItemsObservacion((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Auto-poblar frecuencia y próxima inspección cuando cambia el material o contexto (solo modo creación)
-  useEffect(() => {
-    if (isEditMode) return;
-    if (material) {
-      const sub = (material.subcategoria_nombre || "").toLowerCase();
-      const nom = (material.nombre || "").toLowerCase();
-      const esElectrico = /inalámbric|electri|taladro|amoladora|esmeril|rotomartillo|caladora|lijadora|sierra|mezclador/i.test(sub + " " + nom);
-      if (esElectrico) {
-        setFrecuencia("bimestral");
-        const hoy = new Date();
-        hoy.setDate(hoy.getDate() + 60);
-        setProximaInspeccion(hoy.toISOString().slice(0, 10));
-      }
-    }
-  }, [material, isEditMode]);
-
-  // Auto-poblar frecuencia sugerida desde el cálculo ABC del backend (solo modo creación)
-  useEffect(() => {
-    if (isEditMode) return;
-    if (contexto?.frecuencia_sugerida?.frecuencia_sugerida) {
-      setFrecuencia(contexto.frecuencia_sugerida.frecuencia_sugerida.toLowerCase());
-    }
-  }, [contexto?.frecuencia_sugerida, isEditMode]);
-
-  // Auto-poblar próxima inspección calculada (solo modo creación)
-  useEffect(() => {
-    if (isEditMode) return;
-    if (contexto?.proxima_fecha_calculada) {
-      setProximaInspeccion(contexto.proxima_fecha_calculada);
-    }
-  }, [contexto?.proxima_fecha_calculada, isEditMode]);
-
-  const toggleTipoHerramienta = (item: string) => {
-    setTiposHerramientas((prev) =>
-      prev.includes(item) ? prev.filter((t) => t !== item) : [...prev, item],
-    );
-  };
 
   const { data: piezas = [] } = useQuery({
     queryKey: ["piezas", materialId],
     queryFn: () => listPiezas({ material: materialId }),
     enabled: !!materialId && material?.control_individual === true,
   });
+
+  // IDs de piezas pendientes para este material
+  const pendingPiezaIds = useMemo(() => {
+    return new Set(
+      materialesPendientes
+        .filter((item) => item.material_id === materialId && item.pieza_id !== null)
+        .map((item) => item.pieza_id as number),
+    );
+  }, [materialesPendientes, materialId]);
+
+  // Filtrado de piezas: solo pendientes a menos que se active incluirInspeccionados
+  const piezasFiltradas = useMemo(() => {
+    if (incluirInspeccionados) return piezas;
+    return piezas.filter((p) => pendingPiezaIds.has(p.id) || (p.tiene_hijas && !p.padre));
+  }, [piezas, incluirInspeccionados, pendingPiezaIds]);
 
   // Hijas activas de la pieza seleccionada (modo individual).
   const { data: hijasActivas = [] } = useQuery({
@@ -272,9 +226,9 @@ export function InspeccionFormPage() {
   });
   const esEstuche = piezaId > 0 && hijasActivas.length > 0;
 
-  // Auto-seleccionar plantilla de la subcategoría del material (solo modo creación)
+  // Auto-seleccionar plantilla de la subcategoría del material (automático y obligatorio)
   useEffect(() => {
-    if (isEditMode || !material) return;
+    if (!material) return;
     const plantillaIdSub = material.subcategoria_plantilla_inspeccion;
     if (plantillaIdSub) {
       setPlantillaId(plantillaIdSub);
@@ -283,27 +237,42 @@ export function InspeccionFormPage() {
         plantillas.find((p) => p.nombre.toLowerCase().includes("manual")) ?? plantillas[0];
       if (fallback) setPlantillaId(fallback.id);
     }
-  }, [material, plantillas, isEditMode]);
+  }, [material, plantillas]);
 
-  // Auto-poblar piezas_lote cuando se detecta estuche.
+  // Auto-poblar piezas_lote cuando se detecta estuche en individual.
   useEffect(() => {
-    if (isEditMode) return;
     if (esEstuche) {
       const idsDisponibles = new Set(
         hijasActivas.filter((h) => h.estado === "Disponible").map((h) => h.id),
       );
       setPiezasLote(idsDisponibles);
     }
-  }, [esEstuche, piezaId, hijasActivas, isEditMode]);
+  }, [esEstuche, piezaId, hijasActivas]);
 
-  // Recalcula el total inspeccionado automáticamente según el lote
+  // En modo grupal: auto-seleccionar por defecto TODO el juego / lote de piezas disponibles
+  useEffect(() => {
+    if (tipo === "grupal" && piezas.length > 0) {
+      const disponibles = piezas.filter((p) => p.estado === "Disponible");
+      const hijasOsueltas = disponibles.filter((p) => p.padre !== null || !p.tiene_hijas);
+      const target = incluirInspeccionados
+        ? hijasOsueltas
+        : hijasOsueltas.filter((p) => pendingPiezaIds.size === 0 || pendingPiezaIds.has(p.id));
+      const sel = target.length > 0 ? target : hijasOsueltas;
+      setPiezasLote(new Set(sel.map((p) => p.id)));
+    }
+  }, [tipo, materialId, piezas, incluirInspeccionados, pendingPiezaIds]);
+
+  // Recalcula el total inspeccionado y piezas aptas automáticamente según el lote seleccionado
   useEffect(() => {
     if (tipo === "grupal" && material?.control_individual) {
-      setCantInspeccionada(piezasLote.size);
+      const total = piezasLote.size;
+      setCantInspeccionada(total);
+      setCantApta(total);
+      setCantNoApta(0);
     }
   }, [tipo, material?.control_individual, piezasLote]);
 
-  // Feedback inmediato: recalcula el error de cantidades
+  // Feedback: recalcula el error de cantidades solo si la suma no coincide y se ha interactuado
   useEffect(() => {
     if (tipo !== "grupal") return;
     setErrors((prev) => {
@@ -392,19 +361,21 @@ export function InspeccionFormPage() {
           observacion: respuestas[c.id].observacion || undefined,
         }));
 
-      const payload = {
+      return createInspeccion({
         tipo,
-        modalidad,
-        frecuencia,
-        area_trabajo: areaTrabajo,
-        referencia_orden: referenciaOrden,
-        tipos_herramientas: isHerramientaManual ? tiposHerramientas : [],
+        tipo_inspeccion: tipoInspeccion,
+        area: area.trim() || undefined,
         material: materialId,
         pieza: tipo === "individual" ? piezaId : null,
         piezas_lote: tipo === "grupal" ? Array.from(piezasLote) : [],
         plantilla: plantillaId,
         inspector: inspectorId,
-        proxima_inspeccion: proximaInspeccion || null,
+        modalidad,
+        frecuencia: modalidad === "planificada" ? frecuencia : frecuenciaTexto,
+        area_trabajo: areaTrabajo,
+        referencia_orden: referenciaOrden,
+        tipos_herramientas: tiposHerramientas,
+        proxima_inspeccion: null,
         cantidad_inspeccionada: tipo === "grupal" ? cantInspeccionada : null,
         cantidad_apta: tipo === "grupal" ? cantApta : null,
         cantidad_no_apta: tipo === "grupal" ? cantNoApta : null,
@@ -413,19 +384,12 @@ export function InspeccionFormPage() {
         observaciones,
         respuestas: respuestasArray,
         items_con_observacion: admiteObservaciones
-          ? itemsObservacion.filter((it) => it.nombre.trim() || it.observacion_encontrada.trim())
+          ? itemsObservacion.filter((it) => it.nombre.trim() || it.observacion_encontrada.trim() || it.codigo.trim())
           : [],
-      };
-
-      if (isEditMode) {
-        return updateInspeccion(editId, payload);
-      }
-      return createInspeccion(payload);
+      });
     },
     onSuccess: (insp) => {
       qc.invalidateQueries({ queryKey: ["inspecciones"] });
-      qc.invalidateQueries({ queryKey: ["inspeccion", insp.id] });
-      qc.invalidateQueries({ queryKey: ["inspecciones-vencidas"] });
       setExito(insp.id);
     },
     onError: (e: { response?: { data?: Record<string, string[]> } }) => {
@@ -441,7 +405,7 @@ export function InspeccionFormPage() {
   if (exito) {
     return (
       <section className="success-panel">
-        <h2>{isEditMode ? "Inspección actualizada" : "Inspección registrada"}</h2>
+        <h2>Inspección registrada</h2>
         <div className="success-actions">
           <Link className="button button-primary" to={`/almacen/${almacenId}/inspecciones/${exito}`}>
             Ver detalle
@@ -449,11 +413,9 @@ export function InspeccionFormPage() {
           <Link className="button button-secondary" to={`/almacen/${almacenId}/inspecciones`}>
             Volver a inspecciones
           </Link>
-          {!isEditMode && (
-            <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
-              Nueva inspección
-            </button>
-          )}
+          <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
+            Nueva inspección
+          </button>
         </div>
       </section>
     );
@@ -466,11 +428,8 @@ export function InspeccionFormPage() {
           <ArrowLeft size={16} /> Inspecciones
         </Link>
         <div>
-          <p className="breadcrumb">
-            <Link to={`/almacen/${almacenId}/inspecciones`}>Almacén</Link> / Inspecciones / {isEditMode ? `Editar #${inspeccionExistente?.codigo_inspeccion || editId}` : "Nueva"}
-          </p>
-          <h1>{isEditMode ? "Editar inspección" : "Nueva inspección"}</h1>
-          <p>{isEditMode ? "Modifica los datos, respuestas de criterios y observaciones de la inspección." : "Registra un control de calidad para una herramienta o lote."}</p>
+          <p className="breadcrumb">Almacén / Inspecciones / Nueva</p>
+          <h1>Nueva inspección</h1>
         </div>
       </div>
 
@@ -481,55 +440,51 @@ export function InspeccionFormPage() {
       >
         <div style={{ display: "grid", gap: 20 }}>
 
-          {/* Paso 1: Tipo y Modalidad */}
+          {/* Paso 1: Solo Alcance + Tipo de inspección */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 1</span>
-              <h2>Tipo y modalidad de inspección</h2>
+              <h2>Tipo de inspección</h2>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--muted, #64748b)" }}>
-                  Alcance de la inspección
-                </label>
-                <div className="segmented-control segmented-2">
-                  <button type="button" className={tipo === "individual" ? "is-active" : ""} onClick={() => setTipo("individual")}>
-                    Individual (por pieza)
-                  </button>
-                  <button type="button" className={tipo === "grupal" ? "is-active" : ""} onClick={() => setTipo("grupal")}>
-                    Grupal (lote)
-                  </button>
-                </div>
+            {/* Alcance */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Alcance
+              </label>
+              <div className="segmented-control segmented-2">
+                <button
+                  type="button"
+                  className={tipo === "individual" ? "is-active" : ""}
+                  onClick={() => setTipo("individual")}
+                >
+                  Individual (por pieza)
+                </button>
+                <button
+                  type="button"
+                  className={tipo === "grupal" ? "is-active" : ""}
+                  onClick={() => setTipo("grupal")}
+                >
+                  Grupal (lote / varias piezas)
+                </button>
               </div>
+            </div>
 
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--muted, #64748b)" }}>
-                  Modalidad de inspección
-                </label>
-                <div className="segmented-control segmented-2">
-                  <button
-                    type="button"
-                    className={modalidad === "planificada" ? "is-active" : ""}
-                    onClick={() => setModalidad("planificada")}
-                  >
-                    <Clock size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                    Planificada
-                  </button>
-                  <button
-                    type="button"
-                    className={modalidad === "no_planificada" ? "is-active" : ""}
-                    onClick={() => setModalidad("no_planificada")}
-                  >
-                    <WarningCircle size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                    No planificada (Inopinada)
-                  </button>
-                </div>
-              </div>
+            {/* Modalidad: Planificada / No planificada */}
+            <div className="form-grid">
+              <Field label="Modalidad">
+                <select
+                  value={modalidad}
+                  onChange={(e) => setModalidad(e.target.value as "planificada" | "no_planificada")}
+                >
+                  <option value="planificada">Planificada</option>
+                  <option value="no_planificada">No planificada</option>
+                </select>
+              </Field>
             </div>
           </div>
 
-          {/* Paso 2: Material y Pieza con Metadatos SST y Tipos de Herramientas */}
+          {/* Material y pieza */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 2</span>
@@ -538,15 +493,58 @@ export function InspeccionFormPage() {
             <div className="form-grid">
               <Field label="Material" required error={errors.material}>
                 <Combobox
+                  key={`${almacenId}-${incluirInspeccionados}`}
                   value={materialId}
                   selectedLabel={material ? `${material.codigo} — ${material.nombre}` : ""}
                   placeholder="Buscar por código o nombre…"
                   onChange={(id) => { setMaterialId(id); setPiezaId(0); setPiezasLote(new Set()); }}
                   fetchOptions={async (q) => {
-                    const res = await listMateriales(almacenId, { q, inspeccionable: true });
-                    return res.map((m) => ({ id: m.id, label: `${m.codigo} — ${m.nombre}` }));
+                    if (!almacenId) return [];
+                    const res = await listMaterialesPendientes(almacenId, incluirInspeccionados, q || undefined);
+                    const seen = new Set<number>();
+                    const uniqueOptions: { id: number; label: string }[] = [];
+                    for (const item of res) {
+                      if (!seen.has(item.material_id)) {
+                        seen.add(item.material_id);
+                        uniqueOptions.push({
+                          id: item.material_id,
+                          label: `${item.material_codigo} — ${item.material_nombre}`,
+                        });
+                      }
+                    }
+                    return uniqueOptions;
                   }}
                 />
+                <div style={{ marginTop: 8 }}>
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 13,
+                      color: "var(--text, #334155)",
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={incluirInspeccionados}
+                      onChange={(e) => setIncluirInspeccionados(e.target.checked)}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        minWidth: 16,
+                        maxWidth: 16,
+                        margin: 0,
+                        padding: 0,
+                        cursor: "pointer",
+                        accentColor: "var(--accent, #6366f1)",
+                      }}
+                    />
+                    <span>Incluir herramientas ya inspeccionadas (para re-inspección)</span>
+                  </label>
+                </div>
               </Field>
 
               {tipo === "individual" && material?.control_individual && (
@@ -561,13 +559,93 @@ export function InspeccionFormPage() {
                     placeholder="Buscar por código…"
                     onChange={(id) => { setPiezaId(id); setPiezasLote(new Set()); }}
                     fetchOptions={async (q) => {
-                      const res = await listPiezas({ material: materialId, sin_padre: true, q });
-                      return res.map((p) => ({
-                        id: p.id,
-                        label: `${labelPieza(p)}${p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}`,
-                      }));
+                      const term = (q || "").trim().toLowerCase();
+                      return piezasFiltradas
+                        .filter((p: PiezaBase) => !p.padre)
+                        .filter((p: PiezaBase) => !term || (p.codigo && p.codigo.toLowerCase().includes(term)) || (p.detalle && p.detalle.toLowerCase().includes(term)))
+                        .map((p: PiezaBase) => ({
+                          id: p.id,
+                          label: `${labelPieza(p)}${p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}`,
+                        }));
                     }}
                   />
+                  {!incluirInspeccionados && piezasFiltradas.filter((p: PiezaBase) => !p.padre).length === 0 && (
+                    <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
+                      Todas las piezas están al día con sus inspecciones. Marca "Incluir herramientas ya inspeccionadas" para re-inspeccionar.
+                    </small>
+                  )}
+                </Field>
+              )}
+
+              {tipo === "grupal" && material?.control_individual && (
+                <Field label={`Piezas del lote (${piezasLote.size} de ${piezas.filter((p) => !p.padre).length} seleccionadas)`} required error={errors.cantidades}>
+                  <div
+                    style={{
+                      border: "1px solid #E2E8F0",
+                      borderRadius: 8,
+                      background: "#F8FAFC",
+                      padding: "8px 12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #E2E8F0", paddingBottom: 6 }}>
+                      <button
+                        type="button"
+                        style={{ fontSize: 11.5, color: "#2563EB", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}
+                        onClick={() => {
+                          const allIds = new Set(piezas.filter((p) => !p.padre).map((p) => p.id));
+                          setPiezasLote(allIds);
+                        }}
+                      >
+                        ✓ Seleccionar todas ({piezas.filter((p) => !p.padre).length})
+                      </button>
+                      <button
+                        type="button"
+                        style={{ fontSize: 11.5, color: "#64748B", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        onClick={() => setPiezasLote(new Set())}
+                      >
+                        Deseleccionar
+                      </button>
+                    </div>
+                    <div style={{ maxHeight: 110, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                      {piezas.filter((p) => !p.padre).map((p) => {
+                        const checked = piezasLote.has(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "4px 8px",
+                              borderRadius: 4,
+                              background: checked ? "#EFF6FF" : "#FFFFFF",
+                              border: checked ? "1px solid #BFDBFE" : "1px solid #E2E8F0",
+                              cursor: "pointer",
+                              fontSize: 12,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => togglePieza(p.id)}
+                              style={{ width: 14, height: 14, accentColor: "#2563EB" }}
+                            />
+                            <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>{labelPieza(p)}</span>
+                            <span style={{ color: "#475569", fontSize: 11.5 }}>
+                              {p.material_nombre} {p.detalle ? `(${p.detalle})` : ""}
+                            </span>
+                            <span style={{ color: "#64748B", fontSize: 11, marginLeft: "auto" }}>{p.estado}</span>
+                          </label>
+                        );
+                      })}
+                      {piezas.filter((p) => !p.padre).length === 0 && (
+                        <span style={{ fontSize: 12, color: "#94A3B8" }}>No hay piezas disponibles.</span>
+                      )}
+                    </div>
+                  </div>
                 </Field>
               )}
 
@@ -583,362 +661,177 @@ export function InspeccionFormPage() {
               )}
             </div>
 
-            {/* Lote de piezas (grupal) */}
-            {tipo === "grupal" && material?.control_individual && (
-              <div style={{ marginTop: 16 }}>
-                <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
-                  Seleccionar piezas del lote
-                </strong>
-                <div className="pieza-multiselect">
-                  {estuches.length > 0 && (
-                    <div className="lote-subseccion">
-                      <span className="lote-subseccion-titulo">Estuches ({estuches.length})</span>
-                      {estuches.map((p) => (
-                        <EstucheGroup
-                          key={p.id}
-                          padre={p}
-                          hijas={hijasPorPadre.get(p.id) ?? []}
-                          piezasLote={piezasLote}
-                          togglePieza={togglePieza}
-                          toggleTodas={toggleTodasHijas}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {sueltas.length > 0 && (
-                    <div className="lote-subseccion">
-                      <span className="lote-subseccion-titulo">Piezas sueltas ({sueltas.length})</span>
-                      {sueltas.map((p) => (
-                        <label key={p.id} className="pieza-checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={piezasLote.has(p.id)}
-                            onChange={() => togglePieza(p.id)}
-                          />
-                          <span className="pieza-code">{labelPieza(p)}</span>
-                          <span style={{ fontSize: 13 }}>
-                            {p.material_nombre}
-                            {p.detalle ? ` — ${p.detalle}` : ""}
-                            {p.material_medida ? ` (${p.material_medida})` : ""}
-                          </span>
-                          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>{p.estado}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-
-                  {piezas.length === 0 && materialId > 0 && (
-                    <p className="empty-row" style={{ fontSize: 12 }}>Sin piezas disponibles.</p>
-                  )}
-                </div>
-                {piezasLote.size > 0 && (
-                  <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
-                    {piezasLote.size} piezas seleccionadas
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Metadatos SST y Clasificación ABC */}
-            <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border, #e2e8f0)", display: "grid", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-
-                {/* Frecuencia solo aparece si es inspección PLANIFICADA */}
-                {modalidad === "planificada" ? (
-                  <Field label="Frecuencia planificada">
-                    <select
-                      value={frecuencia}
-                      onChange={(e) => {
-                        const f = e.target.value;
-                        setFrecuencia(f);
-                        // Recalcular próxima inspección automáticamente
-                        const diasMap: Record<string, number> = {
-                          semanal: 7,
-                          quincenal: 15,
-                          mensual: 30,
-                          bimestral: 60,
-                          trimestral: 90,
-                          semestral: 180,
-                          anual: 365,
-                        };
-                        const dias = diasMap[f] ?? 90;
-                        const hoy = new Date();
-                        hoy.setDate(hoy.getDate() + dias);
-                        setProximaInspeccion(hoy.toISOString().slice(0, 10));
-                      }}
-                    >
-                      <option value="semanal">Semanal (7 días)</option>
-                      <option value="quincenal">Quincenal (15 días)</option>
-                      <option value="mensual">Mensual (30 días)</option>
-                      <option value="bimestral">Bimestral (60 días)</option>
-                      <option value="trimestral">Trimestral (90 días)</option>
-                      <option value="semestral">Semestral (180 días)</option>
-                      <option value="anual">Anual (365 días)</option>
-                    </select>
-
-                    {/* Detalle del cálculo matemático ABC de frecuencia */}
-                    {contexto?.frecuencia_sugerida && (
-                      <div
-                        style={{
-                          marginTop: 6,
-                          padding: "6px 10px",
-                          background: "var(--surface-sunken, #f8fafc)",
-                          borderRadius: 6,
-                          border: "1px solid var(--border, #e2e8f0)",
-                          fontSize: 11.5,
-                          color: "var(--foreground, #1e293b)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-                          <ChartLineUp size={14} color="var(--primary, #2563eb)" />
-                          <span>Sugerida por rotación: <strong>{contexto.frecuencia_sugerida.label}</strong></span>
-                          <span
-                            style={{
-                              marginLeft: "auto",
-                              background: contexto.frecuencia_sugerida.categoria_abc === "A" ? "#fee2e2" : contexto.frecuencia_sugerida.categoria_abc === "B" ? "#fef3c7" : "#dcfce7",
-                              color: contexto.frecuencia_sugerida.categoria_abc === "A" ? "#991b1b" : contexto.frecuencia_sugerida.categoria_abc === "B" ? "#92400e" : "#166534",
-                              padding: "2px 6px",
-                              borderRadius: 4,
-                              fontWeight: 700,
-                              fontSize: 10.5,
-                            }}
-                          >
-                            Clase {contexto.frecuencia_sugerida.categoria_abc}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", gap: 12, marginTop: 4, color: "var(--muted, #64748b)" }}>
-                          <span>Salidas (90d): <strong>{contexto.frecuencia_sugerida.total_salidas_90d}</strong> ({contexto.frecuencia_sugerida.usos_por_mes} usos/mes)</span>
-                          <span>Incidencias: <strong>{contexto.frecuencia_sugerida.total_hallazgos}</strong> ({Math.round(contexto.frecuencia_sugerida.tasa_incidencias * 100)}%)</span>
-                        </div>
-                      </div>
-                    )}
+            {/* ── Campos adicionales que dependen del material seleccionado ── */}
+            {materialId > 0 && (
+              <div style={{ marginTop: 16, display: "grid", gap: 16 }}>
+                <div className="form-grid">
+                  <Field label="Área de trabajo / Lugar">
+                    <input
+                      type="text"
+                      value={areaTrabajo}
+                      onChange={(e) => setAreaTrabajo(e.target.value)}
+                      placeholder="Facility Management"
+                    />
                   </Field>
-                ) : (
-                  <div style={{
-                    padding: "10px 14px",
-                    background: "var(--surface-sunken, #f8fafc)",
-                    borderRadius: 6,
-                    border: "1px dashed var(--border, #e2e8f0)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 12,
-                    color: "var(--muted, #64748b)",
-                  }}>
-                    <WarningCircle size={16} />
-                    <span>Inspección <strong>no planificada</strong> — sin frecuencia programada.</span>
-                  </div>
-                )}
+                </div>
 
-                <Field label="Área de trabajo / Lugar">
-                  <input
-                    type="text"
-                    value={areaTrabajo}
-                    onChange={(e) => setAreaTrabajo(e.target.value)}
-                    placeholder="Ej. Taller Central, Mantenimiento FM, Hilandería..."
-                  />
-                </Field>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <Field label="Referencia (OT / OL / OP)">
-                  {ordenesDisponibles.length > 0 ? (
-                    <div style={{ display: "grid", gap: 6 }}>
-                      <select
-                        value={
-                          ordenesDisponibles.some((o) => o.codigo === referenciaOrden)
-                            ? referenciaOrden
-                            : referenciaOrden === ""
-                            ? ""
-                            : "__custom__"
-                        }
-                        onChange={(e) => {
-                          if (e.target.value === "__custom__") {
-                            setReferenciaOrden("OT-");
-                          } else {
-                            setReferenciaOrden(e.target.value);
-                          }
-                        }}
-                      >
-                        <option value="">— Seleccionar orden disponible —</option>
-                        {ordenesDisponibles.map((ord) => (
-                          <option key={ord.id} value={ord.codigo}>
-                            {ord.codigo} — {ord.descripcion}
+                <div className="form-grid">
+                  <Field label="Referencia (OT / OL / OP)">
+                    <select
+                      value={referenciaOrden}
+                      onChange={(e) => setReferenciaOrden(e.target.value)}
+                    >
+                      <option value="">— Seleccionar orden disponible —</option>
+                      {contexto?.ordenes_disponibles && contexto.ordenes_disponibles.length > 0 ? (
+                        contexto.ordenes_disponibles.map((o) => (
+                          <option key={o.id || o.codigo} value={o.codigo}>
+                            {o.codigo}{o.descripcion ? ` — ${o.descripcion}` : ""}
                           </option>
-                        ))}
-                        <option value="__custom__">✏️ Escribir otra referencia manual…</option>
-                      </select>
-
-                      {(!ordenesDisponibles.some((o) => o.codigo === referenciaOrden) && referenciaOrden !== "") && (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <input
-                            type="text"
-                            value={referenciaOrden}
-                            onChange={(e) => setReferenciaOrden(e.target.value)}
-                            placeholder="Escribir código de orden (ej. OT-2026-0099)..."
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            className="button button-secondary"
-                            style={{ padding: "4px 8px", fontSize: 11 }}
-                            onClick={() => setReferenciaOrden("")}
-                          >
-                            Limpiar
-                          </button>
-                        </div>
+                        ))
+                      ) : (
+                        ordenesDisponibles.map((ord) => (
+                          <option key={ord.id || ord.codigo} value={ord.codigo}>
+                            {ord.codigo}{ord.descripcion ? ` — ${ord.descripcion}` : ""}
+                          </option>
+                        ))
                       )}
+                    </select>
+                    <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 11 }}>
+                      {(contexto?.ordenes_disponibles?.length ?? ordenesDisponibles.length)} orden(es) disponible(s) con acceso autorizado.
+                    </small>
+                  </Field>
 
-                      <small style={{ color: "var(--muted, #64748b)", fontSize: 11 }}>
-                        {ordenesDisponibles.length} orden(es) disponible(s) con acceso autorizado.
-                      </small>
-                    </div>
-                  ) : (
-                    <div>
-                      <input
-                        type="text"
-                        value={referenciaOrden}
-                        onChange={(e) => setReferenciaOrden(e.target.value)}
-                        placeholder="Ej. OT-2026-0045, OL-012, OP-882..."
-                      />
-                      <small style={{ color: "var(--muted, #64748b)", fontSize: 11, display: "block", marginTop: 4 }}>
-                        Sin órdenes activas disponibles. Puedes escribir una referencia manual.
-                      </small>
-                    </div>
-                  )}
-                </Field>
-
-                {/* Banner visual del Color Bimestral/Trimestral 5S */}
-                {contexto?.color_actual && (
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--muted, #64748b)" }}>
-                      {contexto.tipo_periodo_color === "bimestral"
+                      {contexto?.color_actual?.es_bimestral
                         ? "Código de Color Bimestral (Sistema 5S)"
                         : "Código de Color Trimestral (Sistema 5S)"}
                     </label>
-                    {/* Leyenda de todos los periodos */}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                      {contexto.leyenda_colores.map((item) => {
-                        const esPeriodoActivo = item.meses_num?.includes(new Date().getMonth() + 1);
-                        return (
-                          <div
-                            key={item.label ?? item.meses}
-                            title={item.meses}
-                            style={{
-                              background: item.hex,
-                              color: item.txt_color ? (item.txt_color.startsWith('#') ? item.txt_color : `#${item.txt_color}`) : (item.hex === "#FFFF00" || item.hex === "#FFFFFF" ? "#000" : "#fff"),
-                              borderRadius: 4,
-                              padding: "3px 8px",
-                              fontSize: 11,
-                              fontWeight: esPeriodoActivo ? 700 : 500,
-                              border: esPeriodoActivo ? "2px solid #0f172a" : (item.hex === "#FFFFFF" ? "1px solid #cbd5e1" : "1px solid rgba(0,0,0,0.15)"),
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {item.label ?? item.meses}{esPeriodoActivo ? " ★" : ""}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Periodo activo detallado */}
                     <div
                       style={{
+                        background: "#F8FAFC",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: 8,
+                        padding: "10px 14px",
                         display: "flex",
                         alignItems: "center",
-                        gap: 10,
-                        padding: "8px 12px",
-                        background: "var(--surface-sunken, #f8fafc)",
-                        borderRadius: 6,
-                        border: "1px solid var(--border, #e2e8f0)",
+                        gap: 12,
+                        minHeight: 46,
                       }}
                     >
-                      <div
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: "50%",
-                          background: contexto.color_actual.hex,
-                          boxShadow: "0 0 0 2px rgba(0,0,0,0.1)",
-                          border: contexto.color_actual.hex === "#FFFFFF" ? "1px solid #94a3b8" : "none",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--foreground, #0f172a)" }}>
-                          {contexto.color_actual.label ?? (contexto.tipo_periodo_color === "bimestral" ? `Bimestre ${contexto.color_actual.bimestre}` : `Trimestre ${contexto.color_actual.trimestre}`)} — {contexto.color_actual.nombre} ({contexto.color_actual.meses})
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--muted, #64748b)" }}>
-                          Periodo vigente según el sistema 5S
-                        </div>
-                      </div>
+                      {contexto?.color_actual ? (
+                        <>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              backgroundColor: contexto.color_actual.hex,
+                              border: contexto.color_actual.hex.toLowerCase() === "#ffffff" ? "1px solid #94a3b8" : "1px solid rgba(0,0,0,0.15)",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
+                              {contexto.color_actual.periodo_texto} — {contexto.color_actual.nombre} ({contexto.color_actual.meses_texto})
+                            </div>
+                            <div style={{ fontSize: 11, color: "#64748B", marginTop: 1 }}>
+                              Periodo vigente según el sistema 5S
+                            </div>
+                          </div>
+                        </>
+                      ) : contexto?.color_mes ? (
+                        <>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              backgroundColor: contexto.color_mes.hex,
+                              border: "1px solid rgba(0,0,0,0.15)",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
+                              Trimestre actual — {contexto.color_mes.nombre.toUpperCase()} ({contexto.color_mes.meses})
+                            </div>
+                            <div style={{ fontSize: 11, color: "#64748B", marginTop: 1 }}>
+                              Periodo vigente según el sistema 5S
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 12, color: "#94a3b8" }}>Selecciona un material para ver el color 5S</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tipos de herramientas manuales — SOLO si el material es de esa subcategoría */}
+                {isHerramientaManual && (
+                  <div
+                    style={{
+                      border: "1px solid #E2E8F0",
+                      borderRadius: 8,
+                      padding: "14px 16px",
+                      background: "#FFFFFF",
+                      marginTop: 4,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
+                        Tipo de Herramientas Manuales (Marcar las que aplican)
+                      </span>
+                      <span style={{ fontSize: 12, color: "#64748B" }}>
+                        {tiposHerramientas.length} seleccionadas
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(4, 1fr)",
+                        gap: "10px 14px",
+                      }}
+                    >
+                      {GRUPOS_HERRAMIENTAS.map((grupo) => {
+                        const seleccionado = tiposHerramientas.includes(grupo);
+                        return (
+                          <label
+                            key={grupo}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              fontSize: 12.5,
+                              color: "#334155",
+                              cursor: "pointer",
+                              userSelect: "none",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={seleccionado}
+                              onChange={() => toggleTipoHerramienta(grupo)}
+                              style={{
+                                width: 15,
+                                height: 15,
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                accentColor: "#2563EB",
+                              }}
+                            />
+                            <span>{grupo}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* 8 Checkboxes de Tipos de Herramientas Manuales (Condicional a que sea herramienta manual) */}
-              {isHerramientaManual && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    padding: "14px 16px",
-                    background: "var(--surface-elevated, #ffffff)",
-                    borderRadius: 8,
-                    border: "1px solid var(--border, #e2e8f0)",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <label style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground, #0f172a)" }}>
-                      Tipo de Herramientas Manuales (Marcar las que aplican)
-                    </label>
-                    <span style={{ fontSize: 11.5, color: "var(--muted, #64748b)" }}>
-                      {tiposHerramientas.length} seleccionada{tiposHerramientas.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                      gap: "8px 16px",
-                    }}
-                  >
-                    {GRUPOS_HERRAMIENTAS_MANUALES.map((grupo) => {
-                      const checked = tiposHerramientas.includes(grupo);
-                      return (
-                        <label
-                          key={grupo}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "6px 10px",
-                            borderRadius: 6,
-                            background: checked ? "rgba(37, 99, 235, 0.08)" : "transparent",
-                            border: checked ? "1px solid var(--primary, #2563eb)" : "1px solid transparent",
-                            cursor: "pointer",
-                            fontSize: 12.5,
-                            fontWeight: checked ? 600 : 400,
-                            color: checked ? "var(--primary, #2563eb)" : "var(--foreground, #334155)",
-                            transition: "all 0.15s ease",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleTipoHerramienta(grupo)}
-                            style={{ cursor: "pointer", accentColor: "var(--primary, #2563eb)" }}
-                          />
-                          <span>{grupo}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Paso 3: Plantilla e inspector */}
@@ -966,6 +859,7 @@ export function InspeccionFormPage() {
                     : "Selecciona la plantilla de criterios que corresponda."}
                 </small>
               </Field>
+
               <Field label="Inspector" required error={errors.inspector}>
                 <select value={inspectorId || ""} onChange={(e) => setInspectorId(Number(e.target.value))}>
                   <option value="">Seleccionar inspector…</option>
@@ -974,47 +868,15 @@ export function InspeccionFormPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Próxima inspección">
-                <small style={{ display: "block", marginBottom: 8, color: "#666" }}>
-                  Calculada automáticamente según la periodicidad sugerida: {proximaInspeccion || "—"}.
-                </small>
-                <details>
-                  <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--accent)" }}>
-                    Asignar una fecha manual (opcional)
-                  </summary>
-                  <input
-                    type="date"
-                    value={proximaInspeccion}
-                    onChange={(e) => setProximaInspeccion(e.target.value)}
-                    style={{ marginTop: 8 }}
-                  />
-                </details>
-              </Field>
             </div>
           </div>
 
-          {/* Paso 4: Criterios dinámicos */}
+          {/* Criterios dinámicos */}
           {criterios.length > 0 && (
             <div className="form-panel">
-              <div className="form-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <span>Paso 4</span>
-                  <h2>Criterios de inspección ({criterios.length})</h2>
-                </div>
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
-                  onClick={() => {
-                    const nuevas: Record<number, { valor: ValorRespuesta; observacion: string }> = {};
-                    criterios.forEach((c) => {
-                      nuevas[c.id] = { valor: "cumple", observacion: respuestas[c.id]?.observacion || "" };
-                    });
-                    setRespuestas((prev) => ({ ...prev, ...nuevas }));
-                  }}
-                >
-                  ✓ Marcar todos como Cumple
-                </button>
+              <div className="form-section-heading">
+                <span>Paso 4</span>
+                <h2>Criterios de inspección ({criterios.length})</h2>
               </div>
               <div>
                 {criterios
@@ -1053,7 +915,7 @@ export function InspeccionFormPage() {
             </div>
           )}
 
-          {/* Paso 5: Cantidades (solo grupal) */}
+          {/* Cantidades (solo grupal) */}
           {tipo === "grupal" && (
             <div className="form-panel">
               <div className="form-section-heading">
@@ -1071,10 +933,30 @@ export function InspeccionFormPage() {
                   />
                 </Field>
                 <Field label="Aptas">
-                  <input type="number" min={0} value={cantApta} onChange={(e) => setCantApta(Number(e.target.value))} />
+                  <input
+                    type="number"
+                    min={0}
+                    max={cantInspeccionada}
+                    value={cantApta}
+                    onChange={(e) => {
+                      const val = Math.max(0, Math.min(cantInspeccionada, Number(e.target.value)));
+                      setCantApta(val);
+                      setCantNoApta(cantInspeccionada - val);
+                    }}
+                  />
                 </Field>
                 <Field label="No aptas">
-                  <input type="number" min={0} value={cantNoApta} onChange={(e) => setCantNoApta(Number(e.target.value))} />
+                  <input
+                    type="number"
+                    min={0}
+                    max={cantInspeccionada}
+                    value={cantNoApta}
+                    onChange={(e) => {
+                      const val = Math.max(0, Math.min(cantInspeccionada, Number(e.target.value)));
+                      setCantNoApta(val);
+                      setCantApta(cantInspeccionada - val);
+                    }}
+                  />
                 </Field>
               </div>
               {errors.cantidades && (
@@ -1083,101 +965,149 @@ export function InspeccionFormPage() {
             </div>
           )}
 
-          {/* Paso 5.5 (opcional): Herramientas/EPP con observaciones — solo grupal + Manual o EPP */}
+          {/* Herramientas / EPP con observaciones — solo si la plantilla es Manual o EPP */}
           {admiteObservaciones && (
             <div className="form-panel">
-              <div className="form-section-heading">
-                <span>Opcional</span>
-                <h2>
-                  {esPlantillaEPP ? "EPP con observaciones" : "Herramientas con observaciones"}
-                </h2>
+              <div className="form-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <span>Condición insegura</span>
+                  <h2>{esPlantillaEPP ? "EPP con observaciones" : "Herramientas con observaciones"}</h2>
+                </div>
+                <button
+                  type="button"
+                  className="button button-secondary button-sm"
+                  onClick={addItemObservacion}
+                  style={{ display: "flex", alignItems: "center", gap: 4 }}
+                >
+                  <Plus size={14} /> Agregar fila
+                </button>
               </div>
-              <p style={{ fontSize: 12, color: "#64748B", marginBottom: 10 }}>
-                Registra aquí los ítems con condición insegura (opcional).
+              <p style={{ fontSize: 12, color: "#64748B", marginTop: 2, marginBottom: 12 }}>
+                {esPlantillaEPP
+                  ? "EPP CON OBSERVACIONES (registrar únicamente los que presenten condición insegura o requieran acción)."
+                  : "HERRAMIENTAS CON OBSERVACIONES (registrar únicamente las que presenten condición insegura o requieran acción)."}
               </p>
-              {itemsObservacion.map((item, idx) => (
+
+              {itemsObservacion.length > 0 ? (
+                <div className="table-scroll" style={{ border: "1px solid #E2E8F0", borderRadius: 6, overflowX: "auto" }}>
+                  <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+                        <th style={{ padding: "8px 10px", textAlign: "left", width: 130 }}>Código</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 160 }}>
+                          {esPlantillaEPP ? "Nombre del EPP" : "Nombre de la herramienta"}
+                        </th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 200 }}>Observación encontrada</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 160 }}>Acción recomendada</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", width: 120 }}>Estado</th>
+                        <th style={{ padding: "8px 10px", width: 40 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itemsObservacion.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                          <td style={{ padding: "6px 8px" }}>
+                            {tipo === "grupal" && piezasLote.size > 0 ? (
+                              <select
+                                value={item.codigo}
+                                onChange={(e) => updateItemObservacion(idx, "codigo", e.target.value)}
+                                style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
+                              >
+                                <option value="">— Código —</option>
+                                {piezas.filter((p) => piezasLote.has(p.id)).map((p) => (
+                                  <option key={p.id} value={p.codigo}>{p.codigo}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={item.codigo}
+                                onChange={(e) => updateItemObservacion(idx, "codigo", e.target.value)}
+                                placeholder="Código"
+                                style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
+                              />
+                            )}
+                          </td>
+                          <td style={{ padding: "6px 8px" }}>
+                            <input
+                              type="text"
+                              value={item.nombre}
+                              onChange={(e) => updateItemObservacion(idx, "nombre", e.target.value)}
+                              placeholder={esPlantillaEPP ? "Ej. Guantes de cuero" : "Ej. Martillo de bola"}
+                              style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
+                            />
+                          </td>
+                          <td style={{ padding: "6px 8px" }}>
+                            <input
+                              type="text"
+                              value={item.observacion_encontrada}
+                              onChange={(e) => updateItemObservacion(idx, "observacion_encontrada", e.target.value)}
+                              placeholder="Condición insegura detectada..."
+                              style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
+                            />
+                          </td>
+                          <td style={{ padding: "6px 8px" }}>
+                            <input
+                              type="text"
+                              value={item.accion_recomendada || ""}
+                              onChange={(e) => updateItemObservacion(idx, "accion_recomendada", e.target.value)}
+                              placeholder="Ej. Cambio de mango, dar de baja..."
+                              style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
+                            />
+                          </td>
+                          <td style={{ padding: "6px 8px" }}>
+                            <select
+                              value={item.estado || "Operativa"}
+                              onChange={(e) => updateItemObservacion(idx, "estado", e.target.value)}
+                              style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
+                            >
+                              <option value="Operativa">Operativa</option>
+                              <option value="Mantenimiento">Mantenimiento</option>
+                              <option value="Baja">Baja</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                            <button
+                              type="button"
+                              onClick={() => removeItemObservacion(idx)}
+                              title="Eliminar fila"
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#DC2626", padding: 4 }}
+                            >
+                              <Trash size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
                 <div
-                  key={idx}
                   style={{
-                    border: "1px solid #e2e8f0",
+                    padding: "14px",
+                    textAlign: "center",
+                    background: "#F8FAFC",
                     borderRadius: 6,
-                    padding: "10px 12px",
-                    marginBottom: 10,
-                    backgroundColor: "#f8fafc",
-                    position: "relative",
+                    border: "1px dashed #CBD5E1",
                   }}
                 >
+                  <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>
+                    No hay ítems con observaciones registrados. Si todos se encuentran conformes, continúa al siguiente paso.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => removeItemObservacion(idx)}
-                    title="Eliminar"
-                    style={{
-                      position: "absolute", top: 8, right: 8,
-                      background: "none", border: "none", cursor: "pointer", color: "#EF4444",
-                    }}
+                    className="button button-secondary button-sm"
+                    onClick={addItemObservacion}
+                    style={{ marginTop: 8 }}
                   >
-                    <Trash size={15} />
+                    <Plus size={13} /> Agregar fila con observación
                   </button>
-                  <div className="form-grid" style={{ gap: 8 }}>
-                    <Field label="Código">
-                      <input
-                        type="text"
-                        placeholder="Ej. HERR-001"
-                        value={item.codigo}
-                        onChange={(e) => updateItemObservacion(idx, "codigo", e.target.value)}
-                      />
-                    </Field>
-                    <Field label={esPlantillaEPP ? "Nombre del EPP" : "Nombre de la herramienta / ítem"} required>
-                      <input
-                        type="text"
-                        placeholder={esPlantillaEPP ? "Ej. Casco de seguridad" : "Ej. Destornillador plano / Taladro"}
-                        value={item.nombre}
-                        onChange={(e) => updateItemObservacion(idx, "nombre", e.target.value)}
-                      />
-                    </Field>
-                    <Field label="Observación encontrada" wide required>
-                      <input
-                        type="text"
-                        placeholder="Describe la condición insegura"
-                        value={item.observacion_encontrada}
-                        onChange={(e) => updateItemObservacion(idx, "observacion_encontrada", e.target.value)}
-                      />
-                    </Field>
-                    {!esPlantillaEPP && (
-                      <>
-                        <Field label="Acción recomendada">
-                          <input
-                            type="text"
-                            placeholder="Ej. Reemplazar mango"
-                            value={item.accion_recomendada ?? ""}
-                            onChange={(e) => updateItemObservacion(idx, "accion_recomendada", e.target.value)}
-                          />
-                        </Field>
-                        <Field label="Estado">
-                          <input
-                            type="text"
-                            placeholder="Ej. Pendiente / Resuelto"
-                            value={item.estado ?? ""}
-                            onChange={(e) => updateItemObservacion(idx, "estado", e.target.value)}
-                          />
-                        </Field>
-                      </>
-                    )}
-                  </div>
                 </div>
-              ))}
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={addItemObservacion}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4 }}
-              >
-                <Plus size={14} /> Agregar ítem
-              </button>
+              )}
             </div>
           )}
 
-          {/* Paso 5 o 6: Resultado y acción */}
+          {/* Resultado y acción */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>{tipo === "grupal" ? "Paso 6" : "Paso 5"}</span>
@@ -1228,9 +1158,7 @@ export function InspeccionFormPage() {
               <ArrowLeft size={15} /> Cancelar
             </Link>
             <button type="submit" className="button button-primary" disabled={mut.isPending}>
-              {isEditMode
-                ? (mut.isPending ? "Guardando cambios…" : "Guardar cambios")
-                : (mut.isPending ? "Guardando…" : "Registrar inspección")}
+              {mut.isPending ? "Guardando…" : "Registrar inspección"}
             </button>
           </div>
         </div>
@@ -1253,4 +1181,4 @@ export function InspeccionFormPage() {
       </form>
     </section>
   );
-}
+}

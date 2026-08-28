@@ -52,7 +52,7 @@ def _es_almacenero(request):
 
 class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Movimiento.objects.select_related(
-        "material", "pieza", "responsable", "almacen", "orden_trabajo",
+        "material", "pieza", "responsable", "almacen", "unidad_movimiento",
     ).all()
     serializer_class = MovimientoSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
