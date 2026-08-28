@@ -1,8 +1,5 @@
 import {
   ArrowLeft,
-  CalendarBlank,
-  ChartLineUp,
-  CheckCircle,
   Clock,
   Package,
   Plus,
@@ -71,7 +68,6 @@ export function InspeccionFormPage() {
     preselPiezasLote.length > 0 ? "grupal" : "individual",
   );
   const [modalidad, setModalidad] = useState<"planificada" | "no_planificada">("planificada");
-  const [frecuencia, setFrecuencia] = useState<string>("trimestral");
   const [areaTrabajo, setAreaTrabajo] = useState<string>("Facility Management");
   const [referenciaOrden, setReferenciaOrden] = useState<string>("");
   const [tiposHerramientas, setTiposHerramientas] = useState<string[]>([]);
@@ -95,8 +91,8 @@ export function InspeccionFormPage() {
   // Contexto inteligente del backend (Frecuencia ABC, color 5S, detección manual)
   // Solo se activa cuando hay un material seleccionado
   const { data: contexto } = useQuery({
-    queryKey: ["checklist-contexto", materialId, almacenId, frecuencia],
-    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined, frecuencia || undefined),
+    queryKey: ["checklist-contexto", materialId, almacenId],
+    queryFn: () => getChecklistContexto(materialId || undefined, almacenId || undefined),
     enabled: materialId > 0,
   });
 
@@ -130,15 +126,7 @@ export function InspeccionFormPage() {
 
   // Detectar reactivamente si el material seleccionado es herramienta manual
   const isHerramientaManual: boolean = Boolean(
-    contexto?.es_herramienta_manual ||
-    tiposHerramientas.length > 0 ||
-    (material?.codigo?.toUpperCase().startsWith("H") &&
-      !material?.subcategoria_nombre?.toLowerCase().includes("inalámbric") &&
-      !material?.subcategoria_nombre?.toLowerCase().includes("eléctric")) ||
-    (material?.nombre &&
-      /alicate|destornillador|llave|martillo|sierra|cincel|lima|pinza|tenaza|cizalla|cutter|flexometro|huincha|nivel|brocha|rodillo|espatula|prensa|comba|manual|cortafrío/i.test(
-        material.nombre,
-      ))
+    contexto?.es_herramienta_manual || tiposHerramientas.length > 0
   );
 
   // Derivar si la plantilla seleccionada es EPP o Manual para admitir la sección de observaciones de ítems
@@ -168,28 +156,6 @@ export function InspeccionFormPage() {
     setItemsObservacion((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Auto-poblar frecuencia y próxima inspección cuando cambia el material o contexto
-  useEffect(() => {
-    if (material) {
-      const sub = (material.subcategoria_nombre || "").toLowerCase();
-      const nom = (material.nombre || "").toLowerCase();
-      const esElectrico = /inalámbric|electri|taladro|amoladora|esmeril|rotomartillo|caladora|lijadora|sierra|mezclador/i.test(sub + " " + nom);
-      if (esElectrico) {
-        setFrecuencia("bimestral");
-        const hoy = new Date();
-        hoy.setDate(hoy.getDate() + 60);
-        setProximaInspeccion(hoy.toISOString().slice(0, 10));
-      }
-    }
-  }, [material]);
-
-  // Auto-poblar frecuencia sugerida desde el cálculo ABC del backend
-  useEffect(() => {
-    if (contexto?.frecuencia_sugerida?.frecuencia_sugerida) {
-      setFrecuencia(contexto.frecuencia_sugerida.frecuencia_sugerida.toLowerCase());
-    }
-  }, [contexto?.frecuencia_sugerida]);
-
   // Auto-poblar próxima inspección calculada
   useEffect(() => {
     if (contexto?.proxima_fecha_calculada) {
@@ -206,7 +172,7 @@ export function InspeccionFormPage() {
   const { data: piezas = [] } = useQuery({
     queryKey: ["piezas", materialId],
     queryFn: () => listPiezas({ material: materialId }),
-    enabled: !!materialId && material?.control_individual === true,
+    enabled: !!materialId,
   });
 
   // Hijas activas de la pieza seleccionada (modo individual).
@@ -340,7 +306,6 @@ export function InspeccionFormPage() {
       return createInspeccion({
         tipo,
         modalidad,
-        frecuencia,
         area_trabajo: areaTrabajo,
         referencia_orden: referenciaOrden,
         tipos_herramientas: isHerramientaManual ? tiposHerramientas : [],
@@ -413,53 +378,38 @@ export function InspeccionFormPage() {
         noValidate
       >
         <div style={{ display: "grid", gap: 20 }}>
-
-          {/* Paso 1: Tipo y Modalidad */}
+          
+          {/* Paso 1a: Alcance de la inspección */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 1</span>
-              <h2>Tipo y modalidad de inspección</h2>
+              <h2>Alcance de la inspección</h2>
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--muted, #64748b)" }}>
-                  Alcance de la inspección
-                </label>
-                <div className="segmented-control segmented-2">
-                  <button type="button" className={tipo === "individual" ? "is-active" : ""} onClick={() => setTipo("individual")}>
-                    Individual (por pieza)
-                  </button>
-                  <button type="button" className={tipo === "grupal" ? "is-active" : ""} onClick={() => setTipo("grupal")}>
-                    Grupal (lote)
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--muted, #64748b)" }}>
-                  Modalidad de inspección
-                </label>
-                <div className="segmented-control segmented-2">
-                  <button
-                    type="button"
-                    className={modalidad === "planificada" ? "is-active" : ""}
-                    onClick={() => setModalidad("planificada")}
-                  >
-                    <Clock size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                    Planificada
-                  </button>
-                  <button
-                    type="button"
-                    className={modalidad === "no_planificada" ? "is-active" : ""}
-                    onClick={() => setModalidad("no_planificada")}
-                  >
-                    <WarningCircle size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                    No planificada (Inopinada)
-                  </button>
-                </div>
-              </div>
+            <div className="segmented-control segmented-2">
+              <button type="button" className={tipo === "individual" ? "is-active" : ""} onClick={() => setTipo("individual")}>
+                Individual (por pieza)
+              </button>
+              <button type="button" className={tipo === "grupal" ? "is-active" : ""} onClick={() => setTipo("grupal")}>
+                Grupal (lote)
+              </button>
             </div>
+          </div>
+
+          {/* Paso 1b: Modalidad de inspección */}
+          <div className="form-panel">
+            <div className="form-section-heading">
+              <span>Paso 1</span>
+              <h2>Modalidad de inspección</h2>
+            </div>
+            <Field label="Modalidad" required>
+              <select
+                value={modalidad}
+                onChange={(e) => setModalidad(e.target.value as "planificada" | "no_planificada")}
+              >
+                <option value="planificada">Planificada</option>
+                <option value="no_planificada">No planificada (Inopinada)</option>
+              </select>
+            </Field>
           </div>
 
           {/* Paso 2: Material y Pieza con Metadatos SST y Tipos de Herramientas */}
@@ -577,93 +527,6 @@ export function InspeccionFormPage() {
             <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border, #e2e8f0)", display: "grid", gap: 16 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
-                {/* Frecuencia solo aparece si es inspección PLANIFICADA */}
-                {modalidad === "planificada" ? (
-                  <Field label="Frecuencia planificada">
-                    <select
-                      value={frecuencia}
-                      onChange={(e) => {
-                        const f = e.target.value;
-                        setFrecuencia(f);
-                        // Recalcular próxima inspección automáticamente
-                        const diasMap: Record<string, number> = {
-                          semanal: 7,
-                          quincenal: 15,
-                          mensual: 30,
-                          bimestral: 60,
-                          trimestral: 90,
-                          semestral: 180,
-                          anual: 365,
-                        };
-                        const dias = diasMap[f] ?? 90;
-                        const hoy = new Date();
-                        hoy.setDate(hoy.getDate() + dias);
-                        setProximaInspeccion(hoy.toISOString().slice(0, 10));
-                      }}
-                    >
-                      <option value="semanal">Semanal (7 días)</option>
-                      <option value="quincenal">Quincenal (15 días)</option>
-                      <option value="mensual">Mensual (30 días)</option>
-                      <option value="bimestral">Bimestral (60 días)</option>
-                      <option value="trimestral">Trimestral (90 días)</option>
-                      <option value="semestral">Semestral (180 días)</option>
-                      <option value="anual">Anual (365 días)</option>
-                    </select>
-
-                    {/* Detalle del cálculo matemático ABC de frecuencia */}
-                    {contexto?.frecuencia_sugerida && (
-                      <div
-                        style={{
-                          marginTop: 6,
-                          padding: "6px 10px",
-                          background: "var(--surface-sunken, #f8fafc)",
-                          borderRadius: 6,
-                          border: "1px solid var(--border, #e2e8f0)",
-                          fontSize: 11.5,
-                          color: "var(--foreground, #1e293b)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-                          <ChartLineUp size={14} color="var(--primary, #2563eb)" />
-                          <span>Sugerida por rotación: <strong>{contexto.frecuencia_sugerida.label}</strong></span>
-                          <span
-                            style={{
-                              marginLeft: "auto",
-                              background: contexto.frecuencia_sugerida.categoria_abc === "A" ? "#fee2e2" : contexto.frecuencia_sugerida.categoria_abc === "B" ? "#fef3c7" : "#dcfce7",
-                              color: contexto.frecuencia_sugerida.categoria_abc === "A" ? "#991b1b" : contexto.frecuencia_sugerida.categoria_abc === "B" ? "#92400e" : "#166534",
-                              padding: "2px 6px",
-                              borderRadius: 4,
-                              fontWeight: 700,
-                              fontSize: 10.5,
-                            }}
-                          >
-                            Clase {contexto.frecuencia_sugerida.categoria_abc}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", gap: 12, marginTop: 4, color: "var(--muted, #64748b)" }}>
-                          <span>Salidas (90d): <strong>{contexto.frecuencia_sugerida.total_salidas_90d}</strong> ({contexto.frecuencia_sugerida.usos_por_mes} usos/mes)</span>
-                          <span>Incidencias: <strong>{contexto.frecuencia_sugerida.total_hallazgos}</strong> ({Math.round(contexto.frecuencia_sugerida.tasa_incidencias * 100)}%)</span>
-                        </div>
-                      </div>
-                    )}
-                  </Field>
-                ) : (
-                  <div style={{
-                    padding: "10px 14px",
-                    background: "var(--surface-sunken, #f8fafc)",
-                    borderRadius: 6,
-                    border: "1px dashed var(--border, #e2e8f0)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 12,
-                    color: "var(--muted, #64748b)",
-                  }}>
-                    <WarningCircle size={16} />
-                    <span>Inspección <strong>no planificada</strong> — sin frecuencia programada.</span>
-                  </div>
-                )}
-
                 <Field label="Área de trabajo / Lugar">
                   <input
                     type="text"
@@ -700,7 +563,7 @@ export function InspeccionFormPage() {
                             {ord.codigo} — {ord.descripcion}
                           </option>
                         ))}
-                        <option value="__custom__">✏️ Escribir otra referencia manual…</option>
+                        <option value="__custom__">Escribir referencia manual…</option>
                       </select>
 
                       {(!ordenesDisponibles.some((o) => o.codigo === referenciaOrden) && referenciaOrden !== "") && (
@@ -750,31 +613,6 @@ export function InspeccionFormPage() {
                         ? "Código de Color Bimestral (Sistema 5S)"
                         : "Código de Color Trimestral (Sistema 5S)"}
                     </label>
-                    {/* Leyenda de todos los periodos */}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                      {contexto.leyenda_colores.map((item) => {
-                        const esPeriodoActivo = item.meses_num?.includes(new Date().getMonth() + 1);
-                        return (
-                          <div
-                            key={item.label ?? item.meses}
-                            title={item.meses}
-                            style={{
-                              background: item.hex,
-                              color: item.txt_color ? (item.txt_color.startsWith('#') ? item.txt_color : `#${item.txt_color}`) : (item.hex === "#FFFF00" || item.hex === "#FFFFFF" ? "#000" : "#fff"),
-                              borderRadius: 4,
-                              padding: "3px 8px",
-                              fontSize: 11,
-                              fontWeight: esPeriodoActivo ? 700 : 500,
-                              border: esPeriodoActivo ? "2px solid #0f172a" : (item.hex === "#FFFFFF" ? "1px solid #cbd5e1" : "1px solid rgba(0,0,0,0.15)"),
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {item.label ?? item.meses}{esPeriodoActivo ? " ★" : ""}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Periodo activo detallado */}
                     <div
                       style={{
                         display: "flex",
@@ -1184,4 +1022,4 @@ export function InspeccionFormPage() {
       </form>
     </section>
   );
-}
+}

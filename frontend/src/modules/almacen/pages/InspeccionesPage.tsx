@@ -20,13 +20,14 @@ export function InspeccionesPage() {
   const [exportando, setExportando] = useState(false);
 
   const { data: inspecciones = [], isLoading } = useQuery({
-    queryKey: ["inspecciones", almacenId, values],
+    queryKey: ["inspecciones", almacenId, values.q, values.tipo, values.resultado],
     queryFn: () =>
       listInspecciones(almacenId, {
         q: values.q || undefined,
         tipo: values.tipo ? (values.tipo as TipoInspeccion) : undefined,
         resultado: values.resultado ? (values.resultado as ResultadoInspeccion) : undefined,
       }),
+    placeholderData: (prev) => prev,
   });
 
   const { data: vencidas = [] } = useQuery({
