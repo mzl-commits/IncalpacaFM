@@ -9,6 +9,10 @@ export interface WorkOrderMaterial {
   materialPrecio: string | null;
   materialStock: number;
   cantidad: number;
+  // Opcional: el backend puede no incluir este campo todavía en el
+  // serializer (ver fix pendiente en WorkOrderMaterialSerializer). El
+  // frontend hace fallback a `cantidad` cuando viene undefined.
+  cantidadPendiente?: number;
   tipo: "USADO" | "NECESARIO_NO_BLOQUEANTE";
   tipoLabel: string;
   esBloqueante: boolean;
@@ -90,4 +94,3 @@ export async function updateWorkOrderCostAmount(
   const { data } = await api.patch(`/work-orders/${workOrderId}/costs/${costId}/`, { amount });
   return data;
 }
-

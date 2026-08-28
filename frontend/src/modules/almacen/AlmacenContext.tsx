@@ -48,7 +48,8 @@ function buildSubNavItems(almacenId: number): SubNavItem[] {
   const base = `/almacen/${almacenId}`;
   return [
     { to: `${base}/catalogo`, label: "Catálogo", icon: ListDashes, end: true },
-    { to: `${base}/movimientos`, label: "Movimientos", icon: ArrowRight, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
+    { to: `${base}/movimientos`, label: "Movimientos", icon: ArrowRight, end: true, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
+    { to: `${base}/movimientos/solicitudes`, label: "Solicitudes", icon: ClipboardText, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
     { to: `${base}/checklist`, label: "Devolución", icon: ListChecks, itemRoles: ["ADMINISTRADOR", "ALMACENERO"] },
     { to: `${base}/inspecciones`, label: "Inspecciones", icon: ClipboardText, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },
     { to: `${base}/plantillas`, label: "Plantillas SST", icon: Files, itemRoles: ["ADMINISTRADOR", "INSPECTOR"] },

@@ -1,9 +1,7 @@
 import {
   PlusCircle,
   Trash,
-  WarningDiamond,
   Package,
-  Check,
   Spinner,
 } from "@phosphor-icons/react";
 
@@ -159,7 +157,7 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
       const updated = await marcarMaterialBloqueante(workOrderId, id);
       setMateriales((prev) => prev.map((m) => (m.id === id ? updated : m)));
     } catch {
-      setError("No se pudo marcar como bloqueante.");
+      setError("No se pudo enviar el aviso al administrador.");
     }
   }
 
@@ -253,12 +251,24 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
                     </span>
                   )}
                   {" "}· Stock almacén: {m.materialStock}
-                  {m.esBloqueante && (
-                    <span style={{ color: "var(--error, #dc2626)", fontWeight: 600, marginLeft: 8 }}>
-                      ⚠ Bloqueante — Administrador notificado
-                    </span>
-                  )}
                 </div>
+                {m.esBloqueante && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      color: "#991b1b",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      display: "inline-block",
+                    }}
+                  >
+                    Administrador notificado. En proceso de compra.
+                  </div>
+                )}
               </div>
 
               {/* Cantidad editable */}
@@ -273,11 +283,11 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
               )}
               {isOtClosed && <span style={{ minWidth: 64, textAlign: "center" }}>{m.cantidad}</span>}
 
-              {/* Marcar bloqueante */}
+              {/* Avisar que no se tiene el material y hay que comprarlo */}
               {!isOtClosed && m.tipo === "NECESARIO_NO_BLOQUEANTE" && !m.esBloqueante && (
                 <button
                   type="button"
-                  title="Marcar como bloqueante — notifica al administrador"
+                  title="Avisa al administrador que necesitas comprar este material porque no hay stock"
                   onClick={() => void handleMarcarbloqueante(m.id)}
                   style={{
                     background: "none",
@@ -286,29 +296,12 @@ export function MaterialesUsadosSection({ workOrderId, isOtClosed }: Props) {
                     color: "var(--error, #dc2626)",
                     cursor: "pointer",
                     fontSize: 12,
-                    padding: "3px 8px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
+                    padding: "4px 10px",
+                    fontWeight: 600,
                   }}
                 >
-                  <WarningDiamond size={13} />
-                  Marcar bloqueante
+                  Avisar al administrador
                 </button>
-              )}
-
-              {m.esBloqueante && (
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--error, #dc2626)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <Check size={13} /> Notificado
-                </span>
               )}
 
               {/* Eliminar */}

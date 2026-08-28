@@ -31,11 +31,17 @@ const ESTADO_CONFIG = {
     color: "#991b1b",
     icon: XCircle,
   },
+  parcial: {
+    label: "Aprobación parcial",
+    bg: "#fef3c7",
+    color: "#92400e",
+    icon: ClipboardText,
+  },
 } as const;
 
 export function SolicitudesMovimientoPage() {
   const { almacenId } = useAlmacenActivo();
-  const [estadoFiltro, setEstadoFiltro] = useState<"todos" | "pendiente" | "aprobada" | "rechazada">("todos");
+  const [estadoFiltro, setEstadoFiltro] = useState<"todos" | "pendiente" | "aprobada" | "rechazada" | "parcial">("todos");
   const [q, setQ] = useState("");
 
   const { data: grupos = [], isLoading } = useQuery({
@@ -91,13 +97,6 @@ export function SolicitudesMovimientoPage() {
             Solicitudes enviadas por los almaceneros para aprobación.
           </p>
         </div>
-        <Link
-          to={`/almacen/${almacenId}/movimientos`}
-          className="button button-secondary"
-          style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-        >
-          ← Volver a movimientos
-        </Link>
       </div>
 
       {/* Filtros */}
@@ -117,7 +116,7 @@ export function SolicitudesMovimientoPage() {
         </div>
 
         <div style={{ display: "flex", gap: 6 }}>
-          {(["todos", "pendiente", "aprobada", "rechazada"] as const).map((estado) => (
+          {(["todos", "pendiente", "aprobada", "parcial", "rechazada"] as const).map((estado) => (
             <button
               key={estado}
               type="button"

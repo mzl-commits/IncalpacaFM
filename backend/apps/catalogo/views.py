@@ -77,7 +77,7 @@ class AlmacenViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
     queryset = Almacen.objects.all()
     serializer_class = AlmacenSerializer
     permission_classes = [IsAlmaceneroOrAdministratorWrite]
-
+    almacen_lookup = "id"
     CAMPOS_EDITABLES_ALMACENERO = {"croquis"}
 
     def get_queryset(self):
@@ -292,7 +292,34 @@ class MaterialViewSet(AlmacenScopedMixin, viewsets.ModelViewSet):
         })
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        from datetime import timedelta
+        from django.utils import timezone
+        from django.db.models import Subquery, OuterRef, Sum, FloatField
+        from django.db.models.functions import Coalesce
+        from apps.inventario.models import Movimiento
+
+        ahora = timezone.now()
+        desde = ahora - timedelta(days=90)
+        
+        # Calcular días hábiles en Python para el divisor estático del queryset
+        dias_habiles = 0
+        cur = desde.date()
+        fin = ahora.date()
+        while cur <= fin:
+            if cur.weekday() < 5:
+                dias_habiles += 1
+            cur += timedelta(days=1)
+        dias_divisor = max(1, dias_habiles)
+
+        salidas_subquery = Movimiento.objects.filter(
+            material=OuterRef("pk"),
+            tipo="salida",
+            fecha__gte=desde,
+        ).values("material").annotate(total=Sum("cantidad")).values("total")
+
+        qs = super().get_queryset().annotate(
+            total_salidas_90d=Coalesce(Subquery(salidas_subquery), 0, output_field=FloatField()),
+        )
         subcategoria_id = self.request.query_params.get("subcategoria")
         categoria_id = self.request.query_params.get("categoria")
         control_individual = self.request.query_params.get("control_individual")

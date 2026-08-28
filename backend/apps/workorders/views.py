@@ -43,6 +43,8 @@ def participant_queryset(request):
     elif role == AccountProfile.Role.SUPERVISOR:
         queryset = queryset.exclude(order_type=WorkOrder.OrderType.SERVICE)
         queryset = queryset.filter(supervisor=request.user)
+    elif role == AccountProfile.Role.ALMACENERO:
+        queryset = queryset.filter(almaceneros_autorizados=request.user)
     return queryset
 
 

@@ -25,6 +25,7 @@ export function ChecklistPage() {
     const { data: prestadas = [], isLoading } = useQuery({
       queryKey: ["checklist-prestados", almacenId],
       queryFn: () => listChecklistPrestados(almacenId),
+      placeholderData: (prev) => prev,
     });
 
   const { data: usuarios = [] } = useQuery({

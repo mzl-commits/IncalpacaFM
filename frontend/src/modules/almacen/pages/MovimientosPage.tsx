@@ -103,7 +103,7 @@ export function MovimientosPage() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["movimientos", almacenId, values],
+    queryKey: ["movimientos", almacenId, values.tipo, values.responsable, values.fecha_desde, values.fecha_hasta],
     queryFn: () =>
       listMovimientos(almacenId, {
         tipo: (values.tipo || undefined) as TipoMovimiento | undefined,
@@ -112,6 +112,7 @@ export function MovimientosPage() {
         fecha_hasta: values.fecha_hasta || undefined,
       }),
     enabled: !!almacenId,
+    placeholderData: (prev) => prev,
   });
 
   const { data: gruposPendientes = [] } = useQuery({
@@ -302,31 +303,29 @@ export function MovimientosPage() {
           <p>Entradas, salidas y bajas de materiales y piezas.</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {gruposPendientes.length > 0 && (
+            <Link
+              to={`/almacen/${almacenId}/movimientos/solicitudes`}
+              className="button button-secondary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              <ClipboardText size={17} />
+              Solicitudes
+              <span style={{ background: "#f59e0b", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 12, fontWeight: 700 }}>
+                {gruposPendientes.length}
+              </span>
+            </Link>
+          )}
           {esAdmin && (
-            <>
-              {gruposPendientes.length > 0 && (
-                <Link
-                  to={`/almacen/${almacenId}/movimientos/solicitudes`}
-                  className="button button-secondary"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-                >
-                  <ClipboardText size={17} />
-                  Solicitudes
-                  <span style={{ background: "#f59e0b", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 12, fontWeight: 700 }}>
-                    {gruposPendientes.length}
-                  </span>
-                </Link>
-              )}
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={handleExportarExcel}
-                disabled={exportando}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-              >
-                <FileXls size={17} /> {exportando ? "Exportando…" : "Exportar Excel"}
-              </button>
-            </>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={handleExportarExcel}
+              disabled={exportando}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              <FileXls size={17} /> {exportando ? "Exportando…" : "Exportar Excel"}
+            </button>
           )}
           <Link
             to={`/almacen/${almacenId}/movimientos/nuevo`}

@@ -1,6 +1,6 @@
-import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
+import { ArrowLeft, Clock, Package, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "@/modules/accounts/AuthContext";
@@ -22,7 +22,7 @@ import {
   registrarSalidaMaterial,
   registrarSalidaPieza,
 } from "@/modules/almacen/inventarioRepository";
-import type { WorkOrderActiva } from "@/modules/almacen/inventarioRepository";
+import type { GrupoSolicitudItemInput, WorkOrderActiva } from "@/modules/almacen/inventarioRepository";
 import type { Material, TipoMovimiento, UnidadMedidaCatalogo } from "@/modules/almacen/types";
 import { Combobox } from "../components/shared/Combobox";
 
@@ -451,6 +451,8 @@ function PiezasSueltasSelector({
   );
 }
 
+import { listWorkOrderMateriales } from "@/modules/workorders/workOrderMaterialRepository";
+
 export function MovimientoFormPage() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -458,8 +460,10 @@ export function MovimientoFormPage() {
   const { almacenId } = useAlmacenActivo();
   const [params] = useSearchParams();
   const preselMaterial = params.get("material") ? Number(params.get("material")) : 0;
+  const preselTipo = (params.get("tipo") as TipoMovimiento) || "salida";
+  const preselOt = params.get("ot") || "";
 
-  const [tipo, setTipo] = useState<TipoMovimiento>("salida");
+  const [tipo, setTipo] = useState<TipoMovimiento>(preselTipo);
 
   // ── Estado exclusivo de Baja (single-material, sin cambios de lógica) ────
   const [materialId, setMaterialId] = useState<number>(preselMaterial);
@@ -483,7 +487,8 @@ export function MovimientoFormPage() {
   const [renglones, setRenglones] = useState<RenglonMovimiento[]>([renglonVacio(preselMaterial)]);
 
   // Orden de Trabajo seleccionada (id como string, UUID) para vincular la salida.
-  const [workOrderSelected, setWorkOrderSelected] = useState<string>("");
+  const [workOrderSelected, setWorkOrderSelected] = useState<string>(preselOt);
+  const [cargandoMaterialesOT, setCargandoMaterialesOT] = useState(false);
 
   // Resultado del lote (tabla ✓/✗ por renglón/pieza).
   const [resultadosAdmin, setResultadosAdmin] = useState<ResultadoLoteAdmin[] | null>(null);
@@ -492,6 +497,58 @@ export function MovimientoFormPage() {
 
   function agregarRenglon() {
     setRenglones((prev) => [...prev, renglonVacio()]);
+  }
+
+  async function handleCargarMaterialesOT(otId: string) {
+    if (!otId) return;
+    setCargandoMaterialesOT(true);
+    setError("");
+    try {
+      const mats = await listWorkOrderMateriales(otId);
+      if (mats.length === 0) {
+        setError("Esta Orden de Trabajo no tiene materiales planificados todavía.");
+        return;
+      }
+      // Auto-set responsable if matching technician name
+      const otObj = otsActivas.find((o) => o.id === otId);
+      if (otObj?.technician_name && usuarios.length > 0) {
+        const matchingUser = usuarios.find((u: any) => {
+          const fullName = (u.full_name || u.nombre || `${u.first_name || ""} ${u.last_name || ""}`).toLowerCase();
+          return fullName.includes(otObj.technician_name.toLowerCase()) || otObj.technician_name.toLowerCase().includes(fullName);
+        });
+        if (matchingUser) setResponsableId(matchingUser.id);
+      }
+
+      // Convert mats to renglones — solo lo que aún falta por despachar
+      const nuevosRenglones: RenglonMovimiento[] = mats
+        .filter((m) => (m.cantidadPendiente ?? m.cantidad) > 0)
+        .map((m) => {
+          const matObj = materiales.find((cat) => cat.id === m.material);
+          const cantidadAUsar = m.cantidadPendiente ?? m.cantidad;   // ← fix
+          return {
+            id: generarUUID().slice(0, 8),
+            materialId: m.material,
+            cantidad: cantidadAUsar,
+            cantidadCajas: matObj?.unidad_manejo_requiere_multiplicador ? Math.ceil(cantidadAUsar / (matObj.unidades_por_caja || 1)) : 1,
+            unidadMovimientoId: null,
+            cantidadEnUnidadMovimiento: "",
+            modoPieza: "sueltas",
+            piezasSeleccionadas: new Set(),
+            estuchePiezaId: 0,
+            estucheTodasHijas: true,
+            estucheHijasSeleccionadas: new Set(),
+          };
+        });
+      if (nuevosRenglones.length === 0) {
+        setError("No hay materiales pendientes por despachar en esta OT — todo ya fue solicitado o entregado.");
+        return;
+      }
+      setRenglones(nuevosRenglones);
+    } catch {
+      setError("No se pudieron cargar los materiales de la OT.");
+    } finally {
+      setCargandoMaterialesOT(false);
+    }
   }
 
   function quitarRenglon(id: string) {
@@ -518,21 +575,36 @@ export function MovimientoFormPage() {
 
   const tipoId = useId();
 
-  const { data: materiales = [] } = useQuery({
+  const { data: materiales = [], isSuccess: materialesListos } = useQuery({
     queryKey: ["materiales", almacenId],
     queryFn: () => listMateriales(almacenId),
     enabled: !!almacenId,
   });
-  const { data: usuarios = [] } = useQuery({
+  const { data: usuarios = [], isSuccess: usuariosListos } = useQuery({
     queryKey: ["usuarios"],
     queryFn: listUsuarios,
   });
 
-  const { data: otsActivas = [] } = useQuery<WorkOrderActiva[]>({
+  const { data: otsActivas = [], isSuccess: otsActivasListas } = useQuery<WorkOrderActiva[]>({
     queryKey: ["ots-activas"],
     queryFn: listOrdenesTrabajoActivas,
     enabled: tipo === "salida",
   });
+
+  // Auto-carga de materiales cuando se llega con ?ot=<id> preseleccionada
+  // (ej. desde el dashboard). Espera a que materiales/usuarios/otsActivas ya
+  // tengan datos (son fetches async) para no operar sobre arrays vacíos, y
+  // solo dispara una vez con un ref (si no, cada refetch de esas queries
+  // volvería a disparar la carga y pisaría lo que el usuario ya editó).
+  const preselOtCargadaRef = useRef(false);
+  useEffect(() => {
+    if (preselOtCargadaRef.current) return;
+    if (!preselOt || tipo !== "salida") return;
+    if (!materialesListos || !usuariosListos || !otsActivasListas) return;
+    preselOtCargadaRef.current = true;
+    void handleCargarMaterialesOT(preselOt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselOt, tipo, materialesListos, usuariosListos, otsActivasListas]);
 
   const { data: unidadesMedida = [] } = useQuery({
     queryKey: ["unidades-medida"],
@@ -669,70 +741,54 @@ export function MovimientoFormPage() {
         : referencia;
 
       if (esAlmacenero) {
-        // Consumibles → solicitud en lote (requiere aprobación, como antes).
-        // Piezas → salida directa (como antes: el checkout de piezas nunca
-        // pasó por aprobación en este sistema).
-        const resultados: ResultadoLoteAdmin[] = [];
-        let solicitudEnviada = false;
-
-        if (consumibleRenglones.length > 0) {
-          await crearGrupoSolicitud({
-            work_order: workOrderSelected || null,
-            observaciones,
-            items: consumibleRenglones.map((r) => {
-              const m = materiales.find((mm) => mm.id === r.materialId)!;
-              const esEmp = !!m.unidad_manejo_requiere_multiplicador;
-              return {
-                tipo: "salida_material" as const,
-                material: r.materialId,
-                cantidad: esEmp ? undefined : r.cantidad,
-                cantidad_cajas: esEmp ? r.cantidadCajas : undefined,
-              };
-            }),
-          });
-          solicitudEnviada = true;
-        }
-
-        for (const r of piezaRenglones) {
+        // FIX (piezas retornables no aparecían en Solicitudes/Movimientos):
+        // antes las piezas con control individual (martillo, etc.) salían
+        // directo con registrarSalidaPieza, sin pasar por aprobación ni
+        // quedar visibles en ningún listado para el admin. Ahora TODO lo
+        // que arma el almacenero — consumibles y piezas — va al mismo
+        // GrupoSolicitud, y el admin las aprueba/rechaza desde la misma
+        // pantalla de Solicitudes.
+        const itemsMateriales: GrupoSolicitudItemInput[] = consumibleRenglones.map((r) => {
           const m = materiales.find((mm) => mm.id === r.materialId)!;
+          const esEmp = !!m.unidad_manejo_requiere_multiplicador;
+          return {
+            tipo: "salida_material",
+            material: r.materialId,
+            cantidad: esEmp ? undefined : r.cantidad,
+            cantidad_cajas: esEmp ? r.cantidadCajas : undefined,
+          };
+        });
+
+        const itemsPiezas: GrupoSolicitudItemInput[] = [];
+        for (const r of piezaRenglones) {
           if (r.piezasSeleccionadas.size > 0) {
             for (const piezaIdSel of r.piezasSeleccionadas) {
-              try {
-                await registrarSalidaPieza({ pieza_id: piezaIdSel, responsable_id: responsableId, referencia_externa: referenciaFinal, observaciones });
-                resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: true });
-              } catch (err: any) {
-                resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (pieza)`, ok: false, error: mensajeError(err) });
-              }
+              itemsPiezas.push({ tipo: "salida_pieza", pieza: piezaIdSel });
             }
           } else if (r.estuchePiezaId > 0) {
-            try {
-              const resp = await registrarSalidaPieza({
-                pieza_id: r.estuchePiezaId,
-                responsable_id: responsableId,
-                referencia_externa: referenciaFinal,
-                observaciones,
-                piezas_hijas_ids: r.estucheTodasHijas ? undefined : Array.from(r.estucheHijasSeleccionadas),
-              });
-              const nota = resp.aviso ? ` — ⚠ ${resp.aviso}` : "";
-              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (estuche)${nota}`, ok: true });
-            } catch (err: any) {
-              resultados.push({ materialNombre: `${m.codigo} — ${m.nombre} (estuche)`, ok: false, error: mensajeError(err) });
-            }
+            itemsPiezas.push({
+              tipo: "salida_pieza",
+              pieza: r.estuchePiezaId,
+              piezas_hijas_ids: r.estucheTodasHijas ? undefined : Array.from(r.estucheHijasSeleccionadas),
+            });
           }
         }
 
-        if (resultados.length > 0) setResultadosAdmin(resultados);
-
-        if (solicitudEnviada) {
-          return {
-            solicitud_grupo_id: true,
-            mensaje:
-              resultados.length > 0
-                ? "Solicitud de materiales consumibles enviada para aprobación. Las piezas seleccionadas ya salieron del almacén."
-                : "Solicitud enviada para aprobación.",
-          };
+        const items = [...itemsMateriales, ...itemsPiezas];
+        if (items.length === 0) {
+          throw new Error("Agrega al menos un material a la lista.");
         }
-        return resultados.every((r) => r.ok) ? { batchCompleto: true } : { batchParcial: true };
+
+        await crearGrupoSolicitud({
+          work_order: workOrderSelected || null,
+          observaciones,
+          items,
+        });
+
+        return {
+          solicitud_grupo_id: true,
+          mensaje: "Solicitud enviada para aprobación (materiales y piezas incluidos).",
+        };
       }
 
       // ADMIN: todo directo, mismo lote_id.
@@ -828,15 +884,38 @@ export function MovimientoFormPage() {
   if (exitoPendiente) {
     return (
       <section className="success-panel">
-        <h2 style={{ color: "var(--accent-600, #2563eb)" }}>⏳ Solicitud enviada — pendiente de aprobación</h2>
-        <p style={{ maxWidth: 440, textAlign: "center", color: "var(--neutral-600)" }}>{exitoPendiente}</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Clock size={22} color="var(--accent-600, #2563eb)" weight="bold" />
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "var(--accent-600, #2563eb)" }}>
+            Solicitud enviada — pendiente de aprobación
+          </h2>
+        </div>
+        <p style={{ maxWidth: 440, textAlign: "center", color: "var(--neutral-600)", marginTop: 8 }}>{exitoPendiente}</p>
         <div className="success-actions">
-          <Link className="button button-primary" to={`/almacen/${almacenId}/movimientos`}>
+          <Link className="button button-primary" to={`/almacen/${almacenId}/movimientos/solicitudes`}>
+            Ver solicitudes pendientes
+          </Link>
+          <Link className="button button-secondary" to={`/almacen/${almacenId}/movimientos`}>
             Ver historial
           </Link>
-          <Link className="button button-secondary" to={`/almacen/${almacenId}/movimientos/nuevo`}>
-            Nueva solicitud
-          </Link>
+          <button
+            className="button button-secondary"
+            onClick={() => {
+              setExito(false);
+              setExitoPendiente(null);
+              setAvisoEstuche(null);
+              setPiezaId(0);
+              setCantidad(1);
+              setRenglones([renglonVacio()]);
+              setResultadosAdmin(null);
+              setObservaciones("");
+              setReferencia("");
+              setWorkOrderSelected("");
+              setSinOT(false);
+            }}
+          >
+            Registrar otro
+          </button>
         </div>
       </section>
     );
@@ -1218,9 +1297,10 @@ export function MovimientoFormPage() {
                   </button>
                 </div>
 
-                {esAlmacenero && tipo === "salida" && renglones.some((r) => materiales.find((m) => m.id === r.materialId)?.control_individual) && (
+                {esAlmacenero && tipo === "salida" && (
                   <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
-                    Nota: las piezas con control individual salen de inmediato; los materiales consumibles de esta lista se envían como solicitud pendiente de aprobación.
+                    Nota: todo lo que agregues aquí (consumibles y piezas con control individual) se envía como una
+                    sola solicitud pendiente de aprobación por un administrador.
                   </p>
                 )}
               </div>
@@ -1270,20 +1350,38 @@ export function MovimientoFormPage() {
                   {!sinOT && (
                     <>
                       <Field label="Orden de Trabajo" hint="Vincular a una OT activa (opcional)">
-                        <select
-                          value={workOrderSelected}
-                          onChange={(e) => {
-                            setWorkOrderSelected(e.target.value);
-                            if (e.target.value) setReferencia("");
-                          }}
-                        >
-                          <option value="">Seleccionar Orden de Trabajo…</option>
-                          {otsActivas.map((ot) => (
-                            <option key={ot.id} value={ot.id}>
-                              {ot.code} — {ot.status_display} ({ot.technician_name})
-                            </option>
-                          ))}
-                        </select>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <select
+                            value={workOrderSelected}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setWorkOrderSelected(val);
+                              if (val) {
+                                setReferencia("");
+                                void handleCargarMaterialesOT(val);
+                              }
+                            }}
+                          >
+                            <option value="">Seleccionar Orden de Trabajo…</option>
+                            {otsActivas.map((ot) => (
+                              <option key={ot.id} value={ot.id}>
+                                {ot.code} — {ot.status_display} ({ot.technician_name})
+                              </option>
+                            ))}
+                          </select>
+                          {workOrderSelected && (
+                            <button
+                              type="button"
+                              onClick={() => void handleCargarMaterialesOT(workOrderSelected)}
+                              disabled={cargandoMaterialesOT}
+                              className="button button-secondary button-sm"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start", fontSize: 12 }}
+                            >
+                              <Package size={15} />
+                              {cargandoMaterialesOT ? "Cargando materiales…" : "Cargar materiales de la OT"}
+                            </button>
+                          )}
+                        </div>
                       </Field>
 
                       {!workOrderSelected && (

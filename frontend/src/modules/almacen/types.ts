@@ -153,6 +153,14 @@ export interface PiezaAnidada {
 
 export type Moneda = "PEN" | "USD";
 
+export interface StockDesglose {
+  consumo_diario: number;
+  tiempo_entrega_dias: number;
+  stock_seguridad: number;
+  stock_minimo: number;
+  stock_minimo_calculado: number;
+}
+
 export interface Material {
   id: number;
   subcategoria: number;
@@ -175,6 +183,12 @@ export interface Material {
   control_individual: boolean;
   cantidad_total: number;
   stock_minimo: number;
+  tiempo_entrega_dias: number;
+  stock_seguridad: number;
+  consumo_diario_promedio?: number;
+  stock_minimo_calculado?: number;
+  stock_desglose?: StockDesglose;
+  stock_bajo?: boolean;
   periodicidad_valor: number;
   periodicidad_unidad: "dias" | "meses";
   periodicidad_inspeccion_dias: number;
@@ -223,6 +237,8 @@ export interface MaterialCreatePayload {
   cantidad_total?: number;
   almacen?: number;
   stock_minimo?: number;
+  tiempo_entrega_dias?: number;
+  stock_seguridad?: number;
 }
 
 export interface AltaPiezasSueltasPayload {

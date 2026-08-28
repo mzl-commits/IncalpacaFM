@@ -249,11 +249,18 @@ class Material(models.Model):
     tipo_control = models.CharField(max_length=15, choices=TIPO_CONTROL_CHOICES)
     control_individual = models.BooleanField(default=False)
 
-    # Editable solo si control_individual=False; si es True, se recalcula solo (ver services.py/signals.py).
     cantidad_total = models.PositiveIntegerField(default=0)
     stock_minimo = models.PositiveIntegerField(
         default=0,
         help_text="Si el stock cae a este nivel o por debajo se genera una notificación. 0 = desactivado.",
+    )
+    tiempo_entrega_dias = models.PositiveIntegerField(
+        default=7,
+        help_text="Días hábiles (Lun–Vie) que tarda en llegar un pedido de reposición.",
+    )
+    stock_seguridad = models.PositiveIntegerField(
+        default=0,
+        help_text="Unidades extra de colchón (stock de seguridad).",
     )
 
     # Solo aplica a consumibles (control_individual=False). Indica si el stock
@@ -349,7 +356,53 @@ class Material(models.Model):
                     if self.periodicidad_unidad == "meses"
                     else self.periodicidad_valor
                 )
+        if self.pk and not self.control_individual:
+            self.stock_minimo = self.calcular_stock_minimo()
         super().save(*args, **kwargs)
+
+    def calcular_consumo_diario(self, dias=90):
+        """
+        Calcula el consumo diario promedio (en días hábiles Lun-Vie) basado en
+        movimientos de salida de los últimos `dias` días calendario.
+        """
+        if not self.pk:
+            return 0.0
+        from datetime import timedelta, date as date_type
+        from django.utils import timezone
+        from django.db.models import Sum
+        ahora = timezone.now()
+        desde = ahora - timedelta(days=dias)
+        total_salidas = (
+            self.movimientos
+            .filter(tipo="salida", fecha__gte=desde)
+            .aggregate(total=Sum("cantidad"))["total"] or 0
+        )
+        # Contar solo días hábiles (lunes=0 … viernes=4) en el período
+        dias_habiles = 0
+        cur = desde.date()
+        fin = ahora.date()
+        while cur <= fin:
+            if cur.weekday() < 5:  # 0=Lun, 4=Vie
+                dias_habiles += 1
+            cur += timedelta(days=1)
+        dias_divisor = max(1, dias_habiles)
+        return float(total_salidas) / dias_divisor
+
+    def calcular_stock_minimo(self, dias=90):
+        """
+        Fórmula: Stock Mínimo = (Consumo diario promedio × Tiempo de entrega) + Stock de seguridad
+        """
+        consumo_diario = self.calcular_consumo_diario(dias=dias)
+        minimo_calculado = (consumo_diario * (self.tiempo_entrega_dias or 0)) + (self.stock_seguridad or 0)
+        return round(minimo_calculado)
+
+    def recalcular_stock_minimo(self):
+        """Recalcula y actualiza el stock_minimo persistido en la base de datos."""
+        if self.pk and not self.control_individual:
+            nuevo_minimo = self.calcular_stock_minimo()
+            if self.stock_minimo != nuevo_minimo:
+                self.stock_minimo = nuevo_minimo
+                Material.objects.filter(pk=self.pk).update(stock_minimo=nuevo_minimo)
 
     def recalcular_cantidad(self):
         """Recalcula cantidad_total contando piezas activas (no 'Baja'), sueltas + hijas de estuches propios."""

@@ -1,4 +1,4 @@
-import { ArrowLeft, Trash, WarningCircle } from "@phosphor-icons/react";
+import { ArrowLeft, Calculator, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -64,6 +64,8 @@ export function MaterialFormPage() {
     unidades_por_caja: "",
     unidad_movimiento_base: null,
     moneda: "PEN",
+    tiempo_entrega_dias: 7,
+    stock_seguridad: 0,
   });
 
   useEffect(() => {
@@ -177,6 +179,8 @@ export function MaterialFormPage() {
         unidades_por_caja: materialExistente.unidades_por_caja ?? "",
         unidad_movimiento_base: materialExistente.unidad_movimiento_base ?? null,
         cantidad_total: materialExistente.cantidad_total,
+        tiempo_entrega_dias: materialExistente.tiempo_entrega_dias ?? 7,
+        stock_seguridad: materialExistente.stock_seguridad ?? 0,
       });
       if (materialExistente.foto) setFotoPreview(materialExistente.foto);
       setFormInicializado(true);
@@ -742,6 +746,51 @@ export function MaterialFormPage() {
                     </Field>
                   </div>
                 )}
+              </div>
+            )}
+
+            {!form.control_individual && (
+              <div className="stock-min-panel">
+                <div className="stock-min-panel-header">
+                  <Calculator size={18} />
+                  <strong>Parámetros de stock mínimo</strong>
+                </div>
+                <p className="stock-min-panel-desc">
+                  Se recalcula automáticamente con esta fórmula:
+                </p>
+                <code className="stock-min-formula">
+                  Stock mínimo = (Consumo diario × Tiempo de entrega) + Stock de seguridad
+                </code>
+
+                <div className="form-grid" style={{ marginTop: 16 }}>
+                  <Field
+                    label="Tiempo de entrega"
+                    hint="Días hábiles (Lun–Vie) que demora un pedido."
+                    error={errors.tiempo_entrega_dias}
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.tiempo_entrega_dias ?? 7}
+                      onChange={(e) => set("tiempo_entrega_dias", Math.max(0, Number(e.target.value)))}
+                      placeholder="7"
+                    />
+                  </Field>
+
+                  <Field
+                    label="Stock de seguridad"
+                    hint="Colchón extra ante picos de consumo."
+                    error={errors.stock_seguridad}
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.stock_seguridad ?? 0}
+                      onChange={(e) => set("stock_seguridad", Math.max(0, Number(e.target.value)))}
+                      placeholder="0"
+                    />
+                  </Field>
+                </div>
               </div>
             )}
           </div>

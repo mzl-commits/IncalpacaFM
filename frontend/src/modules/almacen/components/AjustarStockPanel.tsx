@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { Info, WarningCircle } from "@phosphor-icons/react";
 import { useAlmacenActivo } from "@/modules/almacen/AlmacenContext";
 
 import { ajustarStock } from "@/modules/almacen/catalogoRepository";
@@ -16,20 +17,6 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
   const [cantidad, setCantidad] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Este panel es para correcciones administrativas rápidas de stock (ej.
-  // "conté mal", "encontré 2 más en la repisa"), NO para dar de baja
-  // formalmente. Por eso usa `ajustarStock` (que solo corrige
-  // cantidad_total en el material) en vez de `registrarEntradaMaterial` /
-  // `registrarBajaMaterial` (que crean un Movimiento con tipo "entrada" /
-  // "baja" y se cuentan en las stats de Movimientos). Ni "aumentar" ni
-  // "disminuir" acá quedan como baja — para dar de baja de verdad
-  // (unidades dañadas, vencidas, perdidas), con su observación, se usa el
-  // flujo formal de Movimientos → Nuevo movimiento → Baja.
-  //
-  // Cuando el material se maneja por empaque (unidad_manejo_requiere_multiplicador,
-  // ej. caja, bolsa, kit), el usuario ingresa cantidad de EMPAQUES; acá se
-  // convierte a unidades antes de llamar a ajustarStock, porque el endpoint
-  // de ajuste rápido siempre trabaja en unidades (no tiene noción de "cajas").
   const esPorCaja = material.unidad_manejo_requiere_multiplicador && !!material.unidades_por_caja;
 
   const mutation = useMutation({
@@ -60,42 +47,27 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
     },
   });
 
-  const inputStyle: React.CSSProperties = {
-    padding: "7px 10px",
-    borderRadius: 6,
-    border: "1px solid var(--border, #d0d5dd)",
-    fontSize: 13,
-  };
-
   return (
-    <div
-      style={{
-        marginTop: 16,
-        paddingTop: 16,
-        borderTop: "1px solid var(--border, #e5e7eb)",
-      }}
-    >
+    <div className="ajuste-stock-panel">
       <div className="form-section-heading" style={{ marginBottom: 12 }}>
         <span>Ajustar cantidad disponible</span>
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <div>
-          <label style={{ display: "block", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>
-            Movimiento
-          </label>
+      <div className="ajuste-stock-row">
+        <div className="ajuste-stock-input-block">
+          <label className="ajuste-stock-label">Movimiento</label>
           <select
             value={modo}
             onChange={(e) => setModo(e.target.value as Modo)}
-            style={inputStyle}
+            className="ajuste-stock-select"
           >
             <option value="entrada">Aumentar stock</option>
             <option value="salida">Disminuir stock</option>
           </select>
         </div>
 
-        <div>
-          <label style={{ display: "block", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>
+        <div className="ajuste-stock-input-block">
+          <label className="ajuste-stock-label">
             {esPorCaja ? "Cantidad de cajas" : "Cantidad"}
           </label>
           <input
@@ -103,10 +75,10 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
             min={1}
             value={cantidad}
             onChange={(e) => setCantidad(e.target.value)}
-            style={{ ...inputStyle, width: 100 }}
+            className="ajuste-stock-cantidad-input"
           />
           {esPorCaja && cantidad && (
-            <small style={{ display: "block", fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+            <small className="ajuste-stock-equiv-inline">
               = {Number(cantidad) * (material.unidades_por_caja ?? 0)} unidades
             </small>
           )}
@@ -115,23 +87,29 @@ export function AjustarStockPanel({ material }: { material: MaterialDetalle }) {
         <button
           className="button button-primary"
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || !cantidad}
         >
-          {mutation.isPending ? "Aplicando..." : "Aplicar"}
+          {mutation.isPending ? "Aplicando…" : "Aplicar"}
         </button>
       </div>
 
-      <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>
-        Esto es un ajuste manual (ej. corregir un conteo) y no queda
-        registrado como baja. Si las unidades están dañadas, vencidas o se
-        perdieron, regístralo como baja formal — con su observación — desde{" "}
-        <Link to={`/almacen/${almacenId}/movimientos/nuevo?material=${material.id}`} style={{ fontWeight: 600 }}>
-          Movimientos → Nuevo movimiento → Baja
-        </Link>.
-      </p>
+      <div className="ajuste-stock-note">
+        <Info size={14} />
+        <span>
+          Ajuste manual para corregir el conteo. No queda registrado como baja.{" "}
+          Si las unidades están dañadas, vencidas o se perdieron, usa{" "}
+          <Link to={`/almacen/${almacenId}/movimientos/nuevo?material=${material.id}`}>
+            Nuevo movimiento → Baja
+          </Link>
+          {" "}en su lugar.
+        </span>
+      </div>
 
       {error && (
-        <p style={{ color: "#c0392b", fontSize: 12, marginTop: 8 }}>{error}</p>
+        <div className="ajuste-stock-error">
+          <WarningCircle size={14} />
+          <span>{error}</span>
+        </div>
       )}
     </div>
   );

@@ -179,6 +179,13 @@ class TechnicianSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    almacen_id = serializers.PrimaryKeyRelatedField(
+        source='account_profile.almacen',
+        queryset=Almacen.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
     almacen_nombre = serializers.CharField(
         source='account_profile.almacen.nombre', read_only=True, default=None,
     )
@@ -196,7 +203,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = (
             'id', 'full_name', 'email', 'worker_code', 'dni', 'specialty', 'position',
-            'hourly_rate', 'active', 'temporary_password', 'current_password_display', 'role', 'almacen', 'almacen_nombre',
+            'hourly_rate', 'active', 'temporary_password', 'current_password_display', 'role', 'almacen', 'almacen_id', 'almacen_nombre',
         )
 
     def validate_worker_code(self, value):

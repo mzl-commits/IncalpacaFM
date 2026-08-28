@@ -60,8 +60,8 @@ export function CatalogoPage() {
   const [basket, setBasket] = useState<Record<number, number>>({});
   const [copiedBasket, setCopiedBasket] = useState(false);
 
-  const { data: materiales = [], isLoading } = useQuery({
-    queryKey: ["materiales", almacenId, values],
+  const { data: materiales = [], isLoading, isFetching } = useQuery({
+    queryKey: ["materiales", almacenId, values.q, values.categoria, values.subcategoria, values.control_individual, values.stock_bajo],
     queryFn: () =>
       listMateriales(almacenId, {
         q: values.q || undefined,
@@ -75,6 +75,7 @@ export function CatalogoPage() {
               : undefined,
         stock_bajo: values.stock_bajo || undefined,
       }),
+    placeholderData: (prev) => prev,
   });
 
   const { data: categorias = [] } = useQuery({

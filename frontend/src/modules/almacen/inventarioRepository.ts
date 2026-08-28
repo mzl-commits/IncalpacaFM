@@ -267,9 +267,23 @@ export async function listOrdenesTrabajoActivas(): Promise<WorkOrderActiva[]> {
   return data;
 }
 
+// NOTA (fix piezas retornables en solicitudes): antes este item solo admitía
+// "salida_material" con `material` obligatorio. Ahora también admite
+// "salida_pieza" con `pieza` (y opcionalmente `piezas_hijas_ids` para
+// estuches), para que el martillo/herramienta retornable pase por el mismo
+// GrupoSolicitud que los consumibles y el admin la vea y apruebe en el
+// mismo lugar. `material` pasa a ser opcional porque ya no aplica a items
+// de tipo "salida_pieza".
 export interface GrupoSolicitudItemInput {
   tipo: TipoSolicitud;
-  material: number;
+  /** Requerido cuando tipo === "salida_material". */
+  material?: number;
+  /** Requerido cuando tipo === "salida_pieza". */
+  pieza?: number;
+  /** Solo aplica a piezas tipo estuche (contenedor con hijas). Mismo contrato
+   *  que en SalidaPiezaInput: omitido = todas las hijas disponibles,
+   *  [] = solo el contenedor, [ids] = solo esas hijas. */
+  piezas_hijas_ids?: number[];
   cantidad?: number;
   cantidad_cajas?: number;
   observaciones?: string;
