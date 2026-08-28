@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 
 from apps.accounts.models import AccountProfile
@@ -180,6 +181,14 @@ class MovimientoViewSet(AlmacenScopedMixin, viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=["post"], url_path="salida-pieza")
     @transaction.atomic
     def salida_pieza(self, request):
+        # NOTA: este endpoint sigue existiendo para el flujo de ADMINISTRADOR
+        # (salida directa, sin aprobación). Para ALMACENERO, el formulario de
+        # movimientos ya NO llama a este endpoint para piezas — las incluye
+        # como item "salida_pieza" dentro de /grupos-solicitud/, junto con
+        # los consumibles, para que queden visibles y aprobables por un
+        # admin (ver GrupoSolicitudViewSet.create). Se deja este bloque de
+        # todas formas como resguardo, por si algún cliente viejo del
+        # frontend todavía le pega directo.
         if _es_almacenero(request):
             return _crear_solicitud(request, SolicitudMovimiento.Tipo.SALIDA_PIEZA)
         serializer = SalidaPiezaSerializer(
@@ -329,6 +338,10 @@ def _crear_solicitud(request, tipo: str):
                 })
             data["cantidad"] = int(cantidad_cajas_raw) * mat.unidades_por_caja
     # ──────────────────────────────────────────────────────────────────────────
+    # Nota: SolicitudMovimientoCreateSerializer no acepta work_order ni
+    # work_order_material (solo referencia_externa como texto libre), así que
+    # este flujo individual nunca queda vinculado a un WorkOrderMaterial y no
+    # participa de cantidad_comprometida.
 
     serializer = SolicitudMovimientoCreateSerializer(data=data)
     serializer.is_valid(raise_exception=True)
@@ -369,6 +382,39 @@ def _crear_solicitud(request, tipo: str):
         },
         status=status.HTTP_202_ACCEPTED,
     )
+
+
+def _incrementar_comprometido(work_order_material_id, cantidad):
+    """Bloquea el renglón de WorkOrderMaterial y suma `cantidad` a cantidad_comprometida.
+    Requiere estar dentro de un transaction.atomic() abierto (usa select_for_update).
+    Lanza DRFValidationError si se pasaría de lo planificado."""
+    from apps.workorders.models import WorkOrderMaterial
+
+    wm = WorkOrderMaterial.objects.select_for_update().get(pk=work_order_material_id)
+    nuevo_comprometido = wm.cantidad_comprometida + cantidad
+    if nuevo_comprometido > wm.cantidad:
+        raise DRFValidationError({
+            "work_order_material": (
+                f"Ya se solicitó más de lo planificado para «{wm.material.nombre}» "
+                f"en esta OT (planificado: {wm.cantidad}, comprometido: "
+                f"{wm.cantidad_comprometida}, intentando sumar: {cantidad})."
+            )
+        })
+    wm.cantidad_comprometida = nuevo_comprometido
+    wm.save(update_fields=["cantidad_comprometida"])
+    return wm
+
+
+def _decrementar_comprometido(work_order_material_id, cantidad):
+    """Bloquea el renglón de WorkOrderMaterial y resta `cantidad` a cantidad_comprometida
+    (piso en 0). Usar al rechazar una solicitud para liberar el cupo. Requiere
+    estar dentro de un transaction.atomic() abierto."""
+    from apps.workorders.models import WorkOrderMaterial
+
+    wm = WorkOrderMaterial.objects.select_for_update().get(pk=work_order_material_id)
+    wm.cantidad_comprometida = max(0, wm.cantidad_comprometida - cantidad)
+    wm.save(update_fields=["cantidad_comprometida"])
+    return wm
 
 
 class SolicitudMovimientoViewSet(viewsets.ReadOnlyModelViewSet):
@@ -463,11 +509,16 @@ class SolicitudMovimientoViewSet(viewsets.ReadOnlyModelViewSet):
         ser = RechazarSolicitudSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        solicitud.estado = SolicitudMovimiento.Estado.RECHAZADA
-        solicitud.motivo_rechazo = ser.validated_data.get("motivo_rechazo", "")
-        solicitud.resuelto_por = request.user
-        solicitud.resuelto_en = timezone.now()
-        solicitud.save(update_fields=["estado", "motivo_rechazo", "resuelto_por", "resuelto_en"])
+        with transaction.atomic():
+            # Rechazo libera el cupo comprometido en el renglón de la OT (si vino de una).
+            if solicitud.work_order_material_id:
+                _decrementar_comprometido(solicitud.work_order_material_id, solicitud.cantidad)
+
+            solicitud.estado = SolicitudMovimiento.Estado.RECHAZADA
+            solicitud.motivo_rechazo = ser.validated_data.get("motivo_rechazo", "")
+            solicitud.resuelto_por = request.user
+            solicitud.resuelto_en = timezone.now()
+            solicitud.save(update_fields=["estado", "motivo_rechazo", "resuelto_por", "resuelto_en"])
 
         _notificar_resolucion(solicitud, aprobada=False, request_user=request.user)
 
@@ -491,7 +542,9 @@ def _format_exc_msg(exc):
     return str(exc)
 
 def _ejecutar_solicitud(solicitud: SolicitudMovimiento, resuelto_por):
-    """Ejecuta el movimiento real al aprobar una solicitud."""
+    """Ejecuta el movimiento real al aprobar una solicitud.
+    No toca cantidad_comprometida: ya se sumó al crear la solicitud (pendiente
+    o aprobada cuentan igual, ver help_text de WorkOrderMaterial.cantidad_comprometida)."""
     # El responsable del movimiento real es el admin que aprueba
     responsable = resuelto_por
     tipo = solicitud.tipo
@@ -623,6 +676,9 @@ class WorkOrderActivasView(APIView):
             status__in=[
                 WorkOrder.Status.CLOSED,
                 WorkOrder.Status.CANCELLED,
+                WorkOrder.Status.SUPERVISION,
+                WorkOrder.Status.ADMIN_REVIEW,
+                WorkOrder.Status.CONFORMITY,
             ]
         )
 
@@ -739,9 +795,34 @@ class GrupoSolicitudViewSet(viewsets.ReadOnlyModelViewSet):
         )
         estado = self.request.query_params.get("estado")
         if estado == "pendiente":
-            qs = qs.filter(items__estado="pendiente").distinct()
-        elif estado in ("aprobada", "rechazada", "resuelta"):
-            qs = qs.exclude(items__estado="pendiente").distinct()
+            qs = qs.filter(items__estado=SolicitudMovimiento.Estado.PENDIENTE).distinct()
+        elif estado == "aprobada":
+            qs = (
+                qs.filter(items__estado=SolicitudMovimiento.Estado.APROBADA)
+                .exclude(items__estado__in=[
+                    SolicitudMovimiento.Estado.PENDIENTE,
+                    SolicitudMovimiento.Estado.RECHAZADA,
+                ])
+                .distinct()
+            )
+        elif estado == "rechazada":
+            qs = (
+                qs.filter(items__estado=SolicitudMovimiento.Estado.RECHAZADA)
+                .exclude(items__estado__in=[
+                    SolicitudMovimiento.Estado.PENDIENTE,
+                    SolicitudMovimiento.Estado.APROBADA,
+                ])
+                .distinct()
+            )
+        elif estado == "parcial":
+            qs = (
+                qs.filter(items__estado=SolicitudMovimiento.Estado.APROBADA)
+                .filter(items__estado=SolicitudMovimiento.Estado.RECHAZADA)
+                .exclude(items__estado=SolicitudMovimiento.Estado.PENDIENTE)
+                .distinct()
+            )
+        elif estado in ("resuelta", "resueltas"):
+            qs = qs.exclude(items__estado=SolicitudMovimiento.Estado.PENDIENTE).distinct()
 
         profile = getattr(self.request.user, "account_profile", None)
         if profile and profile.role == AccountProfile.Role.ALMACENERO:
@@ -796,6 +877,19 @@ class GrupoSolicitudViewSet(viewsets.ReadOnlyModelViewSet):
         """
         Crea un GrupoSolicitud con N SolicitudMovimiento vinculadas.
         Notifica a los administradores 1 sola vez por el grupo completo.
+
+        FIX (piezas retornables no aparecían en Solicitudes/Movimientos):
+        antes este método solo sabía crear items de tipo "salida_material".
+        Las piezas con control individual (martillo, etc.) se enviaban por
+        un endpoint totalmente distinto (salida-pieza), que para el rol
+        ALMACENERO creaba una SolicitudMovimiento SIN grupo — invisible en
+        el listado de /grupos-solicitud/ que consume el panel de
+        Solicitudes del admin, y por lo tanto nunca se aprobaba ni generaba
+        Movimiento.
+
+        Ahora cada item trae su propio `tipo` ("salida_material" o
+        "salida_pieza") y el bloque de abajo arma la SolicitudMovimiento
+        correspondiente según ese tipo, dentro del mismo grupo.
         """
         profile = getattr(request.user, "account_profile", None)
         if not profile or profile.role not in (
@@ -824,43 +918,81 @@ class GrupoSolicitudViewSet(viewsets.ReadOnlyModelViewSet):
 
             solicitudes_creadas = []
             for item in items_data:
-                mat_obj = Material.objects.get(pk=item["material"])
-                cant_cajas = item.get("cantidad_cajas")
-                cant = item.get("cantidad") or 1
+                tipo_item = item["tipo"]
+                wom_id = item.get("work_order_material")  # id del renglón de OT de origen, si vino de ahí
 
-                # Resolución de empaque
-                if cant_cajas and not item.get("cantidad"):
-                    if mat_obj.unidad_manejo == "unidad":
-                        raise status.ValidationError({
-                            "cantidad_cajas": f"'{mat_obj.nombre}' se maneja por unidad suelta."
-                        })
-                    if not mat_obj.unidades_por_caja:
-                        raise status.ValidationError({
-                            "cantidad_cajas": f"'{mat_obj.nombre}' no tiene unidades por empaque configuradas."
-                        })
-                    cant = cant_cajas * mat_obj.unidades_por_caja
+                if tipo_item == "salida_material":
+                    mat_obj = Material.objects.get(pk=item["material"])
+                    cant_cajas = item.get("cantidad_cajas")
+                    cant = item.get("cantidad") or 1
 
-                sol = SolicitudMovimiento.objects.create(
-                    grupo=grupo,
-                    work_order=work_order,
-                    tipo=item["tipo"],
-                    material=mat_obj,
-                    cantidad=cant,
-                    cantidad_cajas=cant_cajas,
-                    referencia_externa=work_order.code if work_order else "",
-                    observaciones=item.get("observaciones", ""),
-                    solicitado_por=request.user,
-                )
+                    # Resolución de empaque
+                    if cant_cajas and not item.get("cantidad"):
+                        if mat_obj.unidad_manejo == "unidad":
+                            raise DRFValidationError({
+                                "cantidad_cajas": f"'{mat_obj.nombre}' se maneja por unidad suelta."
+                            })
+                        if not mat_obj.unidades_por_caja:
+                            raise DRFValidationError({
+                                "cantidad_cajas": f"'{mat_obj.nombre}' no tiene unidades por empaque configuradas."
+                            })
+                        cant = cant_cajas * mat_obj.unidades_por_caja
+
+                    sol = SolicitudMovimiento.objects.create(
+                        grupo=grupo,
+                        work_order=work_order,
+                        work_order_material_id=wom_id,
+                        tipo=tipo_item,
+                        material=mat_obj,
+                        cantidad=cant,
+                        cantidad_cajas=cant_cajas,
+                        referencia_externa=work_order.code if work_order else "",
+                        observaciones=item.get("observaciones", ""),
+                        solicitado_por=request.user,
+                    )
+                    comprometer_cant = cant
+
+                else:  # tipo_item == "salida_pieza"
+                    pieza_obj = Pieza.objects.get(pk=item["pieza"])
+                    sol = SolicitudMovimiento.objects.create(
+                        grupo=grupo,
+                        work_order=work_order,
+                        work_order_material_id=wom_id,
+                        tipo=tipo_item,
+                        pieza=pieza_obj,
+                        piezas_hijas_ids=item.get("piezas_hijas_ids") or [],
+                        referencia_externa=work_order.code if work_order else "",
+                        observaciones=item.get("observaciones", ""),
+                        solicitado_por=request.user,
+                    )
+                    # Cada SolicitudMovimiento de pieza representa 1 unidad
+                    # física (el contenedor cuenta como 1, sus hijas no se
+                    # comprometen aparte). Si en tu flujo las piezas también
+                    # se vinculan a un WorkOrderMaterial planificado en
+                    # unidades de pieza, este valor es correcto tal cual.
+                    comprometer_cant = 1
+
                 solicitudes_creadas.append(sol)
+
+                # Compromete el renglón de la OT; si excede lo planificado, aborta
+                # todo el grupo (rollback del atomic, incluye items ya creados).
+                if wom_id:
+                    _incrementar_comprometido(wom_id, comprometer_cant)
 
         # ── Notificación UNIFICADA a administradores (1 sola notificación por grupo) ──
         try:
             from apps.notifications.services import queue_for_administrators
             n_items = len(solicitudes_creadas)
             ot_info = f" en OT {work_order.code}" if work_order else ""
-            resumen_items = ", ".join(
-                f"{s.material.nombre} (x{s.cantidad})" for s in solicitudes_creadas[:3]
-            )
+
+            def _etiqueta_item(s):
+                if s.material:
+                    return f"{s.material.nombre} (x{s.cantidad})"
+                if s.pieza:
+                    return f"{s.pieza.codigo} (pieza)"
+                return "Item"
+
+            resumen_items = ", ".join(_etiqueta_item(s) for s in solicitudes_creadas[:3])
             if n_items > 3:
                 resumen_items += f" y {n_items - 3} más"
 
@@ -1045,12 +1177,17 @@ class GrupoSolicitudViewSet(viewsets.ReadOnlyModelViewSet):
                     item_label = sol.material.nombre if sol.material else (sol.pieza.codigo if sol.pieza else "Item")
                     errores.append(f"{item_label}: {_format_exc_msg(exc)}")
             else:
-                sol.estado = SolicitudMovimiento.Estado.RECHAZADA
-                sol.motivo_no_entrega = dec.get("motivo_no_entrega", "")
-                sol.motivo_rechazo = dec.get("motivo_no_entrega", "")
-                sol.resuelto_por = request.user
-                sol.resuelto_en = timezone.now()
-                sol.save(update_fields=["estado", "motivo_no_entrega", "motivo_rechazo", "resuelto_por", "resuelto_en"])
+                with transaction.atomic():
+                    # Rechazo libera el cupo comprometido en el renglón de la OT.
+                    if sol.work_order_material_id:
+                        _decrementar_comprometido(sol.work_order_material_id, sol.cantidad)
+
+                    sol.estado = SolicitudMovimiento.Estado.RECHAZADA
+                    sol.motivo_no_entrega = dec.get("motivo_no_entrega", "")
+                    sol.motivo_rechazo = dec.get("motivo_no_entrega", "")
+                    sol.resuelto_por = request.user
+                    sol.resuelto_en = timezone.now()
+                    sol.save(update_fields=["estado", "motivo_no_entrega", "motivo_rechazo", "resuelto_por", "resuelto_en"])
                 rechazados_count += 1
 
         # Notificación (con protección si grupo es None)

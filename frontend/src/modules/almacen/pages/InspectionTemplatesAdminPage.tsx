@@ -90,39 +90,6 @@ export function InspectionTemplatesAdminPage() {
 
   return (
     <section className="inspection-templates-admin">
-      <style>{`
-        .inspection-templates-admin .templates-grid {
-          display: grid;
-          grid-template-columns: minmax(280px, .8fr) minmax(0, 1.6fr);
-          gap: 16px;
-          align-items: start;
-        }
-        @media (max-width: 860px) {
-          .inspection-templates-admin .templates-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
-          }
-        }
-        .inspection-templates-admin .question-item {
-          padding: 10px 12px;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: var(--surface);
-        }
-        .inspection-templates-admin .question-content {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-        }
-        .inspection-templates-admin .question-text {
-          flex: 1;
-          font-size: 14px;
-          word-break: break-word;
-          overflow-wrap: anywhere;
-          min-width: 0;
-        }
-      `}</style>
 
       <div className="page-heading">
         <div>
@@ -145,12 +112,11 @@ export function InspectionTemplatesAdminPage() {
         {/* ── Lista de formularios ───────────────────────────────────────── */}
         <div className="data-panel">
           <div className="table-toolbar">
-            <strong style={{ fontSize: 15 }}>Formularios</strong>
+            <strong className="text-md">Formularios</strong>
           </div>
 
           <form
             onSubmit={(event) => { event.preventDefault(); templateMutation.mutate(); }}
-            style={{ padding: "0 16px 16px", display: "grid", gap: 10 }}
           >
             <label className="field">
               <span>{editingTemplate ? "Editar nombre" : "Nuevo formulario"}</span>
@@ -160,7 +126,7 @@ export function InspectionTemplatesAdminPage() {
                 placeholder="Ej. Inspección de herramientas"
               />
             </label>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div>
               <button
                 type="submit"
                 className="button button-primary"
@@ -181,19 +147,14 @@ export function InspectionTemplatesAdminPage() {
             </div>
           </form>
 
-          <div style={{ display: "grid", gap: 6, padding: "0 16px 16px" }}>
+          <div className="grid-gap-6" style={{ padding: "0 16px 16px" }}>
             {isLoading && <span className="text-muted-sm">Cargando formularios…</span>}
             {templates.map((template) => {
               const activo = selectedId === template.id;
               return (
                 <div
                   key={template.id}
-                  style={{
-                    padding: "10px 12px",
-                    border: `1px solid ${activo ? "var(--primary)" : "var(--border)"}`,
-                    borderRadius: 6,
-                    background: activo ? "var(--surface-subtle)" : "var(--surface)",
-                  }}
+                  className={`template-item ${activo ? "is-active" : ""}`}
                 >
                   <button
                     type="button"
@@ -250,7 +211,7 @@ export function InspectionTemplatesAdminPage() {
         <div className="data-panel">
           {selected ? (
             <>
-              <div className="table-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className="table-toolbar">
                 <div>
                   <strong style={{ fontSize: 15 }}>{selected.nombre}</strong>
                   <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>

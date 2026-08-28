@@ -65,7 +65,7 @@ export function UserManagementPage() {
   function openEdit(user: Technician) {
     setEditing(user);
     setForm({ ...user, temporary_password: "" });
-    setAlmacenId((user as unknown as { almacen_id?: number }).almacen_id ?? "");
+    setAlmacenId(user.almacen ?? (user as unknown as { almacen_id?: number }).almacen_id ?? "");
     setError(""); setFeedback("");
   }
 
@@ -74,12 +74,14 @@ export function UserManagementPage() {
     if (!form.full_name.trim() || !form.worker_code.trim() || !form.dni.trim() || (!editing && !form.temporary_password)) { setError("Completa nombre, código de trabajador, DNI y contraseña temporal al crear una cuenta."); return; }
     if (form.role === "ALMACENERO" && !almacenId) { setError("El rol Almacenero requiere un almacén asignado."); return; }
     setSaving(true);
+    const parsedAlmacen = necesitaAlmacen && almacenId !== "" ? Number(almacenId) : null;
     const payload = {
       ...form,
       full_name: form.full_name.trim(),
       worker_code: form.worker_code.trim().toUpperCase(),
       dni: form.dni.replace(/\D/g, ""),
-      ...(necesitaAlmacen && almacenId !== "" ? { almacen_id: almacenId } : { almacen_id: null }),
+      almacen: parsedAlmacen,
+      almacen_id: parsedAlmacen,
     };
     try {
       const saved = editing ? await updateManagedUser(editing.id, payload) : await createManagedUser(payload);

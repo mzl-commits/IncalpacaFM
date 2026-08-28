@@ -145,7 +145,7 @@ class InspeccionCrearSerializer(serializers.ModelSerializer):
     class Meta:
         model = Inspeccion
         fields = [
-            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "modalidad", "frecuencia",
+            "id", "codigo_inspeccion", "tipo", "tipo_inspeccion", "modalidad",
             "area", "area_trabajo", "referencia_orden", "tipos_herramientas",
             "material", "pieza", "piezas_lote", "plantilla",
             "proxima_inspeccion", "inspector",

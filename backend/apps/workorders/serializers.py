@@ -1016,6 +1016,7 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
     creadoEn = serializers.DateTimeField(source="creado_en", read_only=True)
     actualizadoEn = serializers.DateTimeField(source="actualizado_en", read_only=True)
     workOrderCode = serializers.CharField(source="work_order.code", read_only=True)
+    cantidadPendiente = serializers.SerializerMethodField()
 
     class Meta:
         model = WorkOrderMaterial
@@ -1028,6 +1029,7 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
             "materialPrecio",
             "materialStock",
             "cantidad",
+            "cantidadPendiente",
             "tipo",
             "tipoLabel",
             "esBloqueante",
@@ -1048,6 +1050,9 @@ class WorkOrderMaterialSerializer(serializers.ModelSerializer):
     def get_registradoPorNombre(self, obj) -> str:
         return obj.registrado_por.get_full_name() or obj.registrado_por.username
 
+    def get_cantidadPendiente(self, obj) -> int:  # ← NUEVO
+        comprometida = obj.cantidad_comprometida or 0
+        return max(obj.cantidad - comprometida, 0)
 
 class WorkOrderMaterialWriteSerializer(serializers.Serializer):
     """Serializer de escritura para registrar/editar un WorkOrderMaterial."""

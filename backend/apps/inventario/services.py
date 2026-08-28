@@ -225,14 +225,18 @@ def registrar_baja_pieza(pieza: Pieza, responsable, observaciones=""):
 
 
 def _check_and_notify_stock_bajo(material: "Material", nuevo_total: int) -> None:
-    """Dispara notificación de stock bajo si el nuevo total cae al umbral configurado.
+    """Dispara notificación de stock bajo si el nuevo total cae al umbral configurado o calculado por la fórmula.
     Usa deduplicación diaria para no inundar a los administradores."""
-    if material.stock_minimo > 0 and nuevo_total <= material.stock_minimo:
-        _notify_stock_bajo(material, nuevo_total)
+    material.recalcular_stock_minimo()
+    umbral = material.stock_minimo or material.calcular_stock_minimo()
+    if umbral > 0 and nuevo_total <= umbral:
+        _notify_stock_bajo(material, nuevo_total, umbral=umbral)
 
 
-def _notify_stock_bajo(material: "Material", stock_actual: int) -> None:
-    """Notifica a Administradores cuando el stock de un material cae al umbral mínimo configurado."""
+def _notify_stock_bajo(material: "Material", stock_actual: int, umbral: int = None) -> None:
+    """Notifica a Administradores cuando el stock de un material cae al umbral mínimo configurado/calculado."""
+    if umbral is None:
+        umbral = material.stock_minimo
     try:
         from apps.notifications.services import queue_for_administrators, daily_discriminator
         queue_for_administrators(
@@ -241,7 +245,7 @@ def _notify_stock_bajo(material: "Material", stock_actual: int) -> None:
             body=(
                 f"El stock de «{material.nombre}» (código: {material.codigo}) "
                 f"ha bajado a {stock_actual} unidades "
-                f"(umbral configurado: {material.stock_minimo}). "
+                f"(umbral mínimo: {umbral} u. — calculado por fórmula de consumo). "
                 f"Se recomienda revisar la reposición."
             ),
             entity=material,
@@ -250,7 +254,7 @@ def _notify_stock_bajo(material: "Material", stock_actual: int) -> None:
                 "materialNombre": material.nombre,
                 "materialCodigo": material.codigo,
                 "stockActual": stock_actual,
-                "stockMinimo": material.stock_minimo,
+                "stockMinimo": umbral,
             },
             discriminator=daily_discriminator(f"stock-bajo-{material.id}"),
         )

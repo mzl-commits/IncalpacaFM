@@ -101,8 +101,16 @@ class GrupoSolicitud(models.Model):
 
     @property
     def estado(self) -> str:
-        """Retorna 'pendiente' si al menos un item está pendiente, de lo contrario 'resuelta'."""
-        return "pendiente" if self.tiene_pendientes else "resuelta"
+        if self.tiene_pendientes:
+            return "pendiente"
+        items = list(self.items.all())
+        if not items:
+            return "resuelta"
+        if all(i.estado == SolicitudMovimiento.Estado.APROBADA for i in items):
+            return "aprobada"
+        if all(i.estado == SolicitudMovimiento.Estado.RECHAZADA for i in items):
+            return "rechazada"
+        return "parcial"
 
 
     def __str__(self):
@@ -179,7 +187,7 @@ class SolicitudMovimiento(models.Model):
         related_name="items",
         help_text="Grupo de solicitudes al que pertenece este item (None = solicitud unitaria suelta).",
     )
-    # FK directa a WorkOrder solo para solicitudes agrupadas (texto libre sigue en referencia_externa)
+        # FK directa a WorkOrder solo para solicitudes agrupadas (texto libre sigue en referencia_externa)
     work_order = models.ForeignKey(
         "workorders.WorkOrder",
         null=True, blank=True,
@@ -187,6 +195,19 @@ class SolicitudMovimiento(models.Model):
         related_name="solicitudes_movimiento",
         help_text="Orden de Trabajo que originó esta solicitud (solo en flujo de aprobación).",
     )
+    # ── NUEVO ────────────────────────────────────────────────────────────────
+    work_order_material = models.ForeignKey(
+        "workorders.WorkOrderMaterial",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="solicitudes",
+        help_text=(
+            "Renglón exacto de WorkOrderMaterial que originó esta solicitud, "
+            "cuando viene de 'Cargar materiales de la OT'. Null si la solicitud "
+            "no está vinculada a un renglón específico de la OT."
+        ),
+    )
+    # ─────────────────────────────────────────────────────────────────────────
     # Motivo cuando un item puntual del grupo es rechazado parcialmente
     motivo_no_entrega = models.TextField(
         blank=True,

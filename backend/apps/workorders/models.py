@@ -230,6 +230,15 @@ class WorkOrderMaterial(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 
+    cantidad_comprometida = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Suma de lo ya solicitado (pendiente o aprobado) o despachado "
+            "directamente contra este renglón. cantidad - cantidad_comprometida "
+            "= lo que aún falta por despachar."
+        ),
+    )
+
     class Meta:
         ordering = ("creado_en",)
         verbose_name = "Material en OT"

@@ -114,6 +114,11 @@ class MaterialSerializer(serializers.ModelSerializer):
     unidad_movimiento_base_nombre = serializers.CharField(source="unidad_movimiento_base.nombre", read_only=True, default=None)
     unidad_movimiento_base_abreviatura = serializers.CharField(source="unidad_movimiento_base.abreviatura", read_only=True, default=None)
 
+    consumo_diario_promedio = serializers.SerializerMethodField()
+    stock_minimo_calculado = serializers.SerializerMethodField()
+    stock_desglose = serializers.SerializerMethodField()
+    stock_bajo = serializers.SerializerMethodField()
+
     class Meta:
         model = Material
         fields = [
@@ -124,6 +129,8 @@ class MaterialSerializer(serializers.ModelSerializer):
             "ubicacion_fisica", "precio", "moneda",
             "codigo_quipu",
             "tipo_control", "control_individual", "cantidad_total", "stock_minimo",
+            "tiempo_entrega_dias", "stock_seguridad",
+            "consumo_diario_promedio", "stock_minimo_calculado", "stock_desglose", "stock_bajo",
             "periodicidad_valor", "periodicidad_unidad", "periodicidad_inspeccion_dias",
             "es_inspeccionable",
             "unidad_manejo", "unidad_manejo_nombre",
@@ -134,6 +141,53 @@ class MaterialSerializer(serializers.ModelSerializer):
             "activo", "creado_en",
         ]
         read_only_fields = ["codigo", "creado_en"]
+
+    def _get_consumo_diario_promedio(self, obj) -> float:
+        if hasattr(obj, "total_salidas_90d"):
+            # Usar la anotación agregada en la consulta SQL (días hábiles en 90 días = 65 aprox)
+            # Para la precisión exacta se calcula con base en la anotación SQL prefetcheada
+            from datetime import timedelta
+            from django.utils import timezone
+            ahora = timezone.now()
+            desde = ahora - timedelta(days=90)
+            dias_habiles = 0
+            cur = desde.date()
+            fin = ahora.date()
+            while cur <= fin:
+                if cur.weekday() < 5:
+                    dias_habiles += 1
+                cur += timedelta(days=1)
+            divisor = max(1, dias_habiles)
+            return round(float(obj.total_salidas_90d) / divisor, 2)
+        return round(obj.calcular_consumo_diario(90), 2)
+
+    def _get_stock_minimo_calculado(self, obj) -> int:
+        consumo = self._get_consumo_diario_promedio(obj)
+        minimo = (consumo * (obj.tiempo_entrega_dias or 0)) + (obj.stock_seguridad or 0)
+        return round(minimo)
+
+    def get_consumo_diario_promedio(self, obj) -> float:
+        return self._get_consumo_diario_promedio(obj)
+
+    def get_stock_minimo_calculado(self, obj) -> int:
+        return self._get_stock_minimo_calculado(obj)
+
+    def get_stock_desglose(self, obj) -> dict:
+        consumo = self._get_consumo_diario_promedio(obj)
+        minimo = self._get_stock_minimo_calculado(obj)
+        return {
+            "consumo_diario": consumo,
+            "tiempo_entrega_dias": obj.tiempo_entrega_dias,
+            "stock_seguridad": obj.stock_seguridad,
+            "stock_minimo": obj.stock_minimo or minimo,
+            "stock_minimo_calculado": minimo,
+        }
+
+    def get_stock_bajo(self, obj) -> bool:
+        if obj.control_individual:
+            return False
+        umbral = obj.stock_minimo if obj.stock_minimo > 0 else self._get_stock_minimo_calculado(obj)
+        return obj.cantidad_total <= umbral if umbral > 0 else obj.cantidad_total == 0
 
     def get_es_inspeccionable(self, obj) -> bool:
         return bool(

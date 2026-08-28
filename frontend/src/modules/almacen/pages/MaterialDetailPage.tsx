@@ -1,5 +1,6 @@
 import {
-  ArrowLeft, ArrowRight, CaretDown, ClipboardText, DownloadSimple, FileXls, Package, PencilSimple, Plus, Trash, WarningCircle,
+  ArrowLeft, ArrowRight, CaretDown, ClipboardText, DownloadSimple, FileXls, Package, PencilSimple, Plus, Trash, WarningCircle, Calculator,
+  TrendUp, Truck, ShieldCheck,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
@@ -139,8 +140,13 @@ export function MaterialDetailPage() {
       </div>
     );
 
+  const stockMinimoEfectivo =
+    (material.stock_minimo_calculado !== undefined && material.stock_minimo_calculado > 0)
+      ? material.stock_minimo_calculado
+      : (material.stock_minimo > 0 ? material.stock_minimo : STOCK_MINIMO);
+
   const stockAlerta =
-    !material.control_individual && material.cantidad_total < STOCK_MINIMO;
+    !material.control_individual && material.cantidad_total <= stockMinimoEfectivo;
   const ultimaInspeccion = inspecciones[0]?.fecha ?? null;
 
   function formatearFrecuencia(valor: number, unidad: "dias" | "meses"): string {
@@ -150,120 +156,6 @@ export function MaterialDetailPage() {
 
   return (
     <section>
-      <style>{`
-        .mat-detail-header {
-          display: flex !important;
-          flex-direction: column !important;
-          gap: 18px !important;
-          margin-bottom: 28px !important;
-        }
-        .mat-detail-header .back-link {
-          display: inline-flex !important;
-          align-items: center !important;
-          gap: 6px !important;
-          align-self: flex-start !important;
-        }
-        .mat-detail-title-row {
-          display: flex !important;
-          flex-direction: row !important;
-          flex-wrap: wrap !important;
-          align-items: flex-start !important;
-          justify-content: space-between !important;
-          gap: 16px !important;
-        }
-        .mat-detail-title-block {
-          display: flex !important;
-          flex-direction: column !important;
-          gap: 6px !important;
-          min-width: 0 !important;
-        }
-        .mat-detail-title-block h1 {
-          margin: 0 !important;
-        }
-        .mat-detail-title-block .breadcrumb {
-          margin: 0 !important;
-        }
-        .mat-detail-meta {
-          margin: 0 !important;
-          padding: 4px 10px !important;
-          border-radius: 999px !important;
-          background: var(--surface-muted, #f3f4f6) !important;
-          color: var(--muted, #6b7280) !important;
-          font-size: 13px !important;
-          white-space: nowrap !important;
-          flex-shrink: 0 !important;
-        }
-        .mat-detail-actions {
-          display: flex !important;
-          flex-direction: row !important;
-          flex-wrap: wrap !important;
-          align-items: center !important;
-          gap: 10px !important;
-          width: 100% !important;
-        }
-        .accordion-list {
-          display: flex !important;
-          flex-direction: column !important;
-          gap: 8px !important;
-        }
-        .accordion-card {
-          border: 1px solid var(--border, #e5e7eb) !important;
-          border-radius: 10px !important;
-          overflow: hidden !important;
-          background: var(--surface, #fff) !important;
-        }
-        .accordion-card-header {
-          display: flex !important;
-          align-items: center !important;
-          justify-content: space-between !important;
-          gap: 10px !important;
-          width: 100% !important;
-          padding: 12px 14px !important;
-          border: none !important;
-          background: none !important;
-          cursor: pointer !important;
-          text-align: left !important;
-        }
-        .accordion-card-header-left {
-          display: flex !important;
-          align-items: center !important;
-          gap: 10px !important;
-          flex-wrap: wrap !important;
-          min-width: 0 !important;
-        }
-        .accordion-card-header-right {
-          display: flex !important;
-          align-items: center !important;
-          gap: 8px !important;
-          flex-shrink: 0 !important;
-        }
-        .accordion-date {
-          font-size: 12px !important;
-          color: var(--muted, #64748b) !important;
-          white-space: nowrap !important;
-        }
-        .accordion-card-body {
-          display: grid !important;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
-          gap: 12px !important;
-          padding: 4px 14px 14px !important;
-          border-top: 1px solid var(--border, #f1f5f9) !important;
-          padding-top: 12px !important;
-        }
-        .accordion-field-label {
-          margin: 0 !important;
-          font-size: 11px !important;
-          text-transform: uppercase !important;
-          letter-spacing: .03em !important;
-          color: var(--muted, #94a3b8) !important;
-        }
-        .accordion-field-value {
-          margin: 2px 0 0 !important;
-          font-size: 13px !important;
-          color: var(--text, #0f172a) !important;
-        }
-      `}</style>
-
       {/* Cabecera */}
       <div className="mat-detail-header">
         <Link to={`/almacen/${almacenId}/catalogo`} className="back-link">
@@ -534,6 +426,56 @@ export function MaterialDetailPage() {
                 </div>
               </div>
             )}
+
+            {!material.control_individual && (
+              <div className="stock-min-panel stock-min-panel--result">
+                <div className="stock-min-panel-header">
+                  <Calculator size={18} />
+                  <strong>Stock mínimo de reposición</strong>
+                  <span className="stock-min-panel-period">Últimos 90 días</span>
+                </div>
+
+                <div className="stock-min-grid">
+                  <div className="stock-min-item" title="Consumo diario promedio">
+                    <TrendUp size={16} className="stock-min-icon" />
+                    <span className="stock-min-item-value">
+                      {material.consumo_diario_promedio ?? 0} <small>u./día</small>
+                    </span>
+                  </div>
+
+                  <span className="stock-min-sep">×</span>
+
+                  <div className="stock-min-item" title="Tiempo de entrega estimado">
+                    <Truck size={16} className="stock-min-icon" />
+                    <span className="stock-min-item-value">
+                      {material.tiempo_entrega_dias ?? 7} <small>d. hábiles</small>
+                    </span>
+                  </div>
+
+                  <span className="stock-min-sep">+</span>
+
+                  <div className="stock-min-item" title="Stock de seguridad">
+                    <ShieldCheck size={16} className="stock-min-icon" />
+                    <span className="stock-min-item-value">
+                      {material.stock_seguridad ?? 0} <small>u.</small>
+                    </span>
+                  </div>
+
+                  <span className="stock-min-sep">=</span>
+
+                  <div
+                    className={`stock-min-item stock-min-item--result ${stockAlerta ? "is-alert" : "is-ok"}`}
+                    title="Stock mínimo recomendado"
+                  >
+                    {stockAlerta && <WarningCircle size={16} className="stock-min-icon" />}
+                    <span className="stock-min-item-value">
+                      {material.stock_minimo_calculado ?? material.stock_minimo} <small>u.</small>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
           </div>
 
           {/* Ajuste de stock (solo materiales sin control individual, no disponible para Inspector) */}

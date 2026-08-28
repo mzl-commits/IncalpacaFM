@@ -118,11 +118,9 @@ function VencidaCard({
             </code>
             {item.material_nombre}
           </h3>
-          <small style={{ color: "var(--muted)", fontSize: 12 }}>
-            Plantilla: {item.plantilla}
-          </small>
+          <small className="text-muted-sm">Plantilla: {item.plantilla}</small>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div className="flex-row-wrap">
           {ultimaInspeccionFecha ? (
             <TrimestreBadge fecha={ultimaInspeccionFecha} periodicidadDias={ultimaInspeccionPeriodicidad} showLabel />
           ) : (
@@ -159,7 +157,7 @@ function VencidaCard({
 
       {item.piezas_pendientes.length === 0 && item.cantidad_pendiente === null && (
         <div className="vencida-card-body">
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>Material consumible — inspección grupal pendiente.</span>
+          <span className="text-muted-sm">Material consumible — inspección grupal pendiente.</span>
         </div>
       )}
     </div>

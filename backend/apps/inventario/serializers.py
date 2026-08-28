@@ -274,6 +274,7 @@ class SolicitudMovimientoSerializer(serializers.ModelSerializer):
             "pieza", "pieza_codigo", "pieza_nombre", "pieza_detalle", "piezas_hijas_ids",
             "cantidad", "cantidad_cajas",
             "referencia_externa", "observaciones",
+            "work_order_material",  # ← NUEVO
             "solicitado_por", "solicitado_por_nombre",
             "creado_en", "resuelto_en",
             "resuelto_por", "resuelto_por_nombre",
@@ -338,11 +339,37 @@ from apps.workorders.models import WorkOrder  # noqa: E402
 
 
 class GrupoSolicitudItemInputSerializer(serializers.Serializer):
-    """Representa un item individual dentro del payload de creación de un grupo."""
-    TIPOS_PERMITIDOS_V1 = ["salida_material"]
+    """
+    Representa un item individual dentro del payload de creación de un grupo.
+
+    FIX (piezas retornables no aparecían en Solicitudes/Movimientos): antes
+    solo se admitía "salida_material" con `material` obligatorio. Las piezas
+    con control individual (martillo, etc.) salían por un endpoint aparte
+    (salida-pieza) que, para el rol ALMACENERO, creaba una SolicitudMovimiento
+    SIN grupo — invisible para el admin en la pantalla de Solicitudes, y sin
+    generar Movimiento hasta ser aprobada (nunca lo era, porque no se veía).
+
+    Ahora "salida_pieza" también es un tipo válido de item de grupo, con
+    `pieza` en vez de `material`. Así el martillo entra al mismo
+    GrupoSolicitud que los consumibles y el admin lo ve/aprueba junto con
+    el resto.
+    """
+    TIPOS_PERMITIDOS_V1 = ["salida_material", "salida_pieza"]
 
     tipo = serializers.ChoiceField(choices=SolicitudMovimiento.Tipo.choices)
-    material = serializers.IntegerField()  # obligatorio en v1 (no pieza)
+    # Antes era obligatorio (solo salida_material existía). Ahora es opcional
+    # a nivel de campo; la obligatoriedad según el tipo se valida abajo.
+    material = serializers.IntegerField(required=False, allow_null=True, default=None)
+    pieza = serializers.IntegerField(required=False, allow_null=True, default=None)
+    # Solo aplica a piezas tipo estuche (contenedor con hijas). Mismo contrato
+    # que en SalidaPiezaSerializer: None = todas las hijas disponibles,
+    # [] = solo el contenedor, [ids] = solo esas hijas.
+    piezas_hijas_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, allow_null=True, default=None
+    )
+    work_order_material = serializers.UUIDField(
+        required=False, allow_null=True, default=None
+    )
     cantidad = serializers.IntegerField(required=False, min_value=1, allow_null=True, default=None)
     cantidad_cajas = serializers.IntegerField(required=False, allow_null=True, min_value=1, default=None)
     observaciones = serializers.CharField(required=False, allow_blank=True, default="")
@@ -350,10 +377,17 @@ class GrupoSolicitudItemInputSerializer(serializers.Serializer):
     def validate_tipo(self, value):
         if value not in self.TIPOS_PERMITIDOS_V1:
             raise serializers.ValidationError(
-                "Por ahora los grupos de solicitud solo admiten salida_material. "
-                "Para piezas, usa el flujo de solicitud individual existente."
+                "Por ahora los grupos de solicitud solo admiten salida_material "
+                "o salida_pieza. Para bajas, usa el flujo de solicitud individual existente."
             )
         return value
+
+    def validate(self, attrs):
+        if attrs["tipo"] == "salida_material" and not attrs.get("material"):
+            raise serializers.ValidationError({"material": "Requerido para un item de tipo salida_material."})
+        if attrs["tipo"] == "salida_pieza" and not attrs.get("pieza"):
+            raise serializers.ValidationError({"pieza": "Requerido para un item de tipo salida_pieza."})
+        return attrs
 
 
 class GrupoSolicitudCreateSerializer(serializers.Serializer):
@@ -365,7 +399,7 @@ class GrupoSolicitudCreateSerializer(serializers.Serializer):
     items = serializers.ListField(
         child=GrupoSolicitudItemInputSerializer(),
         allow_empty=False,
-        help_text="Lista de materiales solicitados en este grupo (mínimo 1).",
+        help_text="Lista de materiales y/o piezas solicitados en este grupo (mínimo 1).",
     )
 
 
