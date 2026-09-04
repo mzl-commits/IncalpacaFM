@@ -97,12 +97,12 @@ export function getLoggedRequester(): SystemUser | null {
 }
 
 
-const yesNoOptions = [
+export const yesNoOptions = [
   { value: "SI", label: "Si" },
   { value: "NO", label: "No" },
 ] as const;
 
-const priorityLabels: Record<SuggestedPriority, string> = {
+export const priorityLabels: Record<SuggestedPriority, string> = {
   NORMAL: "Normal",
   URGENTE: "Urgente",
   EMERGENCIA: "Emergencia",

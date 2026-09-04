@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 import { api } from "@/services/api";
 import type { SystemUser } from "@/modules/accounts/types";
-import { type ImpactAnswer, type AffectedPeople, type SuggestedPriority, type PublicLocationOption, type PublicAssetContext, type PublicRequestFormState, initialForm, getLoggedRequester, calculateSuggestedPriority, getPriorityReasons, getSubmitErrorMessage } from '../components/publicWorkRequestUtils';
+import { type ImpactAnswer, type AffectedPeople, type SuggestedPriority, type PublicLocationOption, type PublicAssetContext, type PublicRequestFormState, initialForm, getLoggedRequester, calculateSuggestedPriority, getPriorityReasons, getSubmitErrorMessage, yesNoOptions } from '../components/publicWorkRequestUtils';
 
 export function PublicWorkRequestPage() {
   const [assetToken] = useState(() => new URLSearchParams(window.location.search).get("asset")?.trim() ?? "");
