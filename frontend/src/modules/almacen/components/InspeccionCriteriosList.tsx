@@ -1,4 +1,4 @@
-﻿import type { Criterio, ValorRespuesta } from '@/modules/almacen/types';
+import type { Criterio, ValorRespuesta } from '@/modules/almacen/types';
 import { valorRespuestaLabels } from '@/modules/almacen/types';
 
 export function InspeccionCriteriosList({
@@ -11,11 +11,9 @@ export function InspeccionCriteriosList({
   setRespuesta: (criterioId: number, field: 'valor' | 'observacion', value: string) => void;
 }) {
   return (
-          {criterios.length > 0 && (
-            <div className="form-panel">
               <div className="form-section-heading">
                 <span>Paso 4</span>
-                <h2>Criterios de inspecciÃ³n ({criterios.length})</h2>
+                <h2>Criterios de inspección ({criterios.length})</h2>
               </div>
               <div>
                 {criterios
@@ -33,7 +31,7 @@ export function InspeccionCriteriosList({
                             value={resp.valor}
                             onChange={(e) => setRespuesta(criterio.id, "valor", e.target.value)}
                           >
-                            <option value="">â€” evaluar â€”</option>
+                            <option value="">— evaluar —</option>
                             {(Object.entries(valorRespuestaLabels) as [ValorRespuesta, string][]).map(([v, l]) => (
                               <option key={v} value={v}>{l}</option>
                             ))}
@@ -41,7 +39,7 @@ export function InspeccionCriteriosList({
                           {resp.valor === "no_cumple" && (
                             <input
                               type="text"
-                              placeholder="ObservaciÃ³n (opcional)"
+                              placeholder="Observación (opcional)"
                               value={resp.observacion}
                               onChange={(e) => setRespuesta(criterio.id, "observacion", e.target.value)}
                             />
@@ -51,6 +49,7 @@ export function InspeccionCriteriosList({
                     );
                   })}
               </div>
+            </div>
+          )}
   );
 }
-

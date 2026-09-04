@@ -1,11 +1,10 @@
-﻿import { Camera, CheckCircle, PaperPlaneTilt } from "@phosphor-icons/react";
+import { Camera, CheckCircle, PaperPlaneTilt } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "@/services/api";
 import type { SystemUser } from "@/modules/accounts/types";
 import { type ImpactAnswer, type AffectedPeople, type SuggestedPriority, type PublicLocationOption, type PublicAssetContext, type PublicRequestFormState, initialForm, getLoggedRequester, calculateSuggestedPriority, getPriorityReasons, getSubmitErrorMessage, yesNoOptions } from '../components/publicWorkRequestUtils';
-
 export function PublicWorkRequestPage() {
   const [assetToken] = useState(() => new URLSearchParams(window.location.search).get("asset")?.trim() ?? "");
   const loggedRequester = useMemo(() => getLoggedRequester(), []);
@@ -214,11 +213,11 @@ export function PublicWorkRequestPage() {
       return;
     }
     if (!form.issueCategory || !form.assetCondition || !form.startedWhen) {
-      setError("Completa la clasificaciÃ³n de la solicitud antes de continuar.");
+      setError("Completa la clasificación de la solicitud antes de continuar.");
       return;
     }
     if (form.issueCategory === "OTRO" && form.otherIssueCategoryDetail.trim().length < 3) {
-      setError("Indica quÃ© tipo de solicitud es en el campo Otro.");
+      setError("Indica qué tipo de solicitud es en el campo Otro.");
       return;
     }
 
@@ -346,7 +345,7 @@ export function PublicWorkRequestPage() {
             <div>
               <small>Solicitud vinculada al bien identificado por QR</small>
               <strong>{asset.name}</strong>
-              <p>{asset.displayCode} Â· {asset.generalLocation}</p>
+              <p>{asset.displayCode} · {asset.generalLocation}</p>
             </div>
             <Link to={`/q/${encodeURIComponent(assetToken)}`}>Ver ficha del bien</Link>
           </aside>
@@ -362,7 +361,7 @@ export function PublicWorkRequestPage() {
             <CheckCircle size={24} weight="fill" />
             <div>
               <strong>Solicitud registrada</strong>
-              <p>Tu cÃ³digo de solicitud es {submittedCode}. El administrador revisarÃ¡ la prioridad final.</p>
+              <p>Tu código de solicitud es {submittedCode}. El administrador revisará la prioridad final.</p>
               <Link
                 className="button button-secondary"
                 to={loggedRequester && submittedId ? `/incidencias/${submittedId}` : `/seguimiento-solicitud/${submittedCode}`}
@@ -420,12 +419,12 @@ export function PublicWorkRequestPage() {
                   value={form.requesterDni}
                   onChange={(event) => updateField("requesterDni", event.target.value.replace(/\D/g, ""))}
                   readOnly={Boolean(loggedRequester)}
-                  placeholder="8 dÃ­gitos"
+                  placeholder="8 dígitos"
                 />
               </label>
 
               <label className="field">
-                <span>CÃ³digo de trabajador *</span>
+                <span>Código de trabajador *</span>
                 <input
                   required
                   value={form.requesterWorkerCode}
@@ -443,15 +442,15 @@ export function PublicWorkRequestPage() {
               <div>
                 <span className="section-number">2</span>
                 <div>
-                  <h2>UbicaciÃ³n de la solicitud</h2>
-                  <p>Selecciona la sede, Ã¡rea macro, Ã¡rea y mÃ³dulo/ambiente donde se necesita la atenciÃ³n.</p>
+                  <h2>Ubicación de la solicitud</h2>
+                  <p>Selecciona la sede, área macro, área y módulo/ambiente donde se necesita la atención.</p>
                 </div>
               </div>
             </div>
 
             <div className="form-grid">
               <label className="field">
-                <span>Â¿QuÃ© tipo de solicitud es? *</span>
+                <span>¿Qué tipo de solicitud es? *</span>
                 <select required value={form.issueCategory} onChange={(event) => {
                   const value = event.target.value;
                   setForm((current) => ({
@@ -461,7 +460,7 @@ export function PublicWorkRequestPage() {
                   }));
                   setError("");
                 }}>
-                  <option value="">Seleccionar tipo</option><option value="ELECTRICO">ElÃ©ctrico o iluminaciÃ³n</option><option value="GASFITERIA">Agua, desagÃ¼e o gas</option><option value="CLIMATIZACION">ClimatizaciÃ³n</option><option value="MOBILIARIO">Mobiliario, puertas o ventanas</option><option value="INFRAESTRUCTURA">Acabados, pintura, paredes o techo</option><option value="EQUIPO">Equipo o dispositivo</option><option value="OTRO">Otro</option>
+                  <option value="">Seleccionar tipo</option><option value="ELECTRICO">Eléctrico o iluminación</option><option value="GASFITERIA">Agua, desagüe o gas</option><option value="CLIMATIZACION">Climatización</option><option value="MOBILIARIO">Mobiliario, puertas o ventanas</option><option value="INFRAESTRUCTURA">Acabados, pintura, paredes o techo</option><option value="EQUIPO">Equipo o dispositivo</option><option value="OTRO">Otro</option>
                 </select>
               </label>
               <label className="field">
@@ -469,29 +468,29 @@ export function PublicWorkRequestPage() {
                 <input
                   value={form.assetTypeDetail}
                   onChange={(event) => updateField("assetTypeDetail", event.target.value)}
-                  placeholder={asset ? `Ej. ${asset.name}` : "Ej. Laptop, Impresora, Silla ergonÃ³mica, Aire acondicionado"}
+                  placeholder={asset ? `Ej. ${asset.name}` : "Ej. Laptop, Impresora, Silla ergonómica, Aire acondicionado"}
                   maxLength={120}
                 />
               </label>
               {form.issueCategory === "OTRO" && (
                 <label className="field field-wide">
-                  <span>Â¿QuÃ© tipo de solicitud crees que es? *</span>
+                  <span>¿Qué tipo de solicitud crees que es? *</span>
                   <input
                     required
                     value={form.otherIssueCategoryDetail}
                     onChange={(event) => updateField("otherIssueCategoryDetail", event.target.value)}
-                    placeholder="Ej. SeÃ±alÃ©tica, apoyo especial, revisiÃ³n puntual"
+                    placeholder="Ej. Señalética, apoyo especial, revisión puntual"
                     maxLength={120}
                   />
                 </label>
               )}
               <label className="field">
                 <span>Estado actual *</span>
-                <select required value={form.assetCondition} onChange={(event) => updateField("assetCondition", event.target.value)}><option value="">Seleccionar estado</option><option value="NO_FUNCIONA">No funciona</option><option value="FUNCIONA_PARCIALMENTE">Funciona parcialmente</option><option value="DANADO">EstÃ¡ daÃ±ado o deteriorado</option><option value="RIESGO">Presenta una condiciÃ³n de riesgo</option></select>
+                <select required value={form.assetCondition} onChange={(event) => updateField("assetCondition", event.target.value)}><option value="">Seleccionar estado</option><option value="NO_FUNCIONA">No funciona</option><option value="FUNCIONA_PARCIALMENTE">Funciona parcialmente</option><option value="DANADO">Está dañado o deteriorado</option><option value="RIESGO">Presenta una condición de riesgo</option></select>
               </label>
               <label className="field">
-                <span>Â¿CuÃ¡ndo empezÃ³? *</span>
-                <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Esta semana</option><option value="MAS_TIEMPO">Hace mÃ¡s de una semana</option></select>
+                <span>¿Cuándo empezó? *</span>
+                <select required value={form.startedWhen} onChange={(event) => updateField("startedWhen", event.target.value)}><option value="">Seleccionar momento</option><option value="AHORA">Hace unos minutos</option><option value="HOY">Hoy</option><option value="SEMANA">Esta semana</option><option value="MAS_TIEMPO">Hace más de una semana</option></select>
               </label>
               {!asset && !isAssetLoading && (
                 <>
@@ -520,7 +519,7 @@ export function PublicWorkRequestPage() {
                   </label>
 
                   <label className="field">
-                    <span>Ãrea macro *</span>
+                    <span>Área macro *</span>
                     <select
                       required
                       value={form.zone}
@@ -537,13 +536,13 @@ export function PublicWorkRequestPage() {
                       }}
                       disabled={!form.site}
                     >
-                      <option value="">{form.site ? "Seleccionar Ã¡rea macro" : "Primero selecciona una sede"}</option>
+                      <option value="">{form.site ? "Seleccionar área macro" : "Primero selecciona una sede"}</option>
                       {zoneOptions.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
                     </select>
                   </label>
 
                   <label className="field">
-                    <span>Ãrea *</span>
+                    <span>Área *</span>
                     <select
                       required
                       value={form.building}
@@ -559,13 +558,13 @@ export function PublicWorkRequestPage() {
                       }}
                       disabled={!form.zone}
                     >
-                      <option value="">{form.zone ? "Seleccionar Ã¡rea" : "Primero selecciona un Ã¡rea macro"}</option>
+                      <option value="">{form.zone ? "Seleccionar área" : "Primero selecciona un área macro"}</option>
                       {buildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
                     </select>
                   </label>
 
                   <label className="field">
-                    <span>MÃ³dulo / ambiente *</span>
+                    <span>Módulo / ambiente *</span>
                     <select
                       required
                       value={form.area}
@@ -580,7 +579,7 @@ export function PublicWorkRequestPage() {
                       }}
                       disabled={!form.building}
                     >
-                      <option value="">{form.building ? "Seleccionar mÃ³dulo o ambiente" : "Primero selecciona un Ã¡rea"}</option>
+                      <option value="">{form.building ? "Seleccionar módulo o ambiente" : "Primero selecciona un área"}</option>
                       {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
                     </select>
                   </label>
@@ -609,14 +608,14 @@ export function PublicWorkRequestPage() {
                       }}
                       disabled={!form.area}
                     >
-                      <option value="">{form.area ? "Seleccionar detalle" : "Primero selecciona un mÃ³dulo o ambiente"}</option>
+                      <option value="">{form.area ? "Seleccionar detalle" : "Primero selecciona un módulo o ambiente"}</option>
                       {roomOptions.map((location) => (
                         <option key={location.id} value={location.id}>
                           {location.room}{location.specificLocation ? ` - ${location.specificLocation}` : ""} ({location.code})
                         </option>
                       ))}
                     </select>
-                    <small>Las opciones se van reduciendo segÃºn lo que elijas.</small>
+                    <small>Las opciones se van reduciendo según lo que elijas.</small>
                   </label>
                 </>
               )}
@@ -629,14 +628,14 @@ export function PublicWorkRequestPage() {
                 <span className="section-number">3</span>
                 <div>
                   <h2>Descripcion y evidencia</h2>
-                  <p>Describe la atenciÃ³n requerida y adjunta una foto para facilitar la revisiÃ³n.</p>
+                  <p>Describe la atención requerida y adjunta una foto para facilitar la revisión.</p>
                 </div>
               </div>
             </div>
 
             <div className="form-grid">
               <label className="field field-wide">
-                <span>Â¿QuÃ© necesitas solicitar? *</span>
+                <span>¿Qué necesitas solicitar? *</span>
                 <textarea
                   required
                   value={form.description}
@@ -702,7 +701,7 @@ export function PublicWorkRequestPage() {
                   maxLength={300}
                   rows={3}
                   onChange={(event) => updateField("noPhotoReason", event.target.value)}
-                  placeholder="Ej. La situaciÃ³n estÃ¡ dentro del equipo y no es visible desde fuera."
+                  placeholder="Ej. La situación está dentro del equipo y no es visible desde fuera."
                 />
                 <small>{form.noPhotoReason.length} / 300 caracteres</small>
               </label>
@@ -728,7 +727,7 @@ export function PublicWorkRequestPage() {
 
             <div className="public-impact-grid">
               <fieldset className="impact-question">
-                <legend>Â¿La situaciÃ³n impide realizar tus actividades normalmente? *</legend>
+                <legend>¿La situación impide realizar tus actividades normalmente? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
@@ -749,7 +748,7 @@ export function PublicWorkRequestPage() {
               </fieldset>
 
               <fieldset className="impact-question">
-                <legend>Â¿Existe riesgo para la seguridad o salud de las personas? *</legend>
+                <legend>¿Existe riesgo para la seguridad o salud de las personas? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
@@ -770,7 +769,7 @@ export function PublicWorkRequestPage() {
               </fieldset>
 
               <fieldset className="impact-question">
-                <legend>Â¿Afecta un equipo o servicio indispensable? *</legend>
+                <legend>¿Afecta un equipo o servicio indispensable? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
@@ -791,7 +790,7 @@ export function PublicWorkRequestPage() {
               </fieldset>
 
               <fieldset className="impact-question">
-                <legend>Â¿Puede generar daÃ±os mayores si no se atiende pronto? *</legend>
+                <legend>¿Puede generar daños mayores si no se atiende pronto? *</legend>
                 <div>
                   {yesNoOptions.map((option) => (
                     <label key={option.value}>
@@ -812,7 +811,7 @@ export function PublicWorkRequestPage() {
               </fieldset>
 
               <label className="field field-wide">
-                <span>Â¿CuÃ¡ntas personas estÃ¡n afectadas aproximadamente? *</span>
+                <span>¿Cuántas personas están afectadas aproximadamente? *</span>
                 <select
                   required
                   value={form.affectedPeople}
@@ -832,7 +831,7 @@ export function PublicWorkRequestPage() {
               <span>Prioridad sugerida</span>
               <strong>{hasImpactAnswers ? priorityLabels[suggestedPriority] : "Pendiente"}</strong>
               <p>
-                Esta recomendaciÃ³n ayudarÃ¡ al administrador, pero la decisiÃ³n final se revisarÃ¡
+                Esta recomendación ayudará al administrador, pero la decisión final se revisará
                 internamente.
               </p>
 

@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Archive,
   Briefcase,
@@ -36,7 +36,6 @@ import {
   type WorkOrderStatus,
 } from "@/modules/workorders/workOrderModel";
 import { statusClass, formatDate, todayKey, formatDateTime, formatWorkDuration, formatMinutesDuration, getTextValue, getRatingLabel, getCorrectionSchedule, getValidationLabel, getServiceOrderDetails, getStringList, getServiceStatusCopy, type PlanningForm } from './workOrderDetailUtils';
-
 export function WorkOrderDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -120,7 +119,7 @@ export function WorkOrderDetailPage() {
   async function handleAdminReview(approved: boolean) {
     if (!workOrder) return;
     if (!approved && adminComment.trim().length < 8) {
-      setAdminError("Escribe una observaciÃ³n o motivo de devoluciÃ³n breve.");
+      setAdminError("Escribe una observación o motivo de devolución breve.");
       return;
     }
 
@@ -131,7 +130,7 @@ export function WorkOrderDetailPage() {
       setWorkOrder(updated);
       setAdminComment("");
     } catch {
-      setAdminError("No se pudo registrar la validaciÃ³n administrativa.");
+      setAdminError("No se pudo registrar la validación administrativa.");
     } finally {
       setSavingAdminReview(false);
     }
@@ -140,7 +139,7 @@ export function WorkOrderDetailPage() {
   async function handleSupervisorReview(requireComment: boolean) {
     if (!workOrder) return;
     if (requireComment && supervisorReviewComment.trim().length < 8) {
-      setSupervisorReviewError("Escribe una observaciÃ³n breve para administraciÃ³n.");
+      setSupervisorReviewError("Escribe una observación breve para administración.");
       return;
     }
 
@@ -151,7 +150,7 @@ export function WorkOrderDetailPage() {
       setWorkOrder(updated);
       setSupervisorReviewComment("");
     } catch {
-      setSupervisorReviewError("No se pudo registrar la revisiÃ³n del supervisor.");
+      setSupervisorReviewError("No se pudo registrar la revisión del supervisor.");
     } finally {
       setSavingSupervisorReview(false);
     }
@@ -161,11 +160,11 @@ export function WorkOrderDetailPage() {
     event?.preventDefault();
     if (!workOrder) return;
     if (!correctionOperatorId) {
-      setCorrectionError("Selecciona el operario que atenderÃ¡ la correcciÃ³n.");
+      setCorrectionError("Selecciona el operario que atenderá la corrección.");
       return;
     }
     if (!correctionDate) {
-      setCorrectionError("Selecciona la fecha de correcciÃ³n.");
+      setCorrectionError("Selecciona la fecha de corrección.");
       return;
     }
     if (correctionHours < 1 || correctionHours > 16) {
@@ -197,14 +196,14 @@ export function WorkOrderDetailPage() {
         operatorId: correctionOperatorId,
       });
       setWorkOrder(updated);
-      setCorrectionSuccess("ProgramaciÃ³n guardada. El operario verÃ¡ la correcciÃ³n en su agenda.");
+      setCorrectionSuccess("Programación guardada. El operario verá la corrección en su agenda.");
     } catch (error: any) {
       const detail = error?.response?.data;
       const message =
         typeof detail === "string"
           ? detail
           : Object.values(detail ?? {}).flat().join(" ");
-      setCorrectionError(message || "No se pudo programar la correcciÃ³n. Revisa los datos e intenta nuevamente.");
+      setCorrectionError(message || "No se pudo programar la corrección. Revisa los datos e intenta nuevamente.");
     } finally {
       setSavingCorrection(false);
     }
@@ -237,7 +236,7 @@ export function WorkOrderDetailPage() {
     if (user?.role !== "ADMINISTRADOR" || planningPeople.length) return;
     void listTechnicians()
       .then((people) => setPlanningPeople(people.filter((person) => person.active)))
-      .catch(() => setPlanningError("No se pudo cargar el equipo para programar la correcciÃ³n."));
+      .catch(() => setPlanningError("No se pudo cargar el equipo para programar la corrección."));
   }, [planningPeople.length, user?.role]);
 
   useEffect(() => {
@@ -259,7 +258,7 @@ export function WorkOrderDetailPage() {
           <div>
             <p className="breadcrumb">Mantenimiento / Ordenes operativas / Detalle</p>
             <h1>Orden no encontrada</h1>
-            <p className="wo-subtitle">La orden indicada no existe o ya no estÃ¡ disponible.</p>
+            <p className="wo-subtitle">La orden indicada no existe o ya no está disponible.</p>
           </div>
           <Link className="button button-secondary wo-back-btn" to="/ordenes-trabajo">
             <ArrowLeft size={16} weight="bold" />
@@ -279,28 +278,28 @@ export function WorkOrderDetailPage() {
     detailTitle: isServiceOrder ? "Detalle de orden de servicio" : isCleaningOrder ? "Detalle de orden de limpieza" : "Detalle de orden de trabajo",
     defaultDescription: isServiceOrder ? "Orden de servicio" : isCleaningOrder ? "Orden de limpieza" : "Orden de trabajo",
     linkedPrefix: isCleaningOrder ? "Esta OL corrige a:" : "Esta OT corrige a:",
-    linkedCorrectionLabel: isCleaningOrder ? "OL de correcciÃ³n" : "OT de correcciÃ³n",
+    linkedCorrectionLabel: isCleaningOrder ? "OL de corrección" : "OT de corrección",
     progressLabel: isCleaningOrder ? "Avance de la limpieza" : "Avance de la orden",
-    validationTitle: isCleaningOrder ? "ValidaciÃ³n de la limpieza" : "ValidaciÃ³n del trabajo",
+    validationTitle: isCleaningOrder ? "Validación de la limpieza" : "Validación del trabajo",
     operatorStep: isCleaningOrder ? "1. Responsable" : "1. Operario",
     doneLabel: isCleaningOrder ? "Limpieza terminada" : "Trabajo terminado",
-    runningLabel: isCleaningOrder ? "En limpieza" : "En ejecuciÃ³n",
-    adminPendingHelp: isCleaningOrder ? "Aprobar o devolver limpieza" : "Aprobar o devolver ejecuciÃ³n",
-    correctionCreated: isCleaningOrder ? "Se creÃ³ una nueva OL para correcciÃ³n." : "Se creÃ³ una nueva OT para correcciÃ³n.",
-    correctionHelp: isCleaningOrder ? "Define la reprogramaciÃ³n para la limpieza." : "Define la reprogramaciÃ³n para el operario.",
+    runningLabel: isCleaningOrder ? "En limpieza" : "En ejecución",
+    adminPendingHelp: isCleaningOrder ? "Aprobar o devolver limpieza" : "Aprobar o devolver ejecución",
+    correctionCreated: isCleaningOrder ? "Se creó una nueva OL para corrección." : "Se creó una nueva OT para corrección.",
+    correctionHelp: isCleaningOrder ? "Define la reprogramación para la limpieza." : "Define la reprogramación para el operario.",
     correctionNotesLabel: isCleaningOrder ? "Indicaciones para limpieza" : "Indicaciones para el operario",
     correctionPlaceholder: isCleaningOrder ? "Ej. Repetir limpieza del ambiente." : "Ej. Corregir evidencia faltante.",
-    adminCommentPlaceholder: isCleaningOrder ? "Observaciones finales de la limpieza." : "Observaciones finales o motivo de devoluciÃ³n.",
+    adminCommentPlaceholder: isCleaningOrder ? "Observaciones finales de la limpieza." : "Observaciones finales o motivo de devolución.",
     dataTitle: "Datos de la orden",
     operatorLabel: isCleaningOrder ? "Responsable" : "Operario asignado",
-    scheduleTitle: "ProgramaciÃ³n",
+    scheduleTitle: "Programación",
     durationTitle: "Tiempos",
     startLabel: "Inicio",
-    endLabel: "FinalizaciÃ³n",
+    endLabel: "Finalización",
     effectiveTimeLabel: "Tiempo efectivo",
-    locationTitle: "UbicaciÃ³n",
-    executionEmpty: isCleaningOrder ? "Los avances de limpieza aparecerÃ¡n en esta secciÃ³n." : "Los avances, materiales y evidencias del operario aparecerÃ¡n en esta secciÃ³n.",
-    diagnosisButton: isCleaningOrder ? "ObservaciÃ³n inicial" : "DiagnÃ³stico tÃ©cnico",
+    locationTitle: "Ubicación",
+    executionEmpty: isCleaningOrder ? "Los avances de limpieza aparecerán en esta sección." : "Los avances, materiales y evidencias del operario aparecerán en esta sección.",
+    diagnosisButton: isCleaningOrder ? "Observación inicial" : "Diagnóstico técnico",
   };
 
   const isAdmin = user?.role === "ADMINISTRADOR";
@@ -380,7 +379,7 @@ export function WorkOrderDetailPage() {
 
   return (
     <section className="wo-detail-wrapper">
-      {/* 1. CABECERA Y BOTÃ“N VOLVER COMPACTOS */}
+      {/* 1. CABECERA Y BOTÓN VOLVER COMPACTOS */}
       <div className="page-heading wo-detail-page-heading">
         <div>
           <p className="breadcrumb">Mantenimiento / Ordenes operativas / {workOrder.code}</p>
@@ -393,7 +392,7 @@ export function WorkOrderDetailPage() {
             <Link
               className="button button-danger"
               to={`/ordenes-trabajo/${workOrder.id}/diagnostico`}
-              title="Registra el diagnÃ³stico y sustento antes de solicitar la baja"
+              title="Registra el diagnóstico y sustento antes de solicitar la baja"
             >
               <Archive size={18} />
               Iniciar baja
@@ -415,7 +414,7 @@ export function WorkOrderDetailPage() {
           <div className="wo-hero-info">
             <div className="wo-hero-badges">
               <span className="wo-badge-code">{workOrder.code}</span>
-              <span className="wo-badge-type">{orderCopy.typeCode} Â· {orderCopy.typeName}</span>
+              <span className="wo-badge-type">{orderCopy.typeCode} · {orderCopy.typeName}</span>
               <span className="wo-badge-priority">{adminPriorityLabels[workOrder.adminPriority] || workOrder.adminPriority}</span>
               {workOrder.requestCode && (
                 <Link className="wo-badge-origin" to={`/incidencias/${workOrder.requestId}`}>
@@ -439,7 +438,7 @@ export function WorkOrderDetailPage() {
           <div className="service-order-admin-heading">
             <div>
               <span>Servicio externo</span>
-              <h2>GestiÃ³n administrativa de OS</h2>
+              <h2>Gestión administrativa de OS</h2>
             </div>
             <span className={`status ${statusClass[workOrder.status]}`}>
               {getWorkOrderStatusLabel(workOrder)}
@@ -516,7 +515,7 @@ export function WorkOrderDetailPage() {
                     disabled={savingServiceStatus}
                     onClick={() => void handleServiceStatus("SERVICE_START")}
                   >
-                    Pasar a coordinaciÃ³n
+                    Pasar a coordinación
                   </button>
                 )}
                 <button
@@ -541,7 +540,7 @@ export function WorkOrderDetailPage() {
         </article>
       )}
 
-      {/* CORRECCIÃ“N VINCULADA BANNER */}
+      {/* CORRECCIÓN VINCULADA BANNER */}
       {(workOrder.correctionOfId || workOrder.correctionWorkOrderId) && (
         <article className="data-panel linked-work-order-card wo-compact-linked">
           <Briefcase size={20} weight="bold" />
@@ -555,7 +554,7 @@ export function WorkOrderDetailPage() {
               </>
             ) : (
               <>
-                <strong>Tiene correcciÃ³n vinculada:</strong>
+                <strong>Tiene corrección vinculada:</strong>
                 <Link className="detail-link" to={`/ordenes-trabajo/${workOrder.correctionWorkOrderId}`}>
                   {workOrder.correctionWorkOrderCode}
                 </Link>
@@ -584,7 +583,7 @@ export function WorkOrderDetailPage() {
         </div>
       )}
 
-      {/* 4. VALIDACIÃ“N Y ESTADO DEL TRABAJO (EJECUCIÃ“N, SUPERVISIÃ“N, ADMINISTRACIÃ“N) */}
+      {/* 4. VALIDACIÓN Y ESTADO DEL TRABAJO (EJECUCIÓN, SUPERVISIÓN, ADMINISTRACIÓN) */}
       {!isServiceOrder && (
         <article className="data-panel detail-card wo-workflow-section wo-compact-card">
           <div className="detail-card-heading compact-heading">
@@ -600,20 +599,20 @@ export function WorkOrderDetailPage() {
             </div>
 
             <div className={`wo-step-card ${workOrder.supervisor_validation?.approved ? "is-done" : workOrder.supervisor_validation ? "is-returned" : "is-pending"}`}>
-              <span className="wo-step-num">2. SupervisiÃ³n</span>
+              <span className="wo-step-num">2. Supervisión</span>
               <strong className="wo-step-status">{getValidationLabel(workOrder.supervisor_validation)}</strong>
               <small className="wo-step-comment">{supervisorComment}</small>
             </div>
 
             <div className={`wo-step-card ${needsAdminReview ? "is-active" : workOrder.administrator_validation?.approved ? "is-done" : workOrder.administrator_validation ? "is-returned" : "is-pending"}`}>
-              <span className="wo-step-num">3. AdministraciÃ³n</span>
-              <strong className="wo-step-status">{needsAdminReview ? "Esperando decisiÃ³n" : getValidationLabel(workOrder.administrator_validation)}</strong>
+              <span className="wo-step-num">3. Administración</span>
+              <strong className="wo-step-status">{needsAdminReview ? "Esperando decisión" : getValidationLabel(workOrder.administrator_validation)}</strong>
               <small className="wo-step-comment">{needsAdminReview ? orderCopy.adminPendingHelp : adminRegisteredComment}</small>
             </div>
 
             <div className={`wo-step-card ${workOrder.satisfaction ? "is-done" : "is-pending"}`}>
               <span className="wo-step-num">4. Usuario</span>
-              <strong className="wo-step-status">{workOrder.satisfaction ? "Evaluado" : "Sin evaluaciÃ³n"}</strong>
+              <strong className="wo-step-status">{workOrder.satisfaction ? "Evaluado" : "Sin evaluación"}</strong>
               <small className="wo-step-comment">{getRatingLabel(workOrder.satisfaction)}</small>
             </div>
           </div>
@@ -631,14 +630,14 @@ export function WorkOrderDetailPage() {
               <div>
                 <CheckCircle size={20} weight="bold" />
                 <div>
-                  <strong>CorrecciÃ³n programada</strong>
+                  <strong>Corrección programada</strong>
                   <p>{orderCopy.correctionCreated}</p>
                 </div>
               </div>
               <dl className="wo-compact-dl">
                 <div><dt>Fecha</dt><dd>{formatDate(correctionSchedule.scheduledDate)}</dd></div>
                 <div><dt>Hora</dt><dd>{correctionSchedule.scheduledStartTime}</dd></div>
-                <div><dt>DuraciÃ³n</dt><dd>{correctionSchedule.plannedHours} h</dd></div>
+                <div><dt>Duración</dt><dd>{correctionSchedule.plannedHours} h</dd></div>
                 <div><dt>Indicaciones</dt><dd>{correctionSchedule.administratorNotes}</dd></div>
               </dl>
             </div>
@@ -647,12 +646,12 @@ export function WorkOrderDetailPage() {
           {canScheduleCorrection && (
             <form className="correction-schedule-form wo-compact-form" onSubmit={handleScheduleCorrection}>
               <div>
-                <strong>Programar correcciÃ³n</strong>
+                <strong>Programar corrección</strong>
                 <p>{orderCopy.correctionHelp}</p>
               </div>
               <div className="form-grid">
                 <label className="field field-wide">
-                  <span>{isCleaningOrder ? "Responsable de limpieza" : "Operario para la correcciÃ³n"}</span>
+                  <span>{isCleaningOrder ? "Responsable de limpieza" : "Operario para la corrección"}</span>
                   <select
                     value={correctionOperatorId}
                     onChange={(event) => setCorrectionOperatorId(event.target.value)}
@@ -710,7 +709,7 @@ export function WorkOrderDetailPage() {
                     startTime={correctionTime}
                     plannedHours={correctionHours}
                     currentOrderId={workOrder.id}
-                    title="Disponibilidad para correcciÃ³n"
+                    title="Disponibilidad para corrección"
                   />
                 </div>
               </div>
@@ -719,7 +718,7 @@ export function WorkOrderDetailPage() {
               <div className="admin-evaluation-actions">
                 <button className="button button-primary" type="button" disabled={savingCorrection} onClick={() => void handleScheduleCorrection()}>
                   <CalendarBlank size={16} weight="bold" />
-                  Guardar programaciÃ³n
+                  Guardar programación
                 </button>
               </div>
             </form>
@@ -728,11 +727,11 @@ export function WorkOrderDetailPage() {
           {canSupervisorReview && (
             <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleSupervisorReview(false); }}>
               <div>
-                <strong>RevisiÃ³n del supervisor</strong>
-                <p>Valida el trabajo terminado y envÃ­alo a administraciÃ³n para su decisiÃ³n final.</p>
+                <strong>Revisión del supervisor</strong>
+                <p>Valida el trabajo terminado y envíalo a administración para su decisión final.</p>
               </div>
               <label className="field field-wide">
-                <span>ObservaciÃ³n para administraciÃ³n</span>
+                <span>Observación para administración</span>
                 <textarea
                   rows={2}
                   value={supervisorReviewComment}
@@ -751,11 +750,11 @@ export function WorkOrderDetailPage() {
                   onClick={() => void handleSupervisorReview(true)}
                 >
                   <ClipboardText size={16} weight="bold" />
-                  Enviar observaciÃ³n a administraciÃ³n
+                  Enviar observación a administración
                 </button>
                 <button className="button button-primary" disabled={savingSupervisorReview}>
                   <CheckCircle size={16} weight="bold" />
-                  Aprobar y enviar a administraciÃ³n
+                  Aprobar y enviar a administración
                 </button>
               </div>
             </form>
@@ -764,8 +763,8 @@ export function WorkOrderDetailPage() {
           {isAdmin && needsAdminReview && (
             <form className="admin-review-form wo-compact-form" onSubmit={(event) => { event.preventDefault(); void handleAdminReview(true); }}>
               <div>
-                <strong>ValidaciÃ³n administrativa</strong>
-                <p>Confirma la ejecuciÃ³n o devuelve la orden para crear una correcciÃ³n vinculada.</p>
+                <strong>Validación administrativa</strong>
+                <p>Confirma la ejecución o devuelve la orden para crear una corrección vinculada.</p>
               </div>
               <label className="field field-wide">
                 <span>Comentario administrativo</span>
@@ -787,11 +786,11 @@ export function WorkOrderDetailPage() {
                   onClick={() => void handleAdminReview(false)}
                 >
                   <XCircle size={16} weight="bold" />
-                  Devolver a correcciÃ³n
+                  Devolver a corrección
                 </button>
                 <button className="button button-primary" disabled={savingAdminReview}>
                   <CheckCircle size={16} weight="bold" />
-                  Aprobar ejecuciÃ³n
+                  Aprobar ejecución
                 </button>
               </div>
             </form>
@@ -804,8 +803,8 @@ export function WorkOrderDetailPage() {
         <article className="data-panel detail-card work-order-planning-editor">
           <div className="detail-card-heading compact-heading">
             <Briefcase size={18} weight="bold" />
-            <div><h2>EdiciÃ³n operativa</h2><p>AdministraciÃ³n puede actualizar planificaciÃ³n, responsables y estado. Los tiempos reales se conservan desde la ejecuciÃ³n.</p></div>
-            <button className="button button-secondary button-sm" type="button" onClick={() => void openPlanningEditor()}>{editingPlanning ? "Actualizandoâ€¦" : "Editar orden"}</button>
+            <div><h2>Edición operativa</h2><p>Administración puede actualizar planificación, responsables y estado. Los tiempos reales se conservan desde la ejecución.</p></div>
+            <button className="button button-secondary button-sm" type="button" onClick={() => void openPlanningEditor()}>{editingPlanning ? "Actualizando…" : "Editar orden"}</button>
           </div>
           {editingPlanning && <form className="work-order-planning-form" onSubmit={savePlanning}>
             <label className="field"><span>Especialidad</span><select value={planning.specialty} onChange={(event) => setPlanning((current) => ({ ...current, specialty: event.target.value as WorkOrder["specialty"] }))}>{Object.entries(specialtyLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -816,7 +815,7 @@ export function WorkOrderDetailPage() {
             <label className="field"><span>Fecha programada</span><input type="date" value={planning.scheduledDate} onChange={(event) => setPlanning((current) => ({ ...current, scheduledDate: event.target.value }))} /></label>
             <label className="field"><span>Hora</span><input type="time" value={planning.scheduledStartTime} onChange={(event) => setPlanning((current) => ({ ...current, scheduledStartTime: event.target.value }))} /></label>
             <label className="field"><span>Horas previstas</span><input min="0.25" step="0.25" type="number" value={planning.plannedHours} onChange={(event) => setPlanning((current) => ({ ...current, plannedHours: Number(event.target.value) }))} /></label>
-            <label className="field field-wide"><span>Notas de planificaciÃ³n</span><textarea rows={3} value={planning.administratorNotes} onChange={(event) => setPlanning((current) => ({ ...current, administratorNotes: event.target.value }))} /></label>
+            <label className="field field-wide"><span>Notas de planificación</span><textarea rows={3} value={planning.administratorNotes} onChange={(event) => setPlanning((current) => ({ ...current, administratorNotes: event.target.value }))} /></label>
             {planningError && <p className="form-error">{planningError}</p>}
             <div className="work-order-planning-actions"><button className="button button-secondary" type="button" onClick={() => setEditingPlanning(false)}>Cancelar</button><button className="button button-primary" disabled={savingPlanning}>Guardar cambios</button></div>
           </form>}
@@ -860,7 +859,7 @@ export function WorkOrderDetailPage() {
           <dl className="detail-list wo-compact-list">
             <div><dt>Programada</dt><dd>{formatDate(workOrder.scheduledDate)}</dd></div>
             <div><dt>Inicio</dt><dd>{formatDateTime(workOrder.startedAt)}</dd></div>
-            <div><dt>FinalizaciÃ³n</dt><dd>{formatDateTime(workOrder.finishedAt)}</dd></div>
+            <div><dt>Finalización</dt><dd>{formatDateTime(workOrder.finishedAt)}</dd></div>
             <div><dt>Cierre</dt><dd>{formatDateTime(workOrder.closedAt)}</dd></div>
           </dl>
         </article>
@@ -887,30 +886,30 @@ export function WorkOrderDetailPage() {
             <dl className="detail-list wo-compact-list">
               <div><dt>Zona</dt><dd>{request.zone}</dd></div>
               <div><dt>Edificio</dt><dd>{request.building}</dd></div>
-              <div><dt>Ãrea</dt><dd>{request.area}</dd></div>
+              <div><dt>Área</dt><dd>{request.area}</dd></div>
               <div><dt>Ambiente</dt><dd>{request.room}</dd></div>
             </dl>
           ) : (
-            <p className="detail-empty">Sin ubicaciÃ³n vinculada.</p>
+            <p className="detail-empty">Sin ubicación vinculada.</p>
           )}
         </article>
       </div>
 
-      {/* EVIDENCIA FOTOGRÃFICA (ANTES Y DESPUÃ‰S) */}
+      {/* EVIDENCIA FOTOGRÁFICA (ANTES Y DESPUÉS) */}
       {!isServiceOrder && (
         <article className="data-panel detail-card work-order-photo-evidence wo-compact-card">
           <div className="detail-card-heading compact-heading">
             <ClipboardText size={18} weight="bold" />
             <div>
-              <h2>Evidencia fotogrÃ¡fica</h2>
-              <p className="wo-subtitle-sm">Comparativa visual registrada desde la ejecuciÃ³n.</p>
+              <h2>Evidencia fotográfica</h2>
+              <p className="wo-subtitle-sm">Comparativa visual registrada desde la ejecución.</p>
             </div>
           </div>
 
           <div className="work-order-photo-grid wo-compact-photo-grid">
             {([
               ["Antes", photoUrls.start, "Sin foto de inicio.", "start" as const],
-              ["DespuÃ©s", photoUrls.finish, "Sin foto final.", "finish" as const],
+              ["Después", photoUrls.finish, "Sin foto final.", "finish" as const],
             ] as const).map(([label, url, help]) => (
               <figure className="work-order-photo-card wo-compact-photo-card" key={label}>
                 <figcaption>
@@ -944,7 +943,7 @@ export function WorkOrderDetailPage() {
           <p className="wo-notes-text">{workOrder.administratorNotes || "Sin indicaciones adicionales."}</p>
         </article>
 
-        {/* SIGUIENTE PASO DE EJECUCIÃ“N */}
+        {/* SIGUIENTE PASO DE EJECUCIÓN */}
         {!isServiceOrder && (
           <article className="data-panel detail-card work-order-actions-card technician-next-action-card wo-compact-card">
             <div className="detail-card-heading compact-heading">
@@ -962,7 +961,7 @@ export function WorkOrderDetailPage() {
                 <div className="technician-next-action-copy">
                   <strong>
                     {workOrder.status === "EN_PROCESO"
-                      ? isCleaningOrder ? "ContinÃºa la limpieza" : "ContinÃºa el trabajo"
+                      ? isCleaningOrder ? "Continúa la limpieza" : "Continúa el trabajo"
                       : workOrder.progressPercentage > 0
                         ? isCleaningOrder ? "Reanuda la limpieza" : "Reanuda el trabajo"
                         : isCleaningOrder ? "Inicia la limpieza" : "Inicia el trabajo"}
@@ -985,8 +984,8 @@ export function WorkOrderDetailPage() {
             ) : (
               <p className="detail-empty">
                 {workOrder.correctionWorkOrderId
-                  ? "Esta orden tiene una correcciÃ³n vinculada. Abre la nueva orden para continuar."
-                  : "No hay acciones pendientes para el tÃ©cnico."}
+                  ? "Esta orden tiene una corrección vinculada. Abre la nueva orden para continuar."
+                  : "No hay acciones pendientes para el técnico."}
               </p>
             )}
           </article>

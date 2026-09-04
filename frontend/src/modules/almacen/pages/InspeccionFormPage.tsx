@@ -1,4 +1,4 @@
-﻿import { ArrowLeft, Package, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
+import { ArrowLeft, Package, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -40,16 +40,14 @@ import { Field } from "@/modules/almacen/components/shared/Field";
 import { EstucheGroup } from "@/modules/almacen/components/EstucheGroup";
 
 import { InspeccionCriteriosList } from '../components/InspeccionCriteriosList';
-
 import { InspeccionObservacionesTable } from '../components/InspeccionObservacionesTable';
-
 const GRUPOS_HERRAMIENTAS = [
   "Herramientas de golpe",
   "Herramientas de corte",
-  "Herramientas de cohesiÃ³n",
-  "Herramientas de torsiÃ³n y ajuste",
-  "Herramientas de mediciÃ³n",
-  "Herramientas de sujeciÃ³n",
+  "Herramientas de cohesión",
+  "Herramientas de torsión y ajuste",
+  "Herramientas de medición",
+  "Herramientas de sujeción",
   "Herramientas de pintura",
   "Otras herramientas",
 ];
@@ -142,15 +140,15 @@ export function InspeccionFormPage() {
     );
   };
 
-  // Detectar si el material es de subcategorÃ­a "Herramientas Manuales" (del backend o por nombre/cÃ³digo)
+  // Detectar si el material es de subcategoría "Herramientas Manuales" (del backend o por nombre/código)
   const isHerramientaManual: boolean = Boolean(
     contexto?.es_herramienta_manual ||
     tiposHerramientas.length > 0 ||
     (material?.codigo?.toUpperCase().startsWith("H") &&
-      !material?.subcategoria_nombre?.toLowerCase().includes("inalÃ¡mbric") &&
-      !material?.subcategoria_nombre?.toLowerCase().includes("elÃ©ctric")) ||
+      !material?.subcategoria_nombre?.toLowerCase().includes("inalámbric") &&
+      !material?.subcategoria_nombre?.toLowerCase().includes("eléctric")) ||
     (material?.nombre &&
-      /alicate|destornillador|llave|martillo|sierra|cincel|lima|pinza|tenaza|cizalla|cutter|flexometro|huincha|nivel|brocha|rodillo|espatula|prensa|comba|manual|cortafrÃ­o/i.test(
+      /alicate|destornillador|llave|martillo|sierra|cincel|lima|pinza|tenaza|cizalla|cutter|flexometro|huincha|nivel|brocha|rodillo|espatula|prensa|comba|manual|cortafrío/i.test(
         material.nombre,
       ))
   );
@@ -163,12 +161,12 @@ export function InspeccionFormPage() {
     if (dias <= 90) return "Trimestral";
     if (dias <= 180) return "Semestral";
     if (dias <= 365) return "Anual";
-    return `Cada ${dias} dÃ­as`;
+    return `Cada ${dias} días`;
   }, [material]);
 
   const nombrePlantillaNorm = (plantillas.find((p) => p.id === plantillaId)?.nombre ?? "").toLowerCase();
   const subcatNorm = (material?.subcategoria_nombre ?? "").toLowerCase();
-  const esPlantillaEPP = nombrePlantillaNorm.includes("epp") || nombrePlantillaNorm.includes("proteccion personal") || subcatNorm.includes("epp") || subcatNorm.includes("protecciÃ³n");
+  const esPlantillaEPP = nombrePlantillaNorm.includes("epp") || nombrePlantillaNorm.includes("proteccion personal") || subcatNorm.includes("epp") || subcatNorm.includes("protección");
   const esPlantillaManual = nombrePlantillaNorm.includes("manual") || isHerramientaManual;
   const admiteObservaciones = esPlantillaEPP || esPlantillaManual;
 
@@ -230,7 +228,7 @@ export function InspeccionFormPage() {
   });
   const esEstuche = piezaId > 0 && hijasActivas.length > 0;
 
-  // Auto-seleccionar plantilla de la subcategorÃ­a del material (automÃ¡tico y obligatorio)
+  // Auto-seleccionar plantilla de la subcategoría del material (automático y obligatorio)
   useEffect(() => {
     if (!material) return;
     const plantillaIdSub = material.subcategoria_plantilla_inspeccion;
@@ -266,7 +264,7 @@ export function InspeccionFormPage() {
     }
   }, [tipo, materialId, piezas, incluirInspeccionados, pendingPiezaIds]);
 
-  // Recalcula el total inspeccionado y piezas aptas automÃ¡ticamente segÃºn el lote seleccionado
+  // Recalcula el total inspeccionado y piezas aptas automáticamente según el lote seleccionado
   useEffect(() => {
     if (tipo === "grupal" && material?.control_individual) {
       const total = piezasLote.size;
@@ -353,7 +351,7 @@ export function InspeccionFormPage() {
       }
       if (Object.keys(errs).length) {
         setErrors(errs);
-        return Promise.reject(new Error("ValidaciÃ³n fallida"));
+        return Promise.reject(new Error("Validación fallida"));
       }
       setErrors({});
 
@@ -409,7 +407,7 @@ export function InspeccionFormPage() {
   if (exito) {
     return (
       <section className="success-panel">
-        <h2>InspecciÃ³n registrada</h2>
+        <h2>Inspección registrada</h2>
         <div className="success-actions">
           <Link className="button button-primary" to={`/almacen/${almacenId}/inspecciones/${exito}`}>
             Ver detalle
@@ -418,7 +416,7 @@ export function InspeccionFormPage() {
             Volver a inspecciones
           </Link>
           <button className="button button-secondary" onClick={() => { setExito(null); setPiezaId(0); setPiezasLote(new Set()); setRespuestas({}); }}>
-            Nueva inspecciÃ³n
+            Nueva inspección
           </button>
         </div>
       </section>
@@ -432,8 +430,8 @@ export function InspeccionFormPage() {
           <ArrowLeft size={16} /> Inspecciones
         </Link>
         <div>
-          <p className="breadcrumb">AlmacÃ©n / Inspecciones / Nueva</p>
-          <h1>Nueva inspecciÃ³n</h1>
+          <p className="breadcrumb">Almacén / Inspecciones / Nueva</p>
+          <h1>Nueva inspección</h1>
         </div>
       </div>
 
@@ -444,11 +442,11 @@ export function InspeccionFormPage() {
       >
         <div style={{ display: "grid", gap: 20 }}>
 
-          {/* Paso 1: Solo Alcance + Tipo de inspecciÃ³n */}
+          {/* Paso 1: Solo Alcance + Tipo de inspección */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>Paso 1</span>
-              <h2>Tipo de inspecciÃ³n</h2>
+              <h2>Tipo de inspección</h2>
             </div>
 
             {/* Alcance */}
@@ -499,8 +497,8 @@ export function InspeccionFormPage() {
                 <Combobox
                   key={`${almacenId}-${incluirInspeccionados}`}
                   value={materialId}
-                  selectedLabel={material ? `${material.codigo} â€” ${material.nombre}` : ""}
-                  placeholder="Buscar por cÃ³digo o nombreâ€¦"
+                  selectedLabel={material ? `${material.codigo} — ${material.nombre}` : ""}
+                  placeholder="Buscar por código o nombre…"
                   onChange={(id) => { setMaterialId(id); setPiezaId(0); setPiezasLote(new Set()); }}
                   fetchOptions={async (q) => {
                     if (!almacenId) return [];
@@ -512,7 +510,7 @@ export function InspeccionFormPage() {
                         seen.add(item.material_id);
                         uniqueOptions.push({
                           id: item.material_id,
-                          label: `${item.material_codigo} â€” ${item.material_nombre}`,
+                          label: `${item.material_codigo} — ${item.material_nombre}`,
                         });
                       }
                     }
@@ -546,7 +544,7 @@ export function InspeccionFormPage() {
                         accentColor: "var(--accent, #6366f1)",
                       }}
                     />
-                    <span>Incluir herramientas ya inspeccionadas (para re-inspecciÃ³n)</span>
+                    <span>Incluir herramientas ya inspeccionadas (para re-inspección)</span>
                   </label>
                 </div>
               </Field>
@@ -557,10 +555,10 @@ export function InspeccionFormPage() {
                     value={piezaId}
                     selectedLabel={
                       piezas.find((p) => p.id === piezaId)
-                        ? `${labelPieza(piezas.find((p) => p.id === piezaId)!)}${piezas.find((p) => p.id === piezaId)!.estado !== "Disponible" ? ` (âš ï¸ ${piezas.find((p) => p.id === piezaId)!.estado})` : ""}`
+                        ? `${labelPieza(piezas.find((p) => p.id === piezaId)!)}${piezas.find((p) => p.id === piezaId)!.estado !== "Disponible" ? ` (⚠️ ${piezas.find((p) => p.id === piezaId)!.estado})` : ""}`
                         : ""
                     }
-                    placeholder="Buscar por cÃ³digoâ€¦"
+                    placeholder="Buscar por código…"
                     onChange={(id) => { setPiezaId(id); setPiezasLote(new Set()); }}
                     fetchOptions={async (q) => {
                       const term = (q || "").trim().toLowerCase();
@@ -569,13 +567,13 @@ export function InspeccionFormPage() {
                         .filter((p: PiezaBase) => !term || (p.codigo && p.codigo.toLowerCase().includes(term)) || (p.detalle && p.detalle.toLowerCase().includes(term)))
                         .map((p: PiezaBase) => ({
                           id: p.id,
-                          label: `${labelPieza(p)}${p.estado !== "Disponible" ? ` (âš ï¸ ${p.estado})` : ""}`,
+                          label: `${labelPieza(p)}${p.estado !== "Disponible" ? ` (⚠️ ${p.estado})` : ""}`,
                         }));
                     }}
                   />
                   {!incluirInspeccionados && piezasFiltradas.filter((p: PiezaBase) => !p.padre).length === 0 && (
                     <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
-                      Todas las piezas estÃ¡n al dÃ­a con sus inspecciones. Marca "Incluir herramientas ya inspeccionadas" para re-inspeccionar.
+                      Todas las piezas están al día con sus inspecciones. Marca "Incluir herramientas ya inspeccionadas" para re-inspeccionar.
                     </small>
                   )}
                 </Field>
@@ -603,7 +601,7 @@ export function InspeccionFormPage() {
                           setPiezasLote(allIds);
                         }}
                       >
-                        âœ“ Seleccionar todas ({piezas.filter((p) => !p.padre).length})
+                        ✓ Seleccionar todas ({piezas.filter((p) => !p.padre).length})
                       </button>
                       <button
                         type="button"
@@ -658,18 +656,18 @@ export function InspeccionFormPage() {
                 <div className="aviso-estuche" style={{ marginTop: 12, gridColumn: "1 / -1" }}>
                   <Package size={15} />
                   <span>
-                    Estuche detectado â€” se inspeccionan junto al estuche sus{" "}
+                    Estuche detectado — se inspeccionan junto al estuche sus{" "}
                     <strong>{hijasActivas.length}</strong> item{hijasActivas.length !== 1 ? "s" : ""} activo{hijasActivas.length !== 1 ? "s" : ""}.
                   </span>
                 </div>
               )}
             </div>
 
-            {/* â”€â”€ Campos adicionales que dependen del material seleccionado â”€â”€ */}
+            {/* ── Campos adicionales que dependen del material seleccionado ── */}
             {materialId > 0 && (
               <div style={{ marginTop: 16, display: "grid", gap: 16 }}>
                 <div className="form-grid">
-                  <Field label="Ãrea de trabajo / Lugar">
+                  <Field label="Área de trabajo / Lugar">
                     <input
                       type="text"
                       value={areaTrabajo}
@@ -685,17 +683,17 @@ export function InspeccionFormPage() {
                       value={referenciaOrden}
                       onChange={(e) => setReferenciaOrden(e.target.value)}
                     >
-                      <option value="">â€” Seleccionar orden disponible â€”</option>
+                      <option value="">— Seleccionar orden disponible —</option>
                       {contexto?.ordenes_disponibles && contexto.ordenes_disponibles.length > 0 ? (
                         contexto.ordenes_disponibles.map((o) => (
                           <option key={o.id || o.codigo} value={o.codigo}>
-                            {o.codigo}{o.descripcion ? ` â€” ${o.descripcion}` : ""}
+                            {o.codigo}{o.descripcion ? ` — ${o.descripcion}` : ""}
                           </option>
                         ))
                       ) : (
                         ordenesDisponibles.map((ord) => (
                           <option key={ord.id || ord.codigo} value={ord.codigo}>
-                            {ord.codigo}{ord.descripcion ? ` â€” ${ord.descripcion}` : ""}
+                            {ord.codigo}{ord.descripcion ? ` — ${ord.descripcion}` : ""}
                           </option>
                         ))
                       )}
@@ -708,8 +706,8 @@ export function InspeccionFormPage() {
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--muted, #64748b)" }}>
                       {contexto?.color_actual?.es_bimestral
-                        ? "CÃ³digo de Color Bimestral (Sistema 5S)"
-                        : "CÃ³digo de Color Trimestral (Sistema 5S)"}
+                        ? "Código de Color Bimestral (Sistema 5S)"
+                        : "Código de Color Trimestral (Sistema 5S)"}
                     </label>
                     <div
                       style={{
@@ -738,10 +736,10 @@ export function InspeccionFormPage() {
                           />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
-                              {contexto.color_actual.periodo_texto} â€” {contexto.color_actual.nombre} ({contexto.color_actual.meses_texto})
+                              {contexto.color_actual.periodo_texto} — {contexto.color_actual.nombre} ({contexto.color_actual.meses_texto})
                             </div>
                             <div style={{ fontSize: 11, color: "#64748B", marginTop: 1 }}>
-                              Periodo vigente segÃºn el sistema 5S
+                              Periodo vigente según el sistema 5S
                             </div>
                           </div>
                         </>
@@ -760,10 +758,10 @@ export function InspeccionFormPage() {
                           />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
-                              Trimestre actual â€” {contexto.color_mes.nombre.toUpperCase()} ({contexto.color_mes.meses})
+                              Trimestre actual — {contexto.color_mes.nombre.toUpperCase()} ({contexto.color_mes.meses})
                             </div>
                             <div style={{ fontSize: 11, color: "#64748B", marginTop: 1 }}>
-                              Periodo vigente segÃºn el sistema 5S
+                              Periodo vigente según el sistema 5S
                             </div>
                           </div>
                         </>
@@ -774,7 +772,7 @@ export function InspeccionFormPage() {
                   </div>
                 </div>
 
-                {/* Tipos de herramientas manuales â€” SOLO si el material es de esa subcategorÃ­a */}
+                {/* Tipos de herramientas manuales — SOLO si el material es de esa subcategoría */}
                 {isHerramientaManual && (
                   <div
                     style={{
@@ -851,7 +849,7 @@ export function InspeccionFormPage() {
                   onChange={(e) => setPlantillaId(Number(e.target.value))}
                 >
                   <option value="">
-                    {materialId ? "Seleccionar plantillaâ€¦" : "Selecciona un material en el Paso 2â€¦"}
+                    {materialId ? "Seleccionar plantilla…" : "Selecciona un material en el Paso 2…"}
                   </option>
                   {plantillas.map((p) => (
                     <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -859,14 +857,14 @@ export function InspeccionFormPage() {
                 </select>
                 <small style={{ display: "block", marginTop: 4, color: "var(--muted, #64748b)", fontSize: 12 }}>
                   {material?.subcategoria_plantilla_inspeccion_nombre
-                    ? `âœ“ Plantilla recomendada: ${material.subcategoria_plantilla_inspeccion_nombre}`
+                    ? `✓ Plantilla recomendada: ${material.subcategoria_plantilla_inspeccion_nombre}`
                     : "Selecciona la plantilla de criterios que corresponda."}
                 </small>
               </Field>
 
               <Field label="Inspector" required error={errors.inspector}>
                 <select value={inspectorId || ""} onChange={(e) => setInspectorId(Number(e.target.value))}>
-                  <option value="">Seleccionar inspectorâ€¦</option>
+                  <option value="">Seleccionar inspector…</option>
                   {usuarios.map((u) => (
                     <option key={u.id} value={u.id}>{u.full_name} ({u.role_display})</option>
                   ))}
@@ -875,13 +873,12 @@ export function InspeccionFormPage() {
             </div>
           </div>
 
+          {/* Criterios dinámicos */}
             <InspeccionCriteriosList
               criterios={criterios}
               respuestas={respuestas}
               setRespuesta={setRespuesta}
             />
-          )}
-
           {/* Cantidades (solo grupal) */}
           {tipo === "grupal" && (
             <div className="form-panel">
@@ -932,7 +929,7 @@ export function InspeccionFormPage() {
             </div>
           )}
 
-          {/* Herramientas / EPP con observaciones â€” solo si la plantilla es Manual o EPP */}
+          {/* Herramientas / EPP con observaciones — solo si la plantilla es Manual o EPP */}
           {admiteObservaciones && (
             <div className="form-panel">
             <InspeccionObservacionesTable
@@ -945,13 +942,12 @@ export function InspeccionFormPage() {
               updateItemObservacion={updateItemObservacion}
               removeItemObservacion={removeItemObservacion}
             />
-          )}
 
-          {/* Resultado y acciÃ³n */}
+          {/* Resultado y acción */}
           <div className="form-panel">
             <div className="form-section-heading">
               <span>{tipo === "grupal" ? "Paso 6" : "Paso 5"}</span>
-              <h2>Resultado y acciÃ³n</h2>
+              <h2>Resultado y acción</h2>
             </div>
             <div className="form-grid">
               <Field label="Resultado general" required>
@@ -961,7 +957,7 @@ export function InspeccionFormPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="AcciÃ³n tomada" required>
+              <Field label="Acción tomada" required>
                 <select value={accion} onChange={(e) => setAccion(e.target.value as AccionInspeccion)}>
                   {(Object.entries(accionInspeccionLabels) as [AccionInspeccion, string][]).map(([v, l]) => (
                     <option key={v} value={v}>{l}</option>
@@ -980,7 +976,7 @@ export function InspeccionFormPage() {
                 <span>
                   Al dar de baja este estuche, sus{" "}
                   <strong>{hijasActivas.length}</strong> item{hijasActivas.length !== 1 ? "s" : ""} activo{hijasActivas.length !== 1 ? "s" : ""} se{" "}
-                  <strong>liberarÃ¡n</strong> y quedarÃ¡n disponibles como piezas sueltas.
+                  <strong>liberarán</strong> y quedarán disponibles como piezas sueltas.
                 </span>
               </div>
             )}
@@ -998,23 +994,23 @@ export function InspeccionFormPage() {
               <ArrowLeft size={15} /> Cancelar
             </Link>
             <button type="submit" className="button button-primary" disabled={mut.isPending}>
-              {mut.isPending ? "Guardandoâ€¦" : "Registrar inspecciÃ³n"}
+              {mut.isPending ? "Guardando…" : "Registrar inspección"}
             </button>
           </div>
         </div>
 
         {/* Ayuda lateral */}
         <div className="help-panel">
-          <h2>Tipos de inspecciÃ³n</h2>
+          <h2>Tipos de inspección</h2>
           <ul>
-            <li><strong>Individual:</strong> inspecciÃ³n de una pieza especÃ­fica. Requerida para herramientas con control por pieza.</li>
-            <li><strong>Grupal:</strong> inspecciÃ³n de un lote de piezas del mismo material (ej. un lote de cuerdas).</li>
+            <li><strong>Individual:</strong> inspección de una pieza específica. Requerida para herramientas con control por pieza.</li>
+            <li><strong>Grupal:</strong> inspección de un lote de piezas del mismo material (ej. un lote de cuerdas).</li>
           </ul>
           <hr style={{ margin: "14px 0", borderColor: "#dfe6ef" }} />
-          <h2>AcciÃ³n tomada</h2>
+          <h2>Acción tomada</h2>
           <ul>
-            <li><strong>ContinÃºa en servicio:</strong> sin cambios.</li>
-            <li><strong>Enviar a reparaciÃ³n / Retirar:</strong> cambia la pieza a estado Mantenimiento.</li>
+            <li><strong>Continúa en servicio:</strong> sin cambios.</li>
+            <li><strong>Enviar a reparación / Retirar:</strong> cambia la pieza a estado Mantenimiento.</li>
             <li><strong>Dar de baja / Reemplazar:</strong> registra una baja en inventario.</li>
           </ul>
         </div>

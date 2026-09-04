@@ -1,4 +1,4 @@
-﻿import type { WorkOrder } from '@/modules/workorders/types';
+import type { WorkOrder } from '@/modules/workorders/types';
 import { type WorkOrderStatus } from '@/modules/workorders/workOrderModel';
 
 import {
@@ -75,7 +75,7 @@ function formatDateTime(value?: string) {
 }
 
 function formatWorkDuration(start?: string, end?: string) {
-  if (!start) return "AÃºn no inicia";
+  if (!start) return "Aún no inicia";
   if (!end) return "En curso";
 
   const diffMs = new Date(end).getTime() - new Date(start).getTime();
@@ -107,9 +107,9 @@ function getTextValue(data: Record<string, unknown> | { comment?: unknown } | nu
 
 function getRatingLabel(data: Record<string, unknown> | { rating?: unknown } | null | undefined) {
   const value = data && "rating" in data ? data.rating : undefined;
-  if (typeof value === "number") return `${value} / 5 â­`;
-  if (typeof value === "string" && value.trim()) return `${value} / 5 â­`;
-  return "Sin puntuaciÃ³n";
+  if (typeof value === "number") return `${value} / 5 ⭐`;
+  if (typeof value === "string" && value.trim()) return `${value} / 5 ⭐`;
+  return "Sin puntuación";
 }
 
 type CorrectionSchedule = {
@@ -172,24 +172,24 @@ function getServiceStatusCopy(workOrder: WorkOrder) {
   if (workOrder.status === "CERRADA" || serviceStatus === "CERRADA") {
     return {
       title: "Servicio externo cerrado",
-      description: "El proveedor terminÃ³ el servicio y administraciÃ³n cerrÃ³ la OS.",
+      description: "El proveedor terminó el servicio y administración cerró la OS.",
     };
   }
   if (workOrder.status === "CANCELADA" || serviceStatus === "CANCELADA") {
     return {
       title: "OS cancelada",
-      description: "La orden quedÃ³ cancelada por decisiÃ³n administrativa.",
+      description: "La orden quedó cancelada por decisión administrativa.",
     };
   }
   if (workOrder.status === "EN_PROCESO" || serviceStatus === "EN_COORDINACION") {
     return {
-      title: "OS en coordinaciÃ³n",
-      description: "AdministraciÃ³n estÃ¡ coordinando el servicio con el proveedor.",
+      title: "OS en coordinación",
+      description: "Administración está coordinando el servicio con el proveedor.",
     };
   }
   return {
     title: "OS programada",
-    description: "La orden estÃ¡ registrada y pendiente de coordinaciÃ³n.",
+    description: "La orden está registrada y pendiente de coordinación.",
   };
 }
 

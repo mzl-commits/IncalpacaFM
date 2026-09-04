@@ -1,4 +1,4 @@
-﻿import { Plus, Trash } from '@phosphor-icons/react';
+import { Plus, Trash } from '@phosphor-icons/react';
 import type { ObservacionInspeccion, PiezaBase } from '@/modules/almacen/types';
 
 export function InspeccionObservacionesTable({
@@ -23,7 +23,7 @@ export function InspeccionObservacionesTable({
   return (
               <div className="form-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <span>CondiciÃ³n insegura</span>
+                  <span>Condición insegura</span>
                   <h2>{esPlantillaEPP ? "EPP con observaciones" : "Herramientas con observaciones"}</h2>
                 </div>
                 <button
@@ -37,8 +37,8 @@ export function InspeccionObservacionesTable({
               </div>
               <p style={{ fontSize: 12, color: "#64748B", marginTop: 2, marginBottom: 12 }}>
                 {esPlantillaEPP
-                  ? "EPP CON OBSERVACIONES (registrar Ãºnicamente los que presenten condiciÃ³n insegura o requieran acciÃ³n)."
-                  : "HERRAMIENTAS CON OBSERVACIONES (registrar Ãºnicamente las que presenten condiciÃ³n insegura o requieran acciÃ³n)."}
+                  ? "EPP CON OBSERVACIONES (registrar únicamente los que presenten condición insegura o requieran acción)."
+                  : "HERRAMIENTAS CON OBSERVACIONES (registrar únicamente las que presenten condición insegura o requieran acción)."}
               </p>
 
               {itemsObservacion.length > 0 ? (
@@ -46,12 +46,12 @@ export function InspeccionObservacionesTable({
                   <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                        <th style={{ padding: "8px 10px", textAlign: "left", width: 130 }}>CÃ³digo</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", width: 130 }}>Código</th>
                         <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 160 }}>
                           {esPlantillaEPP ? "Nombre del EPP" : "Nombre de la herramienta"}
                         </th>
-                        <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 200 }}>ObservaciÃ³n encontrada</th>
-                        <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 160 }}>AcciÃ³n recomendada</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 200 }}>Observación encontrada</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", minWidth: 160 }}>Acción recomendada</th>
                         <th style={{ padding: "8px 10px", textAlign: "left", width: 120 }}>Estado</th>
                         <th style={{ padding: "8px 10px", width: 40 }}></th>
                       </tr>
@@ -66,7 +66,7 @@ export function InspeccionObservacionesTable({
                                 onChange={(e) => updateItemObservacion(idx, "codigo", e.target.value)}
                                 style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
                               >
-                                <option value="">â€” CÃ³digo â€”</option>
+                                <option value="">— Código —</option>
                                 {piezas.filter((p) => piezasLote.has(p.id)).map((p) => (
                                   <option key={p.id} value={p.codigo}>{p.codigo}</option>
                                 ))}
@@ -76,7 +76,7 @@ export function InspeccionObservacionesTable({
                                 type="text"
                                 value={item.codigo}
                                 onChange={(e) => updateItemObservacion(idx, "codigo", e.target.value)}
-                                placeholder="CÃ³digo"
+                                placeholder="Código"
                                 style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
                               />
                             )}
@@ -95,7 +95,7 @@ export function InspeccionObservacionesTable({
                               type="text"
                               value={item.observacion_encontrada}
                               onChange={(e) => updateItemObservacion(idx, "observacion_encontrada", e.target.value)}
-                              placeholder="CondiciÃ³n insegura detectada..."
+                              placeholder="Condición insegura detectada..."
                               style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}
                             />
                           </td>
@@ -145,7 +145,7 @@ export function InspeccionObservacionesTable({
                   }}
                 >
                   <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>
-                    No hay Ã­tems con observaciones registrados. Si todos se encuentran conformes, continÃºa al siguiente paso.
+                    No hay ítems con observaciones registrados. Si todos se encuentran conformes, continúa al siguiente paso.
                   </p>
                   <button
                     type="button"
@@ -153,11 +153,10 @@ export function InspeccionObservacionesTable({
                     onClick={addItemObservacion}
                     style={{ marginTop: 8 }}
                   >
-                    <Plus size={13} /> Agregar fila con observaciÃ³n
+                    <Plus size={13} /> Agregar fila con observación
                   </button>
                 </div>
               )}
             </div>
   );
 }
-
