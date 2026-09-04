@@ -74,7 +74,7 @@ export const modules: ModuleGroup[] = [
       { to: "/mi-jornada", label: "Mi jornada", icon: CalendarBlank, roles: ["TECNICO"] },
 
       { to: "/", label: "Inicio", icon: House, end: true, roles: ["USUARIO"] },
-      { to: "/incidencias/nueva", label: "Nueva solicitud", icon: WarningDiamond, roles: ["USUARIO"] },
+      
       { to: "/incidencias", label: "Mis solicitudes", icon: ListChecks, roles: ["USUARIO"] },
 
       { to: "/", label: "Inicio", icon: SquaresFour, end: true, roles: ["SUPERVISOR"] },
@@ -150,7 +150,7 @@ export const mobilePrimary: NavItem[] = [
 export const quickActions: NavItem[] = [
   { to: "/bienes/entradas/nueva", label: "Registrar un bien", icon: Package },
   { to: "/asignaciones/nueva", label: "Crear una asignación", icon: UserPlus },
-  { to: "/incidencias/nueva", label: "Reportar una incidencia", icon: WarningDiamond },
+  
   { to: "/informes", label: "Abrir informes", icon: ChartLineUp },
 ];
 

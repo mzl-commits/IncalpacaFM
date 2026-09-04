@@ -122,7 +122,7 @@ const emptyOrderForm: WorkOrderFormState = {
   orderType: "OT",
   cleaningMode: "ESPECIFICA",
   priority: "MEDIA",
-  scheduledDate: new Date().toISOString().split("T")[0],
+  scheduledDate: "",
   routineStartDate: new Date().toISOString().split("T")[0],
   routineEndDate: new Date().toISOString().split("T")[0],
   routineWeekdays: [1, 2, 3, 4, 5],
@@ -218,9 +218,9 @@ export function WorkOrderCreateModal({
 
         setOrderForm({
           ...emptyOrderForm,
-          operatorId: defaultOperator?.id ?? "",
+          operatorId: "",
           supervisorId: defaultSup?.id ?? "",
-          scheduledDate: new Date().toISOString().split("T")[0],
+          scheduledDate: "",
         });
       } catch {
         // keep empty
@@ -410,7 +410,7 @@ export function WorkOrderCreateModal({
           scheduledDate,
           scheduledStartTime: orderForm.scheduledStartTime || "08:00",
           plannedHours: Number(orderForm.plannedHours) || 2,
-          status: "PROGRAMADA",
+          status: (!orderForm.operatorId || !scheduledDate) ? "PENDIENTE_REPROGRAMACION" : "PROGRAMADA",
         });
       }
 
@@ -743,10 +743,9 @@ export function WorkOrderCreateModal({
 
               <div className="form-group-row">
                 <label className="field">
-                  <span>Técnico asignado *</span>
+                  <span>Técnico asignado (Opcional)</span>
                   <select
-                    required
-                    value={orderForm.operatorId}
+                      value={orderForm.operatorId}
                     onChange={(e) => {
                       setOrderForm({ ...orderForm, operatorId: e.target.value });
                       setAvailabilityOpen(false);
@@ -773,7 +772,7 @@ export function WorkOrderCreateModal({
                   <button
                     type="button"
                     className="button button-secondary"
-                    disabled={!orderForm.operatorId}
+                    disabled={false}
                     onClick={() => void toggleAvailabilityPanel()}
                   >
                     <CalendarBlank size={18} />
@@ -827,11 +826,10 @@ export function WorkOrderCreateModal({
               <div className="form-group-row">
                 {!(orderForm.orderType === "OL" && orderForm.cleaningMode === "RUTINARIA") && (
                   <label className="field">
-                    <span>Fecha programada *</span>
+                    <span>Fecha programada (Opcional)</span>
                     <input
-                      type="date"
-                      required
-                      value={orderForm.scheduledDate}
+                        type="date"
+                        value={orderForm.scheduledDate}
                       onChange={(e) => setOrderForm({ ...orderForm, scheduledDate: e.target.value })}
                     />
                   </label>

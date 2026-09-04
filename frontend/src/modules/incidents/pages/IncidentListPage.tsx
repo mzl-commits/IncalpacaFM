@@ -162,10 +162,7 @@ export function IncidentListPage() {
             Registra, consulta y realiza seguimiento a las solicitudes de mantenimiento.
           </p>
         </div>
-        <Link className="button button-primary" to="/incidencias/nueva" style={{ background: "#000000", color: "#FFFFFF" }}>
-          <Plus size={16} weight="bold" />
-          Nueva solicitud
-        </Link>
+        
       </div>
 
       {/* 4 TARJETAS KPI SIMPLIFICADAS */}
